@@ -233,6 +233,10 @@ espelhar. Aviso em prosa não substitui invariante no código.
 
 ## Justiça de fila entre orgs e contas (v2.58.0)
 
+Com compartilhamento ligado, a presença começa a ser anunciada na inicialização, sem esperar a busca no GitHub. O relógio da sincronização mantém a cadência de cinco minutos para renovar essa confirmação, antes de retomar itens que estavam aguardando. Somente uma resposta bem-sucedida do banco atualiza a presença; falha de rede não dispensa a admissão nem os gates da distribuição.
+
+Itens aguardando ficam na fila. A seção **Analisando agora** só aparece quando há uma sessão para mostrar; uma fila bloqueada por presença não significa que a revisão já começou.
+
 Spec: `docs/superpowers/specs/2026-09-10-justica-de-fila-entre-orgs-design.md`.
 
 **O invariante que manda nas três políticas: elas são WORK-CONSERVING.** Se existe PR

@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.6
+
+A fila respeita a preferência de CI no início da sessão e recupera a análise com as lacunas completas.
+
+**Correções**
+- A preferência Esperar o CI antes de revisar é reconferida imediatamente antes de abrir cada sessão automática, inclusive retomadas, distribuição e reconferência técnica. Se os checks obrigatórios não estiverem verdes, a vaga é liberada e a análise anterior fica preservada, sem consumir tentativa de recuperação. O padrão desligado e o clique manual continuam como antes; as verificações de publicação permanecem obrigatórias.
+- A recuperação conserva as listas completas de lacunas e de cobertura, incluindo os caminhos que antes eram cortados no resumo. O resumo visual continua compacto.
+- Os cards distinguem recuperação agendada, espera por executor, espera de CI e análise efetivamente em execução. Decisões e histórico deixam de oferecer outra revisão do mesmo PR pela mesma conta enquanto há uma sessão ativa; os relatórios anteriores continuam acessíveis.
+- A sincronização começa em paralelo à checagem inicial e renova a presença pelo relógio existente, mantendo a cadência de cinco minutos. A fila continua exigindo uma confirmação válida; falha de rede não fabrica presença nem dispensa os gates.
+- Parar a sincronização enquanto uma confirmação está pendente impede a continuação tardia daquele relógio.
+- A seção Analisando agora fica oculta quando só há pedidos esperando execução. Os pedidos continuam visíveis na fila, com o motivo da espera. Voz e seleção de contexto permanecem desligadas por padrão.
+
 ## v2.77.5
 
 A revisão em andamento deixa de aparecer ao mesmo tempo na fila de espera.

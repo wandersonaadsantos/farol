@@ -209,7 +209,7 @@ function tentativaDaProva(d) {
   const n = d && d.blockedKind === 'stale_head' ? feitas : feitas + 1;
   return Math.max(n, 1);
 }
-function esperaProvaCardMeta(d) {
+function esperaProvaCardMeta(d, execucao = {}) {
   const marca = d.esperaProva || {};
   const horario = marca.proximaEm > Date.now() ? new Date(marca.proximaEm).toLocaleString('pt-BR') : '';
   let texto = 'A análise ainda não produziu toda a evidência necessária. Nada foi publicado. ';
@@ -217,9 +217,16 @@ function esperaProvaCardMeta(d) {
   texto += 'O Farol retoma sozinho; depois de duas tentativas neste commit, o que faltar e não for impeditivo vira ressalva e a política da conta decide. Você não precisa aprovar manualmente.';
   const st = {
     tom: 'info', icone: 'hourglass',
-    lead: marca.impedimento ? 'Recuperação pausada.' : `Concluindo a análise (tentativa ${tentativaDaProva(d)}).`,
+    lead: 'Recuperação agendada.',
     texto: marca.impedimento || texto,
   };
+  if (marca.impedimento) st.lead = 'Recuperação pausada.';
+  if (marca.aguardandoCi) {
+    st.lead = 'Aguardando o CI antes de retomar.';
+    st.texto = 'Os checks obrigatórios precisam ficar verdes para iniciar outra sessão. A análise anterior foi preservada; esta espera não consome tentativa.';
+  }
+  if (execucao.aguardando) st.lead = 'Aguardando executor para recuperar a análise.';
+  if (execucao.ativa) st.lead = `Concluindo a análise (tentativa ${tentativaDaProva(d)}).`;
   return {
     stale: false, cardClass: 'working', approveDisabled: true,
     verdictHtml: '<span class="verdict pending">RECUPERANDO A ANÁLISE</span>',
@@ -230,19 +237,20 @@ function esperaProvaCardMeta(d) {
 // Tudo que muda no card de decisão quando ele é de commit novo, num lugar só e testável.
 // reviewBtn: 'primary' (você precisa agir), 'secondary' (atalho: o Farol já vai agir),
 // 'none' (revisão nova já rodando) ou '' (card comum, sem o botão).
-export function staleCardMeta(d, r) {
-  const meta = metaDoCard(d, r);
+export function staleCardMeta(d, r, execucao = {}) {
+  const meta = metaDoCard(d, r, execucao);
+  if (execucao.ativa) meta.reviewBtn = 'none';
   // PR da própria conta que revisa (v2.72.6): o GitHub recusa APPROVE e REQUEST_CHANGES do autor,
   // então o card não oferece os dois (Só comentar e Pular continuam)
   return d && d.prProprio === true ? { ...meta, semDecisivos: true, approveDisabled: true } : meta;
 }
 
-function metaDoCard(d, r) {
+function metaDoCard(d, r, execucao) {
   const reasons = Array.isArray(d && d.reasons) ? d.reasons : [];
   const stale = !!(d && d.blockedKind === 'stale_head');
   if (!stale && d && d.esperaCi) return esperaCiCardMeta(d);
   // A recuperação mantém seu estado próprio também quando aguarda ambiente ou cancelamento.
-  if (d && d.esperaProva) return esperaProvaCardMeta(d);
+  if (d && d.esperaProva) return esperaProvaCardMeta(d, execucao);
   const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
   let verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
   const label = technicalLabel(d);
@@ -477,7 +485,7 @@ export function resolvedRow(r, ctx) {
       <span class="rr-when" title="${esc(fmtStamp(r.resolvedAt))}">${esc(fmtWhenDay(r.resolvedAt, ctx.agora))}</span>
       <div class="rr-acts">
         <button class="btn icon sm ghost act-chat" data-key="${esc(r.key)}" data-url="${esc(url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${ctx.chatBadge || ''}</button>
-        ${url ? `<button class="btn icon sm ghost act-review" data-url="${esc(url)}" title="Revisar de novo" aria-label="Revisar de novo">↻</button>` : ''}
+        ${url ? `<button class="btn icon sm ghost act-review" data-url="${esc(url)}"${ctx.revisando ? ' disabled title="Revisão em andamento" aria-label="Revisão em andamento"' : ' title="Revisar de novo" aria-label="Revisar de novo"'}>↻</button>` : ''}
         <button class="btn icon sm ghost rr-copy" data-url="${esc(url)}" data-key="${esc(r.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
         <a class="btn icon sm ghost" href="${esc(url || '#')}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
       </div>

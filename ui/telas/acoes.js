@@ -142,7 +142,7 @@ const cliqueNoCardDeDecisao = async (e) => {
   // global (cada seção escuta o seu, ver #resolved), e o card bloqueado por head
   // velho é o único caso em que ele aparece aqui: o round novo substitui este card.
   const rev = e.target.closest('.act-review');
-  if (rev) { rev.disabled = true; revisarUrls([rev.dataset.url]); return; }
+    if (rev) { if (rev.disabled) return; rev.disabled = true; revisarUrls([rev.dataset.url]); return; }
   const btn = e.target.closest('.dec-act');
   if (!btn) return;
   const id = btn.closest('.decision').dataset.id;

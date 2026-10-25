@@ -1854,6 +1854,7 @@ class Engine extends EventEmitter {
   syncTest() { return syncMod.syncTest(this); }
   syncStop() { return syncMod.stopSync(this); }
   syncTick() { return syncMod.syncTick(this); }
+  syncConfirmarConexao() { return syncMod.syncTick(this, { apenasConexao: true }); }
   syncAplicarConfig() { return syncMod.aplicarConfig(this); }
   syncAdmit(ctx) { return syncMod.admit(this, ctx); }
   syncPreflightManual(pr) { return syncMod.preflightManual(this, pr); }
@@ -2172,6 +2173,8 @@ class Engine extends EventEmitter {
     this.migrarIgnorados();
     this.checkUpdate().catch(() => {});
     this.doctor().catch(() => {});
+    // A presença não espera a consulta ao GitHub; a admissão continua exigindo confirmação.
+    this._tickSeguro().catch(() => {});
     // label presa por morte do processo: limpa antes do primeiro ciclo, pra a
     // frota não continuar saindo de cena por uma sessão que não existe mais
     if (this.inflightRecuperado && this.inflightRecuperado.length) {
