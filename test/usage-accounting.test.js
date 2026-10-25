@@ -103,6 +103,10 @@ test('totais ausentes, parciais, negativos e não finitos não substituem uso co
 test('cursor corrompido e custo zerado com gasto reportado não viram medição completa', () => {
   const zero = accountResult({ ...event(), total_cost_usd: 0, is_error: true }, [], identity);
   assert.equal(zero.farol_custo_desconhecido, true);
+  const resumed = accountResult({ ...event(2), farol_resumed: true }, [row(zero)], identity);
+  assert.equal(resumed.farol_custo_desconhecido, true, 'zero inválido não permite atribuir todo o custo acumulado ao turno novo');
+  const measured = accountResult({ ...event(3), farol_resumed: true }, [row(zero), row(resumed)], identity);
+  assert.equal(measured.total_cost_usd, 1, 'o próximo total confiável restabelece o cursor');
   const broken = { ...identity, accounting: { sessionId: 'session-1', snapshot: { models: null } } };
   const next = accountResult({ ...event(), farol_resumed: true }, [broken], identity);
   assert.equal(next.farol_accounting.reason, 'invalid-baseline');

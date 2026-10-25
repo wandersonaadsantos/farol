@@ -187,7 +187,7 @@ Cada pessoa do time precisa, na própria máquina:
 
 A revisão autônoma vem **ligada** de fábrica (é o propósito do app): ao chegar PR, o provedor associado à conta roda o review internamente e posta APPROVE quando o protocolo permite, na conta dela. Quem preferir só ser notificado desliga em **Sistema → Revisar automaticamente**. O modo terminal sem prompts (`--dangerously-skip-permissions`, no Claude) segue desligado por padrão.
 
-O registro de tokens, a contabilidade de retomadas e a avaliação da saída pública estão descritos em [Consumo e saída dos reviews](docs/CONSUMO-REVIEWS.md).
+O registro de tokens, a contabilidade de retomadas e a avaliação da saída pública estão descritos em [Consumo e saída dos reviews](https://github.com/wandersonaadsantos/farol/blob/main/docs/CONSUMO-REVIEWS.md).
 
 ## Privacidade e responsabilidade
 
