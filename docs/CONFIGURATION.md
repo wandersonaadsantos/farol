@@ -22,6 +22,7 @@ invariantes continuam lá.
 - [Auditoria de reviews](#auditoria-de-reviews)
 - [Reserva de cota e recursos](#reserva-de-cota-e-recursos)
 - [Interface, retomada e preferências portáveis](#interface-retomada-e-preferências-portáveis)
+- [Fontes versionadas e contexto controlado](#fontes-versionadas-e-contexto-controlado)
 
 <!-- indice:fim -->
 
@@ -759,3 +760,75 @@ Tema claro e escuro usam os tokens existentes. A preferência persistida do engi
 prevalece quando chega o estado; o navegador mantém o último tema para o primeiro
 paint. Sem armazenamento local, as escolhas continuam funcionando nesta janela.
 A voz permanece desligada por padrão e não pode ser ativada pela importação.
+
+## Fontes versionadas e contexto controlado
+
+Review e autoanálise podem preparar fontes autorizadas pelo GitHub sem checkout pessoal
+ou declaração de perfil técnico. O manifesto separa H (head analisado), B (ponta da base)
+e M (merge-base). Paginação, quantidade e estabilidade do PR são conferidas; ausência de
+patch não retira o arquivo do escopo. Consulta adicional de árvore, texto ou arquivo usa
+o mesmo manifesto e revalida a conta e o acesso ao repositório. Nunca substitui um SHA
+indisponível pela branch atual. O caminho anterior continua disponível quando a aquisição
+falha, com cobertura e limitações próprias, sem inventar leitura.
+
+O cache fica em `~/.farol/source-cache/`, separado do material temporário. O isolamento
+inclui host, conta e identidade do repositório. Objetos Git são compartilhados somente
+nesse escopo, com leases e referências por consumidor; materializações continuam separadas.
+Binários e segredos reconhecidos não entram no cache textual. Nenhum filtro garante
+reconhecer todos os segredos possíveis em código; fontes continuam dados não confiáveis.
+
+As opções avançadas abaixo pertencem ao `config.json`. Mescle os campos, sem substituir
+o arquivo nem copiar contas/credenciais. Esta alteração de código não modifica a instalação
+aberta. Instalar ou reiniciar exige uma operação posterior autorizada.
+
+```json
+{
+  "reviewContextMode": "off",
+  "reviewContextTokens": 3000,
+  "reviewContextLimits": { "files": 600, "bytes": 8388608, "fileBytes": 262144, "timeMs": 30000, "depth": 2, "paths": 120 },
+  "sourceCacheLimits": { "maxBytes": 2147483648, "reserveBytes": 536870912, "concurrency": 1, "maxQueued": 8 }
+}
+```
+
+`off` preserva a seleção anterior e não cria o mapa. `observe` levanta o mapa e registra
+métricas sem injetar a seleção no prompt. `assist` permite a seleção adicional, com orçamento
+estimado em caracteres/4, sem afirmar tokens faturados ou qualidade da decisão do modelo.
+Regras e blockers obrigatórios ficam fora desse orçamento e não são retirados para caber.
+Se o mapa falhar ou ficar incompleto em assist, não se herda validade de análise apenas
+porque o blob não mudou. Conteúdo disponível, leitura observada e análise válida são fatos
+distintos. Nenhum desses modos muda os gates ou a política de publicação da conta.
+
+O parser usa V8 em worker limitado, sem ligar ou executar o código do projeto. JavaScript
+ESM tem imports sintáticos; definições e consumidores são candidatos, sem resolução
+semântica completa. Em runtime com `stripTypeScriptTypes`, TypeScript pode usar o parser
+nativo para imports de runtime. No piso Node 22.12, em TSX/JSX ou sintaxe não suportada,
+há degradação explícita para caminhos/busca textual. Imports somente de tipos, CommonJS,
+eventos e dependências dinâmicas exigem investigação adicional. JSONC/extends e resoluções
+não suportadas são limitações, nunca prova de ausência de uso. Análises sintáticas têm
+cache em memória limitado a 4 MiB; relações são reconstruídas para H/M e configuração.
+O orçamento de tempo do levantamento é verificado entre leituras; cada consulta de rede
+também tem seu timeout próprio. Não representa prazo máximo rígido de ponta a ponta.
+
+O limite de 2 GiB é **por escopo autorizado**, não uma quota global somada de todos os
+repositórios. A reserva de 512 MiB protege o espaço livre da unidade em cada admissão.
+Objetos, metadados e materializações entram na contabilidade, com estimativas Git
+identificadas. Material ativo nunca é removido para cumprir quota; falta de espaço ou
+lock/lease sem prova de liberação adia aquele escopo. Os dados de capacidade mostram
+o último escopo medido, não uma varredura global por atualização da interface.
+
+Materiais técnicos novos têm manifesto de propriedade e consumidores. A coleta é
+assíncrona, limitada e independente da próxima review. Falha de remoção tem retry;
+abort sem confirmação de término preserva o material. Diretórios legados sem manifesto
+permanecem pendentes de diagnóstico. Evidências e resultados duráveis não são cache.
+Após reinício, coleta de preparação interrompida exige decisão final correspondente
+ao PR/head/conta e prova de término dos processos, sem referência ativa, fila ou
+retomada. Sem desfecho comprovado, o material permanece preservado para diagnóstico.
+
+Na curadoria de especialistas, entradas antigas e `scope: "global"` são globais por
+segurança. A API de prévia pode declarar `scope: "module"` explicitamente; somente essas
+entradas podem ser selecionadas por relevância em assist. Mapa desconhecido preserva
+todas. Evidências idênticas podem usar referências, mantendo conclusões e procedência.
+
+Para rollback da seleção, volte `reviewContextMode` para `off` na próxima configuração
+autorizada. Rollback do aplicativo deve aguardar consumidores terminarem e voltar à
+versão anterior sem apagar estado, checkpoints, resultados ou diretórios novos desconhecidos.
