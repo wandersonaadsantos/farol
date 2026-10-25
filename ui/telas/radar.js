@@ -18,7 +18,7 @@ import { scopeVisible, acctMark, acctOf, prUser } from './contas.js';
 import { revisarUrls } from './consumo.js';
 import { renderPanoramaRemoto, contarRemotos } from './listas-remotas.js';
 import { groupedQueue } from '../pure/queue-groups.js';
-import { filaSemRevisoesAtivas, revisaoAtiva } from '../pure/fila.js';
+import { filaSemRevisoesAtivas, revisaoAtiva, mesmaRevisao } from '../pure/fila.js';
 import { markdownReutilizado as md } from './markdown.js';
 
 let queueGrouping = 'none';
@@ -119,7 +119,8 @@ function execucaoDaDecisao(d) {
   const pr = { ...d.pr, key: d.key, account: d.account || d.pr?.account };
   return {
     ativa: revisaoAtiva(pr, estado().activeSessions || [], prUser),
-    aguardando: (estado().headlessWaiting || []).includes(d.key),
+    aguardando: (estado().headlessWaiting || []).some(key =>
+      mesmaRevisao(pr, { key, account: estado().headlessWaitingContas?.[key] }, prUser)),
   };
 }
 

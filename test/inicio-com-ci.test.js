@@ -28,13 +28,14 @@ function motor() {
 
 test('CI que ficou vermelho antes da execução impede a sessão e libera a vaga sem perder retomada', async () => {
   const e = motor();
-  const pr = { ...PR, resumeSessionId: 'sessao-preservada', technicalRecheck: true };
+  const pr = { ...PR, retomarSid: 'sessao-preservada', knownHead: 'head-original', technicalRecheck: true };
   e.headlessBusyAccounts.set('eu', 1);
-  e.decisions.pending = [{ key: PR.key, pr: PR, esperaProva: { tentativas: 1 } }];
+  e.decisions.pending = [{ key: PR.key, pr: PR, headSha: 'head-original', blockedKind: 'stale_head', esperaProva: { tentativas: 1 } }];
   await e.runOneHeadless(pr, 'eu');
   assert.equal(e.executadas, 0);
   assert.equal(e.headlessBusyAccounts.size, 0);
-  assert.equal(e.queue[0].resumeSessionId, 'sessao-preservada');
+  assert.equal(e.queue[0].retomarSid, 'sessao-preservada');
+  assert.equal(e.queue[0].knownHead, 'head-original');
   const marca = e.decisions.pending[0].esperaProva;
   assert.equal(marca.tentativas, 0);
   assert.equal(marca.aguardandoCi, true);
@@ -55,6 +56,21 @@ test('preferência desligada e clique manual mantêm a entrada existente sem con
     await e.runOneHeadless({ ...PR, manual }, 'eu');
     assert.equal(e.executadas, 1);
   }
+});
+
+test('uma decisão de outro head que chega durante a consulta de CI não é alterada', async () => {
+  const e = motor();
+  const antiga = { key: PR.key, pr: PR, headSha: 'anterior', blockedKind: 'stale_head', esperaProva: { tentativas: 1 } };
+  const nova = { ...antiga, headSha: 'novo', esperaProva: { tentativas: 2 } };
+  e.decisions.pending = [antiga];
+  e.bloqueadoPorChecks = async () => {
+    e.decisions.pending = [nova];
+    return { bloqueado: true, faltando: [{ nome: 'ci', estado: 'vermelho' }] };
+  };
+  await e.runOneHeadless({ ...PR, knownHead: 'anterior' }, 'eu');
+  assert.equal(nova.esperaProva.tentativas, 2);
+  assert.equal(nova.esperaProva.aguardandoCi, undefined);
+  assert.equal(nova.blockedKind, 'stale_head');
 });
 
 for (const origem of [{}, { viaDistribuicao: true }, { technicalRecheck: true }]) {

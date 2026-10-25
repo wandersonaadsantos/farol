@@ -126,6 +126,10 @@ test('recuperação mostra agenda, executor e execução conforme o snapshot rea
   assert.match($('#esperaCi').innerHTML, /Recuperação agendada/);
   assert.doesNotMatch($('#esperaCi').innerHTML, /Concluindo a análise/);
   snap.headlessWaiting = [pr.key];
+  snap.headlessWaitingContas = { [pr.key]: 'bob' };
+  receber(snap);
+  assert.match($('#esperaCi').innerHTML, /Recuperação agendada/, 'a espera de outra conta não muda o card');
+  snap.headlessWaitingContas = { [pr.key]: 'alice' };
   receber(snap);
   assert.match($('#esperaCi').innerHTML, /Aguardando executor/);
   snap.activeSessions = [sessao()];

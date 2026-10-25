@@ -175,6 +175,39 @@ test('recuperação com CI obrigatório vermelho não agenda nem conta outra ten
   assert.equal(d.esperaProva.tentativas, 1);
 });
 
+test('CI muda após o agendamento: ciclo completo espera sem virar órfã e retoma com uma tentativa', async () => {
+  const e = motor();
+  const d = await revisado(e, SEM_PROTOCOLO);
+  e.processHeadless = () => {};
+  e.config.aguardarCiParaRevisar = true;
+  e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  await e.launchReReviews();
+  assert.equal(e.headlessQueue.length, 1);
+  const pr = e.headlessQueue.shift();
+  assert.equal(pr.knownHead, HEAD);
+  e.prState = async () => 'OPEN';
+  let executadas = 0;
+  e.runHeadlessReview = async () => { executadas++; };
+  e.bloqueadoPorChecks = async () => ({ bloqueado: true, faltando: [{ nome: 'ci', estado: 'vermelho' }] });
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(executadas, 0);
+  assert.equal(d.blockedKind, undefined);
+  assert.equal(d.esperaProva.tentativas, 0);
+  e.reReviewLaunched[PR.key] = { head: HEAD, at: 1 };
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.equal(d.esperaProva.interrupcoes, 0);
+  assert.ok(d.esperaProva.proximaEm <= Date.now(), 'não impõe recuo de execução interrompida');
+  e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(d.esperaProva.aguardandoCi, undefined);
+  await e.launchReReviews();
+  assert.equal(e.headlessQueue.length, 1);
+  await e.runOneHeadless(e.headlessQueue.shift(), 'eu');
+  assert.equal(executadas, 1);
+  assert.equal(d.esperaProva.tentativas, 1);
+});
+
 test('head não confirmado entra na recuperação e só publica após uma nova análise ancorada', async () => {
   const e = motor();
   gh.head = '';
