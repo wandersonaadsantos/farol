@@ -332,9 +332,13 @@ async function runSmoke() {
     report.checks.journeys = await checkJourneys(main, waitFor, config.output);
     report.checks.pintura = await checkPintura(main, waitFor, config.output);
     report.probe = 'context-parser';
-    const parsed = await parseSources([{ path: 'smoke.js', blob: 'b'.repeat(40), text: "import x from './fixture.js'; throw new Error('não executar');" }], { account: 'fixture', repo: 'fixture/context' });
-    assert.equal(parsed.analyses[0].backend, 'v8-module');
+    const parsed = await parseSources([
+      { path: 'smoke.js', blob: 'b'.repeat(40), text: "import x from './fixture.js'; throw new Error('não executar');" },
+      { path: 'Widget.tsx', blob: 'c'.repeat(40), text: "import type { Props } from './props'; export const Widget=(p:Props)=><div/>; throw new Error('não executar');" },
+    ], { account: 'fixture', repo: 'fixture/context' });
+    assert.ok(parsed.analyses.every(file => file.backend === 'babel-parser-7.28.5'));
     assert.deepEqual(parsed.analyses[0].imports.map(item => item.specifier), ['./fixture.js']);
+    assert.equal(parsed.analyses[1].imports[0].kind, 'type');
     report.checks.contextParser = { status: 'passed', backend: parsed.analyses[0].backend };
     assert.deepEqual(report.isolation.externalProcesses, []);
     assert.deepEqual(report.errors, []);
