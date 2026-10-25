@@ -30,6 +30,7 @@ DIST="$SRC/dist"
 OUT="$DIST/Farol-Instalar-mac.command"
 
 command -v node >/dev/null || { echo '  x  Node.js necessario pro build.'; exit 1; }
+(cd "$SRC" && node lib/node-runtime.js package.json)
 command -v curl >/dev/null || { echo '  x  curl necessario pro build.'; exit 1; }
 command -v tar  >/dev/null || { echo '  x  tar necessario pro build.'; exit 1; }
 [ -d "$SRC/node_modules/electron" ] || { echo '  x  node_modules ausente. Rode npm install antes.'; exit 1; }

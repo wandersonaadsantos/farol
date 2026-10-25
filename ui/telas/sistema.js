@@ -185,6 +185,10 @@ function renderSettings() {
   $('#setTeamHighlights').checked = c.teamHighlights === true;
   $('#setDeliveriesEnabled').checked = c.deliveriesEnabled === true;
   $('#setAutostart').checked = !!c.autostart;
+}
+
+// A plataforma não depende da pintura adiada dos formulários da aba Sistema.
+function renderPlatformSettings() {
   // autostart existe no Windows (login item) e no mac (LaunchAgent; ver applyAutostart
   // em main.js); no Linux setLoginItemSettings é no-op. Só faz sentido dentro do
   // Electron (fora dele não há app pra logar no login do SO). ehWin()/ehMac() são a
@@ -211,8 +215,8 @@ initSetup();
 initPreferencesTransfer();
 registrarTela({
   id: 'sistema',
-  aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); carregarAparelhos(); renderGrupos(); loadReviewerCands(); },
-  aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); renderAparelhos(); renderGrupos(); } },
+  aoEntrar: () => { switchSistemaSection(); loadLog(); carregarAparelhos(); loadReviewerCands(); },
+  aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderAparelhos(); renderGrupos(); } },
 });
 
-export { switchSistemaSection, secaoDoSistema, sysSearchFilter, sysGoTo, renderSettings };
+export { switchSistemaSection, secaoDoSistema, sysSearchFilter, sysGoTo, renderSettings, renderPlatformSettings };

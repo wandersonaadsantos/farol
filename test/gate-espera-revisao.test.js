@@ -63,7 +63,7 @@ const { Engine } = await import('../server.js');
 const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
 isolateTechnicalTool();
 const { technicalRuntime } = await import('../lib/technical-review/runtime.js');
-const { cleanup } = await import('../lib/technical-review/cleanup.js');
+const { cleanup, criarMaterial } = await import('../lib/technical-review/cleanup.js');
 const { STATE_DIR } = await import('../lib/paths.js');
 
 
@@ -531,7 +531,7 @@ test('falha da sessão antes do resultado limpa o material privado e libera a re
     const context = await prepare(...args);
     const parent = path.join(STATE_DIR, 'technical-review');
     fs.mkdirSync(parent, { recursive: true });
-    snapshot = fs.mkdtempSync(path.join(parent, 'review-'));
+    snapshot = criarMaterial(parent);
     fs.writeFileSync(path.join(snapshot, 'privado.js'), 'material privado');
     return { ...context, snapshot };
   };

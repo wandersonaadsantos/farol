@@ -68,9 +68,32 @@ function resultado(extra) {
   };
 }
 
-// roteia o gh: a consulta de reviews (dedup) devolve lista vazia, o resto ok
+function apiRequest(args) {
+  if (args[0] !== 'api') return null;
+  const hostname = args.indexOf('--hostname');
+  const route = args[hostname === 1 ? 3 : 1];
+  let method = args.includes('--input') ? 'POST' : 'GET';
+  if (args.indexOf('-X') >= 0) method = args[args.indexOf('-X') + 1];
+  return { route, mutation: method !== 'GET' };
+}
+function assertOnlyQueuedPr(number) {
+  const requests = chamadas.map(c => apiRequest(c.args)).filter(Boolean);
+  const mutations = requests.filter(r => r.mutation);
+  assert.ok(mutations.length >= 1, 'houve publicação no PR da fila');
+  for (const request of requests) {
+    assert.doesNotMatch(request.route, /evil\/repo/, 'nem leitura nem escrita usa identidade do envelope');
+    if (request.mutation) assert.match(request.route, new RegExp(`^repos/acme/app/pulls/${number}/`));
+    else assert.ok(request.route === 'user' || request.route === 'repos/acme/app'
+      || request.route.startsWith(`repos/acme/app/pulls/${number}`), `leitura inesperada: ${request.route}`);
+  }
+}
+// Leituras de autenticação/fontes ficam separadas das mutações; nada sai da fixture.
 function roteadorPost() {
   return (cmd, args) => {
+    const request = apiRequest(args);
+    if (request?.route === 'user') return Promise.resolve({ ok: true, stdout: '{"login":"eu"}', stderr: '' });
+    if (request?.route === 'repos/acme/app') return Promise.resolve({ ok: true, stdout: '{"id":1,"full_name":"acme/app","private":true}', stderr: '' });
+    if (request && !request.mutation && !request.route.endsWith('/reviews')) return Promise.resolve({ ok: false, stdout: '', stderr: 'Fonte indisponível na fixture.' });
     const sub = args.join(' ');
     if (/pulls\/\d+\/reviews/.test(sub) && sub.includes('--jq')) return Promise.resolve({ ok: true, stdout: '[]', stderr: '' });
     return Promise.resolve({ ok: true, stdout: '', stderr: '' });
@@ -98,11 +121,7 @@ test('decide() posta no repo verdadeiro mesmo com envelope apontando outro repo'
   const item = engine.recordDecision(PR, mentiroso, { status: 'pending' });
   const r = await engine.decide(item.id, 'approve');
   assert.equal(r.ok, true);
-  const rotas = chamadas.filter(c => c.args[0] === 'api').map(c => c.args[1]);
-  assert.ok(rotas.length >= 1, 'houve chamada de API do gh');
-  for (const rota of rotas) {
-    assert.match(rota, /^repos\/acme\/app\/pulls\/42\//, `toda chamada vai pro PR real, veio: ${rota}`);
-  }
+  assertOnlyQueuedPr(42);
 });
 
 test('writeMemory atribui o dossiê pelo autor da fila, nunca pelo memory.author do envelope', async () => {
@@ -158,11 +177,7 @@ test('caminho automático: auto-approve grava decisão e memória com a identida
   assert.equal(d.status, 'auto_approved', 'o gate aprovou sozinho (review pedido a mim, envelope aprovável)');
   assert.equal(d.pr.repo, 'acme/app', 'a decisão registrada aponta o PR da fila, não o do envelope');
   assert.equal(d.pr.number, 43);
-  const rotas = chamadas.filter(c => c.args[0] === 'api').map(c => c.args[1]);
-  assert.ok(rotas.length >= 1, 'houve chamada de API do gh');
-  for (const rota of rotas) {
-    assert.match(rota, /^repos\/acme\/app\/pulls\/43\//, `toda chamada vai pro PR real, veio: ${rota}`);
-  }
+  assertOnlyQueuedPr(43);
   assert.equal(fs.existsSync(arquivoAutor('zeno')), false, 'memory.author mentiroso não ganha dossiê');
   const texto = fs.readFileSync(arquivoAutor('dev'), 'utf8');
   assert.match(texto, /acme\/app#43 · APPROVE/, 'a memória do caminho automático usa o ref da fila');

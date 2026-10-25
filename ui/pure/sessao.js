@@ -126,11 +126,11 @@ export function etapaAtiva(flow) {
   return no ? no.label : '';
 }
 
-export function stageFlowFrom(items, startedAt, agora = Date.now()) {
+export function stageFlowFrom(items, startedAt, agora = Date.now(), anterior = null) {
   const linhas = (items || []).filter(i => i && i.t);
   if (!startedAt) return [];
-  const ms = {};
-  let prev = startedAt, atual = null;
+  const ms = { ...(anterior?.ms || {}) };
+  let prev = anterior?.lastT || startedAt, atual = anterior?.stage || null;
   for (const it of linhas) {
     const s = it.s || atual || 'preparo';
     ms[s] = (ms[s] || 0) + Math.max(0, it.t - prev);

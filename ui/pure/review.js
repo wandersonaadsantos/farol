@@ -409,6 +409,7 @@ function resumoDoPushback(pending, pb) {
 
 export function resolvedRow(r, ctx) {
   ctx = ctx || {};
+  const markdown = ctx.markdown || md;
   const [icon, label] = RESOLVED_LABELS[r.status] || ['•', r.status];
   const act = (r.status === 'posted' || r.status === 'already_reviewed')
     ? ` (${RESOLVED_ACTIONS[r.action] || r.action})` : '';
@@ -468,7 +469,7 @@ export function resolvedRow(r, ctx) {
         ${stLine ? `<div class="rr-stages">${esc(stLine)}</div>` : ''}
         ${roundSummaryHtml(r.rounds, rounds.attrs)}
         ${attn.length ? `<details class="resolved-attn"${motivos.attrs}><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
-        ${r.reportMarkdown ? `<details class="dec-report"${relatorio.attrs}><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
+        ${r.reportMarkdown ? `<details class="dec-report"${relatorio.attrs}><summary>Ver relatório completo</summary><div class="report">${markdown(r.reportMarkdown)}</div></details>` : ''}
         ${pushbackControl(r, ctx.pushbacks, { chave: pushback.chave, aberto: abertas.has(pushback.chave) })}
       </div>
     </div>

@@ -23,6 +23,10 @@ preparar_runtime() {
     fi
     command -v npm >/dev/null 2>&1 || die 'O Electron exigido nao esta disponivel e npm nao foi encontrado. Use o instalador offline. A instalacao existente foi preservada.'
   fi
+  if [ -z "$zip" ] || [ ! -f "$zip" ]; then
+    command -v node >/dev/null 2>&1 || die 'Node 24 LTS necessario para baixar o Electron. Use o instalador offline ou atualize o Node deste ambiente.'
+    node "$SRC/lib/node-runtime.js" "$SRC/package.json" || die 'Runtime Node incompativel. Atualize o Node deste ambiente conforme a mensagem acima ou use o instalador offline. A instalacao existente foi preservada.'
+  fi
   RUNTIME_STAGE="$(mktemp -d)"
   trap 'rm -rf "${RUNTIME_STAGE:?}"' EXIT
   if [ -n "$zip" ] && [ -f "$zip" ]; then

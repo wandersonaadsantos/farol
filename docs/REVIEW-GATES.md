@@ -1359,3 +1359,11 @@ renomeação, mudança de consumidor ou correção em outro arquivo exigem reava
 mostra contagens e estado da memória, sem entregar findings brutos ou texto interno ao review
 público. O prompt recebe todas as pendências; se o modelo não conseguir concluir a leitura,
 deve devolver análise incompleta.
+
+A preparação comum de fontes fixa H, B e M, sem depender de checkout pessoal ou perfil
+técnico. Cache, mapa estrutural e busca textual não concedem cobertura nem aprovação.
+Fontes indisponíveis, consumidor candidato e limite atingido continuam limitações.
+As consultas adicionais revalidam autorização e leem a versão fixada. A seleção nova é
+controlada por `reviewContextMode` (off/observe/assist), conforme `CONFIGURATION.md`.
+Memória de rodadas mantém uma evidência por identificador e referencia todos os blockers;
+compactação não remove pendências, restrições ou evidência necessária.

@@ -29,6 +29,7 @@ import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { instalarDom } from './helpers/dom-stub.js';
+import { controlarQuadros } from './helpers/quadros-ui.js';
 import { SYNC } from '../lib/constants.js';
 import { comoExecutor } from './helpers/papel.js';
 
@@ -37,7 +38,9 @@ fixarMemoriaLivre();
 
 // o fetch de verdade fica guardado ANTES de o DOM de mentira trocar o global
 const fetchReal = globalThis.fetch;
-const { emitir } = instalarDom();
+const { emitir: receber } = instalarDom();
+const quadros = controlarQuadros();
+function emitir(...args) { const n = receber(...args); quadros.pintar(); return n; }
 
 const { Engine } = await import('../server.js');
 const { startServer } = await import('../lib/http-server.js');
@@ -164,12 +167,14 @@ afterEach(async () => {
 // Os `await` de topo vêm ANTES do primeiro caso (ver test/sync-distribuicao.test.js).
 await import('../ui/app.js');
 const Tela = await import('../ui/telas/radar-compartilhado.js');
+const { switchRadarSub } = await import('../ui/telas/radar.js');
 const Apar = await import('../ui/telas/radar-aparelhos.js');
 const $ = (s) => document.querySelector(s);
 
 // Cada caso começa do banco vazio, com um admin novo (e o servidor dele) e a origem rodando
 // a análise.
 beforeEach(async () => {
+  switchRadarSub('mim');
   fake.setTree(null);
   PEDIDOS.length = 0;
   try { fs.rmSync(comandos.caminhoDosFeitos(), { force: true }); } catch { /* sem registro anterior */ }
@@ -258,6 +263,8 @@ async function telaComAndamento() {
   assert.equal((await painel.lerPaineis(admin, admin.config.sync, { forcar: true })).ok, true);
   emitir('state', estadoDaTela());
   emitir('sync-live', JSON.parse(JSON.stringify(live)));
+  // A página só é pintada quando sua subaba está visível.
+  switchRadarSub('apar');
   // a aba lembra o aparelho escolhido entre os testes; aqui a página é a da origem
   Apar.abrirAparelho(ORIGEM);
   return live.operacoes[0];

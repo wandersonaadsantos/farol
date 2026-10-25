@@ -5,11 +5,16 @@ process.env.TZ = 'America/Sao_Paulo';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { instalarDom } from './helpers/dom-stub.js';
+import { controlarQuadros } from './helpers/quadros-ui.js';
 
-const { emitir } = instalarDom();
+const { emitir: receber } = instalarDom();
+const quadros = controlarQuadros();
+function emitir(...args) { const n = receber(...args); quadros.pintar(); return n; }
 globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({}), text: async () => '' });
 
 await import('../ui/app.js');
+const { switchRadarSub } = await import('../ui/telas/radar.js');
+switchRadarSub('meus');
 
 const PR = { key: 'acme/app#7', url: 'https://github.com/acme/app/pull/7', repo: 'acme/app', number: 7, title: 'Ajusta o rodapé', author: 'alice', updatedAt: new Date().toISOString() };
 

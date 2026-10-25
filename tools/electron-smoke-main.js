@@ -13,6 +13,8 @@ import { checkSpecialists } from './electron-smoke-specialists.js';
 import { checkReviewAudits } from './electron-smoke-audits.js';
 import { checkCapacity } from './electron-smoke-capacity.js';
 import { checkJourneys } from './electron-smoke-journeys.js';
+import { checkPintura } from './electron-smoke-pintura.js';
+import { parseSources } from '../lib/review-context/parser.js';
 import { checkInterventions } from './electron-smoke-interventions.js';
 import { localRequest, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter, loopbackOrigin } from './electron-smoke-lib.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
@@ -328,6 +330,16 @@ async function runSmoke() {
     report.checks.capacity = await checkCapacity(main, waitFor, config.output);
     report.probe = 'journeys';
     report.checks.journeys = await checkJourneys(main, waitFor, config.output);
+    report.checks.pintura = await checkPintura(main, waitFor, config.output);
+    report.probe = 'context-parser';
+    const parsed = await parseSources([
+      { path: 'smoke.js', blob: 'b'.repeat(40), text: "import x from './fixture.js'; throw new Error('não executar');" },
+      { path: 'Widget.tsx', blob: 'c'.repeat(40), text: "import type { Props } from './props'; export const Widget=(p:Props)=><div/>; throw new Error('não executar');" },
+    ], { account: 'fixture', repo: 'fixture/context' });
+    assert.ok(parsed.analyses.every(file => file.backend === 'babel-parser-7.28.5'));
+    assert.deepEqual(parsed.analyses[0].imports.map(item => item.specifier), ['./fixture.js']);
+    assert.equal(parsed.analyses[1].imports[0].kind, 'type');
+    report.checks.contextParser = { status: 'passed', backend: parsed.analyses[0].backend };
     assert.deepEqual(report.isolation.externalProcesses, []);
     assert.deepEqual(report.errors, []);
     report.status = 'passed';

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-technical-life-'));
 process.env.FAROL_HOME = path.join(root, 'home');
 const { STATE_DIR } = await import('../lib/paths.js');
-const { cleanup } = await import('../lib/technical-review/cleanup.js');
+const { cleanup, criarMaterial } = await import('../lib/technical-review/cleanup.js');
 const { finishTechnicalReview } = await import('../lib/technical-review/runtime.js');
 const { snapshotFor } = await import('../lib/technical-review/material.js');
 const { reviewSnapshot } = await import('../lib/technical-review/reviews.js');
@@ -21,13 +21,13 @@ test('falha de materialização apaga a cópia parcial e não retém objetos Git
   io.run = async (_command, args) => ({ ok: !args.includes('fetch'), stdout: '' });
   try {
     await assert.rejects(snapshotFor({ accountForPr: () => 'eu', ghEnv: () => ({}) }, { repo: 'org/repo' }, { base: 'base', head: 'head' }), /preparar/);
-    assert.deepEqual(fs.readdirSync(snapshots), []);
+    assert.equal(fs.readdirSync(snapshots).some(name => fs.lstatSync(path.join(snapshots, name)).isDirectory()), false);
   } finally { io.run = original; }
 });
 
 test('avaliação que falha remove a árvore e o pedido, preservando só a evidência', async () => {
   fs.mkdirSync(snapshots, { recursive: true });
-  const snapshot = fs.mkdtempSync(path.join(snapshots, 'review-'));
+  const snapshot = criarMaterial(snapshots);
   fs.writeFileSync(path.join(snapshot, 'privado.js'), 'material privado');
   fs.writeFileSync(`${snapshot}-request.json`, '{}');
   fs.writeFileSync(`${snapshot}-result.json`, '{}');
@@ -36,7 +36,7 @@ test('avaliação que falha remove a árvore e o pedido, preservando só a evid�
   assert.equal(fs.existsSync(snapshot), false);
   assert.equal(fs.existsSync(`${snapshot}-request.json`), false);
   assert.equal(fs.existsSync(`${snapshot}-result.json`), true);
-  cleanup({ snapshot }); // Reentrada do finally da sessão é segura.
+  await cleanup({ snapshot }); // Reentrada do finally da sessão é segura.
   assert.throws(() => cleanup({ snapshot: root }), /fora da área/);
   assert.equal(fs.existsSync(root), true);
 });

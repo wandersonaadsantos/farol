@@ -10,7 +10,7 @@
    resto dos cliques do card). */
 
 import {
-  esc, fmtRel, personMention, md, avatar, expiredSessionMarks, splitHiddenPRs,
+  esc, fmtRel, personMention, avatar, expiredSessionMarks, splitHiddenPRs,
   effectiveHidden, hiddenFootLabel, myPRsEmptyMsg, mergeToastKind, buildFixPrompt,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle,
   selfAnalysisStale, listViewState, prKeyFromUrl, defaultFor, overrideFor, repoShort,
@@ -26,8 +26,9 @@ import { scopeVisible, acctMark } from './contas.js';
 import { renderRadarNav } from './radar.js';
 import { loadReviewerCands, renderReviewersEditor, revCtx } from './reviewers.js';
 import { switchSistemaSection, sysSearchFilter } from './sistema.js';
-import { renderMeusPrsRemoto } from './listas-remotas.js';
+import { renderMeusPrsRemoto, contarRemotos } from './listas-remotas.js';
 import { festejar } from './confete.js';
+import { markdownReutilizado as md } from './markdown.js';
 
 /* ---------- render: meus PRs (autoanálise) ---------- */
 // PRs cujo merge normal esbarrou na proteção de branch: mostram as saídas
@@ -60,6 +61,12 @@ let hiddenOpen = false;
 // SSE (inclusive o de uma autoanálise em andamento); é daqui que o `open` volta.
 const meusAbertos = new Set();
 lembrarAbertos($('#myPRs'), meusAbertos);
+function contagemMeusPrs() {
+  const todos = (estado().myPRs || []).filter(scopeVisible);
+  const ocultos = new Set(effectiveHidden(estado().hiddenPRs, hideOptimistic, unhideOptimistic));
+  const filtro = pr => scopeVisible(pr) && !ocultos.has(String(pr.key).toLowerCase());
+  return todos.filter(filtro).length + contarRemotos(todos, 'myPrs', filtro);
+}
 // Análises que já viraram confete NESTA sessão da tela (PR mais o instante da análise).
 // Some com a página, de propósito: a festa é do momento em que a análise termina, e não um
 // estado que precise sobreviver a alguma coisa.
@@ -483,4 +490,4 @@ function updateAnalysisProgress(id, item) {
   }
 }
 
-export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt, initReviewersButton, updateAnalysisProgress };
+export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt, initReviewersButton, updateAnalysisProgress, contagemMeusPrs };

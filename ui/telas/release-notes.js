@@ -14,6 +14,15 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.77.4', [
+    'Review e autoanálise reaproveitam fontes fixadas no PR, separadas por conta e repositório, com autorização reconferida.',
+    'Mapa de JS, TS, JSX e TSX para investigar consumidores e contratos. A seleção de contexto continua desligada por padrão; relações não resolvidas ampliam a investigação e não provam ausência de impacto.',
+    'Quota global configurável para o cache gerenciado, com reservas concorrentes e proteção de materiais ativos. Falta de espaço adia trabalho novo; legados não são apagados.',
+    'Atualizações de tela agrupadas preservam foco, rascunhos e arquivos selecionados. Histórico de consumo e memória de rodadas reduzem trabalho repetido, mantendo confirmação de persistência.',
+    'O motor externo, desenvolvimento e testes exigem Node 24 LTS, de 24.22.1 até antes de 25. O desktop mantém o Node do Electron e dispensa Node externo na instalação offline. Node 22 deixa o contrato sem alegação de correção do crash histórico.',
+    'Electron 44.9.3 mitiga certificados TLS comprometidos. O desktop ainda depende de patch upstream para o DoS de fetch GHSA-xjj6-f33q-929c no Undici embarcado; o pacote npm atualizado não elimina essa limitação.',
+    'A voz permanece desligada por padrão. O contexto opcional não dispensa os gates de revisão nem comprova ganhos de qualidade ou economia total de tokens.',
+  ]],
   ["2.77.3", ["O consumo do Claude inclui os subagentes quando o CLI informa o total completo e atribui o uso aos modelos que participaram.", "Retomadas descontam o gasto anterior, inclusive após reiniciar. Interrupções e falhas com custo zerado preservam a indicação de custo desconhecido quando não há cursor confiável.", "Saída pública única preparada para avaliação, desligada por padrão. Esta versão não reduz modelo ou esforço, não ativa o piloto pago e não promete economia de tokens ainda não medida.", "Os padrões do time voltam a aparecer em Contas depois de fechar e abrir o Farol.", "Autoanálise no mesmo commit por clique explícito, com histórico preservado. Merge e autoanálise respeitam a posse entre aparelhos e o commit conferido."]],
   ['2.77.2', ["Especialistas, auditorias, cotas e preferências seguem os cartões, espaçamentos e controles do Farol, com detalhes técnicos recolhíveis e adaptação a telas estreitas.","Intervenções ficam agrupadas e recolhidas no Radar, com as ações existentes, sem um aviso sobreposto por pendência.","As opções de voz aparecem apenas quando ativadas; a voz continua desligada por padrão. O roteiro de configuração e a importação preservam seus limites e confirmações."]],
   ['2.77.1', ['Escolha review automático ou manual por organização e autor em Sistema > Contas. Sem regra nova, suas configurações atuais continuam valendo.', 'Regras manuais também impedem retentativas e novas rodadas automáticas, inclusive fora das organizações do panorama. Revisar por clique continua disponível.', 'Remover uma exceção restaura a herança. As regras de aprovação e pedido de mudanças permanecem independentes.']],

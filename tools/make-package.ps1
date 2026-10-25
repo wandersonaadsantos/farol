@@ -4,6 +4,11 @@
 $ErrorActionPreference = 'Stop'
 
 $Src = Split-Path -Parent $PSScriptRoot
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Node.js necessario para validar o parser distribuido.' }
+& node (Join-Path $Src 'lib\node-runtime.js') (Join-Path $Src 'package.json')
+if ($LASTEXITCODE -ne 0) { throw 'Atualize o Node deste ambiente antes do build. A instalacao existente foi preservada.' }
+& node (Join-Path $Src 'lib/parser-runtime.js') $Src
+if ($LASTEXITCODE -ne 0) { throw 'Parser distribuido ausente ou corrompido. Reconstrua o artefato antes de empacotar.' }
 $pkg = Get-Content (Join-Path $Src 'package.json') -Raw | ConvertFrom-Json
 $version = $pkg.version
 $dist = Join-Path $Src 'dist'

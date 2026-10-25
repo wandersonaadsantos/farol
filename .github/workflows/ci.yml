@@ -36,10 +36,10 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22.12'
+          node-version: '24.22.1'
 
-      # Sem npm install de propósito: invariante 1 (zero dependências além do
-      # Electron) e a suíte usa o runner nativo `node --test`, que não toca em
+      # Sem npm install de propósito: o parser é um artefato distribuído e a
+      # suíte usa o runner nativo `node --test`, que não toca em
       # node_modules. A abertura real do app tem uma matriz separada abaixo.
       - name: Sintaxe
         run: npm run check
@@ -72,7 +72,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22.12'
+          node-version: '24.22.1'
 
       # Testar o piso declarado, sem deixar o caret escolher outra release.
       - name: Instalar o Electron declarado

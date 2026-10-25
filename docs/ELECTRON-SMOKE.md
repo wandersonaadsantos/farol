@@ -1,7 +1,7 @@
 # Validação do Electron
 
 A matriz `electron` da CI instala e executa exatamente a versão mínima declarada
-em `package.json`. Assim, `^44.1.0` testa o binário 44.1.0, sem substituir a prova
+em `package.json`. Assim, `^44.9.3` testa o binário 44.9.3, sem substituir a prova
 por uma versão posterior permitida pelo range. Linux, Windows e macOS precisam
 passar junto com a matriz de qualidade para o check obrigatório `ci` ficar verde.
 

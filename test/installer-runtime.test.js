@@ -13,12 +13,25 @@ const temporarios = [];
 after(() => { for (const dir of temporarios) fs.rmSync(dir, { recursive: true, force: true }); });
 const slash = s => s.replaceAll('\\', '/');
 
-function runtimeFixture(aceita, npmMode, bundled = false) {
+function copiarNodeRuntime(src) {
+  fs.mkdirSync(path.join(src, 'lib'));
+  for (const name of ['node-runtime.js', 'io.js', 'paths.js', 'env.js', 'constants.js', 'spawnlog.js', 'persistence-metrics.js']) {
+    fs.copyFileSync(path.join(RAIZ, 'lib', name), path.join(src, 'lib', name));
+  }
+}
+
+function runtimeFixture(aceita, npmMode, bundled = false, nodeIncompativel = false) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-runtime-test-'));
   temporarios.push(dir);
   const src = path.join(dir, 'source'), app = path.join(dir, 'installed');
   fs.mkdirSync(src);
-  fs.writeFileSync(path.join(src, 'package.json'), '{"dependencies":{"electron":"^44.1.0"}}');
+  fs.writeFileSync(path.join(src, 'package.json'), '{"type":"module","engines":{"node":">=24.22.1 <25"},"dependencies":{"electron":"^44.9.3"}}');
+  copiarNodeRuntime(src);
+  if (nodeIncompativel) {
+    const manifest = JSON.parse(fs.readFileSync(path.join(src, 'package.json'), 'utf8'));
+    manifest.engines.node = '>=99.0.0 <100';
+    fs.writeFileSync(path.join(src, 'package.json'), JSON.stringify(manifest));
+  }
   const stub = status => `#!/bin/bash\n[ "$ELECTRON_RUN_AS_NODE" = 1 ] || exit 8\n[ "$2" = check-running ] || exit 9\nexit ${status}\n`;
   const writeNative = (base, status) => {
     const file = path.join(base, 'node_modules/electron/dist/electron');
@@ -62,6 +75,51 @@ test('runtime compativel instalado: preserva sem chamar npm', { skip }, () => {
   assert.equal(fs.readFileSync(f.previous, 'utf8'), f.before);
   assert.equal(fs.existsSync(path.join(f.dir, 'npm.log')), false);
 });
+
+test('fallback npm recusa Node incompatível antes de baixar ou alterar o app', { skip }, () => {
+  const f = runtimeFixture(false, 'ok', false, true);
+  const r = f.run(true);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /Node.*incompatível/);
+  assert.equal(fs.existsSync(path.join(f.dir, 'npm.log')), false);
+  assert.equal(fs.readFileSync(f.previous, 'utf8'), f.before);
+  assert.equal(fs.readFileSync(path.join(f.app, 'server.js'), 'utf8'), 'codigo anterior');
+});
+
+test('Electron instalado compatível dispensa Node externo mesmo com contrato externo incompatível', { skip }, () => {
+  const f = runtimeFixture(true, 'fail', false, true);
+  const r = f.run(true);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(fs.existsSync(path.join(f.dir, 'npm.log')), false);
+  assert.equal(fs.readFileSync(f.previous, 'utf8'), f.before);
+});
+
+test('Windows: fallback recusa Node incompatível antes de npm e preserva o app',
+  { skip: process.platform === 'win32' ? false : 'PowerShell nativo Windows' }, () => {
+    const f = runtimeFixture(false, 'ok', false, true);
+    const script = path.join(f.dir, 'recusa.ps1');
+    fs.writeFileSync(script, `
+      $ErrorActionPreference='Stop'
+      $Src=$env:TEST_SRC; $App=$env:TEST_APP
+      function Die($msg) { Write-Output $msg; exit 1 }; function Ok($msg) {}; function Step($msg) {}
+      . $env:TEST_HELPER
+      function Test-ElectronRuntime($Candidate) { return $false }
+      function npm { Set-Content -LiteralPath $env:TEST_MARKER 'npm chamado'; $global:LASTEXITCODE=0 }
+      Prepare-ElectronRuntime
+      exit 9
+    `);
+    const marker = path.join(f.dir, 'npm-win.log');
+    const r = cp.spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {
+      env: { ...process.env, TEST_SRC: path.join(f.dir, 'source'), TEST_APP: f.app,
+        TEST_HELPER: path.join(RAIZ, 'installer/electron-runtime.ps1'), TEST_MARKER: marker },
+      encoding: 'utf8', timeout: 30000,
+    });
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout + r.stderr, /Node.*incompat/);
+    assert.equal(fs.existsSync(marker), false);
+    assert.equal(fs.readFileSync(f.previous, 'utf8'), f.before);
+    assert.equal(fs.readFileSync(path.join(f.app, 'server.js'), 'utf8'), 'codigo anterior');
+  });
 
 for (const mode of ['fail', 'invalid']) {
   test(`runtime antigo com preparo ${mode}: falha preservando o app anterior`, { skip }, () => {
@@ -108,7 +166,8 @@ for (const fail of [true, false]) {
       const src = path.join(dir, 'source'), app = path.join(dir, 'installed');
       fs.mkdirSync(src);
       fs.mkdirSync(path.join(app, 'node_modules/electron/dist'), { recursive: true });
-      fs.writeFileSync(path.join(src, 'package.json'), '{"dependencies":{"electron":"^44.1.0"}}');
+      fs.writeFileSync(path.join(src, 'package.json'), '{"type":"module","engines":{"node":">=24.22.1 <25"},"dependencies":{"electron":"^44.9.3"}}');
+      copiarNodeRuntime(src);
       const previous = path.join(app, 'node_modules/electron/dist/electron.exe');
       fs.writeFileSync(previous, '43.1.0');
       const script = `
@@ -118,18 +177,42 @@ for (const fail of [true, false]) {
         . $env:TEST_HELPER
         # Executavel e npm sinteticos; staging, fallback e cleanup sao os reais.
         function Test-ElectronRuntime($Candidate) {
-          return (Test-Path -LiteralPath $Candidate) -and ((Get-Content -LiteralPath $Candidate -Raw) -eq '44.1.0')
+          return (Test-Path -LiteralPath $Candidate) -and ((Get-Content -LiteralPath $Candidate -Raw) -eq '44.9.3')
+        }
+        function Assert-TestRuntimeStage {
+          $current=[IO.Path]::GetFullPath((Get-Location).ProviderPath).TrimEnd('\\')
+          $tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\\')
+          if (-not [string]::Equals([IO.Path]::GetDirectoryName($current), $tempRoot, [StringComparison]::OrdinalIgnoreCase) -or
+              [IO.Path]::GetFileName($current) -notmatch '^farol-runtime-[0-9a-f]{32}$') {
+            throw "Stub de teste recusou escrita fora do staging: $current"
+          }
+          return $current
         }
         function npm {
+          $stage=Assert-TestRuntimeStage
+          if ($args.Count -ne 5 -or $args[0] -ne 'install' -or $args[1] -ne '--omit=dev' -or
+              $args[2] -ne '--no-audit' -or $args[3] -ne '--no-fund' -or $args[4] -notmatch '^--arch=(x64|arm64)$') {
+            throw 'Comando npm inesperado no stub de teste'
+          }
           New-Item -ItemType Directory -Force 'node_modules/electron' | Out-Null
           Set-Content 'node_modules/electron/install.js' 'stub'
           $global:LASTEXITCODE=0
         }
         function node {
+          if ($args.Count -eq 2 -and $args[0] -eq (Join-Path $Src 'lib\\node-runtime.js') -and
+              $args[1] -eq (Join-Path $Src 'package.json')) {
+            & $env:TEST_NODE @args
+            $global:LASTEXITCODE=$LASTEXITCODE
+            return
+          }
+          $stage=Assert-TestRuntimeStage
+          if ($args.Count -ne 1 -or $args[0] -ne (Join-Path $stage 'node_modules\\electron\\install.js')) {
+            throw 'Comando node inesperado no stub de teste'
+          }
           Set-Content -LiteralPath $env:TEST_MARKER 'install.js chamado'
           if ($env:TEST_FAIL -eq 'yes') { $global:LASTEXITCODE=17; return }
           New-Item -ItemType Directory -Force 'node_modules/electron/dist' | Out-Null
-          Set-Content -NoNewline -LiteralPath 'node_modules/electron/dist/electron.exe' -Value '44.1.0'
+          Set-Content -NoNewline -LiteralPath 'node_modules/electron/dist/electron.exe' -Value '44.9.3'
           $global:LASTEXITCODE=0
         }
         $runtime=Prepare-ElectronRuntime
@@ -143,12 +226,14 @@ for (const fail of [true, false]) {
       const marker = path.join(dir, 'node.log');
       const r = cp.spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', file], {
         env: { ...process.env, TEST_SRC: src, TEST_APP: app, TEST_HELPER: path.join(RAIZ, 'installer/electron-runtime.ps1'),
-          TEST_MARKER: marker, TEST_FAIL: fail ? 'yes' : 'no' }, encoding: 'utf8', timeout: 30000,
+          TEST_NODE: process.execPath, TEST_MARKER: marker, TEST_FAIL: fail ? 'yes' : 'no' },
+        cwd: dir, encoding: 'utf8', timeout: 30000,
       });
       assert.equal(r.status, fail ? 1 : 0, r.stdout + r.stderr);
       assert.equal(fs.readFileSync(previous, 'utf8'), '43.1.0');
       assert.match(fs.readFileSync(marker, 'utf8'), /install.js chamado/);
       assert.equal(r.stdout.includes('RUNTIME_VALIDADO'), !fail);
+      assert.equal(fs.existsSync(path.join(dir, 'node_modules')), false, 'preflight não pode escrever no cwd do executor');
     });
 }
 
@@ -165,7 +250,7 @@ test('Windows: recria Farol.exe quando o hardlink ainda aponta pro Electron anti
       $electronExe=Join-Path $env:TEST_DIR 'electron.exe'
       $old=Join-Path $env:TEST_DIR 'old.exe'
       Set-Content -NoNewline -LiteralPath $old '43.1.0'
-      Set-Content -NoNewline -LiteralPath $electronExe '44.1.0'
+      Set-Content -NoNewline -LiteralPath $electronExe '44.9.3'
       New-Item -ItemType HardLink -Path (Join-Path $env:TEST_DIR 'Farol.exe') -Target $old | Out-Null
       ${installer.slice(start, end)}
       Get-Content -LiteralPath $farolExe -Raw
@@ -176,8 +261,8 @@ test('Windows: recria Farol.exe quando o hardlink ainda aponta pro Electron anti
       env: { ...process.env, TEST_DIR: dir }, encoding: 'utf8', timeout: 30000,
     });
     assert.equal(r.status, 0, r.stdout + r.stderr);
-    assert.match(r.stdout, /44\.1\.0/);
-    assert.equal(fs.readFileSync(path.join(dir, 'Farol.exe'), 'utf8'), '44.1.0');
+    assert.match(r.stdout, /44\.9\.3/);
+    assert.equal(fs.readFileSync(path.join(dir, 'Farol.exe'), 'utf8'), '44.9.3');
     assert.equal(fs.readFileSync(path.join(dir, 'old.exe'), 'utf8'), '43.1.0');
   });
 

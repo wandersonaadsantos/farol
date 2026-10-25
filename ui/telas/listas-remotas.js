@@ -59,6 +59,7 @@ function renderMeusPrsRemoto(locais, filtro) {
   pintar('#myPRsRemoto', meusPrsRemotoHtml(m));
   return m.remotas.length;
 }
+function contarRemotos(locais, tipo, filtro) { return mesclar(locais, tipo, filtro).remotas.length; }
 
 function aoListasRemotas(d) {
   LISTAS.dados = d && typeof d === 'object' ? d : null;
@@ -74,4 +75,4 @@ function dadosDasListas() {
   return LISTAS.dados;
 }
 
-export { initListasRemotas, aoListasRemotas, renderPanoramaRemoto, renderMeusPrsRemoto, dadosDasListas };
+export { initListasRemotas, aoListasRemotas, renderPanoramaRemoto, renderMeusPrsRemoto, dadosDasListas, contarRemotos };

@@ -9,12 +9,13 @@ import assert from 'node:assert/strict';
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-arquivo-preso-'));
 process.env.FAROL_HOME = path.join(root, 'home');
 const { STATE_DIR } = await import('../lib/paths.js');
-const { cleanup, criarMaterial, limparRestos, remocao, pendentes } = await import('../lib/technical-review/cleanup.js');
+const { cleanup, criarMaterial, limparRestos, remocao, pendentes, maintainMaterials, diagnosticoLegados } = await import('../lib/technical-review/cleanup.js');
+const { readRecord, release } = await import('../lib/technical-review/material-record.js');
 const { classify } = await import('../lib/log-taxonomy.js');
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 const areaTecnica = path.join(STATE_DIR, 'technical-review');
 const rmOriginal = remocao.rm;
-afterEach(() => { remocao.rm = rmOriginal; pendentes.clear(); });
+afterEach(async () => { remocao.rm = rmOriginal; await maintainMaterials({ now: Number.MAX_SAFE_INTEGER }); pendentes.clear(); });
 
 // material deste processo: nasce pelo criarMaterial, como no snapshotFor
 function material() {
@@ -56,31 +57,35 @@ test('permissão negada fora do .farol continua não classificada', () => {
   assert.equal(classify("EPERM: operation not permitted, open 'C:\\repo\\arquivo.js'").id, 'desconhecido');
 });
 
-test('trava na limpeza não lança e fica para a limpeza seguinte', () => {
+test('trava na limpeza não lança e fica para a manutenção seguinte', async () => {
   const preso = material();
   remocao.rm = () => { throw travado('EPERM'); };
-  assert.doesNotThrow(() => cleanup({ snapshot: preso }));
+  await assert.doesNotReject(cleanup({ snapshot: preso }));
   assert.equal(fs.existsSync(preso), true);
   assert.equal(pendentes.has(preso), true);
 
   remocao.rm = rmOriginal;
   const proximo = material();
-  cleanup({ snapshot: proximo });
+  await cleanup({ snapshot: proximo });
+  await maintainMaterials({ now: readRecord(preso).retryAt + 1 });
   assert.equal(fs.existsSync(preso), false, 'a limpeza seguinte leva o material que ficou preso');
   assert.equal(fs.existsSync(`${preso}-request.json`), false);
   assert.equal(fs.existsSync(proximo), false);
   assert.equal(pendentes.size, 0);
 });
 
-test('erro que não é trava passageira continua lançando', () => {
+test('erro de disco é diagnosticado sem substituir resultado da revisão', async () => {
   const snapshot = material();
   remocao.rm = () => { throw Object.assign(new Error('disco cheio'), { code: 'ENOSPC' }); };
-  assert.throws(() => cleanup({ snapshot }), /disco cheio/);
+  await assert.doesNotReject(cleanup({ snapshot }));
+  assert.equal(readRecord(snapshot).lastFailure.code, 'ENOSPC');
+  assert.equal(fs.existsSync(snapshot), true);
   remocao.rm = rmOriginal;
-  cleanup({ snapshot });
+  await maintainMaterials({ now: readRecord(snapshot).retryAt + 1 });
+  assert.equal(fs.existsSync(snapshot), false);
 });
 
-test('a varredura leva o resto de outro processo e nunca o material vivo, nem com relógio que volta', () => {
+test('a varredura preserva legado sem prova e material vivo, mesmo com relógio que volta', async () => {
   const resto = restoAnterior();
   fs.writeFileSync(`${resto}-result.json`, '{}');
   const pedidoOrfao = path.join(areaTecnica, 'review-orfao-request.json');
@@ -90,22 +95,25 @@ test('a varredura leva o resto de outro processo e nunca o material vivo, nem co
   const vivo = material();
   // carimbo no passado distante: o mtime não decide mais nada
   fs.utimesSync(vivo, new Date(0), new Date(0));
-  assert.equal(limparRestos(), 1);
+  assert.equal(await limparRestos(), 0);
   assert.equal(fs.existsSync(vivo), true, 'material deste processo é de revisão viva');
   assert.equal(fs.existsSync(`${vivo}-request.json`), true);
-  assert.equal(fs.existsSync(resto), false);
-  assert.equal(fs.existsSync(`${resto}-request.json`), false);
-  assert.equal(fs.existsSync(pedidoOrfao), false);
+  assert.equal(fs.existsSync(resto), true);
+  assert.equal(fs.existsSync(`${resto}-request.json`), true);
+  assert.equal(fs.existsSync(pedidoOrfao), true);
+  const diagnostic = await diagnosticoLegados();
+  assert.equal(diagnostic.items.find(i => i.id === path.basename(resto)).eligible, false);
   assert.equal(fs.existsSync(`${resto}-result.json`), true, 'o -result.json é evidência que a decisão aponta');
   assert.equal(fs.existsSync(alheio), true, 'só o que começa com review- é tocado');
-  cleanup({ snapshot: vivo });
+  await cleanup({ snapshot: vivo });
 });
 
-test('a varredura tem teto por limpeza e continua nas seguintes', () => {
-  const restos = [restoAnterior(), restoAnterior(), restoAnterior()];
-  assert.equal(limparRestos(2), 2);
+test('a varredura tem teto por limpeza para materiais com liberação comprovada', async () => {
+  const restos = [material(), material(), material()];
+  for (const snapshot of restos) release(snapshot);
+  assert.equal(await limparRestos(), 2);
   assert.equal(restos.filter(r => fs.existsSync(r)).length, 1, 'só dois por vez');
-  assert.equal(limparRestos(2), 1);
+  assert.equal(await limparRestos(), 1);
   assert.equal(restos.filter(r => fs.existsSync(r)).length, 0);
-  assert.equal(limparRestos(2), 0);
+  assert.equal(await limparRestos(), 0);
 });

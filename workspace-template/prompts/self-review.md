@@ -77,10 +77,11 @@ qualquer git e com isso impedia justamente a verificação que dá valor a esta 
    protocolo nem o seu `cardMet`. Se aquela seção disser que o Farol não conseguiu ler, o card é
    **não-verificável** e `cardMet` tem que ser `null`, nunca `true`.
 
-3. **Leia o escopo.** A seção "Escopo do PR" mais adiante lista os arquivos e o diretório onde o
-   Farol já gravou o patch de cada um. Abra **cada arquivo com a ferramenta `Read`, um por vez**,
-   naquele caminho. É essa leitura que comprova cobertura: arquivo que você não abrir dali conta
-   como não analisado, mesmo que você tenha visto o conteúdo por outro caminho.
+3. **Distribua o escopo.** A seção "Escopo do PR" lista os patches já preparados. Atribua cada
+   arquivo ou lote a um responsável, que lê com `Read` naquele diretório. A leitura observada
+   dos subagentes também conta. O coordenador consolida cobertura, achados e referências;
+   releia para validar um achado ou interação, sem repetir obrigatoriamente toda a leitura.
+   Um arquivo sem leitura observada continua não analisado; cache não substitui essa prova.
 
 4. **Rode o agente `pr-reviewer`** (subagent_type `pr-reviewer`) no modo headless `--json`,
    passando o PR, os critérios/escopo do card, a nota de que é uma autoanálise do próprio autor

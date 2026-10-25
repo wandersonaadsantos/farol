@@ -1,4 +1,6 @@
+import { assertExternalNodeRuntime } from './lib/node-runtime.js';
 import { repescarRetry } from './lib/engine/review-retry.js';
+assertExternalNodeRuntime();
 // Farol: engine de monitoramento de PRs + servidor http local da UI.
 // Porta a logica do antigo pr-reviewer.ps1: o polling do GitHub roda aqui
 // (so comandos gh, sem gastar tokens de IA); a revisao em si abre uma sessao
@@ -10,6 +12,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
 import { tick as tickReviewAudits } from './lib/review-audit/commands.js';
+import { pararManutencaoMaterial } from './lib/technical-review/cleanup.js';
+import { iniciarManutencaoDoEngine } from './lib/technical-review/material-session-proof.js';
+import { snapshotDecisions } from './lib/engine/snapshot-decisions.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
@@ -1940,12 +1945,7 @@ class Engine extends EventEmitter {
       filaJusta: this.filaJusta(),
       chats: this.chatSummaries(),
       toolRuns: this.toolRuns,
-      decisions: {
-        pending: this.decisions.pending.map(d => decisionMod.decisionForUi(d)),
-        // "Revisões recentes": envia as 30 mais recentes (era 8). O histórico no
-        // disco guarda até 200 (ver resolveIntoHistory); aqui limita o payload do SSE.
-        resolved: this.decisions.resolved.slice(0, 30).map(d => decisionMod.decisionForUi(d))
-      },
+      decisions: snapshotDecisions(this),
       reviewActions: this.reviewActions(),
       usage: this.usageSummary(),
       credits: this.credits,
@@ -2167,6 +2167,7 @@ class Engine extends EventEmitter {
   focusPr(url) { if (url) this.emit('focus-pr', { url }); }
 
   async start() {
+    iniciarManutencaoDoEngine(this);
     // depois do loadDecisions do construtor: a migração precisa saber quem tem decisão
     this.migrarIgnorados();
     this.checkUpdate().catch(() => {});
@@ -2200,7 +2201,7 @@ class Engine extends EventEmitter {
 function registrarSaidaOrdenada(engine) {
   if (engine.saidaRegistrada) return;
   engine.saidaRegistrada = true;
-  const sair = () => { try { engine.syncStop(); } catch { /* encerrando: nada a fazer */ } };
+  const sair = () => { pararManutencaoMaterial(); try { engine.syncStop(); } catch { /* encerrando: nada a fazer */ } };
   process.once('SIGINT', () => { sair(); process.exit(0); });
   process.once('SIGTERM', () => { sair(); process.exit(0); });
   process.once('beforeExit', sair);

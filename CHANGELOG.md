@@ -9,6 +9,26 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.4
+
+Revisões com fontes reaproveitáveis, contexto opcional e interface mais estável, com Node 24 LTS no motor externo.
+
+**Melhorias**
+- Review e autoanálise compartilham fontes fixadas no head, base e merge-base do PR, com cache separado por conta e repositório. O reaproveitamento reconfere autorização e preserva materiais ainda utilizados.
+- O mapa sintático de JS, TS, JSX e TSX ajuda a localizar consumidores, tipos e reexports. A seleção de contexto permanece desligada por padrão (`off`); `observe` apenas mede e `assist` acrescenta contexto candidato com limites, procedência e fallback. O código analisado não é executado e o mapa não comprova ausência de impacto nem substitui os gates de review.
+- O cache gerenciado tem quota global configurável, por padrão 4 GiB, além do limite por escopo. Reservas coordenam aquisições simultâneas e monitoram crescimento; material ativo ou com término incerto é preservado. A contabilização é lógica e amostrada, com legados separados, e não garante um teto físico exato.
+- Atualizações de tela são agrupadas e telas ocultas adiam a pintura, preservando foco, rascunhos e arquivos selecionados. O histórico de consumo reaproveita projeções com invalidação, e a memória de rodadas reduz repetição sem relaxar confirmação de persistência.
+- Desenvolvimento, testes e execução externa do motor passam a exigir Node 24 LTS, de 24.22.1 até antes de 25. Atualize o runtime do serviço antes de aplicar esta versão em servidor que ainda usa Node 22. O desktop mantém o Node embarcado no Electron e a instalação offline dispensa Node externo. A ocorrência histórica do Node 22 continua sem causa determinada; retirar seu suporte não é uma correção do crash.
+
+**Correções**
+- Contenção transitória ao salvar registros do cache é tratada sem truncar o registro anterior. Falhas definitivas continuam visíveis, preservando os dados e a causa original mesmo se a limpeza também falhar.
+- Electron 44.9.3 mitiga certificados TLS comprometidos, e o motor externo exige o patch de segurança Node 24.22.1. O lock atualiza Undici de download para 7.30.1. Limitação: o desktop ainda embarca Node 24.22.0/Undici 7.29.1, com o DoS de `fetch` GHSA-xjj6-f33q-929c pendente de correção upstream; atualizar o pacote npm não corrige esse componente interno.
+- A liberação de materiais Git reconhece aliases do caminho no macOS e no Windows, remove apenas o registro correspondente e preserva a proteção do material se a limpeza falhar.
+- Os controles de iniciar com o sistema respeitam a plataforma desde o primeiro estado recebido, mesmo com Sistema oculta ou um formulário focado. Leituras de manifestos e registros conferem limite, identidade e conteúdo pelo mesmo descritor de arquivo.
+- Imports não resolvidos tornam o mapa incompleto e ampliam a investigação de consumidores, em vez de sinalizar uma completude que não foi demonstrada.
+- Cancelamento ou interrupção de aquisição Git com descendente de término incerto mantém reservas e materiais protegidos contra limpeza. Falta de espaço adia trabalho novo sem apagar consumidores ativos.
+- A voz permanece desligada por padrão. Esta entrega não promove ganhos de qualidade de review, economia total de tokens ou redução percentual de CPU que não foram medidos.
+
 ## v2.77.3
 
 O consumo inclui os subagentes do Claude e separa o gasto novo nas retomadas, com medição mais clara quando faltam dados confiáveis.
