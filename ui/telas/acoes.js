@@ -7,7 +7,8 @@ import { estado } from './estado.js';
 import {
   $, api, get, toast, toastRich, confirmModal, showOp, closeOp, copyToClipboard,
 } from './infra.js';
-import { TWEAK, scopeVisible, guardarMutedHandling, guardarIdentityStyle } from './contas.js';
+import { TWEAK, scopeVisible, prUser, guardarMutedHandling, guardarIdentityStyle } from './contas.js';
+import { filaSemRevisoesAtivas } from '../pure/fila.js';
 import { revisarUrls } from './consumo.js';
 import { kudosScopeKey, loadLog } from './ferramentas.js';
 import { cancelarSessao } from './sessao-cancelar.js';
@@ -45,7 +46,8 @@ $('#btnCheck').onclick = () => api('/api/check');
 $('#btnReviewAll').onclick = () => {
   // revisa só o que está visível no escopo atual; a lista vai SEMPRE explícita
   // (mandar {} fazia o servidor revisar a fila INTEIRA, achado B22)
-  const urls = (estado().queue || []).filter(scopeVisible).map(p => p.url);
+  const urls = filaSemRevisoesAtivas(estado().queue || [], estado().activeSessions || [], prUser)
+    .filter(scopeVisible).map(p => p.url);
   if (!urls.length) { toast('info', 'Nada visível pra revisar agora (a fila mudou embaixo do botão).'); return; }
   revisarUrls(urls);
 };

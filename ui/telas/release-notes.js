@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.77.5', ['Uma revisão em andamento sai da fila de espera da mesma conta, incluindo os contadores e Revisar tudo. Pedidos de outra conta continuam visíveis; sem decisão ao terminar, o PR pode voltar à fila.']],
   ['2.77.4', [
     'Review e autoanálise reaproveitam fontes fixadas no PR, separadas por conta e repositório, com autorização reconferida.',
     'Mapa de JS, TS, JSX e TSX para investigar consumidores e contratos. A seleção de contexto continua desligada por padrão; relações não resolvidas ampliam a investigação e não provam ausência de impacto.',

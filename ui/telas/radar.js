@@ -14,10 +14,11 @@ import {
 } from '../pure.js';
 import { estado, escopo, peopleOf } from './estado.js';
 import { $, api, textoDaListaVazia, toast, copyToClipboard, lembrarAbertos } from './infra.js';
-import { scopeVisible, acctMark, acctOf } from './contas.js';
+import { scopeVisible, acctMark, acctOf, prUser } from './contas.js';
 import { revisarUrls } from './consumo.js';
 import { renderPanoramaRemoto, contarRemotos } from './listas-remotas.js';
 import { groupedQueue } from '../pure/queue-groups.js';
+import { filaSemRevisoesAtivas } from '../pure/fila.js';
 import { markdownReutilizado as md } from './markdown.js';
 
 let queueGrouping = 'none';
@@ -205,14 +206,14 @@ function renderResolved() {
 
 /* ---------- render: radar ---------- */
 function dadosDaFila() {
-  const q = (estado().queue || []).filter(scopeVisible);
-  const ativos = new Set((estado().activeSessions || []).flatMap(s => s.keys || []));
+  const semAtivas = lista => filaSemRevisoesAtivas(lista, estado().activeSessions || [], prUser);
+  const q = semAtivas(estado().queue || []).filter(scopeVisible);
   const decisoes = new Set((estado().decisions?.pending || []).map(d => d.key));
   const acionaveis = new Set(q.map(pr => pr.key));
   const distribuindo = new Set(estado().headlessDistributing || []);
   const esperando = new Set([...(estado().headlessWaiting || []), ...distribuindo]);
-  const aguardando = (estado().panorama || []).filter(pr => pr.mine && scopeVisible(pr)
-    && esperando.has(pr.key) && !acionaveis.has(pr.key) && !ativos.has(pr.key) && !decisoes.has(pr.key));
+  const aguardando = semAtivas(estado().panorama || []).filter(pr => pr.mine && scopeVisible(pr)
+    && esperando.has(pr.key) && !acionaveis.has(pr.key) && !decisoes.has(pr.key));
   const total = q.length + aguardando.length;
   return { q, aguardando, distribuindo, total };
 }
