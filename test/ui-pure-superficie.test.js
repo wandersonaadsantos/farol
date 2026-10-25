@@ -112,9 +112,6 @@ const CONGELADA = [
   // progressoDaSessao, conclusaoDaSessao e as tres constantes da regua, e SAIU
   // situacaoDaSessao, que o progressoDaSessao absorveu (a fase, o silencio e os arquivos
   // lidos agora vem junto com a porcentagem, nos textos do desenho)
-  "PCT_FECHANDO",
-  "PISO_VERIFICACAO",
-  "TIPICO_PADRAO_MS",
   "conclusaoDaSessao",
   "progressoDaSessao",
   "SEM_SINAL_MS",
@@ -310,6 +307,7 @@ const CONGELADA = [
   "revisoesCompartilhadasHtml",
   "runtimeChecks",
   "safeJsonParse",
+  "safeJsonStringify",
   "sameSet",
   "selecaoAceitaEsforco",
   "selfAnalysisBadge",

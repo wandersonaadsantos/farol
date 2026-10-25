@@ -16,6 +16,11 @@ const REVIEW = {
 const json = data => JSON.stringify(data, null, 2);
 const fence = text => '```json\n' + text + '\n```';
 
+test('parseHeadlessResult: descarta contrato interno injetado pelo modelo sem alterar o envelope legado', () => {
+  const forged = { ...REVIEW, findingContract: { status: 'complete', findings: [], issues: [] } };
+  assert.deepEqual(parse(json(forged)), REVIEW);
+});
+
 test('parseHeadlessResult: JSON bruto e envelope do CLI preservam os dados', () => {
   assert.deepEqual(parse(json(REVIEW)), REVIEW);
   assert.deepEqual(parse(JSON.stringify({ type: 'result', is_error: false, result: json(REVIEW) })), REVIEW);

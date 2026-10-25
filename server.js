@@ -1,12 +1,15 @@
+import { repescarRetry } from './lib/engine/review-retry.js';
 // Farol: engine de monitoramento de PRs + servidor http local da UI.
 // Porta a logica do antigo pr-reviewer.ps1: o polling do GitHub roda aqui
 // (so comandos gh, sem gastar tokens de IA); a revisao em si abre uma sessao
 // interativa do Claude Code em um terminal proprio, com /pr-review <urls>.
 // Zero dependencias externas: roda com Node puro (e dentro do Electron).
 import fs from 'node:fs';
+import { politicaDeInicio, normalizarRegras } from './lib/engine/review-scope.js';
 import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
+import { tick as tickReviewAudits } from './lib/review-audit/commands.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
@@ -78,6 +81,7 @@ import syncMod from './lib/engine/sync.js';
 import consumoGrupoMod from './lib/engine/sync-consumo-grupo.js';
 import telasMod from './lib/engine/sync-telas.js';
 import diagnosticoMod from './lib/engine/diagnostico.js';
+import interventionMod from './lib/engine/interventions.js';
 import capacidadesMod from './lib/engine/capacidades.js';
 import { detectarModoCelular } from './lib/local-auth/modo.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
@@ -632,6 +636,7 @@ class Engine extends EventEmitter {
         color: (a && a.color != null) ? String(a.color).trim() : '',
         kind: (a && a.kind != null) ? String(a.kind).trim() : '',
         muted: !!(a && a.muted),
+        ...(a?.reviewRules && { reviewRules: normalizarRegras(a.reviewRules) }),
         // política de automação da conta: a gravação escreve os quatro por extenso
         autoReview: (a && (a.autoReview === true || a.autoReview === false)) ? a.autoReview : undefined,
         onClean: (a && (a.onClean === 'approve' || a.onClean === 'wait')) ? a.onClean : undefined,
@@ -694,11 +699,7 @@ class Engine extends EventEmitter {
   // por que o PR ficou com essa conta (busca, org ou reserva); ver lib/engine/contas-gh.js
   atribuicaoDoPr(pr) { return contasGh.atribuicaoDoPr(this, pr); }
 
-  accountForPr(pr) {
-    if (pr && pr.account) return pr.account;
-    const repo = (pr && (pr.repo || (pr.key || '').split('#')[0])) || '';
-    return this.accountForOwner(repo.split('/')[0]);
-  }
+  accountForPr(pr) { return contasGh.accountForPr(this, pr); }
 
   // Lista efetiva de reviewers de um repo: a EXCECAO do repo (projectReviewers) se
   // houver, senao o PADRAO da org (defaultReviewers). Vazio se nao houver nenhum.
@@ -796,6 +797,7 @@ class Engine extends EventEmitter {
   async headSha(pr) { return ghMod.headSha(this, pr); }
   async prCardSources(pr) { return ghMod.prCardSources(this, pr); }
   async fetchPrFiles(pr) { return fileProofMod.fetchPrFiles(this, pr); }
+  async fetchPrInventory(pr, headSha) { return fileProofMod.fetchPrInventory(this, pr, headSha); }
   deliveriesSince(days) { return ghMod.deliveriesSince(this, days); }
   async fetchDeliveries(days, owner) { return ghMod.fetchDeliveries(this, days, owner); }
   async refreshContributors() { return ghMod.refreshContributors(this); }
@@ -916,6 +918,7 @@ class Engine extends EventEmitter {
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
       this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
+      tickReviewAudits(this).catch(() => this.log('WARN', 'Amostragem de auditorias indisponível; registros preservados.'));
       // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo; depois de
       // detectar, tenta aplicar sozinho quando ocioso (v2.46.0, maybeAutoUpdate). Fire-and-
       // forget dos dois: nao segura o ciclo, e falha vira WARN, nunca derruba o polling.
@@ -1175,6 +1178,7 @@ class Engine extends EventEmitter {
       const toReview = this.queue.filter(p => {
         const acct = this.accountForPr(p);
         if (this.isMuted(acct) || !this.autoReviewFor(acct) || !this.tokenFor(acct)) return false;
+        if (!politicaDeInicio(this, p).automatic) return false;
         if (inflight.has(p.key)) return false;
         if (this.autoReviewParked.has(p.key)) return false;
         if (this.retryAfterNet.has(p.key)) return false;
@@ -1231,55 +1235,7 @@ class Engine extends EventEmitter {
   // Repesca do retry pós-transitório (extraído do _dispararAutomacoes quando o
   // gate de consciência entrou no caminho, pra manter a profundidade no teto do
   // gate de qualidade). O comportamento é o de sempre, mais o gate novo no meio.
-  async _repescarRetry(fresh, inflight) {
-    if (!this.retryAfterNet.size) return;
-    const retry = this.retryTargets(new Set(fresh.map(f => f.key)), inflight);
-    if (!retry.length) return;
-    // poda PRs que foram mergeados/fechados enquanto esperavam no retry,
-    // ANTES de notificar e lançar: sem isso cada ciclo gera uma cascata
-    // de "relançando..." + "já mergeado, cancelei" pra cada PR fechado
-    const stillOpen = [];
-    for (const pr of retry) {
-      let state = null;
-      try { state = await this.prState(pr); } catch {}
-      if (state === 'MERGED' || state === 'CLOSED') {
-        this.retryAfterNet.delete(pr.key);
-        // PR fechado não volta: a referência de retomada dele é consumida aqui, senão
-        // ficaria no inflight.json pra sempre
-        retomadaMod.consumirRetomada(this, pr.key);
-      } else {
-        stillOpen.push(pr);
-      }
-    }
-    // gate de consciência do review automático (28/08/2026 à tarde): head ativo
-    // com review decisivo de outra pessoa deixa o retry aguardando ação manual.
-    // A entrada do retry morre junto (a promessa "retomo sozinho" caducou:
-    // alguém decisivo se manifestou, e insistir seria reconsultar o mesmo head
-    // a cada ciclo); o card segue visível na fila, deixado lá pela falha
-    // transitória original, com o botão Revisar valendo. Roda ANTES do toast de
-    // relançamento pra nunca anunciar um relançamento que não vai acontecer.
-    const relancaveis = [];
-    for (const pr of stillOpen) {
-      if (await this.bloqueiaAutomatico(pr)) this.retryAfterNet.delete(pr.key);
-      else relancaveis.push(pr);
-    }
-    if (!relancaveis.length) return;
-    this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${relancaveis.map(p => p.key).join(', ')}.` });
-    // G9: relança o OBJETO guardado (era o motivo de guardá-lo): relançar
-    // por URL re-resolvia no panorama e requested virava false, rebaixando
-    // um round automático a manual com a reason errada
-    for (const pr of relancaveis) {
-      // a falha transitória original (runOneHeadless) fez unsee + queue.push
-      // pra deixar o card visível "aguardando você" enquanto esperava o retry.
-      // O launchReview desfazia os dois (markSeen + saída da fila) no
-      // relançamento; enqueueHeadless sozinho não faz isso, e o card mentia
-      // "aguardando você" com o botão Revisar ativo enquanto a revisão
-      // relançada já estava rodando.
-      this.markSeen(pr.key);
-      this.queue = this.queue.filter(p => p.key !== pr.key);
-      this.enqueueHeadless(pr);
-    }
-  }
+  async _repescarRetry(fresh, inflight) { return repescarRetry(this, fresh, inflight); }
 
   setStatus(s) { this.status = s; this.pushState(); }
 
@@ -1926,7 +1882,7 @@ class Engine extends EventEmitter {
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
       // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica
       capacidades: this.estadoDasCapacidades(),
-      status: this.status,
+      status: this.status, interventions: interventionMod.forUi(this),
       error: this.lastError,
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
       // a projecao de cada conta pra tela mora em lib/engine/contas-gh.js, junto do resto
@@ -2204,7 +2160,7 @@ class Engine extends EventEmitter {
     return !!(profile && this.profileBudgetStatus(profile).blocked);
   }
 
-  pushState() { this.emit('state', this.snapshot()); }
+  pushState() { interventionMod.pushState(this); }
 
   // Deep-link de alerta: o shell (clique na notificação) pede pra UI levar
   // o usuário direto ao card do PR (a UI rola e destaca via SSE 'focus-pr').

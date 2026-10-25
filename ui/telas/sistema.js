@@ -17,6 +17,13 @@ import { renderAparelhos, carregarAparelhos } from './sistema-aparelhos.js';
 import { renderGrupos } from './sistema-grupos.js';
 import { renderDoctor } from './sistema-ambiente.js';
 import { renderAbout } from './sistema-sobre.js';
+import { renderInterventionSettings } from './intervention-settings.js';
+import { initSpecialists, renderSpecialistAccounts } from './specialists.js';
+import { initReviewAudits } from './review-audits.js';
+import { initCapacity } from './capacity.js';
+import { initSetup, renderSetup } from './setup.js';
+import { initPreferencesTransfer } from './preferences-transfer.js';
+import { syncTheme } from './tema.js';
 import { renderAutomationSettings } from './sistema-automacao.js';
 
 /* ---------- sistema: sub-navegação sidebar ---------- */
@@ -48,6 +55,10 @@ $('#sysNav').addEventListener('click', (e) => {
    e empilhava tudo na vertical. Com índice, o resultado é uma lista curta que aponta
    pra UMA linha. 'at' é o seletor do alvo, e todo alvo tem que existir no HTML. */
 const SYS_INDEX = [
+  { sec: 'overview', at: '#setupManager', title: 'Configuração e retomada', hint: 'onboarding, começar, roteiro, configurar, retomar' },
+  { sec: 'overview', at: '#preferencesTransfer', title: 'Importar preferências', hint: 'importação, exportação, arquivo, tema, toque, lembretes, diferenças' },
+  { sec: 'plans', at: '#capacityManager', title: 'Reserva de cota e recursos', hint: 'cota, reserva, percentual, janela, memória, ram, cpu, processos, recursos' },
+  { sec: 'reviewers', at: '#auditManager', title: 'Auditoria de reviews', hint: 'auditoria, amostra, qualidade, humano, falso positivo, omissão, custo' },
   { sec: 'overview', at: '#updateBox', title: 'Versão e atualização', hint: 'update, atualizar, versão, release' },
   { sec: 'overview', at: '#doctor', title: 'Saúde do ambiente', hint: 'doctor, gh, claude, git bash, diagnóstico' },
   { sec: 'sync', at: '#syncManager', title: 'Sincronização entre aparelhos', hint: 'sync, firebase, aparelho, dispositivo, coordenação, lease, consolidação, consumo, um farol por pr' },
@@ -73,6 +84,8 @@ const SYS_INDEX = [
   { sec: 'reviewers', at: '#reviewersEditor', title: 'Reviewers por projeto', hint: 'revisor, time, padrão da org, exceção, repo' },
   { sec: 'prefs', at: '#sys-row-identity', title: 'Identidade nos cards', hint: 'barra, etiqueta, ponto, marcador' },
   { sec: 'prefs', at: '#sys-row-mutedview', title: 'Contas silenciadas', hint: 'recolher, esmaecer, ocultar, exibição' },
+  { sec: 'prefs', at: '#sys-row-interventions', title: 'Avisos de intervenção e voz', hint: 'voz, som, lembrete, silêncio, acesso, pendência' },
+  { sec: 'reviewers', at: '#specialistManager', title: 'Especialistas por repositório', hint: 'contexto, arquitetura, contratos, fontes, lições, curadoria' },
   { sec: 'prefs', at: '#sys-row-sound', title: 'Som ao chegar PR novo', hint: 'som, aviso, notificação' },
   { sec: 'prefs', at: '#sys-row-teamhighlights', title: 'Destaques do time', hint: 'destaques, kudos, elogios, memória, time, equipe' },
   { sec: 'prefs', at: '#sys-row-deliveries', title: 'Entregas', hint: 'entregas, merges, prs mergeados, github, atividade' },
@@ -141,6 +154,8 @@ function renderSettings() {
   renderReleaseNotes();
   renderAbout();
   const c = estado().config;
+  syncTheme(c);
+  if (!document.activeElement || !$('#setupSteps').contains(document.activeElement)) renderSetup();
   renderReposBloqueados();
   renderReviewersEditor();
   renderClaudeProfiles();
@@ -166,6 +181,7 @@ function renderSettings() {
   $('#setDebugSpawns').checked = !!c.debugSpawns;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
+  renderInterventionSettings(c); renderSpecialistAccounts();
   $('#setTeamHighlights').checked = c.teamHighlights === true;
   $('#setDeliveriesEnabled').checked = c.deliveriesEnabled === true;
   $('#setAutostart').checked = !!c.autostart;
@@ -188,6 +204,11 @@ function renderSettings() {
 // ele poderia passar à frente de 'sistema' dependendo da ordem dos imports. 'sistema'
 // não tem essa restrição: só precisa que o IMPORT deste módulo, no app.js, venha
 // depois do import de telas/time.js.
+initSpecialists();
+initReviewAudits();
+initCapacity();
+initSetup();
+initPreferencesTransfer();
 registrarTela({
   id: 'sistema',
   aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); carregarAparelhos(); renderGrupos(); loadReviewerCands(); },

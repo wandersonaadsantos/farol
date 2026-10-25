@@ -1,3 +1,5 @@
+import { safeJsonParse, safeJsonStringify } from '../pure/comum.js';
+import { roundSummaryHtml } from '../pure/round-summary.js';
 /* Farol · UI: a aba Radar (fila, decisões pendentes, pushback e panorama). Não é uma
    aba registrável (é a aba padrão, e hoje não reage a entrar de aba nem a chegar
    estado): renderDecisions, renderQueue, renderPanorama e renderRadarNav são
@@ -15,6 +17,27 @@ import { $, api, textoDaListaVazia, toast, copyToClipboard, lembrarAbertos } fro
 import { scopeVisible, acctMark, acctOf } from './contas.js';
 import { revisarUrls } from './consumo.js';
 import { renderPanoramaRemoto } from './listas-remotas.js';
+import { groupedQueue } from '../pure/queue-groups.js';
+
+let queueGrouping = 'none';
+const closedQueueGroups = new Set();
+try {
+  const saved = safeJsonParse(localStorage.getItem('farol-queue-view') || '{}') || {};
+  if (['none', 'account', 'repo'].includes(saved.mode)) queueGrouping = saved.mode;
+  for (const key of (Array.isArray(saved.closed) ? saved.closed.slice(0, 256) : [])) if (typeof key === 'string') closedQueueGroups.add(key);
+} catch { /* preferência local ausente ou incompatível: mantém a fila aberta */ }
+function saveQueueView() {
+  try { localStorage.setItem('farol-queue-view', safeJsonStringify({ mode: queueGrouping, closed: [...closedQueueGroups].slice(-256) })); }
+  catch { /* sem armazenamento local: a escolha vale nesta janela */ }
+}
+$('#queueGrouping').value = queueGrouping;
+$('#queueGrouping').onchange = event => { queueGrouping = event.target.value; saveQueueView(); renderQueue(); };
+$('#queue').addEventListener('toggle', event => {
+  const key = event.target.dataset.queueGroup;
+  if (!key) return;
+  if (event.target.open) closedQueueGroups.delete(key); else closedQueueGroups.add(key);
+  saveQueueView();
+}, true);
 
 // mini-navegação do Radar: só lista seções visíveis (hidden=false), com contagem
 // quando o número ajuda a decidir pra onde ir. Espelha o estado real do DOM em
@@ -118,6 +141,7 @@ function renderDecisions() {
       ${meta.reasons.length ? reasonGroupsHtml(meta.reasons, d.postRetry) : ''}
       ${meta.statusHtml}
       ${d.technical ? `<div class="review-box-context"><strong>Critério técnico</strong><p>${esc(d.technical.message)}</p></div>` : ''}
+      ${roundSummaryHtml(d.rounds, ` data-abre="${esc(`${d.id}|rodada`)}"${radarAbertos.has(`${d.id}|rodada`) ? ' open' : ''}`)}
       <details class="dec-report" data-abre="${esc(`${d.id}|relatorio`)}"${radarAbertos.has(`${d.id}|relatorio`) ? ' open' : ''}><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">
         ${(meta.reviewBtn === 'primary' || meta.reviewBtn === 'secondary') && d.pr?.url
@@ -227,12 +251,14 @@ function renderQueue() {
   const noTopo = contasNoLimiteDaFila(q, { contaDe, limiteDe, parked, revisarJunto });
   const varias = Object.keys(noTopo).length > 1;
   const avisos = Object.entries(noTopo).map(([conta, v]) => queueLimitHtml(acctOf({ account: conta }), v.ate, v.n, varias)).join('');
-  box.innerHTML = avisos + q.map(pr => queueCardHtml(pr, {
+  const rows = q.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: queueCardHtml(pr, {
     people, mark: acctMark(pr), parked, sync: estado().sync,
     revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)],
-  })).join('') + aguardando.map(pr => queueWaitingCardHtml(pr, {
+  }) })).concat(aguardando.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: queueWaitingCardHtml(pr, {
     mark: acctMark(pr), sync: estado().sync, distribuindo: distribuindo.has(pr.key),
-  })).join('');
+    espera: (estado().headlessWaitingDetails || {})[pr.key],
+  }) })));
+  box.innerHTML = avisos + groupedQueue(rows, queueGrouping, closedQueueGroups);
 }
 
 function renderPanorama() {

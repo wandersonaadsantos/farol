@@ -239,3 +239,77 @@ test('as rotas de medir e enviar levam o lote até a tela', async () => {
     await new Promise((resolve) => server.close(() => resolve()));
   }
 });
+
+test('envio medido inclui rodadas antigas cifradas e restaura a memória após reinício', async () => {
+  const { saveRound, scopeFor, roundsPath } = await import('../lib/engine/review-round-store.js');
+  const { publishRound, readRemoteRounds } = await import('../lib/engine/review-round-sync.js');
+  const { prepareRoundReview } = await import('../lib/engine/review-rounds.js');
+  const e = await pronto(0);
+  const pr = { key: 'org/r#991', repo: 'org/r', number: 991 };
+  const scope = scopeFor(pr.key, LOGIN);
+  const otherScope = scopeFor(pr.key, 'outra-conta');
+  const round = { schema: 1, id: '1'.repeat(32), scope, parents: [], headSha: 'h1', baseSha: 'b1',
+    at: AGORA - 10000, findings: [], unresolved: [], files: [{ path: 'privado.ts', sha: 'blob1' }] };
+  try {
+    saveRound(round);
+    saveRound({ ...round, scope: otherScope });
+    e.sync.devices = {};
+    assert.equal((await publishRound(e, round)).ok, false, 'nunca exporta automaticamente o passado');
+    const before = await prepareRoundReview(e, pr, 'h2', { baseSha: 'b2' });
+    assert.equal(before.status, 'unavailable');
+    e.sync.devices = { dOutro: { contract: 2, keyReady: true, lastSeenAt: Date.now() } };
+    fake.requests.length = 0;
+    const m = envio.medirEnvio(e, e.config.sync);
+    assert.equal(m.ok, true);
+    assert.deepEqual(m.categorias, { revisoes: 0, rodadas: 1 });
+    assert.equal(m.pendentes, 1, 'não inclui outra conta');
+    assert.deepEqual(fake.requests, []);
+    assert.equal((await envio.enviarHistorico(e, e.config.sync, {})).code, 'medida-vencida');
+    const put = e.sync.client.put.bind(e.sync.client);
+    let calls = 0;
+    e.sync.client.put = async (...args) => ++calls === 2 ? { ok: false } : put(...args);
+    const interrupted = await envio.enviarHistorico(e, e.config.sync, { impressao: m.impressao });
+    assert.deepEqual([interrupted.enviados, interrupted.restantes, interrupted.concluido], [0, 1, false]);
+    e.sync.devices = {};
+    assert.equal((await readRemoteRounds(e, scope)).ok, false, 'fragmento sem manifesto não libera a memória');
+    e.sync.devices = { dOutro: { contract: 2, keyReady: true, lastSeenAt: Date.now() } };
+    e.sync.client.put = put;
+    assert.equal((await envio.enviarHistorico(e, e.config.sync, { impressao: m.impressao })).concluido, true);
+    const bodies = fake.tree().users.u1.reviewBodies;
+    const bytes = Object.values(bodies).flatMap(Object.values).reduce((n, node) => n + Buffer.byteLength(JSON.stringify(node)), 0);
+    assert.equal(m.bytes, bytes, 'tamanho cifrado real dos fragmentos e manifesto');
+    assert.equal(JSON.stringify(bodies).includes('privado.ts'), false);
+    assert.equal(JSON.stringify(bodies).includes(LOGIN), false);
+    e.sync.roundsPublished = new Set();
+    e.sync.devices = {};
+    const after = await prepareRoundReview(e, pr, 'h2', { baseSha: 'b2' });
+    assert.equal(after.status, 'ready', 'reinício confirma a exportação pelo conteúdo remoto');
+    assert.deepEqual((await readRemoteRounds(e, scope)).rounds, [round]);
+    assert.deepEqual((await readRemoteRounds(e, otherScope)).rounds, []);
+    e.sync.devices = { dOutro: { contract: 2, keyReady: true, lastSeenAt: Date.now() } };
+    assert.equal(envio.medirEnvio(e, e.config.sync).pendentes, 0);
+  } finally {
+    for (const s of [scope, otherScope]) fs.rmSync(roundsPath(s), { recursive: true, force: true });
+  }
+});
+
+test('rodadas novas invalidam a confirmação e corrupção local é preservada sem envio', async () => {
+  const { saveRound, scopeFor, roundsPath } = await import('../lib/engine/review-round-store.js');
+  const e = await pronto(0);
+  const scope = scopeFor('org/r#992', LOGIN);
+  const round = { schema: 1, id: '2'.repeat(32), scope, parents: [], headSha: 'h1', baseSha: 'b1',
+    at: AGORA - 10000, findings: [], unresolved: [], files: [] };
+  try {
+    saveRound(round);
+    const m = envio.medirEnvio(e, e.config.sync);
+    saveRound({ ...round, id: '3'.repeat(32) });
+    fake.requests.length = 0;
+    assert.equal((await envio.enviarHistorico(e, e.config.sync, { impressao: m.impressao })).code, 'medida-vencida');
+    assert.deepEqual(fake.requests, []);
+    const file = path.join(roundsPath(scope), `${round.id}.json`);
+    fs.writeFileSync(file, 'corrompido');
+    assert.equal(envio.medirEnvio(e, e.config.sync).code, 'memoria-indisponivel');
+    assert.equal(fs.readFileSync(file, 'utf8'), 'corrompido');
+    assert.deepEqual(fake.requests, []);
+  } finally { fs.rmSync(roundsPath(scope), { recursive: true, force: true }); }
+});

@@ -1050,20 +1050,8 @@ test('selfSessionKey devolve null pra sessão de revisão (auto) e pra id descon
   assert.equal(P.selfSessionKey([{ id: 's3', mode: 'self' }], 's3'), null, 'sessão self sem keys não inventa destino');
 });
 
-test('sessionProgress cresce com a atividade, nunca recua e trava em 90', () => {
-  // o bug relatado: barra fixa em 25% até concluir do nada; a régua nova tem
-  // que MOVER a cada evento do feed e nunca prometer 100 antes do fim real
-  let prev = -1;
-  for (let n = 0; n <= 200; n++) {
-    const p = P.sessionProgress(n);
-    assert.ok(p >= prev, `recuou em n=${n}`);
-    assert.ok(p >= 5 && p <= 90, `fora da faixa em n=${n}: ${p}`);
-    prev = p;
-  }
-  assert.ok(P.sessionProgress(10) > P.sessionProgress(1), 'os primeiros eventos têm que mover a barra de forma visível');
-  assert.equal(P.sessionProgress(0), 5);
-  assert.equal(P.sessionProgress(1e6), 90);
-  assert.equal(P.sessionProgress(undefined), 5, 'falta de dado não quebra nem inventa progresso');
+test('contagem de eventos não produz percentual de conclusão', () => {
+  for (const n of [undefined, 0, 1, 10, 1e6]) assert.equal(P.sessionProgress(n), null);
 });
 
 /* ---------- pushbackControl: o controle de pushback nas Revisões recentes ---------- */
@@ -2656,9 +2644,10 @@ const DIAG_BASE = {
 
 test('cartão de sessão: os ganchos de atualização existem todos', () => {
   const html = P.sessionCardHtml({ id: 'abc', label: 'acme#12', startedAt: 1755600000000 }, 'preparo');
-  for (const cls of ['session-card', 'session-stage', 'session-model', 'session-agents', 'session-elapsed', 'sess-progress', 'stage-flow', 'activity-feed'])
+  for (const cls of ['session-card', 'session-stage', 'session-model', 'session-agents', 'session-agent-details', 'session-elapsed', 'sess-progress', 'stage-flow', 'activity-feed'])
     assert.match(html, new RegExp(`class="[^"]*${cls}`), `sumiu o gancho .${cls}`);
-  assert.equal((html.match(/data-id="abc"/g) || []).length, 7, 'todo gancho carrega o id da sessão');
+  assert.equal((html.match(/data-id="abc"/g) || []).length, 8, 'todo gancho carrega o id da sessão');
+  assert.match(html, /class="session-agent-details(?: [^"]*)?" data-id="abc"/);
   // o cabeçalho passou a mostrar a ETAPA real (estampada pelo engine), então o gancho é o
   // id da sessão, e não mais o data-started da idade dela: quem recalcula é o tickElapsed,
   // lendo a esteira daquela sessão.
