@@ -179,12 +179,36 @@ for (const fail of [true, false]) {
         function Test-ElectronRuntime($Candidate) {
           return (Test-Path -LiteralPath $Candidate) -and ((Get-Content -LiteralPath $Candidate -Raw) -eq '44.1.0')
         }
+        function Assert-TestRuntimeStage {
+          $current=[IO.Path]::GetFullPath((Get-Location).ProviderPath).TrimEnd('\\')
+          $tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\\')
+          if (-not [string]::Equals([IO.Path]::GetDirectoryName($current), $tempRoot, [StringComparison]::OrdinalIgnoreCase) -or
+              [IO.Path]::GetFileName($current) -notmatch '^farol-runtime-[0-9a-f]{32}$') {
+            throw "Stub de teste recusou escrita fora do staging: $current"
+          }
+          return $current
+        }
         function npm {
+          $stage=Assert-TestRuntimeStage
+          if ($args.Count -ne 5 -or $args[0] -ne 'install' -or $args[1] -ne '--omit=dev' -or
+              $args[2] -ne '--no-audit' -or $args[3] -ne '--no-fund' -or $args[4] -notmatch '^--arch=(x64|arm64)$') {
+            throw 'Comando npm inesperado no stub de teste'
+          }
           New-Item -ItemType Directory -Force 'node_modules/electron' | Out-Null
           Set-Content 'node_modules/electron/install.js' 'stub'
           $global:LASTEXITCODE=0
         }
         function node {
+          if ($args.Count -eq 2 -and $args[0] -eq (Join-Path $Src 'lib\\node-runtime.js') -and
+              $args[1] -eq (Join-Path $Src 'package.json')) {
+            & $env:TEST_NODE @args
+            $global:LASTEXITCODE=$LASTEXITCODE
+            return
+          }
+          $stage=Assert-TestRuntimeStage
+          if ($args.Count -ne 1 -or $args[0] -ne (Join-Path $stage 'node_modules\\electron\\install.js')) {
+            throw 'Comando node inesperado no stub de teste'
+          }
           Set-Content -LiteralPath $env:TEST_MARKER 'install.js chamado'
           if ($env:TEST_FAIL -eq 'yes') { $global:LASTEXITCODE=17; return }
           New-Item -ItemType Directory -Force 'node_modules/electron/dist' | Out-Null
@@ -202,12 +226,14 @@ for (const fail of [true, false]) {
       const marker = path.join(dir, 'node.log');
       const r = cp.spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', file], {
         env: { ...process.env, TEST_SRC: src, TEST_APP: app, TEST_HELPER: path.join(RAIZ, 'installer/electron-runtime.ps1'),
-          TEST_MARKER: marker, TEST_FAIL: fail ? 'yes' : 'no' }, encoding: 'utf8', timeout: 30000,
+          TEST_NODE: process.execPath, TEST_MARKER: marker, TEST_FAIL: fail ? 'yes' : 'no' },
+        cwd: dir, encoding: 'utf8', timeout: 30000,
       });
       assert.equal(r.status, fail ? 1 : 0, r.stdout + r.stderr);
       assert.equal(fs.readFileSync(previous, 'utf8'), '43.1.0');
       assert.match(fs.readFileSync(marker, 'utf8'), /install.js chamado/);
       assert.equal(r.stdout.includes('RUNTIME_VALIDADO'), !fail);
+      assert.equal(fs.existsSync(path.join(dir, 'node_modules')), false, 'preflight não pode escrever no cwd do executor');
     });
 }
 

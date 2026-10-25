@@ -22,7 +22,8 @@ function escrever(dir, file, text) {
 }
 function pacote() {
   const dir = novaPasta('pacote-');
-  escrever(dir, 'package.json', JSON.stringify({ name: 'farol', type: 'module', version: '9.9.9', dependencies: { electron: '^44.1.0' } }));
+  const engines = JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).engines;
+  escrever(dir, 'package.json', JSON.stringify({ name: 'farol', type: 'module', version: '9.9.9', engines, dependencies: { electron: '^44.1.0' } }));
   escrever(dir, 'server.js', '// entrada sintética');
   fs.cpSync(path.join(raiz, 'lib'), path.join(dir, 'lib'), { recursive: true });
   fs.cpSync(path.join(raiz, 'assets/third-party'), path.join(dir, 'assets/third-party'), { recursive: true });
