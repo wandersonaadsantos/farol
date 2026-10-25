@@ -60,6 +60,8 @@ gramática TS e JSX são recursos internos do parser. O worker deixou de precisa
 
 Metadados oficiais do npm: parser 7.28.5 tem cerca de 1,99 MB descompactado;
 `@babel/types` 7.28.5 acrescenta cerca de 2,75 MB e dois helpers pequenos.
+O lock resolvido nesta entrega usa `@babel/types` 7.29.11, também cerca de 2,75 MB;
+essa é a versão efetivamente usada nas medições abaixo.
 TypeScript 5.9.3 completo teria cerca de 23,6 MB. Babel 8.0.8 exige Node 22.18 ou
 24.11 e não atende ao mínimo 22.12. O parser 7.28.5 declara Node >=6.0.
 Fontes: [parser 7.28.5](https://registry.npmjs.org/@babel/parser/7.28.5),
@@ -79,10 +81,19 @@ de consumo de uma revisão real:
 CPU e RSS incluem o processo inteiro e suas threads. Heap antes/depois é uma amostra
 do isolate, não o pico. Outra conta refaz os 120 parses; outro processo também começa
 frio. A medição usa uma análise distinta com caminhos renomeados para demonstrar
-reuso por autorização/blob/extensão. Instalação de teste feita em diretório temporário
-com `NODE_PATH`; a junction do checkout pessoal não foi alterada. Em distribuição,
-o pacote é dependência de produção normal, coberta pelo package lock e copiada com
-`node_modules` pelos instaladores existentes.
+reuso por autorização/blob/extensão. As primeiras medições carregaram o pacote npm
+em diretório temporário com `NODE_PATH`; a junction do checkout pessoal não foi
+alterada. A validação de distribuição encontrou que upgrades podem preservar
+`node_modules` antigos e preparam apenas Electron. Por isso o runtime usa o bundle
+oficial CJS **512.279 bytes**, copiado byte a byte para
+`assets/third-party/babel-parser/dist/parser.cjs`, com licença MIT e manifesto
+SHA-256. Esse é o caminho canônico, sem fallback npm. Source maps, declarações e
+`@babel/types` não são necessários no runtime. A dependência de desenvolvimento e
+o lock servem à reprodução/verificação do asset. O pacote npm completo permanece
+apenas como custo comparativo; o custo de distribuição efetivo é bundle, licença
+e manifesto. As medições iniciais acima precedem essa troca de carregador; os
+gates focados e o benchmark são repetidos no checkpoint com o asset e identificados
+no pacote de evidências.
 
 O grafo registra declaração de import/reexport e caminho candidato, sem inferir
 compatibilidade de props, contrato de hooks, binding usado por `export *` ou chamadas.
