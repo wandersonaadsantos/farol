@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMap, impactPaths } from '../lib/review-context/map.js';
 import { selectContext } from '../lib/review-context/select.js';
+import { inheritanceForContext } from '../lib/engine/analysis-source.js';
 const digest = text => createHash('sha1').update(text).digest('hex');
 function source(head, previous = head) {
   Object.freeze(head); Object.freeze(previous);
@@ -46,6 +47,27 @@ test('import com tipos inline diferencia contrato misto de import apenas de runt
   const map = await buildMap(source({ 'mixed.ts': "import { type Model, value } from './api.ts'; export const x: Model=value;",
     'api.ts': 'export interface Model { id:number } export const value={id:1};' }));
   assert.equal(edge(map, 'mixed.ts', 'api.ts').kind, 'mixed');
+});
+test('dependência não resolvida amplia candidatos e impede herdar consumidor inalterado em assist', async () => {
+  for (const specifier of ['./api.js', '@unknown/api', 'unresolved-package']) {
+    const previous = { 'api.ts': 'export const value=1;',
+      'View.tsx': `import {value} from '${specifier}'; export const View=()=> <div>{value}</div>;` };
+    const input = source({ ...previous, 'api.ts': 'export const value="changed";' }, previous);
+    const map = await buildMap(input);
+    assert.ok(map.head.unresolved.some(item => item.from === 'View.tsx' && item.specifier === specifier));
+    assert.equal(map.complete, false, `Não comprovar resolução de ${specifier} não comprova ausência de impacto.`);
+    const selection = await selectContext(input, map, [{ path: 'api.ts' }]);
+    assert.ok(selection.references.some(item => item.path === 'View.tsx' && item.reason.includes('incompleto')));
+    assert.ok(selection.snippets.some(item => item.path === 'View.tsx'));
+    assert.ok(selection.limitations.some(item => item.includes('não resolvida')));
+    const inherited = { ativa: true, unchanged: ['View.tsx'], changed: ['api.ts'] };
+    const result = inheritanceForContext(inherited, { mode: 'assist', map, selection });
+    assert.equal(result.ativa, false);
+    assert.deepEqual(result.unchanged, []);
+    assert.deepEqual(result.contextRevisit, ['View.tsx']);
+    assert.deepEqual(new Set(result.changed), new Set(['api.ts', 'View.tsx']));
+    assert.equal(inheritanceForContext(inherited, { mode: 'observe', map, selection }), inherited);
+  }
 });
 test('alias preserva procedência de configuração e permanece candidato', async () => {
   const map = await buildMap(source({ 'tsconfig.json': '{"compilerOptions":{"baseUrl":"src","paths":{"@/*":["*"]}}}',
