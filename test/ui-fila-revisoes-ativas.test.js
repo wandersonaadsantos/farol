@@ -40,6 +40,7 @@ test('PR em revisão sai do card acionável, dos contadores e do Revisar tudo, s
   snap.headlessDistributing = [pr.key];
   receber(snap);
   assert.equal($('#activeCount').textContent, '1');
+  assert.equal($('#activeWaiting').textContent, '', 'a legenda da espera também não repete a sessão ativa');
   assert.doesNotMatch($('#queue').innerHTML, /acme\/app#427/);
   assert.match($('#queue').innerHTML, /acme\/app#428/);
   assert.equal($('#queueCount').textContent, '1');

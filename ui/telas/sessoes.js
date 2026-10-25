@@ -10,6 +10,7 @@ import {
 import { estado } from './estado.js';
 import { $, ACTIVE_OPS, showOp, closeOp } from './infra.js';
 import { prUser, scopeVisible } from './contas.js';
+import { filaSemRevisoesAtivas } from '../pure/fila.js';
 import { atualizarCancelamento } from './sessao-cancelar.js';
 import { registrarAtividadeVisual, fluxoDaAtividade } from './atividade-visual.js';
 import { telaVisivel } from './pintura.js';
@@ -266,7 +267,10 @@ function renderActive() {
   const concluidas = [...SAINDO.values()].map(x => x.sess).filter(s => !vivas.some(v => v.id === s.id));
   const sessions = [...vivas, ...concluidas];
   const contas = estado().headlessWaitingContas || {};
-  const waiting = (estado().headlessWaiting || []).filter(k => scopeVisible({ key: k, account: contas[k] }));
+  const waiting = filaSemRevisoesAtivas(
+    (estado().headlessWaiting || []).map(key => ({ key, account: contas[key] })),
+    estado().activeSessions || [], prUser,
+  ).filter(scopeVisible).map(pr => pr.key);
   const wrap = $('#activeWrap');
   wrap.hidden = sessions.length === 0 && waiting.length === 0;
   $('#activeCount').textContent = vivas.length || '';
