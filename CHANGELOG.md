@@ -21,6 +21,7 @@ Revisões com fontes reaproveitáveis e investigação de contexto opcional, arm
 - Desenvolvimento, testes e execução externa do motor passam a exigir Node 24 LTS, de 24.16.0 até antes de 25. Atualize o runtime do serviço antes de aplicar esta versão em servidor que ainda usa Node 22. O desktop mantém o Node embarcado no Electron e a instalação offline dispensa Node externo. A ocorrência histórica do Node 22 continua sem causa determinada; retirar seu suporte não é uma correção do crash.
 
 **Correções**
+- Os controles de iniciar com o sistema respeitam a plataforma desde o primeiro estado recebido, mesmo com Sistema oculta ou um formulário focado. Leituras de manifestos e registros conferem limite, identidade e conteúdo pelo mesmo descritor de arquivo.
 - Imports não resolvidos tornam o mapa incompleto e ampliam a investigação de consumidores, em vez de sinalizar uma completude que não foi demonstrada.
 - Cancelamento ou interrupção de aquisição Git com descendente de término incerto mantém reservas e materiais protegidos contra limpeza. Falta de espaço adia trabalho novo sem apagar consumidores ativos.
 - A voz permanece desligada por padrão. Esta entrega não promove ganhos de qualidade de review, economia total de tokens ou redução percentual de CPU que não foram medidos.

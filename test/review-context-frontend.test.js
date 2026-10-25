@@ -75,6 +75,20 @@ test('alias preserva procedência de configuração e permanece candidato', asyn
   const relation = edge(map, 'src/View.tsx', 'src/model.ts');
   assert.equal(relation.confidence, 'candidate'); assert.equal(relation.config, 'tsconfig.json'); assert.equal(relation.kind, 'type');
 });
+test('alias conserva cifrão literal e não interpreta configurações com múltiplos curingas', async () => {
+  const map = await buildMap(source({
+    'tsconfig.json': '{"compilerOptions":{"paths":{"@/*":["src/*"]}}}',
+    'src/$&.ts': 'export const value=1;', 'View.ts': "import {value} from '@/$&'; export const view=value;",
+  }));
+  assert.equal(edge(map, 'View.ts', 'src/$&.ts').resolution, 'configuration-candidate');
+  const invalid = await buildMap(source({
+    'tsconfig.json': '{"compilerOptions":{"paths":{"@/*/skip*":["src/*"],"other/*":["src/*/*"]}}}',
+    'src/api.ts': 'export const value=1;', 'View.ts': "import {value} from '@/api/skip'; export const view=value;",
+  }));
+  assert.equal(invalid.complete, false);
+  assert.equal(edge(invalid, 'View.ts', 'src/api.ts'), undefined);
+  assert.ok(invalid.limitations.some(reason => reason.includes('mais de um curinga')));
+});
 test('barrel com export nomeado, export type e export estrela conserva relações transitivas', async () => {
   const map = await buildMap(source({ 'model.ts': 'export interface Model { id:number }',
     'useModel.ts': 'export const useModel=()=>({id:1});',
