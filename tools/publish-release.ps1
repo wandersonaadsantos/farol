@@ -63,7 +63,9 @@ if (-not (Test-Path $offline)) { throw "instalador nao gerado: $offline" }
 # darwin. Falhar a release inteira por causa disso seria pior do que publicar sem o
 # anexo do Mac, que e o comportamento de sempre. O AVISO fala alto quando cai.
 $macInstaller = Join-Path $Src 'dist\Farol-Instalar-mac.command'
+$macIntelInstaller = Join-Path $Src 'dist\Farol-Instalar-mac-x64.command'
 if (Test-Path $macInstaller) { Remove-Item $macInstaller -Force }
+if (Test-Path $macIntelInstaller) { Remove-Item $macIntelInstaller -Force }
 $bash = Get-Command bash -ErrorAction SilentlyContinue
 if ($bash) {
   Write-Host '  -> Gerando o instalador offline do macOS (Apple Silicon)' -ForegroundColor Cyan
@@ -75,7 +77,8 @@ if ($bash) {
   # O que decide se deu certo e o arquivo existir, nao o fluxo de erro.
   $eapAnterior = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
-  & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') *> $null
+  & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') --arch=arm64 *> $null
+  & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') --arch=x64 *> $null
   $ErrorActionPreference = $eapAnterior
 } else {
   Write-Host '  !  bash nao encontrado: instalador de macOS NAO sera anexado' -ForegroundColor Yellow
@@ -151,10 +154,12 @@ if ($exists) {
   & gh release edit $tag --repo $repo --title "Farol $tag" --notes-file $notesFile
   if ($LASTEXITCODE -ne 0) { throw "gh release edit falhou (codigo $LASTEXITCODE)" }
   $anexos = @($light, $offline); if (Test-Path $macInstaller) { $anexos += $macInstaller }
+  if (Test-Path $macIntelInstaller) { $anexos += $macIntelInstaller }
   & gh release upload $tag @anexos --repo $repo --clobber
 } else {
   Write-Host "  -> Criando a release $tag" -ForegroundColor Cyan
   $anexos = @($light, $offline); if (Test-Path $macInstaller) { $anexos += $macInstaller }
+  if (Test-Path $macIntelInstaller) { $anexos += $macIntelInstaller }
   & gh release create $tag @anexos --repo $repo --title "Farol $tag" --notes-file $notesFile
 }
 if ($LASTEXITCODE -ne 0) { throw "gh release falhou (codigo $LASTEXITCODE)" }

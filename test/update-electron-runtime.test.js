@@ -72,3 +72,62 @@ test('manifesto sem requisito verificável e runtime desconhecido falham antes d
     assert.equal(fs.existsSync(update.REABRIR_SILENCIOSO), false);
   }
 });
+
+test('botão usa o pacote completo da mesma release quando o Electron instalado é incompatível', async () => {
+  const { engine, deps, source, oldApp } = fixture();
+  engine.config.updateRepo = 'owner/farol';
+  let calls = 0;
+  const result = await update.applyUpdate(engine, { ...deps, electronVersion: '43.1.0',
+    prepareFullUpdate: async (_engine, release) => {
+      calls++;
+      assert.deepEqual(release, { repo: 'owner/farol', version: '9.9.9' });
+      _engine.update.sourceVersion = '10.0.0'; // polling concorrente não troca a release em preparação
+      if (process.platform === 'win32') return { installer: path.join(source, 'Farol-Setup.exe') };
+      const dist = path.join(source, 'node_modules', 'electron', 'dist');
+      const native = process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : 'electron';
+      fs.mkdirSync(path.dirname(path.join(dist, native)), { recursive: true });
+      fs.writeFileSync(path.join(dist, native), 'runtime sintetico');
+      fs.writeFileSync(path.join(dist, 'version'), '44.1.0');
+      fs.writeFileSync(path.join(source, 'node_modules', 'electron', 'package.json'), '{"version":"44.1.0"}');
+      return { source };
+    }
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.ok, true);
+  assert.equal(result.to, '9.9.9');
+  assert.equal(launches.length, 1, 'somente o processo externo é substituído; nenhum instalador executado');
+  assert.equal(fs.readFileSync(oldApp, 'utf8'), 'versão atual preservada');
+  if (process.platform === 'win32') {
+    const scriptFile = launches[0][1].at(-1).match(/-File','"(.+)"'/)[1];
+    assert.match(fs.readFileSync(scriptFile, 'utf8'), /Farol-Setup.exe/);
+  }
+});
+
+test('sessão iniciada durante o download completo agenda o update sem fechar o Farol', async () => {
+  const { engine, deps, oldApp } = fixture();
+  engine.config.updateRepo = 'owner/farol';
+  const result = await update.applyUpdate(engine, { ...deps, electronVersion: '43.1.0',
+    prepareFullUpdate: async () => {
+      engine.running.set('chat', { startedAt: Date.now() });
+      return { installer: 'nao-executar.exe' };
+    }
+  });
+  assert.equal(result.queued, true);
+  assert.equal(launches.length, 0);
+  assert.equal(fs.existsSync(update.REABRIR_SILENCIOSO), false);
+  assert.equal(fs.readFileSync(oldApp, 'utf8'), 'versão atual preservada');
+});
+
+test('falha do pacote completo preserva instalação, libera nova tentativa e não lança instalador', async () => {
+  const { engine, deps, oldApp } = fixture();
+  engine.config.updateRepo = 'owner/farol';
+  const result = await update.applyUpdate(engine, { ...deps, electronVersion: '43.1.0',
+    prepareFullUpdate: async () => { throw new Error('download interrompido'); }
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /interrompido/);
+  assert.equal(engine.updateApplying, false);
+  assert.equal(launches.length, 0);
+  assert.equal(fs.existsSync(update.REABRIR_SILENCIOSO), false);
+  assert.equal(fs.readFileSync(oldApp, 'utf8'), 'versão atual preservada');
+});

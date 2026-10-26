@@ -4,6 +4,25 @@ import { esc, fmtClock, updateAdiadoHtml } from '../pure.js';
 import { estado } from './estado.js';
 import { $, api, toast, confirmModal, origemLocal } from './infra.js';
 
+let updateEmAndamento = false;
+
+async function aplicarAtualizacao() {
+  if (updateEmAndamento) return;
+  updateEmAndamento = true;
+  renderUpdate();
+  let aplicado = false;
+  try {
+    const r = await api('/api/update', {});
+    aplicado = !!r?.ok;
+    if (r?.queued) toast('info', 'Tem análise, chat ou sessão de terminal em andamento. O update ficou agendado: assim que terminar, o Farol aplica sozinho, fecha e reabre.');
+    else if (!r?.ok) toast('error', r?.error || 'não consegui iniciar a atualização');
+  } catch { toast('error', 'Não consegui iniciar a atualização. Tente novamente.'); }
+  finally {
+    updateEmAndamento = aplicado;
+    renderUpdate();
+  }
+}
+
 /* ---------- render: versão e atualização ---------- */
 function renderUpdate() {
   const u = estado().update;
@@ -26,11 +45,14 @@ function renderUpdate() {
       ? `Atualização disponível ${'nas ' + origin}. Com "Atualizar sozinho" ligado (Sistema > Automação), o Farol aplica sozinho assim que ficar ocioso (sem análise, chat ou terminal em andamento), fecha e reabre preservando estado e configurações. O botão abaixo aplica agora, sem esperar.`
       : `Atualização disponível ${remote ? 'nas ' + origin : 'na ' + origin}. O Farol ${remote ? 'baixa e instala, ' : ''}fecha e reabre sozinho, preservando estado e configurações.`;
     const queuedLine = u.queued ? ' <b>Agendado:</b> aplica sozinho assim que as sessões em andamento terminarem.' : '';
+    const disabled = updateEmAndamento ? 'disabled aria-busy="true"' : '';
+    const label = updateEmAndamento ? 'Preparando atualização…' : 'Atualizar agora';
     box.innerHTML = `
       <span class="up-ver">v${esc(u.current)} → v${esc(u.sourceVersion)}</span>
       <span class="up-note">${noteAuto}${queuedLine}${updateAdiadoHtml(u)}</span>
-      <button id="btnUpdateNow" class="btn primary sm">Atualizar agora</button>`;
+      <button id="btnUpdateNow" class="btn primary sm" ${disabled}>${label}</button>`;
     $('#btnUpdateNow').onclick = async () => {
+      if (updateEmAndamento) return;
       // confirm() nativo era o último popup fora da identidade do app neste fluxo
       // (pedido do Wanderson, 15/08/2026): o modal do próprio Farol explica o que
       // vai acontecer, e nada roda sem o clique em Atualizar.
@@ -38,18 +60,15 @@ function renderUpdate() {
         title: `Atualizar pra v${u.sourceVersion}?`,
         body: `<p>O Farol sai da <b>v${esc(u.current)}</b> pra <b>v${esc(u.sourceVersion)}</b>.</p>
           <ul>
-            <li>${remote ? 'baixa a release e instala' : 'copia os arquivos da pasta-fonte'} sozinho;</li>
-            <li>o app <b>fecha e reabre</b> no fim (leva alguns segundos);</li>
+            <li>${remote ? 'baixa e instala sozinho, incluindo o instalador completo se precisar atualizar o Electron' : 'copia os arquivos da pasta-fonte'};</li>
+            <li>o app <b>fecha e reabre</b> no fim; o download pode levar alguns minutos;</li>
             <li>estado, memória do time e configurações ficam intactos;</li>
             <li>se houver revisão ou sessão em andamento, nada é morto no meio: o update fica agendado e aplica sozinho assim que terminar.</li>
           </ul>`,
         confirmLabel: 'Atualizar'
       });
       if (!ok) return;
-      const r = await api('/api/update', {});
-      // ocupado não é erro (v2.46.1): o clique agenda e o Farol aplica ao ficar ocioso
-      if (r?.queued) toast('info', 'Tem análise, chat ou sessão de terminal em andamento. O update ficou agendado: assim que terminar, o Farol aplica sozinho, fecha e reabre.');
-      else if (!r?.ok) toast('error', r?.error || 'não consegui iniciar a atualização');
+      await aplicarAtualizacao();
     };
   } else if (noAccess) {
     box.innerHTML = `
