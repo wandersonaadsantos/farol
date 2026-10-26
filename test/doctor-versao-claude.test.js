@@ -69,6 +69,11 @@ test('CLI ausente remove a comparação antiga; presença fica sem versão', asy
   assert.equal(e.doctorInfo.claude, null); assert.equal(e.claudeVersao, null); assert.deepEqual(versaoClaudeCheck(e.claudeVersao), []);
 });
 
+test('diagnóstico automático que confirma CLI ausente também remove a comparação antiga', async () => {
+  instalada = ''; const e = motor(); await e.doctor();
+  assert.equal(e.doctorInfo.claude, null); assert.equal(e.claudeVersao, null);
+});
+
 test('falha e referência inválida expõem indisponibilidade sem revelar o erro da rede', async () => {
   for (const resposta of [new Error('synthetic network detail'), { 'dist-tags': { latest: 'invalid' } }]) {
     registro = resposta; const e = motor(); await e.doctor({ forcarVersaoClaude: true });
