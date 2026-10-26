@@ -51,6 +51,17 @@ test('todos os campos e opções percorrem a rota HTTP e persistem a seleção d
       assert.equal((await send({ action: 'apply', document, token: preview.token, keys: [key] })).ok, false);
       assert.deepEqual(engine.config.accounts, before);
     }
+    for (const [key, value] of [['ghUser', 'former-user'], ['owners', ['former-org']]]) {
+      engine.config = baseConfig();
+      const accounts = structuredClone(engine.config.accounts);
+      const { document } = await send({ action: 'export' }); document.values[key] = value;
+      const preview = await send({ action: 'preview', document });
+      assert.deepEqual(preview.changes.map(change => change.key), [key]);
+      const applied = await send({ action: 'apply', document, token: preview.token, keys: [key] });
+      assert.equal(applied.ok, true, applied.error); assert.deepEqual(applied.values.accounts, accounts);
+      assert.deepEqual(JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')).accounts, accounts);
+      assert.deepEqual((await send({ action: 'preview', document })).changes, []);
+    }
     const { setCredential, removeCredential } = await import('../lib/jira/credentials.js');
     const site = { id: 'work', label: 'Jira', baseUrl: 'https://original.atlassian.net', owners: ['acme'], projectKeys: [] };
     engine.config = baseConfig(); engine.config.jiraSites = [site];

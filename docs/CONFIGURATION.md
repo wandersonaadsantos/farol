@@ -780,10 +780,14 @@ A prévia explica os ajustes dependentes: a última conta configurada não pode 
 removida por importação, como na edição normal de Contas. Deixar o perfil padrão
 vazio desativa a cadeia. Uma cadeia vazia
 representa os perfis existentes desligados, sem diferenças que reapareçam após aplicar.
+A coluna **No arquivo** mostra a cadeia contida no JSON. Perfis locais ausentes dela
+ficam desativados; se a lista de perfis também for importada, os ausentes são removidos.
 IDs duplicados e datas inexistentes nos orçamentos são recusados antes da gravação.
 Usuário, organizações e remoção de perfis que alterem contas exigem selecionar também
 as diferenças das contas afetadas; um arquivo parcial não pode mudar esses vínculos
-silenciosamente. Sites Jira com credencial local não podem mudar de endereço pela
+silenciosamente. Se o arquivo inclui contas iguais às atuais, elas são preservadas
+ao restaurar usuário e organizações, sem exigir selecionar uma diferença inexistente.
+Sites Jira com credencial local não podem mudar de endereço pela
 importação, inclusive quando o identificador pertence a um cadastro antigo removido.
 Use outro identificador ou ajuste explicitamente o cadastro e a credencial no destino.
 

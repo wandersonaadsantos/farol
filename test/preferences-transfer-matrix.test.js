@@ -297,3 +297,52 @@ test('usuário e organizações não renomeiam nem redirecionam a conta única f
     assert.equal(applied.ok, true, applied.error); assert.deepEqual(engine.config.accounts, [selectedAccount]); assert.equal(engine.config.accounts[0].autoReview, false);
   }
 });
+
+test('arquivo completo preserva contas iguais ao restaurar metadados globais distintos', async () => {
+  for (const [key, value] of [['ghUser', 'former-user'], ['owners', ['former-org']]]) {
+    const engine = engineFor();
+    const accounts = structuredClone(engine.config.accounts);
+    const { document } = await command(engine, { action: 'export' });
+    document.values[key] = value;
+    const preview = await command(engine, { action: 'preview', document });
+    assert.deepEqual(preview.changes.map(change => change.key), [key]);
+    assert.match(preview.changes[0].note, /serão preservadas/);
+    const result = await command(engine, { action: 'apply', document, token: preview.token, keys: [key] });
+    assert.equal(result.ok, true, result.error); assert.deepEqual(result.applied, [key]);
+    assert.deepEqual(engine.config.accounts, accounts); assert.deepEqual(engine.config[key], value);
+    const stored = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    assert.deepEqual(stored.accounts, accounts); assert.deepEqual(stored[key], value);
+    const reboot = new Engine();
+    assert.deepEqual(reboot.config.accounts, accounts); assert.deepEqual(reboot.config[key], value);
+    assert.deepEqual((await command(engine, { action: 'preview', document })).changes, []);
+  }
+});
+
+test('contas iguais no arquivo não autorizam remover seu perfil fixo', async () => {
+  const engine = engineFor(); engine.config.accounts[0].claudeProfileId = 'p';
+  const { document } = await command(engine, { action: 'export' });
+  document.values.claudeProfiles = [profiles[1]];
+  const preview = await command(engine, { action: 'preview', document });
+  assert.match(preview.changes[0].note, /também altera contas/);
+  const before = engine.config;
+  const result = await command(engine, { action: 'apply', document, token: preview.token, keys: ['claudeProfiles'] });
+  assert.equal(result.ok, false); assert.equal(engine.config, before);
+  assert.equal(engine.config.accounts[0].claudeProfileId, 'p');
+});
+
+test('a coluna do arquivo mostra a cadeia original e explica perfis locais ausentes', async () => {
+  const engine = engineFor(); engine.config.claudeProfiles = [{ id: 'old', kind: 'codex', label: 'Antigo' }];
+  engine.config.cadeiaPerfis = [{ id: 'old', ativo: false }];
+  const document = documentFor({ claudeProfiles: [{ id: 'new', kind: 'codex', label: 'Novo' }], cadeiaPerfis: [{ id: 'new', ativo: true }], claudeProfileId: 'new' });
+  const preview = await command(engine, { action: 'preview', document });
+  assert.deepEqual(preview.changes.find(change => change.key === 'cadeiaPerfis').incoming, document.values.cadeiaPerfis);
+  const result = await command(engine, { action: 'apply', document, token: preview.token, keys: preview.changes.map(change => change.key) });
+  assert.equal(result.ok, true, result.error); assert.deepEqual(result.values.cadeiaPerfis, document.values.cadeiaPerfis);
+  assert.deepEqual((await command(engine, { action: 'preview', document })).changes, []);
+  const partial = documentFor({ cadeiaPerfis: [] });
+  const next = await command(engine, { action: 'preview', document: partial });
+  assert.deepEqual(next.changes[0].incoming, []); assert.match(next.changes[0].note, /ficam desativados/);
+  const cleared = await command(engine, { action: 'apply', document: partial, token: next.token, keys: ['cadeiaPerfis'] });
+  assert.equal(cleared.ok, true, cleared.error); assert.deepEqual(cleared.values.cadeiaPerfis, [{ id: 'new', ativo: false }]);
+  assert.deepEqual((await command(engine, { action: 'preview', document: partial })).changes, []);
+});

@@ -171,3 +171,17 @@ test('a tela bloqueia Jira com credencial vinculada a outro host', async () => {
     assert.equal($('#preferencesApply').disabled, true);
   } finally { removeCredential('work'); }
 });
+
+test('a tela restaura metadados e preserva contas iguais sem exigir linha inexistente', async () => {
+  engine.config = baseConfig();
+  const accounts = structuredClone(engine.config.accounts);
+  const { document } = await command(engine, { action: 'export' }); document.values.ghUser = 'former-user';
+  await inspect(document);
+  assert.match(preview.innerHTML, /serão preservadas/);
+  assert.doesNotMatch(preview.innerHTML, /data-preference-key="accounts"/);
+  selected = [{ dataset: { preferenceKey: 'ghUser' } }]; preview.onchange();
+  await $('#preferencesApply').onclick();
+  assert.match($('#preferencesMessage').textContent, /salvas/);
+  assert.deepEqual(engine.config.accounts, accounts); assert.equal(engine.config.ghUser, 'former-user');
+  await inspect(document); assert.equal(preview.innerHTML, '');
+});
