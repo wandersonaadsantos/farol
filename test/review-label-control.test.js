@@ -77,3 +77,15 @@ test('rota real exige autenticação e origem válida e aplica só a tag selecio
   const response=await send({authorization:`Bearer ${token}`});assert.equal(response.status,200);assert.equal((await response.json()).ok,true);assert.equal(tags.has('me:revisando'),false);assert.equal(tags.has('bug'),true);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));io.run=originalRun;}
 });
+
+test('identidade conhecida usa a grafia da conta configurada sem confundir caixa do login', async () => {
+  engine.accountList = () => [{ user: 'Me', owners: ['acme'] }]; engine.tokenFor = user => user === 'Me' ? 'synthetic' : '';
+  const result = await request('remove', 'me:revisando');
+  assert.equal(result.ok, true, result.error); assert.equal(actor, 'Me');
+});
+test('remoção manual respeita a mesma sessão quando a URL usa outra caixa no nome do PR', async () => {
+  const session = { keys: [PR.key.toUpperCase()], mode: 'auto', cancelled: false }; engine.activeReviews.set('s', session);
+  assert.equal((await request('remove', 'me:revisando')).ok, true);
+  const before = calls.length; assert.equal(await addInProgressLabel(engine, PR, run), '');
+  assert.equal(calls.length, before); assert.equal(session.cancelled, false);
+});

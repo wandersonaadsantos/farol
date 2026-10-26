@@ -162,3 +162,10 @@ test('arquivo de pendências inválido não provoca chamadas ao GitHub', async (
   await tirarPendentes(motor(), async () => { called = true; return { ok: true }; });
   assert.equal(called, false);
 });
+
+test('uma revisão local com outra caixa na chave também adia a limpeza', async () => {
+  const e = motor(); e.activeReviews.set('s', { mode: 'auto', keys: [PR.key.toUpperCase()] });
+  anotar(e, PR, 'eu:revisando'); let called = false;
+  await tirarPendentes(e, async () => { called = true; return { ok: true }; });
+  assert.equal(called, false); assert.equal(Object.values(lerArquivo()).length, 1);
+});
