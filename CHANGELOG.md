@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.9
+
+Correções na atualização dos cards de revisão, na presença entre aparelhos e na transferência de preferências.
+
+**Correções**
+- Os cards de decisão e o histórico acompanham o início e o fim das sessões e as mudanças da fila de execução, sem depender de outro evento para atualizar o estado mostrado.
+- Após uma falha, o relógio de andamento respeita a janela de cinco minutos entre tentativas de presença. A tentativa não conta como presença saudável; a checagem normal e as ações explícitas de conexão continuam disponíveis.
+- A exportação/importação cobre as 45 preferências do Sistema. Valores iguais deixam de aparecer como diferenças, o intervalo de checagem é comparado corretamente e contas já coincidentes são preservadas. A prévia da cadeia mostra o conteúdo do arquivo e explica os ajustes dependentes. Arquivos antigos conservam somente as preferências que já continham; uma nova exportação inclui o conjunto completo.
+- Voz e experimentos de navegação, leituras agrupadas e responsabilidades por lote continuam desligados por padrão. Os ensaios de tokens não qualificaram essas opções para ativação.
+
 ## v2.77.8
 
 Correção da seleção de pistas no índice experimental de código, preservando seus limites e as verificações de qualidade.
