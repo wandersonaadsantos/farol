@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.2
+
+Reverificação imediata da versão do Claude Code e do aviso de atraso.
+
+**Correções**
+- Reverificar saúde relê a versão instalada e consulta o registro de versões antes de concluir. O aviso deixa de esperar o cache de seis horas e usa a mesma leitura do CLI exibida no diagnóstico.
+- Uma consulta antiga não sobrescreve o resultado de uma reverificação mais recente. Falhas na comparação são informadas sem conservar um aviso de outra versão nem afirmar que o CLI está atualizado.
+- As verificações automáticas mantêm o cache para a mesma versão; detectar outro executável instalado invalida a leitura anterior.
+
 ## v2.78.1
 
 Recuperação de revisões bloqueadas por uma preparação Git interrompida antes de reiniciar o computador.

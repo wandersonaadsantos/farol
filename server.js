@@ -1682,7 +1682,9 @@ class Engine extends EventEmitter {
     }))];
   }
 
-  async doctor() {
+  async doctor({ forcarVersaoClaude = false } = {}) {
+    const leitura = {};
+    this.doctorLeitura = leitura;
     const primary = this.primaryUser();
     const tokenArgs = primary ? ['auth', 'token', '--user', primary] : ['auth', 'token'];
     const [gh, claude, codex, codexLogin, auth, agy] = await Promise.all([
@@ -1699,6 +1701,7 @@ class Engine extends EventEmitter {
       io.run('gh', tokenArgs, { env: this.ghEnv() }),
       agyDoctor.versao(),
     ]);
+    if (this.doctorLeitura !== leitura) return this.doctorInfo;
     // a leitura do `codex login status` mora em lib/codex/auth.js, junto da regra do plano
     const loginCodex = codexAuth.leituraDoLogin(codexLogin);
     this.doctorInfo = {
@@ -1722,6 +1725,10 @@ class Engine extends EventEmitter {
       claudeAuth: this.allClaudeAuthInfo(), // status de cada perfil de assinatura Claude salvo
       checkedAt: Date.now()
     };
+    if (forcarVersaoClaude || this.claudeVersao) {
+      await versaoClaude.atualizarVersaoClaude(this, { forcar: forcarVersaoClaude, instalada: this.doctorInfo.claude });
+    }
+    if (this.doctorLeitura !== leitura) return this.doctorInfo;
     this.checkUpdate({ forcar: true }).catch(() => {}); // o Diagnóstico pergunta na hora
     this.pushState();
     return this.doctorInfo;
