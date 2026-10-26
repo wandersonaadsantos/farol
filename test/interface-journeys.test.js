@@ -13,27 +13,28 @@ const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-interface-'));
 process.env.FAROL_HOME = home;
 const { Engine } = await import('../server.js');
 const { command } = await import('../lib/preferences/transfer.js');
+const { SETTINGS } = await import('../lib/settings.js');
 const { CONFIG_FILE } = await import('../lib/paths.js');
 after(() => { assert.ok(path.resolve(home).startsWith(path.resolve(os.tmpdir()) + path.sep)); fs.rmSync(home, { recursive: true, force: true }); });
 function fixture() { const e = new Engine(); e.pushState = () => {}; e.log = () => {}; e.config.theme = 'dark'; e.config.soundEnabled = true; e.config.voiceEnabled = false; return e; }
 const document = values => ({ type: 'farol-preferences', schema: 1, values });
 test('prévia e exportação não gravam; aplicação seleciona só diferenças e protege voz/contas', async () => {
-  const e = fixture(); e.config.accounts = [{ user: 'dev', autoReview: false }]; e.config.voiceEnabled = false;
+  const e = fixture(); e.config.accounts = [{ user: 'dev', owners: [], autoReview: false, onClean: 'wait', onCaveats: 'wait', onReject: 'wait' }]; e.config.voiceEnabled = false;
   const doc = document({ theme: 'light', soundEnabled: false });
   const before = fs.existsSync(CONFIG_FILE) ? fs.readFileSync(CONFIG_FILE, 'utf8') : null;
   const exported = await command(e, { action: 'export' }); const preview = await command(e, { action: 'preview', document: doc });
-  assert.equal(preview.ok, true); assert.deepEqual(Object.keys(exported.document.values), ['theme', 'soundEnabled', 'interventionReminderMinutes', 'intervalSeconds']);
+  assert.equal(preview.ok, true); assert.deepEqual(Object.keys(exported.document.values), SETTINGS.filter(s => s.ui).map(s => s.key));
   assert.equal(fs.existsSync(CONFIG_FILE) ? fs.readFileSync(CONFIG_FILE, 'utf8') : null, before);
   const accounts = e.config.accounts;
   const applied = await command(e, { action: 'apply', document: doc, token: preview.token, keys: ['theme'] });
   assert.equal(applied.ok, true); assert.equal(e.config.theme, 'light'); assert.equal(e.config.soundEnabled, true);
-  assert.equal(e.config.voiceEnabled, false); assert.equal(e.config.accounts, accounts);
+  assert.equal(e.config.voiceEnabled, false); assert.deepEqual(e.config.accounts, accounts);
   assert.equal(JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')).theme, 'light');
   assert.equal((await command(e, { action: 'apply', document: doc, token: preview.token, keys: ['soundEnabled'] })).ok, false);
 });
 test('arquivo incompatível, segredo, voz, caminho local e seleção indevida são recusados antes de efeitos', async () => {
   const e = fixture(); let writes = 0; e.saveConfig = () => { writes++; };
-  for (const doc of [{ ...document({ theme: 'light' }), schema: 2 }, document({ apiKey: 'synthetic-secret' }), document({ voiceEnabled: true }), document({ dir: 'C:/outro' }), document({ interventionReminderMinutes: -1 }), document({ theme: 'light', soundEnabled: 'false' }), document({}), { ...document({ theme: 'light' }), extra: 'x' }]) {
+  for (const doc of [{ ...document({ theme: 'light' }), schema: 3 }, document({ apiKey: 'synthetic-secret' }), document({ voiceEnabled: true }), document({ dir: 'C:/outro' }), document({ interventionReminderMinutes: -1 }), document({ theme: 'light', soundEnabled: 'false' }), document({}), { ...document({ theme: 'light' }), extra: 'x' }]) {
     const r = await command(e, { action: 'preview', document: doc }); assert.equal(r.ok, false); assert.doesNotMatch(r.error, /synthetic-secret|C:\//);
   }
   const doc = document({ theme: 'light' }), preview = await command(e, { action: 'preview', document: doc });

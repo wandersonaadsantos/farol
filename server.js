@@ -1741,7 +1741,11 @@ class Engine extends EventEmitter {
     return liberado ? cfgSync : comCompartilhamentoBloqueado(cfgSync);
   }
 
+  sanearPreferencia(key, value, config = this.config) { return sanear(key, value, config, PARSERS); }
+
   updateSettings(patch, origem) {
+    const previous = this.config;
+    this.config = { ...previous };
     let intervalChanged = false, userChanged = false;
     const politicaAntes = contasConfig.retratoDaPolitica(this.config);
     // itera o PATCH, não a allowlist: é o que permite VER a chave que ninguém
@@ -1753,7 +1757,7 @@ class Engine extends EventEmitter {
       // O saneamento inteiro vive na tabela (lib/settings.js). Aqui ficam só os efeitos
       // colaterais, que são de ciclo de vida do engine e não do valor: reprogramar o
       // polling e invalidar o token quando a identidade muda.
-      let v = sanear(k, patch[k], this.config, PARSERS);
+      let v = this.sanearPreferencia(k, patch[k]);
       if (k === 'intervalSeconds') intervalChanged = true;
       if (k === 'accounts') {
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,
@@ -1764,12 +1768,14 @@ class Engine extends EventEmitter {
       if (k === 'ghUser') userChanged = userChanged || v !== this.config.ghUser;
       this.config[k] = v;
     }
-    contasConfig.depoisDeAplicar(this, politicaAntes, patch, origem);
+    contasConfig.normalizarDepoisDeAplicar(this, patch);
     cadeiaMod.reconciliar(this.config, patch); // perfil removido sai da cadeia, padrão derivado
     // a guarda do celular depende de localAuth, que pode ter mudado no mesmo patch
     this.config.sync = this.syncComGuardaDoCelular(this.config.sync);
-    env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger na hora
-    this.saveConfig();
+    try { this.saveConfig(); }
+    catch (error) { this.config = previous; throw error; }
+    contasConfig.registrarMudancas(this, contasConfig.mudancasDePolitica(politicaAntes, contasConfig.retratoDaPolitica(this.config)), origem);
+    env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger depois de salvar
     // a sincronização liga, desliga ou reconecta conforme o objeto novo; não espera a
     // rede (aplicarConfig nunca rejeita) e o estado final chega pela tela via pushState
     if ('sync' in (patch || {})) this.syncAplicarConfig();

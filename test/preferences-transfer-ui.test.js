@@ -39,7 +39,7 @@ test('tela oculta tabela quando igual e explica intervalo ausente no arquivo ant
   await inspect(old);
   assert.equal(preview.innerHTML, '');
   assert.match($('#preferencesMessage').textContent, /Nenhuma diferença encontrada/);
-  assert.match($('#preferencesMessage').textContent, /não contém o intervalo de checagem/);
+  assert.match($('#preferencesMessage').textContent, /Arquivo parcial/);
   assert.equal($('#preferencesApply').disabled, true);
   assert.equal(fs.readFileSync(path.join(home, 'config.json'), 'utf8'), before);
 });
@@ -66,4 +66,22 @@ test('tela mostra só checagem, em minutos, e aplica seleção pela API de produ
   await inspect(exported.document);
   assert.match($('#preferencesMessage').textContent, /Nenhuma diferença encontrada/);
   assert.doesNotMatch($('#preferencesMessage').textContent, /não contém/);
+});
+
+
+test('tela compara voz e estruturas com seus tipos, sem linhas de preferências iguais', async () => {
+  engine.config.voiceEnabled = false; engine.config.voiceVolume = 50;
+  const incoming = { type: 'farol-preferences', schema: 2, values: { voiceEnabled: true, voiceVolume: 75, defaultReviewers: { acme: ['alex'] } } };
+  await inspect(incoming);
+  assert.match(preview.innerHTML, /Avisos por voz/); assert.match(preview.innerHTML, /Ligado/);
+  assert.match(preview.innerHTML, /75%/); assert.match(preview.innerHTML, /acme: alex/);
+  assert.doesNotMatch(preview.innerHTML, /minutos|Tema|Toque sonoro/);
+});
+
+test('tela mostra dependência ausente com seleção indisponível, sem credenciais no HTML', async () => {
+  engine.config.claudeProfiles = [];
+  await inspect({ type: 'farol-preferences', schema: 2, values: { claudeProfiles: [{ id: 'api', label: 'API', kind: 'apikey', baseUrl: 'https://example.invalid' }] } });
+  assert.match(preview.innerHTML, /data-preference-key="claudeProfiles" disabled/);
+  assert.match(preview.innerHTML, /Cadastre neste aparelho as credenciais/);
+  assert.equal($('#preferencesApply').disabled, true);
 });

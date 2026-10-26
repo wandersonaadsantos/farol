@@ -752,25 +752,41 @@ aberto; nas demais instalações pode ser aberto quando necessário. Login, orga
 são informações distintas de configuração preenchida. Use **Reverificar saúde** para
 atualizar o diagnóstico. O roteiro não ativa automação nem aprova a política da conta.
 
-**Preferências entre instalações** exporta JSON versão 1 com apenas tema, toque
-sonoro, intervalo de checagem e intervalo de lembretes de intervenção. Não é backup
-nem migração de conta:
-credenciais, caminhos locais, perfis, voz, dados de revisão, sincronização e políticas
-de automação ficam fora. Arquivo com campo adicional ou versão incompatível é recusado.
+**Preferências entre instalações** exporta JSON versão 2 com todas as preferências
+editáveis do Sistema, a partir da tabela central de configurações. Inclui contas e
+políticas de automação, modelos e esforço, limites de revisões, regras e revisores,
+papéis das pessoas, tema, som, voz e horário silencioso, atualização e inicialização,
+perfis e orçamentos dos provedores, ordem dos perfis e configuração da sincronização.
 
-Importar exige arquivo de até 16 KiB, prévia de diferenças, seleção explícita e
-**Aplicar diferenças selecionadas**. A prévia não grava; valores iguais não são
-exibidos. Quando tudo é igual, a tela informa que não há diferenças. Arquivos antigos
-sem intervalo de checagem continuam aceitos, com aviso de que esse campo não está
-no arquivo e exige uma nova exportação para ser transferido. Se o arquivo ou as
-preferências do destino mudarem, gere outra prévia.
-Falha de gravação restaura os valores em memória. Não há descoberta de instalação,
-cópia de pasta, contratação de serviço ou alteração da instalação original.
+Senhas, tokens, chaves de API e sessões autenticadas não entram no arquivo. Os ajustes
+de um perfil de API reutilizam somente a credencial local do mesmo identificador,
+tipo e endereço. Sem ela, a diferença aparece indisponível e explica como cadastrar
+a credencial antes de aplicar. A sincronização exige a configuração local da chave
+para o mesmo projeto e banco; as proteções de autenticação do aparelho continuam
+valendo. Login no GitHub, Jira e provedores continua sendo feito no destino.
+
+Não é uma cópia do diretório do Farol: histórico de revisões, credenciais, identidade
+do dispositivo, grupos publicados e políticas de outros aparelhos não são preferências
+locais e não são migrados por esse arquivo. Portas, migrações internas e proteção da
+API local não são editáveis por essa importação. Diretórios configurados nos perfis
+são transferidos como preferências; precisam existir no aparelho de destino.
+
+Importar exige arquivo de até 1 MiB, prévia e seleção explícita das diferenças.
+**Aplicar diferenças selecionadas** usa a mesma validação e os mesmos efeitos do
+salvamento em Sistema, incluindo voz, inicialização, checagem e sincronização.
+A prévia não grava. Valores iguais, inclusive objetos com chaves em outra ordem,
+não aparecem. Se tudo é igual, a tela informa que não há diferenças.
+
+Arquivos antigos na versão 1 continuam aceitos como parciais. Preferências ausentes
+são preservadas, com aviso; para transferir todos os ajustes é necessária uma nova
+exportação. Versões anteriores do Farol recusam o novo formato versão 2.
+Se o arquivo ou as preferências do destino mudarem, gere outra prévia.
+Falha ao salvar restaura a configuração anterior antes de disparar efeitos ou
+registrar mudança de política. Não há reinício automático do aplicativo.
 
 Tema claro e escuro usam os tokens existentes. A preferência persistida do engine
 prevalece quando chega o estado; o navegador mantém o último tema para o primeiro
-paint. Sem armazenamento local, as escolhas continuam funcionando nesta janela.
-A voz permanece desligada por padrão e não pode ser ativada pela importação.
+paint. A voz nasce desligada e pode ser ativada pela seleção explícita na importação.
 
 ## Fontes versionadas e contexto controlado
 
