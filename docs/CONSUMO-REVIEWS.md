@@ -82,3 +82,8 @@ Defina o orçamento antes de abrir as sessões comparativas. Inclua subagentes,
 retentativas e falhas no custo por decisão útil. Compactação do repasse,
 reaproveitamento adicional de contexto e redução de modelo ou esforço precisam
 de candidatos e evidências separados. Esta entrega não ativa essas mudanças.
+
+O [gate offline de qualidade](REVIEW-QUALITY.md) confere os registros dessas
+comparações, preserva controles que a própria referência perdeu e distingue
+regressão de avaliação inconclusiva. Uma execução sintética verde valida o gate;
+não substitui as reviews reais nem demonstra economia.
