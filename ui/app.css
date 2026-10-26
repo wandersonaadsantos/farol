@@ -2775,3 +2775,6 @@ label.set-row:has(input:disabled).review-tools, .review-tools label.set-row:has(
   .review-tools.queue-grouping { flex-wrap: wrap; }
   .review-tools .set-head .row-actions { flex-wrap: wrap; }
 }
+
+/* Comparação de listas e configurações estruturadas na importação. */
+.preferences-value { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
