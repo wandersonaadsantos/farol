@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.1', ['Reverificar saúde atualiza na hora a versão do Claude Code e o comparativo que informa o atraso, sem esperar seis horas nem reiniciar o Farol.', 'Consultas antigas não substituem o resultado novo. Falhas no registro são informadas sem mostrar um aviso referente a outra versão. As checagens automáticas mantêm o cache enquanto o CLI não muda.']],
   ['2.78.0', ['Sistema > Visão geral permite consultar um PR e remover individualmente suas tags conta:revisando, com confirmação e indicação da conta usada.', 'A remoção da tag não cancela a revisão. A mesma sessão local respeita a escolha, e uma revisão nova pode adicionar o marcador novamente.', 'Cancelamento, falha e reinício mantêm a limpeza pendente até o GitHub confirmar a remoção, inclusive quando a resposta da inclusão se perdeu. Pendências de várias contas são preservadas e não expiram após sete dias.', 'A limpeza automática respeita revisões vivas e a posse entre aparelhos para não apagar o marcador de outra execução.']],
 
   ['2.77.10', ['Achados, veredito e texto público precisam concordar: falha interna não justifica pedir mudanças em código sem defeito bloqueante.', 'Resultados contraditórios voltam para recuperação, inclusive quando existe um defeito real. Esgotar tentativas não libera a contradição nem aprova o PR.', 'Reprovações legítimas são preservadas. Voz e experimentos de otimização continuam desligados por padrão.']],

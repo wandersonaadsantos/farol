@@ -217,6 +217,7 @@ export function selecaoAceitaEsforco(lista, valor) {
 export function versaoClaudeCheck(v) {
   if (!v || !v.instalada) return [];
   const label = 'Versão do Claude Code';
+  if (v.indisponivel) return [{ ok: false, label, detail: `${v.instalada}; comparação com a versão publicada indisponível. Reverifique a saúde para tentar novamente.` }];
   if (v.atualizada) return [{ ok: true, label, detail: `${v.instalada}, a mais recente` }];
   if (!v.atrasada) {
     return [{ ok: true, label, detail: `${v.instalada}; a ${v.maisRecente} saiu há pouco, atualize quando puder (claude update)` }];
