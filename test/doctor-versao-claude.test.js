@@ -75,7 +75,10 @@ test('diagnóstico automático que confirma CLI ausente também remove a compara
 });
 
 test('falha e referência inválida expõem indisponibilidade sem revelar o erro da rede', async () => {
-  for (const resposta of [new Error('synthetic network detail'), { 'dist-tags': { latest: 'invalid' } }]) {
+  for (const resposta of [
+    new Error('synthetic network detail'), { 'dist-tags': { latest: 'invalid' } },
+    { 'dist-tags': { latest: '2.1.311' }, time: { '2.1.311': { toString: null, valueOf: null } } },
+  ]) {
     registro = resposta; const e = motor(); await e.doctor({ forcarVersaoClaude: true });
     const aviso = versaoClaudeCheck(e.claudeVersao)[0]; assert.equal(aviso.ok, false);
     assert.equal(e.claudeVersao.instalada, instalada); assert.match(aviso.detail, /indisponível/);
