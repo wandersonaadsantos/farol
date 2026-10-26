@@ -1366,6 +1366,13 @@ deve devolver análise incompleta.
 
 A preparação comum de fontes fixa H, B e M, sem depender de checkout pessoal ou perfil
 técnico. Cache, mapa estrutural e busca textual não concedem cobertura nem aprovação.
+Uma aquisição Git interrompida mantém objetos, materiais e reserva protegidos enquanto
+o término dos processos não é comprovado. Na próxima aquisição, o cache pode recuperar
+uma operação anterior ao último boot confirmado pelo sistema operacional: exige material
+liberado, sem consumidores e com referência íntegra ao mesmo escopo e lease. A recuperação
+reconcilia os marcadores e a reserva sob as travas de escrita e de quota global, sem apagar
+os arquivos parciais. Operação do boot atual ou boot desconhecido continua bloqueada.
+As leituras, verificações técnicas e gates de publicação continuam obrigatórios após a retomada.
 Fontes indisponíveis, consumidor candidato e limite atingido continuam limitações.
 As consultas adicionais revalidam autorização e leem a versão fixada. A seleção nova é
 controlada por `reviewContextMode` (off/observe/assist), conforme `CONFIGURATION.md`.
