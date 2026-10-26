@@ -68,7 +68,7 @@ o agendador existente recupera a análise, com o mesmo limite de tentativas ráp
 e recuo. A lacuna não vira ressalva por esgotamento. Se houver defeito real, ele
 continua bloqueante durante a recuperação do texto. A normalização de texto é
 compartilhada com a trava de linguagem; a defesa textual reconhece declarações
-globais conhecidas, sem tratar uma área limpa como ausência de defeitos no PR inteiro.
+globais conhecidas no resumo introdutório, sem tratar uma área limpa como ausência de defeitos no PR inteiro.
 Ausência de `findings` em registros legados é informação desconhecida, não zero
 blockers. Nenhuma dessas verificações converte automaticamente a decisão em aprovação.
 

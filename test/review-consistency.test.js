@@ -83,3 +83,21 @@ test('CI obrigatório atual explicitado não depende da pontuação para justifi
   assert.equal(payloadCoherenceGap({ event: 'REQUEST_CHANGES', body: body + ' O CI já passou no head atual.' }), REVIEW_COHERENCE_GAP);
   assert.equal(payloadCoherenceGap({ event: 'REQUEST_CHANGES', body: body.replace('estão falhando', 'não estão falhando') }), REVIEW_COHERENCE_GAP);
 });
+
+test('conclusão limitada por seção não vira afirmação global sobre o PR', () => {
+  const body = '### Autenticação\nSem blockers.\n\n### Pagamentos\nA cobrança é gravada antes da validação; precisa corrigir.';
+  const r = result('request_changes', [blocker]);
+  r.payloads.request_changes.body = body;
+  assert.equal(payloadCoherenceGap(r.payloads.request_changes), '');
+  assert.equal(reviewCoherenceGap(r), '');
+  assert.equal(payloadCoherenceGap({ event: 'REQUEST_CHANGES', body: 'Sem blockers.\n\n' + body }), REVIEW_COHERENCE_GAP);
+  assert.equal(reviewCoherenceGap({ ...r, findings: [] }), REVIEW_COHERENCE_GAP, 'sem resumo não dispensa o gate estruturado');
+  assert.equal(payloadCoherenceGap({ event: 'REQUEST_CHANGES', body: 'Autenticação\n---\nSem blockers.\n\nPagamentos\n---\nCorrija a gravação.' }), '');
+});
+
+test('títulos citados ou em código não delimitam resumo e explicação de CI pode ficar em seção', () => {
+  for (const prefix of ['> ### Citação\n', '```md\n### Exemplo\n```\n']) {
+    assert.equal(payloadCoherenceGap({ event: 'REQUEST_CHANGES', body: prefix + 'Sem blockers.\n\n### Detalhes\nSó ajustes.' }), REVIEW_COHERENCE_GAP);
+  }
+  assert.equal(payloadCoherenceGap({ event: 'REQUEST_CHANGES', body: 'Não encontrei nada bloqueante no código.\n\n### CI\nOs checks obrigatórios estão falhando no commit abc1234.' }), '');
+});

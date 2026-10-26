@@ -16,7 +16,7 @@ Coerência entre os achados da revisão, o veredito e o texto publicado.
 **Correções**
 - Resultado estruturado sem defeito bloqueante não vira pedido de mudanças só porque uma ferramenta interna falhou. Sugestões e detalhes opcionais continuam separados dos impedimentos reais.
 - Veredito ou texto contraditório volta para a recuperação da análise. Esgotar tentativas não libera a contradição, não inventa um defeito e não transforma a revisão em aprovação.
-- A fronteira de publicação também recusa frases globais inequívocas de ausência de blockers em um pedido de mudanças. Citações, código e observações limitadas a uma área não são tratados como conclusão sobre o PR inteiro. Essa defesa textual reconhece casos conhecidos; a verificação estruturada continua sendo a principal.
+- A fronteira de publicação também recusa frases globais inequívocas de ausência de blockers no resumo introdutório de um pedido de mudanças. Citações, código e observações limitadas a uma área não são tratados como conclusão sobre o PR inteiro. Essa defesa textual reconhece casos conhecidos; a verificação estruturada continua sendo a principal.
 - Uma contradição acompanhada de defeito real é recuperada preservando o defeito. Pedidos coerentes por defeito confirmado ou CI obrigatório vermelho continuam disponíveis. Voz e experimentos de otimização permanecem desligados por padrão.
 
 ## v2.77.9
