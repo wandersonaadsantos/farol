@@ -17,7 +17,7 @@ Recuperação de revisões bloqueadas por uma preparação Git interrompida ante
 - Uma preparação Git anterior ao último reinício deixa de bloquear novas revisões quando seus arquivos já foram liberados e não há consumidores ativos.
 - A recuperação mantém os arquivos parciais contabilizados no cache e preserva as sessões em andamento. Operações iniciadas desde o último reinício ou sem comprovação de término continuam protegidas.
 - A consulta ao sistema operacional ocorre fora da trava global, permitindo que outras operações Git terminem enquanto a recuperação confere o reinício.
- 
+
 ## v2.77.10
 
 Coerência entre os achados da revisão, o veredito e o texto publicado.
