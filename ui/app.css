@@ -697,6 +697,9 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .card.set-row { padding: 14px 16px; }
 label.set-row { cursor: pointer; }
 .set-txt { min-width: 0; max-width: 580px; }
+.review-label-query .set-txt { flex: 1; max-width: none; align-self: stretch; }
+.review-label-query input { box-sizing: border-box; max-width: none; }
+#reviewLabelsList .set-title { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .set-title { display: block; font-size: 13.5px; font-weight: 600; }
 .set-desc { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); font-weight: 400; text-wrap: pretty; }
 .set-ctl { flex: none; display: flex; align-items: flex-start; gap: var(--sp-2); }
