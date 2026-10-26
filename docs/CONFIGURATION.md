@@ -753,13 +753,17 @@ são informações distintas de configuração preenchida. Use **Reverificar sa�
 atualizar o diagnóstico. O roteiro não ativa automação nem aprova a política da conta.
 
 **Preferências entre instalações** exporta JSON versão 1 com apenas tema, toque
-sonoro e intervalo de lembretes de intervenção. Não é backup nem migração de conta:
+sonoro, intervalo de checagem e intervalo de lembretes de intervenção. Não é backup
+nem migração de conta:
 credenciais, caminhos locais, perfis, voz, dados de revisão, sincronização e políticas
 de automação ficam fora. Arquivo com campo adicional ou versão incompatível é recusado.
 
 Importar exige arquivo de até 16 KiB, prévia de diferenças, seleção explícita e
 **Aplicar diferenças selecionadas**. A prévia não grava; valores iguais não são
-selecionáveis. Se o arquivo ou as preferências do destino mudarem, gere outra prévia.
+exibidos. Quando tudo é igual, a tela informa que não há diferenças. Arquivos antigos
+sem intervalo de checagem continuam aceitos, com aviso de que esse campo não está
+no arquivo e exige uma nova exportação para ser transferido. Se o arquivo ou as
+preferências do destino mudarem, gere outra prévia.
 Falha de gravação restaura os valores em memória. Não há descoberta de instalação,
 cópia de pasta, contratação de serviço ou alteração da instalação original.
 

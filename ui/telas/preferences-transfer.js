@@ -2,7 +2,7 @@ import { $, api, baixarArquivo } from './infra.js';
 import { esc, safeJsonParse, safeJsonStringify } from '../pure/comum.js';
 import { applyTheme } from './tema.js';
 let pending = null, busy = false, generation = 0;
-const LABELS = { theme: 'Tema', soundEnabled: 'Toque sonoro', interventionReminderMinutes: 'Lembrete de intervenção (minutos)' };
+const LABELS = { intervalSeconds: 'Intervalo de checagem', theme: 'Tema', soundEnabled: 'Toque sonoro', interventionReminderMinutes: 'Lembrete de intervenção (minutos)' };
 function message(text) { $('#preferencesMessage').textContent = text; }
 async function request(body) {
   const result = await api('/api/preferences/transfer', body);
@@ -13,6 +13,7 @@ function invalidate() { generation++; pending = null; $('#preferencesApply').dis
 function preferenceValue(key, value) {
   if (key === 'theme') return value === 'light' ? 'Claro' : 'Escuro';
   if (key === 'soundEnabled') return value ? 'Ligado' : 'Desligado';
+  if (key === 'intervalSeconds') return `${Number(value) / 60} minutos`;
   return Number(value) === 0 ? 'Desligado' : `${value} minutos`;
 }
 async function preview() {
@@ -25,13 +26,16 @@ async function preview() {
   const result = await request({ action: 'preview', document }); if (!result) return;
   if (attempt !== generation) return;
   pending = { ...result, document };
-  const rows = result.changes.map(c => {
-    const disabled = c.changed ? '' : ' disabled';
-    const suffix = c.changed ? '' : ' (igual)';
-    return `<label class="diff-row${c.changed ? '' : ' same'}"><input type="checkbox" data-preference-key="${esc(c.key)}"${disabled}><span>${esc(LABELS[c.key])}${suffix}</span><span class="was">${esc(preferenceValue(c.key, c.current))}</span><span class="new">${esc(preferenceValue(c.key, c.incoming))}</span></label>`;
-  }).join('');
+  const legacyNotice = Object.hasOwn(document.values, 'intervalSeconds') ? '' : ' Este arquivo não contém o intervalo de checagem; exporte novamente para incluí-lo.';
+  if (!result.changes.length) {
+    message('Nenhuma diferença encontrada nas preferências do arquivo. Nenhuma alteração foi salva.' + legacyNotice);
+    return;
+  }
+  const rows = result.changes.map(c =>
+    `<label class="diff-row"><input type="checkbox" data-preference-key="${esc(c.key)}"><span>${esc(LABELS[c.key])}</span><span class="was">${esc(preferenceValue(c.key, c.current))}</span><span class="new">${esc(preferenceValue(c.key, c.incoming))}</span></label>`
+  ).join('');
   $('#preferencesPreview').innerHTML = `<div class="set-block"><h4 class="set-subtitle">Diferenças encontradas</h4><div class="diff" role="group" aria-label="Preferências a aplicar"><div class="diff-row head" aria-hidden="true"><span></span><span>Preferência</span><span>Atual</span><span>No arquivo</span></div>${rows}</div></div>`;
-  message('Confira as diferenças e selecione o que aplicar. Nenhuma alteração foi salva.');
+  message('Confira as diferenças e selecione o que aplicar. Nenhuma alteração foi salva.' + legacyNotice);
 }
 async function apply() {
   if (!pending) return;
