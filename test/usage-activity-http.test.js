@@ -9,7 +9,7 @@ test('rota real do consumo exige sessão e origem local e não altera o diário'
   const engine = new Engine();
   engine.config.port = 0;
   engine.config.localAuth = 'exigir';
-  engine.usageSessions = { sessions: [{ id: 'review-http', kind: 'review', status: 'ok', at: Date.now(), ref: 'org/repo#1', account: 'dev', inputTokens: 3, outputTokens: 2 }] };
+  engine.usageSessions = { sessions: [{ id: 'a-00000000-0000-4000-8000-000000000001', kind: 'review', status: 'ok', at: Date.now(), ref: 'org/repo#1', account: 'dev', inputTokens: 3, outputTokens: 2 }] };
   const before = structuredClone(engine.usageSessions);
   const server = startServer(engine);
   await once(server, 'listening');
@@ -25,6 +25,15 @@ test('rota real do consumo exige sessão e origem local e não altera o diário'
     assert.equal(report.totals.inputTokens + report.totals.outputTokens, 5);
     assert.deepEqual(engine.usageSessions, before);
     assert.equal((await (await fetch(`${url}?scope=all`, { headers })).json()).ok, false);
+    const now = Date.now();
+    engine.config.sync = { enabled: true, consolidation: { enabled: true } };
+    Object.assign(engine.sync, { uid: 'teste', deviceId: 'd', status: 'conectado', agora: () => now, client: {
+      get: async path => ({ ok: true, data: path.endsWith('usageEvents')
+        ? { d: { hoje: { at: now, kind: 'review' }, antigo: { at: now - 2 * 86400000, kind: 'review' } } } : {} }),
+    } });
+    const today = await (await fetch(url.replace('/api/usage', '/api/sync/consolidated?days=1'), { headers })).json();
+    assert.equal(today.ok, true);
+    assert.equal(today.resumo.totals.sessions, 1, 'Hoje não usa o padrão de trinta dias no painel avançado');
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));

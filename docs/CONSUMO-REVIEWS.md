@@ -11,7 +11,8 @@ O histórico agrupa tentativas com o mesmo ID do Farol, aparelho, conta, perfil 
 tipo. IDs diferentes não são unidos por PR ou por proximidade de horário. Só o
 último resultado da operação determina a conclusão; uma conclusão fora do período
 ou do filtro não é atribuída ao recorte. Registros sem ID entram no consumo, mas
-não permitem inferir conclusões ou retentativas. Subagentes não são reviews extras.
+não permitem inferir conclusões ou retentativas. IDs curtos legados, reutilizados
+entre reinícios, também ficam sem identidade confiável. Subagentes não são reviews extras.
 Retentativas são tentativas posteriores à primeira da operação; contam no recorte
 em que ocorreram mesmo quando a tentativa anterior ficou fora do período ou filtro.
 

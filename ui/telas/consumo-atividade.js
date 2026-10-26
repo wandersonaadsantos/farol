@@ -5,7 +5,8 @@ import { activityBodyHtml, activityHistoryHtml, activityRulesHtml, activityTimel
 
 const REFRESH_MS = 30000;
 const SEARCH_MS = 250;
-const filters = { account: 'all', repo: 'all', provider: 'all', model: 'all', kind: 'all', page: 0, search: '', focus: 'all' };
+const DEFAULT_FILTERS = { account: 'all', repo: 'all', provider: 'all', model: 'all', kind: 'all', page: 0, search: '', focus: 'all' };
+const filters = { ...DEFAULT_FILTERS };
 let current = null, lastKey = '', loadedAt = 0, generation = 0, searchTimer;
 let metric = 'sessions';
 let context = { window: 30, scope: 'local' };
@@ -52,7 +53,7 @@ function onClick(event) {
   const button = event.target.closest('button');
   if (!button) return;
   if (button.hasAttribute('data-activity-clear')) {
-    Object.assign(filters, { account: 'all', repo: 'all', provider: 'all', model: 'all', kind: 'all', page: 0, search: '', focus: 'all' });
+    Object.assign(filters, DEFAULT_FILTERS);
     $('#activitySearch').value = '';
     refresh(true);
   }
@@ -75,10 +76,10 @@ function paintTimeline() {
   }
 }
 
-function paint(report, historyOnly) {
+function paint(report) {
   const expanded = new Set([...document.querySelectorAll('[data-activity-key][open]')].map(el => el.dataset.activityKey));
   current = report;
-  if (!historyOnly || !report?.ok) $('#activityBody').innerHTML = activityBodyHtml(report);
+  $('#activityBody').innerHTML = activityBodyHtml(report);
   paintTimeline();
   $('#activityHistory').innerHTML = report?.ok ? activityHistoryHtml(report) : '';
   for (const el of document.querySelectorAll('[data-activity-key]')) el.open = expanded.has(el.dataset.activityKey);
@@ -98,18 +99,22 @@ async function refresh(force = false) {
   const params = parameters(), key = params.toString();
   if (!force && key === lastKey && Date.now() - loadedAt < REFRESH_MS) return;
   const revision = ++generation;
-  const historyOnly = current?.ok && key.replace(/(?:page|search|focus)=[^&]*&?/g, '') === lastKey.replace(/(?:page|search|focus)=[^&]*&?/g, '');
   lastKey = key; loadedAt = Date.now();
-  if (!current || !historyOnly) $('#activityBody').innerHTML = '<p class="vago">Carregando o diário de consumo…</p>';
+  if (!current) $('#activityBody').innerHTML = '<p class="vago">Carregando o diário de consumo…</p>';
   const report = await get(`/api/usage?${params}`);
   if (revision !== generation) return;
-  paint(report, historyOnly);
+  paint(report);
 }
 
 export function renderActivity(next) {
+  const scopeChanged = context.scope !== next.scope;
   const changed = context.window !== next.window || context.scope !== next.scope;
   context = next;
   init();
+  if (scopeChanged) {
+    Object.assign(filters, DEFAULT_FILTERS);
+    $('#activitySearch').value = '';
+  }
   if (changed && $('#activityCustom').open) $('#activityCustom').open = false;
   if (changed) filters.page = 0;
   return refresh();

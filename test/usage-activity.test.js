@@ -7,9 +7,19 @@ import { accountHash } from '../lib/sync/keys.js';
 
 const NOW = Date.parse('2026-10-26T16:00:00Z');
 const query = { start: '2026-10-01', end: '2026-10-26' };
-const row = (extra = {}) => ({ id: 'review-1', at: NOW, kind: 'review', account: 'dev', profileId: 'p',
+const ids = new Map();
+function sessionId(label) {
+  if (!ids.has(label)) ids.set(label, `a-00000000-0000-4000-8000-${String(ids.size).padStart(12, '0')}`);
+  return ids.get(label);
+}
+const row = (extra = {}) => {
+  const record = { id: 'review-1', at: NOW, kind: 'review', account: 'dev', profileId: 'p',
   ref: 'org/repo#1', model: 'Opus', status: 'ok', inputTokens: 10, outputTokens: 5,
-  cacheReadTokens: 100, cacheCreationTokens: 20, costUsd: 1, costSource: 'medido', ...extra });
+  cacheReadTokens: 100, cacheCreationTokens: 20, costUsd: 1, costSource: 'medido', ...extra };
+  if (record.id) record.id = sessionId(record.id);
+  if (record.localId) record.localId = sessionId(record.localId);
+  return record;
+};
 const report = (rows, filters = {}) => activityReport([{ device: 'local', rows }], { ...query, ...filters }, NOW);
 
 test('soma todas as tentativas, mas conclusão e PR único não duplicam', () => {
@@ -53,6 +63,25 @@ test('não deduplica gasto por ID de operação; deduplica o mesmo attemptId', (
   const r = report([row({ attemptId: 'a' }), row({ attemptId: 'a' }), row({ attemptId: 'b' })]);
   assert.equal(r.totals.attempts, 2);
   assert.equal(r.totals.costUsd, 2);
+});
+
+test('IDs curtos reutilizados entre boots não unem PRs nem inventam conclusões e retentativas', () => {
+  const r = report([{ ...row(), id: 'a1' }, { ...row({ ref: 'org/repo#2' }), id: 'a1' }]);
+  assert.equal(r.totals.attempts, 2);
+  assert.equal(r.history.total, 2);
+  assert.equal(r.unidentified, 2);
+  assert.deepEqual(r.completed, { reviews: 0, self: 0, prs: 0 });
+  assert.equal(r.retries, 0);
+});
+
+test('modelos cumulativos inativos não participam da tentativa; uso só de cache ou custo participa', () => {
+  const r = report([row({ modelUsage: {
+    inactive: { inputTokens: 0, outputTokens: 0 }, active: { inputTokens: 10, outputTokens: 5 },
+    cache: { cacheReadInputTokens: 20 }, cost: { costUSD: .1 },
+  } })]);
+  assert.deepEqual(r.models.map(m => m.name).sort(), ['active', 'cache', 'cost']);
+  assert.equal(r.models.find(m => m.name === 'active').attempts, 1);
+  assert.equal(report([row({ inputTokens: 0, outputTokens: 0, modelUsage: { inactive: {} } })]).models.length, 0);
 });
 
 test('uso de subagentes aparece no modelo que consumiu, sem criar execuções extras', () => {

@@ -19,6 +19,7 @@ Consumo mostra operações concluídas, tentativas e tokens com filtros e histó
 - Tokens de entrada, saída e cache ficam separados. A modalidade de acesso é registrada na execução; registros antigos sem essa informação permanecem desconhecidos. Valores em dólares informados pelo CLI são referências de consumo, não cobranças confirmadas.
 - A página mantém os controles de orçamento e os gráficos anteriores em detalhes avançados, com indicação do escopo de cada visão e adaptação a telas estreitas.
 - A consulta reaproveita os registros locais e a consolidação existente entre aparelhos, sem iniciar análises, alterar a qualidade das reviews ou ampliar os dados enviados na sincronização.
+- IDs curtos do histórico antigo não são usados para inferir conclusões ou retentativas, pois podiam se repetir após reiniciar. Atualizações periódicas renovam todos os indicadores, e trocar a fonte limpa filtros incompatíveis; a opção Hoje também vale para o consolidado avançado.
 
 ## v2.78.2
 

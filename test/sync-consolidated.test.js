@@ -67,7 +67,7 @@ test('janela de n dias soma n dias civis, como a aba local', () => {
   const d1 = {};
   // um evento ao meio-dia de Brasília (15:00 UTC) em cada um dos 40 dias até hoje, 14/01
   for (let i = 0; i < 40; i++) d1[`e${i}`] = ev(Date.UTC(2027, 0, 14, 15, 0) - i * TEMPOS.DIA_MS);
-  for (const n of [7, 15, 30]) {
+  for (const n of [1, 7, 15, 30]) {
     const r = consolidatedSummary({ d1 }, {}, { days: n, agoraMs: AGORA, euDeviceId: 'd1' });
     assert.equal(r.series.length, usageDayKeysBack(n, AGORA).length, `${n} dias: mesma contagem de dias da aba local`);
     assert.equal(r.totals.sessions, n, `${n} dias: um evento por dia`);
