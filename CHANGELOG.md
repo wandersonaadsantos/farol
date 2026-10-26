@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.3
+
+Consumo mostra operações concluídas, tentativas e tokens com filtros e histórico detalhado.
+
+**Melhorias**
+- Reviews, autoanálises e outras operações têm contadores separados de execuções e novas tentativas. A conclusão técnica usa o resultado final registrado, sem afirmar que uma review foi publicada no GitHub.
+- Filtros por período, conta, repositório, provedor, modelo principal e tipo permitem investigar o consumo. O histórico agrupa as tentativas da mesma operação e detalha os modelos participantes quando o provedor informa essa divisão.
+- Tokens de entrada, saída e cache ficam separados. A modalidade de acesso é registrada na execução; registros antigos sem essa informação permanecem desconhecidos. Valores em dólares informados pelo CLI são referências de consumo, não cobranças confirmadas.
+- A página mantém os controles de orçamento e os gráficos anteriores em detalhes avançados, com indicação do escopo de cada visão e adaptação a telas estreitas.
+- A consulta reaproveita os registros locais e a consolidação existente entre aparelhos, sem iniciar análises, alterar a qualidade das reviews ou ampliar os dados enviados na sincronização.
+- IDs curtos do histórico antigo não são usados para inferir conclusões ou retentativas, pois podiam se repetir após reiniciar. Atualizações periódicas renovam todos os indicadores, e trocar a fonte limpa filtros incompatíveis; a opção Hoje também vale para o consolidado avançado.
+
 ## v2.78.2
 
 Reverificação imediata da versão do Claude Code e do aviso de atraso.
