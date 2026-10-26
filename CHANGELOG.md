@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.8
+
+Correção da seleção de pistas no índice experimental de código, preservando seus limites e as verificações de qualidade.
+
+**Correções**
+- O mapa prioriza os arquivos alterados e os nomes anteriores quando atinge o limite de arquivos, em vez de deixá-los de fora pela ordem alfabética.
+- A orientação distribui o espaço entre símbolos, dependências, arquivos e os dois commits. Uma lista longa deixa de eliminar todas as pistas de outra categoria; omissões continuam explícitas e metadados não concedem cobertura.
+- Os experimentos continuam desligados por padrão. Esta correção não comprova economia de tokens nem qualidade preservada nas reviews do modelo. Voz permanece desligada por padrão.
+
 ## v2.77.7
 
 Preparação de otimizações de review com avaliação explícita de qualidade, sem ativar mudanças não comprovadas.
