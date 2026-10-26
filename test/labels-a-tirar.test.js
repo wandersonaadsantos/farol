@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 
 const io = (await import('../lib/io.js')).default;
 const { anotar, tirarPendentes, ARQUIVO } = await import('../lib/engine/labels-a-tirar.js');
-const { removeInProgressLabel } = await import('../lib/engine/review.js');
+const { addInProgressLabel, removeInProgressLabel } = await import('../lib/engine/review.js');
 
 const runReal = io.run;
 after(() => { io.run = runReal; fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); });
@@ -188,4 +188,24 @@ test('limpeza manual adiada reserva a dona da tag, mas autentica com a conta que
     await releaseLease(client, ids, { leaseId: 'other-review' });
     await tirarPendentes(e, run); assert.equal(called, 1); assert.deepEqual(lerArquivo(), {});
   } finally { await fake.close(); }
+});
+
+for (const [origem, limpar] of [
+  ['adiada', (e, run) => tirarPendentes(e, run)],
+  ['final', (e, run) => removeInProgressLabel(e, PR, 'eu:revisando', run)],
+]) test(`limpeza ${origem} em voo não apaga o marcador nem a intenção de uma nova revisão local`, async () => {
+  const e = motor(), tags = new Set(['eu:revisando']); anotar(e, PR, 'eu:revisando');
+  let liberar, avisar;
+  const entrou = new Promise(resolve => { avisar = resolve; });
+  const espera = new Promise(resolve => { liberar = resolve; });
+  const limpeza = limpar(e, async () => {
+    avisar(); await espera; tags.delete('eu:revisando'); return { ok: true };
+  });
+  await entrou; e.activeReviews.set('nova', { mode: 'review', keys: [PR.key] });
+  const inclusao = addInProgressLabel(e, PR, async () => { tags.add('eu:revisando'); return { ok: true }; });
+  await new Promise(resolve => setImmediate(resolve));
+  liberar(); await Promise.all([limpeza, inclusao]);
+  assert.equal(tags.has('eu:revisando'), true);
+  assert.equal(Object.values(lerArquivo()).length, 1);
+  assert.equal(e.activeReviews.size, 1);
 });
