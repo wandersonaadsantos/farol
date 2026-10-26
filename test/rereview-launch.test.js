@@ -263,11 +263,11 @@ test('limparLabelsOrfas: remove a label da conta dona em cada PR que estava infl
   const { limparLabelsOrfas } = await import('../lib/engine/review.js');
   const chamadas = [];
   const e = { accountForPr: () => 'euzinho', tokenFor: () => 'tok', ghEnv: () => ({}), log: () => {} };
-  const prs = [{ key: 'o/r#1', url: 'u1' }, { key: 'o/r#2', url: 'u2' }];
+  const prs = [{ key: 'o/r#1', url: 'https://github.com/o/r/pull/1' }, { key: 'o/r#2', url: 'https://github.com/o/r/pull/2' }];
   await limparLabelsOrfas(e, prs, async (cmd, args) => { chamadas.push(args.join(' ')); return { ok: true }; });
   assert.deepEqual(chamadas, [
-    'pr edit u1 --remove-label euzinho:revisando',
-    'pr edit u2 --remove-label euzinho:revisando',
+    'pr edit https://github.com/o/r/pull/1 --remove-label euzinho:revisando',
+    'pr edit https://github.com/o/r/pull/2 --remove-label euzinho:revisando',
   ]);
 });
 
@@ -275,9 +275,9 @@ test('limparLabelsOrfas: conta sem token e PR sem url são pulados, e falha do g
   const { limparLabelsOrfas } = await import('../lib/engine/review.js');
   const chamadas = [];
   const e = { accountForPr: () => 'euzinho', tokenFor: (a) => a === 'euzinho' ? '' : 'tok', ghEnv: () => ({}), log: () => {} };
-  await limparLabelsOrfas(e, [{ key: 'o/r#1', url: 'u1' }], async () => { chamadas.push('foi'); return { ok: true }; });
+  await limparLabelsOrfas(e, [{ key: 'o/r#1', url: 'https://github.com/o/r/pull/1' }], async () => { chamadas.push('foi'); return { ok: true }; });
   assert.deepEqual(chamadas, [], 'sem token não fala com o gh');
   const e2 = { accountForPr: () => 'euzinho', tokenFor: () => 'tok', ghEnv: () => ({}), log: () => {} };
   await limparLabelsOrfas(e2, [{ key: 'o/r#2' }], async () => { throw new Error('boom'); });
-  await limparLabelsOrfas(e2, [{ key: 'o/r#3', url: 'u3' }], async () => { throw new Error('boom'); });
+  await limparLabelsOrfas(e2, [{ key: 'o/r#3', url: 'https://github.com/o/r/pull/3' }], async () => { throw new Error('boom'); });
 });

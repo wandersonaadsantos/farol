@@ -11,7 +11,7 @@ function gruposDaPintura(pintar) {
     grupo('contas', ['accounts', 'account', 'config', 'queue', 'decisions', 'panorama', 'activeSessions']),
     grupo('status', ['app', 'status', 'error', 'account', 'activeSessions', 'buscasPausadas']),
     grupo('sessoes', ['activeSessions', 'activity', 'headlessWaiting', 'headlessWaitingContas', 'panorama', 'accounts'], mim),
-    grupo('decisoes', ['decisions', 'accounts', 'config', 'reRounds', 'pushbacks', 'chats'], mim),
+    grupo('decisoes', ['decisions', 'accounts', 'config', 'reRounds', 'pushbacks', 'chats', 'activeSessions', 'headlessWaiting', 'headlessWaitingContas'], mim),
     grupo('fila', ['queue', 'panorama', 'activeSessions', 'decisions', 'headlessWaiting', 'headlessDistributing', 'headlessWaitingDetails', 'accounts', 'config', 'parked', 'sync', 'usage', 'status', 'lastCheckAt'], mim),
     grupo('meus', ['myPRs', 'selfAnalyses', 'activeSessions', 'headlessWaiting', 'hiddenPRs', 'mergeStates', 'baseDosMeusPRs', 'config', 'accounts', 'chats', 'lastCheckAt', 'status', 'sync'], () => telaVisivel('radar', 'meus') && !editandoFormulario() && !textoSelecionado('#rpane-meus')),
     grupo('panorama', ['panorama', 'activeSessions', 'decisions', 'reviewActions', 'reviewStatesGh', 'staleStates', 'accounts', 'config', 'lastCheckAt', 'status', 'sync', 'chats'], () => telaVisivel('radar', 'pano') && !editandoFormulario() && !textoSelecionado('#rpane-pano')),

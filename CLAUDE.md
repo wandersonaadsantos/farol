@@ -43,6 +43,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | **`lib/`** | **Funções puras e infraestrutura, sem estado do engine** |
 | `lib/paths.js` | Caminhos do app e `IS_WIN`/`IS_MAC` (fonte única do branch de plataforma) |
 | `lib/io.js` | `run`/`runShell` (todo `gh` do Farol passa aqui; NUNCA lançam, devolvem `{ok,code,stdout,stderr}`), `readJson`, `copyRecursive`, `detectGitBash` |
+| `lib/review-context/` | Mapa sintático e seleção de contexto por fonte fixada. `navigation.js` acrescenta pistas de símbolos e dependências com procedência; `reviewNavigationFacts` nasce desligado e não concede prova de leitura |
 | `lib/parse.js` | Normalizadores de config: contas, reviewers, perfis Claude, e o saneamento de `reviewModel`/`reviewEffort` por allowlist (os únicos valores que entram numa linha de comando de shell) |
 | `lib/format.js` | `modelLabel` (id cru do CLI vira "Opus 5") e `isPermanentBranch` (protege develop/release/main de serem deletadas num merge) |
 | `lib/taxonomy.js` | Papéis, domínios e níveis do perfil de review, com os textos de tom que entram no prompt |
@@ -201,6 +202,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/jira/cache.js` | Cache de card por site, fora do workspace da sessão. Namespace é id **E** host (a tela deixa corrigir o `baseUrl` mantendo o id, e sem o host o Farol serviria por até uma hora o card do tenant ANTERIOR) |
 | `lib/jira/errors.js` | Taxonomia com três donos de falha (do Farol, do Jira, do usuário). Os códigos `desligado` e `sem_chave` são SILENCIOSOS por decisão, ver [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md#jira-multi-tenant-v2520) |
 | `tools/jira-mcp.js` | **O servidor MCP local do Farol** (v2.52.0). Expõe `getJiraIssue` e `searchJiraIssuesUsingJql` já apontados pro site certo. Recebe SÓ o `siteId` por argumento e lê a credencial do disco por conta própria: o `state/spawns.log` registra a linha de comando inteira, então segredo ali seria segredo em texto puro pra sempre |
+| `tools/avaliar-qualidade-review.js` + `tools/review-quality/` | Comparação offline de variantes com corpus curado, identidade congelada, evidência ligada à review e repetições independentes. Não executa modelo nem ativa configuração. Contrato de desenvolvimento em `docs/REVIEW-QUALITY.md` |
 | `tools/farol-parear.js` | Comando local da A4: imprime um código de pareamento SÓ no stdout (10 caracteres, 10 minutos, uso único) e `--revogar-todas`. Honra `FAROL_HOME`. Viaja nas três whitelists de `tools/` (pacote leve, Setup.exe, offline do macOS) |
 | `ui/` | UI sem framework: `index.html` + `pure.js` (fachada) + `pure/` + `app.js` + `telas/` + `app.css`; `ui/transporte.js` é o transporte autenticado da A4 (Authorization e SSE por fetch, só com token salvo), consumido por `ui/telas/infra.js` e pelo bootstrap |
 | `ui/app.js` | **O bootstrap da página** desde a Fase 1b da reorganização (16/09/2026): liga o SSE ao estado, comanda a troca de aba e o `data-goto`, e inicializa as telas. Saiu da dívida de responsabilidade única (ver `docs/QUALITY.md`) |

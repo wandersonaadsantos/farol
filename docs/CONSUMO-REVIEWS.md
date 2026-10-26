@@ -1,5 +1,50 @@
 # Consumo e saída dos reviews
 
+## Atividade na página Consumo
+
+Os cartões distinguem reviews concluídas, autoanálises concluídas, PRs únicos
+revisados e execuções de IA. Conclusão significa resultado técnico `ok`, não
+publicação de review no GitHub. A tabela por tipo mostra resultados de tentativas;
+por isso sua coluna de concluídas pode diferir dos cartões de operações.
+
+O histórico agrupa tentativas com o mesmo ID do Farol, aparelho, conta, perfil e
+tipo. IDs diferentes não são unidos por PR ou por proximidade de horário. Só o
+último resultado da operação determina a conclusão; uma conclusão fora do período
+ou do filtro não é atribuída ao recorte. Registros sem ID entram no consumo, mas
+não permitem inferir conclusões ou retentativas. IDs curtos legados, reutilizados
+entre reinícios, também ficam sem identidade confiável. Subagentes não são reviews extras.
+Retentativas são tentativas posteriores à primeira da operação; contam no recorte
+em que ocorreram mesmo quando a tentativa anterior ficou fora do período ou filtro.
+
+A consulta autenticada `GET /api/usage` lê o diário permanente completo, sem o
+limite de 100 sessões recentes do snapshot. Aceita `start` e `end` inclusivos,
+`account`, `repo`, `provider`, `model`, `kind`, `scope=local|all`, `search`,
+`focus=review|self|pr` e `page` (base zero, oito operações por página). Datas são
+interpretadas pelo dia de Brasília. Os filtros principais valem para indicadores,
+recursos, gráfico e histórico; busca e foco do indicador só restringem o histórico.
+As tentativas expandidas mostram a operação inteira, inclusive gasto fora da janela,
+com aviso explícito. A consulta não inicia modelos, não publica e não altera dados.
+O filtro de modelo seleciona o modelo principal da execução. A discriminação por
+modelo usa o detalhamento da árvore quando disponível: uma execução pode participar
+em mais de um modelo, sem aumentar o total de execuções. Atribuição inconsistente
+preserva os tokens como sem atribuição, em vez de transferi-los ao coordenador.
+
+Tokens de entrada e saída ficam separados do cache. Novas execuções guardam o
+provedor informado e a modalidade do perfil resolvido na execução; mudanças
+posteriores de configuração não reclassificam gastos antigos. Sem essa informação,
+a modalidade permanece desconhecida. Custo em dólar informado pelo CLI é referência,
+nunca confirmação de cobrança: assinatura não é convertida em custo de API.
+
+Todos os aparelhos usa os eventos já sincronizados do próprio usuário, sem ampliar
+o conteúdo enviado ao banco. PRs e contas remotos preservam os hashes existentes;
+provedor e modalidade histórica podem estar ausentes. Só eventos recebidos entram
+no consolidado. Falha de leitura é indisponibilidade, não consumo zero. A falta de
+cobertura anterior ao primeiro registro também é sinalizada.
+
+Orçamento, matriz e histórico técnico anteriores continuam disponíveis em uma
+seção recolhida, com seus totais gerais explicitamente separados dos filtros de
+atividade. Nenhuma nova contagem modifica os gates ou a política de revisão.
+
 O registro de consumo do Claude distingue o uso do coordenador do uso da árvore
 inteira. Quando o evento final oferece `modelUsage` completo, os tokens incluem
 os subagentes e são atribuídos aos modelos que os consumiram. O raciocínio
@@ -82,3 +127,8 @@ Defina o orçamento antes de abrir as sessões comparativas. Inclua subagentes,
 retentativas e falhas no custo por decisão útil. Compactação do repasse,
 reaproveitamento adicional de contexto e redução de modelo ou esforço precisam
 de candidatos e evidências separados. Esta entrega não ativa essas mudanças.
+
+O [gate offline de qualidade](REVIEW-QUALITY.md) confere os registros dessas
+comparações, preserva controles que a própria referência perdeu e distingue
+regressão de avaliação inconclusiva. Uma execução sintética verde valida o gate;
+não substitui as reviews reais nem demonstra economia.

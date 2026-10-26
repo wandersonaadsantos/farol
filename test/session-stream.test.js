@@ -409,3 +409,23 @@ test('runClaudeStream: stdin tem handler de error (EPIPE de processo morto não 
 
   assert.ok(handlers >= 1, 'child.stdin sem handler de error: EPIPE assíncrono vira uncaughtException e mata o engine');
 });
+
+test('runClaudeStream: quatro Reads na mesma mensagem só contam após cada conteúdo completo retornar', async () => {
+  const scopeRoot = fs.mkdtempSync(path.join(FAROL_HOME, 'scope-'));
+  const review = { scopeRoot, filesRead: new Set() };
+  const engine = engineFalso(); engine.config.reviewBatchedReads = true; engine.activeReviews = new Map([['batch', review]]);
+  const names = ['a.js', 'b.js', 'c.js', 'd.js'];
+  for (const name of names) fs.writeFileSync(path.join(scopeRoot, name), 'one\ntwo\n');
+  const child = filhoStream(); spawnImpl = () => child;
+  const pending = runClaudeStream(engine, 'prompt', { id: 'batch' }); spawnImpl = null;
+  const send = event => child.stdout.write(JSON.stringify(event) + '\n');
+  send({ type: 'assistant', message: { content: names.map(name => ({ type: 'tool_use', name: 'Read', id: name, input: { file_path: path.join(scopeRoot, name) } })) } });
+  assert.equal(review.filesRead.size, 0);
+  for (const name of names.slice(0, 3)) send({ type: 'user',
+    tool_use_result: { type: 'text', file: { filePath: path.join(scopeRoot, name), content: 'one\ntwo\n', startLine: 1, numLines: 2, totalLines: 2 } },
+    message: { content: [{ type: 'tool_result', tool_use_id: name, content: ' 1→one\n 2→two' }] } });
+  send({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'd.js', is_error: true, content: 'Read failed' }] } });
+  send({ type: 'result', result: 'done' });
+  child.stdout.once('end', () => child.emit('close', 0)); child.stdout.end(); await pending;
+  assert.deepEqual([...review.filesRead].sort(), names.slice(0, 3));
+});

@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.77.7
+## v2.78.4
 
 O botão Atualizar agora também prepara a troca do Electron, sem baixar o instalador à mão.
 
@@ -18,6 +18,89 @@ O botão Atualizar agora também prepara a troca do Electron, sem baixar o insta
 - Quando o pacote leve exige outro Electron, o Farol baixa o instalador completo da mesma release e confere o SHA-256 antes de instalar. Downloads interrompidos ou inválidos preservam a instalação atual.
 - O Windows instala em segundo plano e reabre o Farol. No macOS, o pacote é preparado e o runtime validado antes de fechar o app; a publicação inclui Apple Silicon e Intel.
 - O botão mostra que a atualização está sendo preparada. Sessões iniciadas durante o download continuam adiando a instalação até o Farol ficar ocioso.
+
+## v2.78.3
+
+Consumo mostra operações concluídas, tentativas e tokens com filtros e histórico detalhado.
+
+**Melhorias**
+- Reviews, autoanálises e outras operações têm contadores separados de execuções e novas tentativas. A conclusão técnica usa o resultado final registrado, sem afirmar que uma review foi publicada no GitHub.
+- Filtros por período, conta, repositório, provedor, modelo principal e tipo permitem investigar o consumo. O histórico agrupa as tentativas da mesma operação e detalha os modelos participantes quando o provedor informa essa divisão.
+- Tokens de entrada, saída e cache ficam separados. A modalidade de acesso é registrada na execução; registros antigos sem essa informação permanecem desconhecidos. Valores em dólares informados pelo CLI são referências de consumo, não cobranças confirmadas.
+- A página mantém os controles de orçamento e os gráficos anteriores em detalhes avançados, com indicação do escopo de cada visão e adaptação a telas estreitas.
+- A consulta reaproveita os registros locais e a consolidação existente entre aparelhos, sem iniciar análises, alterar a qualidade das reviews ou ampliar os dados enviados na sincronização.
+- IDs curtos do histórico antigo não são usados para inferir conclusões ou retentativas, pois podiam se repetir após reiniciar. Atualizações periódicas renovam todos os indicadores, e trocar a fonte limpa filtros incompatíveis; a opção Hoje também vale para o consolidado avançado.
+
+## v2.78.2
+
+Reverificação imediata da versão do Claude Code e do aviso de atraso.
+
+**Correções**
+- Reverificar saúde relê a versão instalada e consulta o registro de versões antes de concluir. O aviso deixa de esperar o cache de seis horas e usa a mesma leitura do CLI exibida no diagnóstico.
+- Uma consulta antiga não sobrescreve o resultado de uma reverificação mais recente. Falhas na comparação são informadas sem conservar um aviso de outra versão nem afirmar que o CLI está atualizado.
+- As verificações automáticas mantêm o cache para a mesma versão; detectar outro executável instalado invalida a leitura anterior.
+
+## v2.78.1
+
+Recuperação de revisões bloqueadas por uma preparação Git interrompida antes de reiniciar o computador.
+
+**Correções**
+- Uma preparação Git anterior ao último reinício deixa de bloquear novas revisões quando seus arquivos já foram liberados e não há consumidores ativos.
+- A recuperação mantém os arquivos parciais contabilizados no cache e preserva as sessões em andamento. Operações iniciadas desde o último reinício ou sem comprovação de término continuam protegidas.
+- A consulta ao sistema operacional ocorre fora da trava global, permitindo que outras operações Git terminem enquanto a recuperação confere o reinício.
+- Escritas de cache com tamanho conhecido deixam de receber a folga reservada a aquisições de crescimento desconhecido. Isso evita recusas indevidas sob I/O lento, mantendo a conferência dos bytes reais e dos limites de quota.
+
+## v2.78.0
+
+Controle manual das tags de revisão e recuperação mais confiável dos marcadores que ficaram no GitHub.
+
+**Novidades**
+- Sistema > Visão geral permite consultar um PR e remover individualmente qualquer marcador `conta:revisando`, com confirmação e indicação da conta usada. A ação remove a tag do PR, sem apagar sua definição no repositório nem cancelar a revisão ativa. A mesma sessão local respeita a remoção manual.
+
+**Correções**
+- A tentativa de inclusão da tag é registrada antes do envio ao GitHub. Se a resposta se perder depois da inclusão, o cancelamento ou a falha ainda conseguem limpar o marcador.
+- Limpezas que falharam por rede ou token, inclusive após reinício, continuam pendentes até confirmação da remoção. Elas não são mais esquecidas depois de sete dias e comportam mais de uma conta no mesmo PR.
+- A limpeza adiada respeita a posse entre aparelhos para não apagar a tag de uma revisão que começou depois. Um erro de acesso não é tratado como prova de que a tag deixou de existir.
+
+## v2.77.10
+
+Coerência entre os achados da revisão, o veredito e o texto publicado.
+
+**Correções**
+- Resultado estruturado sem defeito bloqueante não vira pedido de mudanças só porque uma ferramenta interna falhou. Sugestões e detalhes opcionais continuam separados dos impedimentos reais.
+- Veredito ou texto contraditório volta para a recuperação da análise. Esgotar tentativas não libera a contradição, não inventa um defeito e não transforma a revisão em aprovação.
+- A fronteira de publicação também recusa frases globais inequívocas de ausência de blockers no resumo introdutório de um pedido de mudanças. Citações, código e observações limitadas a uma área não são tratados como conclusão sobre o PR inteiro. Essa defesa textual reconhece casos conhecidos; a verificação estruturada continua sendo a principal.
+- Uma contradição acompanhada de defeito real é recuperada preservando o defeito. Pedidos coerentes por defeito confirmado ou CI obrigatório vermelho continuam disponíveis. Voz e experimentos de otimização permanecem desligados por padrão.
+
+## v2.77.9
+
+Correções na atualização dos cards de revisão, na presença entre aparelhos e na transferência de preferências.
+
+**Correções**
+- Os cards de decisão e o histórico acompanham o início e o fim das sessões e as mudanças da fila de execução, sem depender de outro evento para atualizar o estado mostrado.
+- Após uma falha, o relógio de andamento respeita a janela de cinco minutos entre tentativas de presença. A tentativa não conta como presença saudável; a checagem normal e as ações explícitas de conexão continuam disponíveis.
+- A exportação/importação cobre as 45 preferências do Sistema. Valores iguais deixam de aparecer como diferenças, o intervalo de checagem é comparado corretamente e contas já coincidentes são preservadas. A prévia da cadeia mostra o conteúdo do arquivo e explica os ajustes dependentes. Arquivos antigos conservam somente as preferências que já continham; uma nova exportação inclui o conjunto completo.
+- Voz e experimentos de navegação, leituras agrupadas e responsabilidades por lote continuam desligados por padrão. Os ensaios de tokens não qualificaram essas opções para ativação.
+
+## v2.77.8
+
+Correção da seleção de pistas no índice experimental de código, preservando seus limites e as verificações de qualidade.
+
+**Correções**
+- O mapa prioriza os arquivos alterados e os nomes anteriores quando atinge o limite de arquivos, em vez de deixá-los de fora pela ordem alfabética.
+- A orientação distribui o espaço entre símbolos, dependências, arquivos e os dois commits. Uma lista longa deixa de eliminar todas as pistas de outra categoria; omissões continuam explícitas e metadados não concedem cobertura.
+- Os experimentos continuam desligados por padrão. Esta correção não comprova economia de tokens nem qualidade preservada nas reviews do modelo. Voz permanece desligada por padrão.
+
+## v2.77.7
+
+Preparação de otimizações de review com avaliação explícita de qualidade, sem ativar mudanças não comprovadas.
+
+**Melhorias**
+- Ferramenta offline de desenvolvimento compara reviews contra falhas conhecidas, exige repetições independentes e recusa omissões, falsos positivos, evidência incompatível ou avaliação incompleta. Redução de tokens só permite considerar piloto depois dos critérios de qualidade; nunca ativa preferências automaticamente.
+- Orientação sintática experimental reaproveita o mapa existente com símbolos e dependências candidatos ligados ao commit e à identidade das fontes. Patches, leituras e critérios anteriores permanecem disponíveis; metadados não concedem cobertura.
+- Agendamento experimental orienta até quatro leituras independentes por mensagem. No stream Claude dessa variante, só há crédito de leitura após conferir o conteúdo retornado contra cada patch; erro, truncamento e lacunas continuam pendentes.
+- Responsabilidades experimentais reaproveitam os lotes existentes e atribuem ao coordenador a investigação das interações entre lotes e fora do diff, além da verificação dos achados.
+- Os três experimentos permanecem desligados por padrão, sem ativação pela interface. Não há economia de tokens ou melhoria da qualidade real comprovada para essas variantes. Modelo, esforço, regras de decisão e publicação permanecem iguais. Voz continua desligada por padrão.
 
 ## v2.77.6
 

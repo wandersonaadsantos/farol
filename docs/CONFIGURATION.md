@@ -752,21 +752,68 @@ aberto; nas demais instalações pode ser aberto quando necessário. Login, orga
 são informações distintas de configuração preenchida. Use **Reverificar saúde** para
 atualizar o diagnóstico. O roteiro não ativa automação nem aprova a política da conta.
 
-**Preferências entre instalações** exporta JSON versão 1 com apenas tema, toque
-sonoro e intervalo de lembretes de intervenção. Não é backup nem migração de conta:
-credenciais, caminhos locais, perfis, voz, dados de revisão, sincronização e políticas
-de automação ficam fora. Arquivo com campo adicional ou versão incompatível é recusado.
+**Tags de revisão no GitHub**, em Sistema > Visão geral, consulta um PR e permite
+remover individualmente os marcadores `conta:revisando`, inclusive de outro login.
+A ação usa a conta autenticada que cobre o PR e pede confirmação. Ela tira a tag
+daquele PR, sem excluir sua definição no repositório nem cancelar uma revisão ativa.
+A sessão local respeita a remoção manual; uma revisão nova pode recolocar o marcador.
+Tags de outras ferramentas e outros assuntos ficam fora desse controle.
 
-Importar exige arquivo de até 16 KiB, prévia de diferenças, seleção explícita e
-**Aplicar diferenças selecionadas**. A prévia não grava; valores iguais não são
-selecionáveis. Se o arquivo ou as preferências do destino mudarem, gere outra prévia.
-Falha de gravação restaura os valores em memória. Não há descoberta de instalação,
-cópia de pasta, contratação de serviço ou alteração da instalação original.
+Ao concluir, falhar ou cancelar uma revisão, o Farol tenta remover sua tag. A intenção
+é registrada antes da inclusão, inclusive para resposta perdida do GitHub. Falhas de
+remoção e limpeza após reinício ficam pendentes para os próximos ciclos, sem expirar
+após sete dias. Sem rede, token ou permissão, a remoção não pode ser garantida na hora.
+A limpeza automática adiada respeita revisões vivas e a posse entre aparelhos.
+
+**Preferências entre instalações** exporta JSON versão 2 com todas as preferências
+editáveis do Sistema, a partir da tabela central de configurações. Inclui contas e
+políticas de automação, modelos e esforço, limites de revisões, regras e revisores,
+papéis das pessoas, tema, som, voz e horário silencioso, atualização e inicialização,
+perfis e orçamentos dos provedores, ordem dos perfis e configuração da sincronização.
+
+Senhas, tokens, chaves de API e sessões autenticadas não entram no arquivo. Os ajustes
+de um perfil de API reutilizam somente a credencial local do mesmo identificador,
+tipo e endereço. Sem ela, a diferença aparece indisponível e explica como cadastrar
+a credencial antes de aplicar. A sincronização exige a configuração local da chave
+para o mesmo projeto e banco; as proteções de autenticação do aparelho continuam
+valendo. Login no GitHub, Jira e provedores continua sendo feito no destino.
+
+Não é uma cópia do diretório do Farol: histórico de revisões, credenciais, identidade
+do dispositivo, grupos publicados e políticas de outros aparelhos não são preferências
+locais e não são migrados por esse arquivo. Portas, migrações internas e proteção da
+API local não são editáveis por essa importação. Diretórios configurados nos perfis
+são transferidos como preferências; precisam existir no aparelho de destino.
+
+Importar exige arquivo de até 1 MiB, prévia e seleção explícita das diferenças.
+**Aplicar diferenças selecionadas** usa a mesma validação e os mesmos efeitos do
+salvamento em Sistema, incluindo voz, inicialização, checagem e sincronização.
+A prévia não grava. Valores iguais, inclusive objetos com chaves em outra ordem,
+não aparecem. Se tudo é igual, a tela informa que não há diferenças.
+A prévia explica os ajustes dependentes: a última conta configurada não pode ser
+removida por importação, como na edição normal de Contas. Deixar o perfil padrão
+vazio desativa a cadeia. Uma cadeia vazia
+representa os perfis existentes desligados, sem diferenças que reapareçam após aplicar.
+A coluna **No arquivo** mostra a cadeia contida no JSON. Perfis locais ausentes dela
+ficam desativados; se a lista de perfis também for importada, os ausentes são removidos.
+IDs duplicados e datas inexistentes nos orçamentos são recusados antes da gravação.
+Usuário, organizações e remoção de perfis que alterem contas exigem selecionar também
+as diferenças das contas afetadas; um arquivo parcial não pode mudar esses vínculos
+silenciosamente. Se o arquivo inclui contas iguais às atuais, elas são preservadas
+ao restaurar usuário e organizações, sem exigir selecionar uma diferença inexistente.
+Sites Jira com credencial local não podem mudar de endereço pela
+importação, inclusive quando o identificador pertence a um cadastro antigo removido.
+Use outro identificador ou ajuste explicitamente o cadastro e a credencial no destino.
+
+Arquivos antigos na versão 1 continuam aceitos como parciais. Preferências ausentes
+são preservadas, com aviso; para transferir todos os ajustes é necessária uma nova
+exportação. Versões anteriores do Farol recusam o novo formato versão 2.
+Se o arquivo ou as preferências do destino mudarem, gere outra prévia.
+Falha ao salvar restaura a configuração anterior antes de disparar efeitos ou
+registrar mudança de política. Não há reinício automático do aplicativo.
 
 Tema claro e escuro usam os tokens existentes. A preferência persistida do engine
 prevalece quando chega o estado; o navegador mantém o último tema para o primeiro
-paint. Sem armazenamento local, as escolhas continuam funcionando nesta janela.
-A voz permanece desligada por padrão e não pode ser ativada pela importação.
+paint. A voz nasce desligada e pode ser ativada pela seleção explícita na importação.
 
 ## Fontes versionadas e contexto controlado
 

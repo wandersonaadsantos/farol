@@ -636,6 +636,19 @@ test('postReview falha fechado antes de token, arquivo e gh nos três eventos p�
   }
 });
 
+test('pedido de mudanças contraditório não chega a credencial ou GitHub por nenhuma via', async () => {
+  const e = engineForPost();
+  let refreshed = false;
+  e.token = null;
+  e.refreshTokens = async () => { refreshed = true; };
+  const r = await e.postReview({ key: 'acme/app#150', repo: 'acme/app', number: 150 }, {
+    event: 'REQUEST_CHANGES', body: 'Não encontrei nada bloqueante no código. Deixo ajustes opcionais.', comments: [],
+  });
+  assert.equal(r.ok, false);
+  assert.equal(refreshed, false, 'a contradição é recusada antes da credencial');
+  assert.equal(calls.length, 0, 'o writer real não chama gh');
+});
+
 test('decide mantém pendência quando o texto público é bloqueado', async () => {
   const e = engineForPost();
   e.saveDecisions = () => { };

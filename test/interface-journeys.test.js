@@ -13,27 +13,28 @@ const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-interface-'));
 process.env.FAROL_HOME = home;
 const { Engine } = await import('../server.js');
 const { command } = await import('../lib/preferences/transfer.js');
+const { SETTINGS } = await import('../lib/settings.js');
 const { CONFIG_FILE } = await import('../lib/paths.js');
 after(() => { assert.ok(path.resolve(home).startsWith(path.resolve(os.tmpdir()) + path.sep)); fs.rmSync(home, { recursive: true, force: true }); });
 function fixture() { const e = new Engine(); e.pushState = () => {}; e.log = () => {}; e.config.theme = 'dark'; e.config.soundEnabled = true; e.config.voiceEnabled = false; return e; }
 const document = values => ({ type: 'farol-preferences', schema: 1, values });
 test('prévia e exportação não gravam; aplicação seleciona só diferenças e protege voz/contas', async () => {
-  const e = fixture(); e.config.accounts = [{ user: 'dev', autoReview: false }]; e.config.voiceEnabled = false;
+  const e = fixture(); e.config.accounts = [{ user: 'dev', owners: [], autoReview: false, onClean: 'wait', onCaveats: 'wait', onReject: 'wait' }]; e.config.voiceEnabled = false;
   const doc = document({ theme: 'light', soundEnabled: false });
   const before = fs.existsSync(CONFIG_FILE) ? fs.readFileSync(CONFIG_FILE, 'utf8') : null;
   const exported = await command(e, { action: 'export' }); const preview = await command(e, { action: 'preview', document: doc });
-  assert.equal(preview.ok, true); assert.deepEqual(Object.keys(exported.document.values), ['theme', 'soundEnabled', 'interventionReminderMinutes']);
+  assert.equal(preview.ok, true); assert.deepEqual(Object.keys(exported.document.values), SETTINGS.filter(s => s.ui).map(s => s.key));
   assert.equal(fs.existsSync(CONFIG_FILE) ? fs.readFileSync(CONFIG_FILE, 'utf8') : null, before);
   const accounts = e.config.accounts;
   const applied = await command(e, { action: 'apply', document: doc, token: preview.token, keys: ['theme'] });
   assert.equal(applied.ok, true); assert.equal(e.config.theme, 'light'); assert.equal(e.config.soundEnabled, true);
-  assert.equal(e.config.voiceEnabled, false); assert.equal(e.config.accounts, accounts);
+  assert.equal(e.config.voiceEnabled, false); assert.deepEqual(e.config.accounts, accounts);
   assert.equal(JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')).theme, 'light');
   assert.equal((await command(e, { action: 'apply', document: doc, token: preview.token, keys: ['soundEnabled'] })).ok, false);
 });
 test('arquivo incompatível, segredo, voz, caminho local e seleção indevida são recusados antes de efeitos', async () => {
   const e = fixture(); let writes = 0; e.saveConfig = () => { writes++; };
-  for (const doc of [{ ...document({ theme: 'light' }), schema: 2 }, document({ apiKey: 'synthetic-secret' }), document({ voiceEnabled: true }), document({ dir: 'C:/outro' }), document({ interventionReminderMinutes: -1 }), document({ theme: 'light', soundEnabled: 'false' }), document({}), { ...document({ theme: 'light' }), extra: 'x' }]) {
+  for (const doc of [{ ...document({ theme: 'light' }), schema: 3 }, document({ apiKey: 'synthetic-secret' }), document({ voiceEnabled: true }), document({ dir: 'C:/outro' }), document({ interventionReminderMinutes: -1 }), document({ theme: 'light', soundEnabled: 'false' }), document({}), { ...document({ theme: 'light' }), extra: 'x' }]) {
     const r = await command(e, { action: 'preview', document: doc }); assert.equal(r.ok, false); assert.doesNotMatch(r.error, /synthetic-secret|C:\//);
   }
   const doc = document({ theme: 'light' }), preview = await command(e, { action: 'preview', document: doc });
@@ -51,6 +52,39 @@ test('CAS vincula prévia ao arquivo e ao destino; falha de disco restaura memó
   const r = await command(e, { action: 'apply', document: doc, token: current.token, keys: ['theme'] });
   assert.equal(r.ok, false); assert.equal(e.config, original); assert.equal(writes, 1); assert.doesNotMatch(r.error, /synthetic/);
 });
+test('exportar 3 minutos, mudar para 5 e importar restaura apenas o intervalo', async () => {
+  const e = fixture(); e.config.intervalSeconds = 180;
+  const { document: doc } = await command(e, { action: 'export' });
+  assert.equal(doc.values.intervalSeconds, 180);
+  e.config.intervalSeconds = 300;
+  const preview = await command(e, { action: 'preview', document: doc });
+  assert.deepEqual(preview.changes, [{ key: 'intervalSeconds', current: 300, incoming: 180, changed: true }]);
+  let checks = 0; e.checkNow = () => { checks++; };
+  assert.equal((await command(e, { action: 'apply', document: doc, token: preview.token, keys: ['theme'] })).ok, false);
+  assert.equal(checks, 0);
+  const applied = await command(e, { action: 'apply', document: doc, token: preview.token, keys: ['intervalSeconds'] });
+  assert.equal(applied.ok, true); assert.equal(checks, 1);
+  assert.equal(JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')).intervalSeconds, 180);
+  assert.deepEqual((await command(e, { action: 'preview', document: doc })).changes, []);
+});
+
+test('JSON antigo não inventa intervalo ausente e valores inválidos não têm efeitos', async () => {
+  const e = fixture(); e.config.intervalSeconds = 300;
+  const old = document({ theme: 'dark', soundEnabled: true, interventionReminderMinutes: 0 });
+  assert.deepEqual((await command(e, { action: 'preview', document: old })).changes, []);
+  let writes = 0; e.saveConfig = () => { writes++; };
+  for (const intervalSeconds of [0, 179, 3601, 180.5, '180', null, true]) {
+    assert.equal((await command(e, { action: 'preview', document: document({ intervalSeconds }) })).ok, false);
+  }
+  assert.equal(writes, 0); assert.equal(e.config.intervalSeconds, 300);
+  const doc = document({ intervalSeconds: 180 });
+  const preview = await command(e, { action: 'preview', document: doc });
+  e.saveConfig = () => { throw Error('disk'); };
+  let checks = 0; e.checkNow = () => { checks++; };
+  assert.equal((await command(e, { action: 'apply', document: doc, token: preview.token, keys: ['intervalSeconds'] })).ok, false);
+  assert.equal(e.config.intervalSeconds, 300); assert.equal(checks, 0);
+});
+
 test('grupos preservam todos os itens, ordem interna, escape e recolhimento', () => {
   const rows = [{ account: 'a', repo: '<repo>', html: '<b>1</b>' }, { account: 'b', repo: 'outro', html: '<b>2</b>' }, { account: 'a', repo: '<repo>', html: '<b>3</b>' }];
   assert.deepEqual(queueGroups(rows, 'account').map(g => g.rows.length), [2, 1]);
