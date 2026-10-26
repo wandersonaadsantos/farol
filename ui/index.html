@@ -443,6 +443,12 @@
               <summary><span><b class="set-title" id="setupTitle">Configuração e retomada</b><span class="set-desc">Retome o roteiro quando precisar. Os indicadores usam o estado atual e o último diagnóstico; nenhum passo ativa automação ou dispensa os gates.</span></span><span class="chev" aria-hidden="true"></span></summary>
               <ol class="steps" id="setupSteps"></ol>
             </details>
+            <details class="card set-list review-tools setup" id="reviewLabels" aria-labelledby="reviewLabelsTitle">
+              <summary><span><b class="set-title" id="reviewLabelsTitle">Tags de revisão no GitHub</b><span class="set-desc">Consulte um PR para remover os marcadores conta:revisando gerenciados pelo Farol. A remoção da tag não cancela a revisão.</span></span><span class="chev" aria-hidden="true"></span></summary>
+              <div class="set-row review-label-query"><label class="set-txt field" for="reviewLabelsUrl"><span class="set-title">URL do pull request</span><input id="reviewLabelsUrl" type="url" placeholder="https://github.com/dono/repo/pull/123"></label><button id="reviewLabelsInspect" type="button" class="btn sm">Consultar tags</button></div>
+              <div id="reviewLabelsList"></div>
+              <p class="set-desc" id="reviewLabelsMessage" role="status" aria-live="polite">Consulte o PR antes de remover uma tag.</p>
+            </details>
             <section class="card set-list review-tools" id="preferencesTransfer" aria-labelledby="preferencesTitle">
               <div class="set-head"><div><h3 id="preferencesTitle">Preferências entre instalações</h3><p>Transfere todas as preferências configuráveis do Sistema, incluindo contas, automação, modelos, voz, revisores, perfis e sincronização. Senhas, tokens e chaves de acesso ficam neste aparelho.</p></div></div>
               <div class="set-row"><div class="set-txt"><span class="set-title">Exportar deste aparelho</span><span class="set-desc">Baixa um JSON com as preferências atuais.</span></div><div class="set-ctl"><button class="btn sm" type="button" id="preferencesExport">Exportar preferências</button></div></div>

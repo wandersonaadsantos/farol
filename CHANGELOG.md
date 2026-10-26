@@ -9,6 +9,37 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.2
+
+Reverificação imediata da versão do Claude Code e do aviso de atraso.
+
+**Correções**
+- Reverificar saúde relê a versão instalada e consulta o registro de versões antes de concluir. O aviso deixa de esperar o cache de seis horas e usa a mesma leitura do CLI exibida no diagnóstico.
+- Uma consulta antiga não sobrescreve o resultado de uma reverificação mais recente. Falhas na comparação são informadas sem conservar um aviso de outra versão nem afirmar que o CLI está atualizado.
+- As verificações automáticas mantêm o cache para a mesma versão; detectar outro executável instalado invalida a leitura anterior.
+
+## v2.78.1
+
+Recuperação de revisões bloqueadas por uma preparação Git interrompida antes de reiniciar o computador.
+
+**Correções**
+- Uma preparação Git anterior ao último reinício deixa de bloquear novas revisões quando seus arquivos já foram liberados e não há consumidores ativos.
+- A recuperação mantém os arquivos parciais contabilizados no cache e preserva as sessões em andamento. Operações iniciadas desde o último reinício ou sem comprovação de término continuam protegidas.
+- A consulta ao sistema operacional ocorre fora da trava global, permitindo que outras operações Git terminem enquanto a recuperação confere o reinício.
+- Escritas de cache com tamanho conhecido deixam de receber a folga reservada a aquisições de crescimento desconhecido. Isso evita recusas indevidas sob I/O lento, mantendo a conferência dos bytes reais e dos limites de quota.
+
+## v2.78.0
+
+Controle manual das tags de revisão e recuperação mais confiável dos marcadores que ficaram no GitHub.
+
+**Novidades**
+- Sistema > Visão geral permite consultar um PR e remover individualmente qualquer marcador `conta:revisando`, com confirmação e indicação da conta usada. A ação remove a tag do PR, sem apagar sua definição no repositório nem cancelar a revisão ativa. A mesma sessão local respeita a remoção manual.
+
+**Correções**
+- A tentativa de inclusão da tag é registrada antes do envio ao GitHub. Se a resposta se perder depois da inclusão, o cancelamento ou a falha ainda conseguem limpar o marcador.
+- Limpezas que falharam por rede ou token, inclusive após reinício, continuam pendentes até confirmação da remoção. Elas não são mais esquecidas depois de sete dias e comportam mais de uma conta no mesmo PR.
+- A limpeza adiada respeita a posse entre aparelhos para não apagar a tag de uma revisão que começou depois. Um erro de acesso não é tratado como prova de que a tag deixou de existir.
+
 ## v2.77.10
 
 Coerência entre os achados da revisão, o veredito e o texto publicado.

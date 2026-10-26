@@ -7,6 +7,9 @@ import assert from 'node:assert/strict';
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-review-cancel-'));
 process.env.FAROL_HOME = home;
 const { Engine } = await import('../server.js');
+const ioLabels = (await import('../lib/io.js')).default;
+const { ARQUIVO: labelsFile, tirarPendentes: retryLabels } = await import('../lib/engine/labels-a-tirar.js');
+const { limparLabelsOrfas } = await import('../lib/engine/review.js');
 const fanout = (await import('../lib/engine/fanout.js')).default;
 const original = fanout.prMetrics;
 fanout.prMetrics = async () => null;
@@ -160,4 +163,80 @@ test('falha concorrente do provedor não transforma cancelamento em retry de red
   assert.equal(e.parkedMotivos[PR.key].tipo, 'cancelado');
   assert.equal(e.retryAfterNet.has(PR.key), false);
   semResultado(e);
+});
+
+async function comTags(e, operation, { failAdd = false, failRemove = false } = {}) {
+  const originalRun = ioLabels.run, labels = new Set(), calls = [];
+  e.tokenFor = () => 'synthetic-token'; e.ghEnv = () => ({});
+  const run = async (_cmd, args) => {
+    calls.push(args);
+    if (args.includes('--add-label')) {
+      labels.add(args.at(-1));
+      if (failAdd) throw new Error('resposta perdida depois da inclusão');
+      return { ok: true };
+    }
+    if (args.includes('--remove-label')) {
+      if (failRemove) return { ok: false, stderr: 'network timeout' };
+      labels.delete(args.at(-1)); return { ok: true };
+    }
+    throw new Error(`chamada não esperada: ${args.slice(0, 2).join(' ')}`);
+  };
+  ioLabels.run = run;
+  try { await operation({ labels, calls, run }); }
+  finally { ioLabels.run = originalRun; }
+}
+for (const stage of ['antes da tag', 'preparação', 'modelo', 'fechamento']) {
+  test(`cancelamento ${stage}: a tag não fica no PR nem volta na mesma sessão`, async () => {
+    const e = engine();
+    if (stage === 'antes da tag') e.headSha = async () => { cancelarAtiva(e); return HEAD; };
+    if (stage === 'preparação') e.fetchPrInventory = async () => { cancelarAtiva(e); return { status: 'complete', files: [], headSha: HEAD }; };
+    if (stage === 'modelo') e.runClaudeStream = async () => { cancelarAtiva(e); return { text: JSON.stringify(envelope) }; };
+    if (stage === 'fechamento') { e.shouldAutoApprove = () => ({ ok: true }); e.bloqueadoPorChecks = async () => { cancelarAtiva(e); return { faltando: [] }; }; }
+    await comTags(e, async ({ labels, calls }) => {
+      await assert.rejects(e.runHeadlessReview({ ...PR }), { cancelled: true });
+      assert.equal(labels.size, 0); assert.equal(calls.some(args => args.includes('--add-label')), stage !== 'antes da tag');
+      assert.equal(calls.some(args => args.includes('--remove-label')), stage !== 'antes da tag');
+      semResultado(e);
+    });
+  });
+}
+for (const reason of ['fetch failed', 'process timeout', 'quota exceeded', 'authentication required']) {
+  test(`falha ${reason}: o encerramento remove a tag aplicada`, async () => {
+    const e = engine(); e.runClaudeStream = async () => { throw new Error(reason); };
+    await comTags(e, async ({ labels, calls }) => {
+      await assert.rejects(e.runHeadlessReview({ ...PR }), new RegExp(reason));
+      assert.equal(calls.filter(args => args.includes('--add-label')).length, 1);
+      assert.equal(calls.filter(args => args.includes('--remove-label')).length, 1);
+      assert.equal(labels.size, 0); semResultado(e);
+    });
+  });
+}
+test('resposta perdida na inclusão da tag ainda permite removê-la ao cancelar', async () => {
+  const e = engine(); e.runClaudeStream = async () => { cancelarAtiva(e); return { text: JSON.stringify(envelope) }; };
+  await comTags(e, async ({ labels, calls }) => {
+    await assert.rejects(e.runHeadlessReview({ ...PR }), { cancelled: true });
+    assert.equal(calls.some(args => args.includes('--add-label')), true);
+    assert.equal(calls.some(args => args.includes('--remove-label')), true);
+    assert.equal(labels.size, 0); semResultado(e);
+  }, { failAdd: true });
+});
+test('cancelamento com GitHub fora do ar mantém a limpeza para depois do reinício', async () => {
+  const e = engine(); e.runClaudeStream = async () => { cancelarAtiva(e); return { text: JSON.stringify(envelope) }; };
+  await comTags(e, async ({ labels }) => {
+    await assert.rejects(e.runHeadlessReview({ ...PR }), { cancelled: true });
+    assert.equal(labels.size, 1);
+    assert.equal(Object.values(JSON.parse(fs.readFileSync(labelsFile, 'utf8'))).some(item => item.key === PR.key), true);
+    const reboot = engine(); reboot.tokenFor = () => 'synthetic-token'; reboot.ghEnv = () => ({});
+    await retryLabels(reboot, async (_cmd, args) => { labels.delete(args.at(-1)); return { ok: true }; });
+    assert.equal(labels.size, 0); assert.deepEqual(JSON.parse(fs.readFileSync(labelsFile, 'utf8')), {});
+  }, { failRemove: true });
+});
+test('limpeza no boot sem token sobrevive até o primeiro ciclo autenticado', async () => {
+  const e = engine(); let calls = 0;
+  await limparLabelsOrfas(e, [{ ...PR }], async () => { calls++; return { ok: true }; });
+  assert.equal(calls, 0);
+  assert.equal(Object.values(JSON.parse(fs.readFileSync(labelsFile, 'utf8'))).some(item => item.key === PR.key), true);
+  const reboot = engine(); reboot.tokenFor = () => 'synthetic-token'; reboot.ghEnv = () => ({});
+  await retryLabels(reboot, async () => { calls++; return { ok: true }; });
+  assert.equal(calls, 1); assert.deepEqual(JSON.parse(fs.readFileSync(labelsFile, 'utf8')), {});
 });
