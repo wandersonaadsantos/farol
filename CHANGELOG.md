@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.78.1
+## v2.78.2
 
 Reverificação imediata da versão do Claude Code e do aviso de atraso.
 
@@ -17,6 +17,16 @@ Reverificação imediata da versão do Claude Code e do aviso de atraso.
 - Reverificar saúde relê a versão instalada e consulta o registro de versões antes de concluir. O aviso deixa de esperar o cache de seis horas e usa a mesma leitura do CLI exibida no diagnóstico.
 - Uma consulta antiga não sobrescreve o resultado de uma reverificação mais recente. Falhas na comparação são informadas sem conservar um aviso de outra versão nem afirmar que o CLI está atualizado.
 - As verificações automáticas mantêm o cache para a mesma versão; detectar outro executável instalado invalida a leitura anterior.
+
+## v2.78.1
+
+Recuperação de revisões bloqueadas por uma preparação Git interrompida antes de reiniciar o computador.
+
+**Correções**
+- Uma preparação Git anterior ao último reinício deixa de bloquear novas revisões quando seus arquivos já foram liberados e não há consumidores ativos.
+- A recuperação mantém os arquivos parciais contabilizados no cache e preserva as sessões em andamento. Operações iniciadas desde o último reinício ou sem comprovação de término continuam protegidas.
+- A consulta ao sistema operacional ocorre fora da trava global, permitindo que outras operações Git terminem enquanto a recuperação confere o reinício.
+- Escritas de cache com tamanho conhecido deixam de receber a folga reservada a aquisições de crescimento desconhecido. Isso evita recusas indevidas sob I/O lento, mantendo a conferência dos bytes reais e dos limites de quota.
 
 ## v2.78.0
 
