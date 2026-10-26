@@ -164,6 +164,62 @@ const violacao = (achados = [{ file: 'src/a.ts', line: 12, message: 'regra de ne
   findings: achados,
 });
 
+test('veredito incoerente por falha interna não publica pedido de mudanças nem após esgotar tentativas', async () => {
+  const e = motor();
+  technicalRuntime.finishTechnicalReview = async ctx => ({ ...technicalReport(ctx.head, ctx.repo), verdict: 'not-run', failure: 'material' });
+  sessao(e, {
+    verdict: 'request_changes', decision: 'needs_decision',
+    reasons: ['Sem defeito bloqueante; a ferramenta de verificação não terminou.'],
+    findings: [{ severity: 'suggestion', title: 'Ajuste opcional', summary: 'Pode melhorar a mensagem.', file: 'src/a.ts', line: 1 }],
+    reviewMarkdown: 'Não encontrei nada bloqueante no código. Deixo ajustes opcionais.',
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Não encontrei nada bloqueante no código. Deixo ajustes opcionais.', comments: [] } },
+  });
+  await e.runHeadlessReview(PR(150));
+  assert.deepEqual(envios, [], 'falha interna não é defeito do PR');
+  const primeira = pendente(e, 150);
+  assert.ok(primeira.esperaProva, 'a análise inconsistente é recuperada pelo agendador existente');
+  primeira.esperaProva.tentativas = esperaProva.MAX_TENTATIVAS;
+  await e.runHeadlessReview(PR(150));
+  assert.deepEqual(envios, [], 'esgotar tentativas não autoriza publicar a contradição nem aprovar');
+  assert.ok(pendente(e, 150).approvalEvidence.some(g => /coer|incompat|contrad/.test(g)));
+});
+
+test('texto incoerente com defeito real é recuperado sem apagar o defeito', async () => {
+  const e = motor();
+  technicalRuntime.finishTechnicalReview = violacao();
+  sessao(e, { findings: [], payloads: {
+    approve: { event: 'APPROVE', body: 'Nenhum bloqueio.' },
+    request_changes: { event: 'REQUEST_CHANGES', body: 'Não encontrei nada bloqueante no código.' },
+  } });
+  await e.runHeadlessReview(PR(151));
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 151);
+  assert.ok(d.esperaProva, 'a presença de defeito não transforma incoerência em espera manual');
+  assert.ok(d.approvalEvidence.includes('violação técnica confirmada'));
+  assert.ok(d.approvalEvidence.some(g => /incompat/.test(g)));
+  await revisar(e, 151, { extra: { verdict: 'request_changes', findings: [
+    { severity: 'blocking', title: 'Regra duplicada', summary: 'Unifique a regra antes do merge.', file: 'src/a.ts', line: 12 },
+  ] } });
+  assert.deepEqual(envios.map(p => p.event), ['REQUEST_CHANGES'], 'a revisão coerente continua reprovando o defeito real');
+});
+
+test('modo enforce recupera texto contraditório mesmo com blocker persistente', async () => {
+  const e = motor();
+  e.config.reviewRoundsMode = 'enforce';
+  technicalRuntime.finishTechnicalReview = violacao();
+  const blocker = { severity: 'blocking', title: 'Regra duplicada', summary: 'Unifique a regra.', file: 'src/a.ts', line: 12 };
+  await revisar(e, 152, { extra: { verdict: 'request_changes', findings: [blocker], payloads: {
+    request_changes: { event: 'REQUEST_CHANGES', body: 'Não encontrei nada bloqueante no código.' },
+  } } });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 152);
+  assert.ok(d.esperaProva, 'a comparação ativa não desvia a incoerência para decisão manual');
+  assert.equal(d.roundReview.unresolvedCount, 1);
+  assert.ok(d.approvalEvidence.includes('violação técnica confirmada'));
+  await revisar(e, 152, { extra: { verdict: 'request_changes', findings: [{ ...blocker, ref: `${d.roundId}:f1`, status: 'persiste' }] } });
+  assert.deepEqual(envios.map(p => p.event), ['REQUEST_CHANGES']);
+});
+
 // ---------------------------------------------------------------- origem
 
 for (const [origem, marcas] of [
