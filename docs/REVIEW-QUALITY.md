@@ -164,3 +164,20 @@ necessária continua obrigatória. A instrução não prova que o modelo a cumpr
 O comparador offline aceita `--reads on` para verificar o preparo nos dois fluxos.
 Testar uma variante por vez antes da combinação. Economia e qualidade reais só
 podem ser concluídas com os resultados e a curadoria exigidos pelo gate acima.
+
+## Decisão dos ensaios de 26/10/2026
+
+No caso congelado de recuperação do PR #293, a referência 2.77.6 consumiu
+30.464.898 tokens no total da árvore de agentes, incluindo entrada, saída e cache.
+As variantes individuais consumiram 24.692.545 (leituras agrupadas), 28.015.677
+(navegação) e 25.784.661 (responsabilidades). Cada uma omitiu defeitos conhecidos;
+leituras e responsabilidades omitiram problemas que a referência identificou.
+A navegação também perdeu problemas presentes na referência. Nenhuma variante
+foi qualificada: as três opções permanecem desligadas por padrão.
+
+Foi uma execução estática válida por variante nesse caso, pela assinatura e sem
+fallback para API. Não é uma estimativa geral de economia, nem medição de cota ou
+faturamento. A referência também perdeu defeitos: preservar apenas seus achados
+não bastaria. A curadoria de todas as alegações foi interrompida após a reprovação
+por omissões conhecidas. Mais repetições não anulam uma falha já observada;
+qualquer novo candidato ainda precisa cumprir o gate completo deste documento.

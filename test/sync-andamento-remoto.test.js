@@ -211,6 +211,31 @@ function agendadorFalso() {
   return a;
 }
 
+test('presença vencida não reconecta em cada tique após falha', async () => {
+  const e = await motorPronto();
+  andamentoEng.desligarRelogio(e.sync);
+  let agora = Date.now(), tentativas = 0;
+  const relogio = mock.method(Date, 'now', () => agora);
+  e.sync.lastPresenceAt = agora - SYNC.PRESENCE_TICK_MS * 2;
+  const anterior = e.sync.lastPresenceAt;
+  e.syncConfirmarConexao = async () => {
+    tentativas++;
+    return { ok: false, code: 'indisponivel' };
+  };
+  const ag = agendadorFalso();
+  andamentoEng.ligarRelogio(e, x => x.config.sync, ag);
+  try {
+    await ag.fn();
+    agora += andamentoEng.ESPACO_MIN_MS;
+    await ag.fn();
+    assert.equal(tentativas, 1, 'uma falha não dispara outra conexão após somente 10 s');
+    assert.equal(e.sync.lastPresenceAt, anterior, 'tentativa não fabrica presença saudável');
+    agora += SYNC.PRESENCE_TICK_MS;
+    await ag.fn();
+    assert.equal(tentativas, 2, 'a confirmação volta a ser tentada após a janela de presença');
+  } finally { relogio.mock.restore(); andamentoEng.desligarRelogio(e.sync); }
+});
+
 test('o relógio liga uma vez só e desliga limpando a visão', async () => {
   const e = await motorPronto();
   // desde a v2.62.2 conectar já liga o relógio de verdade; aqui o assunto é o agendador falso

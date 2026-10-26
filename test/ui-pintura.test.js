@@ -18,6 +18,16 @@ function pagina() {
   return { doc, contagem, frames, agenda, flush };
 }
 
+test('mudanças de execução atualizam decisões e histórico sem esperar outro snapshot', () => {
+  for (const campo of ['activeSessions', 'headlessWaiting', 'headlessWaitingContas']) {
+    const { agenda, flush, contagem } = pagina();
+    agenda.invalidar([campo]); flush();
+    assert.equal(contagem.decisoes, 1, `${campo} deve atualizar os cards de execução`);
+    agenda.invalidar([campo]); flush();
+    assert.equal(contagem.decisoes, 2, `${campo} também deve refletir o fim da execução`);
+  }
+});
+
 test('rajada de consumo pinta a fila dependente uma vez, sem reconstruir relatório ou configurações', () => {
   const { agenda, flush, frames, contagem } = pagina();
   for (let i = 0; i < 100; i++) agenda.invalidar(['usage']);
