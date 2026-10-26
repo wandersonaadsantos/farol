@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { SETTINGS } from '../lib/settings.js';
-import { baseConfig, fieldCases, account, profiles } from './helpers/preferences-cases.js';
+import { baseConfig, fieldCases, account, profiles, configForField } from './helpers/preferences-cases.js';
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-preferences-matrix-'));
 process.env.FAROL_HOME = home;
 const { Engine } = await import('../server.js');
@@ -28,7 +28,7 @@ for (const [key, values] of Object.entries(cases)) {
   test(`matriz: ${key}, ${values.length} valores e recarga do disco`, async () => {
     for (const value of values) {
       scenarioCount++;
-      const engine = engineFor();
+      const engine = engineFor(configForField(key));
       if (key === 'accounts' && value.length === 0) { engine.config.ghUser = ''; engine.config.accounts = []; }
       const document = documentFor({ [key]: value });
       const context = `${key}: ${JSON.stringify(value)}`;
@@ -210,4 +210,90 @@ test('falha ao salvar alterações dependentes preserva a cadeia ativa original'
   const preview = await command(engine, { action: 'preview', document });
   assert.equal((await command(engine, { action: 'apply', document, token: preview.token, keys: ['claudeProfileId'] })).ok, false);
   assert.equal(engine.config, before); assert.equal(engine.config.claudeProfileId, 'p'); assert.equal(engine.config.cadeiaPerfis[0].ativo, true); assert.equal(events, 0);
+});
+
+
+test('trocar host Jira com credencial local é bloqueado, inclusive para ID órfão', async () => {
+  const { setCredential, removeCredential, credentialFor } = await import('../lib/jira/credentials.js');
+  const { createJiraClient } = await import('../lib/jira/client.js');
+  const engine = engineFor();
+  const local = { id: 'work', label: 'Jira original', baseUrl: 'https://original.atlassian.net', owners: ['acme'], projectKeys: ['PROJ'] };
+  engine.config.jiraSites = [local];
+  assert.equal(setCredential('work', { email: 'synthetic@example.invalid', token: 'synthetic-private-jira' }), true);
+  try {
+    for (const sites of [[local], []]) {
+      engine.config.jiraSites = sites;
+      const before = engine.config;
+      const document = documentFor({ jiraSites: [{ ...local, baseUrl: 'https://other.example.invalid' }] });
+      const preview = await command(engine, { action: 'preview', document });
+      assert.equal(preview.ok, true, preview.error); assert.match(preview.changes[0].blocked, /credencial local do Jira/);
+      assert.doesNotMatch(JSON.stringify(preview), /synthetic-private-jira|synthetic@example/);
+      const result = await command(engine, { action: 'apply', document, token: preview.token, keys: ['jiraSites'] });
+      assert.equal(result.ok, false); assert.equal(engine.config, before);
+    }
+    engine.config.jiraSites = [local];
+    const seen = [];
+    const client = createJiraClient({ baseUrl: engine.config.jiraSites[0].baseUrl, ...credentialFor('work'), fetchImpl: async (url, options) => {
+      seen.push(new URL(url).origin); assert.ok(options.headers.Authorization);
+      return { ok: true, text: async () => '{"accountId":"synthetic"}' };
+    } });
+    await client.myself(); assert.deepEqual(seen, ['https://original.atlassian.net']);
+  } finally { removeCredential('work'); }
+});
+
+test('Jira mantém credencial no mesmo endereço e permite cadastrar destino sem credencial', async () => {
+  const { setCredential, removeCredential, credentialFor } = await import('../lib/jira/credentials.js');
+  const engine = engineFor();
+  const site = { id: 'work', label: 'Jira', baseUrl: 'https://original.atlassian.net', owners: ['acme'], projectKeys: ['PROJ'] };
+  engine.config.jiraSites = [site];
+  setCredential('work', { email: 'synthetic@example.invalid', token: 'synthetic-private-jira' });
+  try {
+    const document = documentFor({ jiraSites: [{ ...site, label: 'Novo nome', projectKeys: ['APP'] }] });
+    const preview = await command(engine, { action: 'preview', document });
+    assert.equal(preview.changes[0].blocked, undefined);
+    assert.equal((await command(engine, { action: 'apply', document, token: preview.token, keys: ['jiraSites'] })).ok, true);
+    assert.equal(credentialFor('work').token, 'synthetic-private-jira');
+  } finally { removeCredential('work'); }
+  const document = documentFor({ jiraSites: [{ ...site, baseUrl: 'https://other.example.invalid' }] });
+  const preview = await command(engine, { action: 'preview', document });
+  assert.equal(preview.changes[0].blocked, undefined);
+  assert.equal((await command(engine, { action: 'apply', document, token: preview.token, keys: ['jiraSites'] })).ok, true);
+});
+
+test('remover perfil fixo exige selecionar também a alteração das contas afetadas', async () => {
+  const engine = engineFor();
+  engine.config.accounts[0].claudeProfileId = 'p';
+  engine.config.claudeProfileId = 'q'; engine.config.cadeiaPerfis[1].ativo = true;
+  const current = engine.config;
+  const incomingProfiles = [profiles[1]];
+  const partial = documentFor({ claudeProfiles: incomingProfiles });
+  const preview = await command(engine, { action: 'preview', document: partial });
+  assert.deepEqual(preview.changes.map(c => c.key), ['claudeProfiles']); assert.match(preview.changes[0].note, /também altera contas/);
+  assert.equal((await command(engine, { action: 'apply', document: partial, token: preview.token, keys: ['claudeProfiles'] })).ok, false);
+  assert.equal(engine.config, current); assert.equal(engine.config.accounts[0].claudeProfileId, 'p');
+  const { claudeProfileId: _old, ...unbound } = engine.config.accounts[0];
+  const document = documentFor({ claudeProfiles: incomingProfiles, accounts: [unbound] });
+  const complete = await command(engine, { action: 'preview', document });
+  assert.equal((await command(engine, { action: 'apply', document, token: complete.token, keys: ['claudeProfiles'] })).ok, false);
+  const applied = await command(engine, { action: 'apply', document, token: complete.token, keys: ['claudeProfiles', 'accounts'] });
+  assert.equal(applied.ok, true, applied.error); assert.equal(engine.config.accounts[0].claudeProfileId, undefined); assert.equal(engine.config.claudeProfileId, 'q');
+});
+
+test('usuário e organizações não renomeiam nem redirecionam a conta única fora da seleção', async () => {
+  for (const [key, value, accountPatch] of [['ghUser', 'new', { user: 'new' }], ['owners', ['other'], { owners: ['other'] }]]) {
+    const engine = engineFor();
+    engine.config.accounts = [{ ...account, autoReview: true, onClean: 'approve', onCaveats: 'approve', onReject: 'request_changes' }];
+    const before = engine.config;
+    const partial = documentFor({ [key]: value });
+    const preview = await command(engine, { action: 'preview', document: partial });
+    assert.match(preview.changes[0].note, /também altera contas/);
+    assert.equal((await command(engine, { action: 'apply', document: partial, token: preview.token, keys: [key] })).ok, false);
+    assert.equal(engine.config, before); assert.equal(engine.config.accounts[0].user, 'dev'); assert.deepEqual(engine.config.accounts[0].owners, ['acme']);
+    const selectedAccount = { ...account, ...accountPatch };
+    const document = documentFor({ [key]: value, accounts: [selectedAccount] });
+    const complete = await command(engine, { action: 'preview', document });
+    assert.equal((await command(engine, { action: 'apply', document, token: complete.token, keys: [key] })).ok, false);
+    const applied = await command(engine, { action: 'apply', document, token: complete.token, keys: [key, 'accounts'] });
+    assert.equal(applied.ok, true, applied.error); assert.deepEqual(engine.config.accounts, [selectedAccount]); assert.equal(engine.config.accounts[0].autoReview, false);
+  }
 });

@@ -1,6 +1,6 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { baseConfig, fieldCases } from './helpers/preferences-cases.js';
+import { baseConfig, fieldCases, configForField } from './helpers/preferences-cases.js';
 import { PREFERENCE_LABELS } from '../ui/pure/preferences.js';
 import { instalarDom } from './helpers/dom-stub.js';
 import fs from 'node:fs';
@@ -94,7 +94,7 @@ test('tela mostra dependência ausente com seleção indisponível, sem credenci
 test('todos os 45 campos passam pelo seletor e aplicação do módulo da tela', async () => {
   let exercised = 0;
   for (const [key, candidates] of Object.entries(fieldCases())) {
-    engine.config = baseConfig();
+    engine.config = configForField(key);
     if (key === 'accounts') engine.config.ghUser = '';
     let document;
     for (const value of candidates) {
@@ -140,4 +140,34 @@ test('limpar o perfil padrão pela tela informa e desativa a cadeia', async () =
   assert.match($('#preferencesMessage').textContent, /salvas/); assert.equal(engine.config.claudeProfileId, '');
   assert.equal(engine.config.cadeiaPerfis.some(entry => entry.ativo), false);
   await inspect(incoming); assert.equal(preview.innerHTML, '');
+});
+
+
+test('a tela exige seleção explícita das contas quando usuário ou organização as afetam', async () => {
+  engine.config = baseConfig();
+  const partial = { type: 'farol-preferences', schema: 2, values: { ghUser: 'new' } };
+  await inspect(partial); assert.match(preview.innerHTML, /também altera contas/);
+  selected = [{ dataset: { preferenceKey: 'ghUser' } }]; preview.onchange();
+  await $('#preferencesApply').onclick();
+  assert.match($('#preferencesMessage').textContent, /também modifica contas/); assert.equal(engine.config.accounts[0].user, 'dev');
+  const complete = { ...partial, values: { ghUser: 'new', accounts: [{ ...engine.config.accounts[0], user: 'new' }] } };
+  await inspect(complete);
+  selected = [{ dataset: { preferenceKey: 'ghUser' } }, { dataset: { preferenceKey: 'accounts' } }]; preview.onchange();
+  await $('#preferencesApply').onclick(); assert.match($('#preferencesMessage').textContent, /salvas/);
+  assert.equal(engine.config.accounts[0].user, 'new');
+});
+
+test('a tela bloqueia Jira com credencial vinculada a outro host', async () => {
+  const { setCredential, removeCredential } = await import('../lib/jira/credentials.js');
+  engine.config = baseConfig();
+  const site = { id: 'work', label: 'Jira', baseUrl: 'https://original.atlassian.net', owners: ['acme'], projectKeys: [] };
+  engine.config.jiraSites = [site];
+  setCredential('work', { email: 'synthetic@example.invalid', token: 'synthetic-private-jira' });
+  try {
+    await inspect({ type: 'farol-preferences', schema: 2, values: { jiraSites: [{ ...site, baseUrl: 'https://other.example.invalid' }] } });
+    assert.match(preview.innerHTML, /data-preference-key="jiraSites" disabled/);
+    assert.match(preview.innerHTML, /credencial local do Jira/);
+    assert.doesNotMatch(preview.innerHTML, /synthetic-private-jira|synthetic@example/);
+    assert.equal($('#preferencesApply').disabled, true);
+  } finally { removeCredential('work'); }
 });

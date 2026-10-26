@@ -19,6 +19,11 @@ function baseConfig() {
   return { ...structuredClone(defaults(0)), esquemaConfig: 1, ghUser: 'dev', owners: ['acme'], accounts: [structuredClone(account)],
     claudeProfiles: structuredClone(profiles), cadeiaPerfis: profiles.map(p => ({ id: p.id, ativo: false })), sync: structuredClone(sync) };
 }
+function configForField(key) {
+  const config = baseConfig();
+  if (['ghUser', 'owners'].includes(key)) config.accounts.push({ ...account, user: 'other' });
+  return config;
+}
 const stripKey = ({ apiKey: _key, ...value }) => value;
 function syncCases() {
   const cases = [];
@@ -69,4 +74,4 @@ function fieldCases() {
   });
   return result;
 }
-export { account, profiles, sync, baseConfig, fieldCases };
+export { account, profiles, sync, baseConfig, configForField, fieldCases };

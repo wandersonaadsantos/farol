@@ -781,6 +781,11 @@ removida por importação, como na edição normal de Contas. Deixar o perfil pa
 vazio desativa a cadeia. Uma cadeia vazia
 representa os perfis existentes desligados, sem diferenças que reapareçam após aplicar.
 IDs duplicados e datas inexistentes nos orçamentos são recusados antes da gravação.
+Usuário, organizações e remoção de perfis que alterem contas exigem selecionar também
+as diferenças das contas afetadas; um arquivo parcial não pode mudar esses vínculos
+silenciosamente. Sites Jira com credencial local não podem mudar de endereço pela
+importação, inclusive quando o identificador pertence a um cadastro antigo removido.
+Use outro identificador ou ajuste explicitamente o cadastro e a credencial no destino.
 
 Arquivos antigos na versão 1 continuam aceitos como parciais. Preferências ausentes
 são preservadas, com aviso; para transferir todos os ajustes é necessária uma nova
