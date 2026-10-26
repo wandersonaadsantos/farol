@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.7
+
+Preparação de otimizações de review com avaliação explícita de qualidade, sem ativar mudanças não comprovadas.
+
+**Melhorias**
+- Ferramenta offline de desenvolvimento compara reviews contra falhas conhecidas, exige repetições independentes e recusa omissões, falsos positivos, evidência incompatível ou avaliação incompleta. Redução de tokens só permite considerar piloto depois dos critérios de qualidade; nunca ativa preferências automaticamente.
+- Orientação sintática experimental reaproveita o mapa existente com símbolos e dependências candidatos ligados ao commit e à identidade das fontes. Patches, leituras e critérios anteriores permanecem disponíveis; metadados não concedem cobertura.
+- Agendamento experimental orienta até quatro leituras independentes por mensagem. No stream Claude dessa variante, só há crédito de leitura após conferir o conteúdo retornado contra cada patch; erro, truncamento e lacunas continuam pendentes.
+- Responsabilidades experimentais reaproveitam os lotes existentes e atribuem ao coordenador a investigação das interações entre lotes e fora do diff, além da verificação dos achados.
+- Os três experimentos permanecem desligados por padrão, sem ativação pela interface. Não há economia de tokens ou melhoria da qualidade real comprovada para essas variantes. Modelo, esforço, regras de decisão e publicação permanecem iguais. Voz continua desligada por padrão.
+
 ## v2.77.6
 
 A fila respeita a preferência de CI no início da sessão e recupera a análise com as lacunas completas.

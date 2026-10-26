@@ -131,3 +131,30 @@ Ele mede preparação, bytes, CPU e memória com transporte congelado e provedor
 substituído. Não mede tokens reais nem qualidade das decisões. A orientação
 acrescenta entrada e trabalho local; sua adoção depende de provar que reduz
 investigação repetida sem perder qualidade nas reviews reais.
+
+## Candidatos de leitura e responsabilidade
+
+`reviewBatchedReads` e `reviewAgentOwnership` também são experimentos independentes,
+desligados por padrão, sem controle na UI e omitidos da gravação padrão. Somente
+`true` booleano explícito os habilita em um armazenamento de avaliação isolado.
+
+O primeiro orienta até quatro chamadas Read independentes por mensagem, preservando
+uma chamada por arquivo e a investigação sequencial quando houver dependência.
+No stream Claude, uma chamada não concede mais leitura nesse experimento: o retorno
+precisa corresponder ao caminho, à chamada e ao agente, sem erro. As linhas entregues
+ao modelo e o conteúdo estruturado precisam conferir com o patch materializado.
+Leituras parciais só fecham ao cobrir todas as linhas, sem lacunas. Formato de retorno
+desconhecido ou conteúdo truncado não concede cobertura. Isso comprova entrega do
+patch, nunca compreensão ou suficiência da análise. Outros provedores ainda não
+foram validados para esse experimento e não são elegíveis para ativação.
+
+O segundo reaproveita os lotes existentes, sem mudar limiares, modelo ou distribuição.
+Só acrescenta responsabilidades quando cada patch tiver exatamente um responsável
+primário e o plano conferir com o inventário. O coordenador assume as interações
+entre lotes, código relevante fora do diff, verificação dos achados e tarefas de
+agentes que falharem. Nenhum resumo ou silêncio dispensa investigação; a releitura
+necessária continua obrigatória. A instrução não prova que o modelo a cumpriu.
+
+O comparador offline aceita `--reads on` para verificar o preparo nos dois fluxos.
+Testar uma variante por vez antes da combinação. Economia e qualidade reais só
+podem ser concluídas com os resultados e a curadoria exigidos pelo gate acima.

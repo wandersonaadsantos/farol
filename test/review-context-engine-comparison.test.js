@@ -6,6 +6,24 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { envSemRepositorioHerdado } from '../lib/git-env.js';
 const root = path.join(import.meta.dirname, '..');
+test('agendamento chega aos engines reais sem trocar patch ou instruções comuns', () => {
+  for (const flow of ['review', 'self']) {
+    const reports = [];
+    for (const reads of ['off', 'on']) {
+      const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-engine-compare-reads-'));
+      try {
+        reports.push(JSON.parse(execFileSync(process.execPath, [path.join(root, 'tools/comparar-contexto-engine.js'), '--flow', flow, '--reads', reads],
+          { cwd: root, env: { ...envSemRepositorioHerdado(), FAROL_HOME: home }, encoding: 'utf8', timeout: 30000 })));
+      } finally { fs.rmSync(home, { recursive: true, force: true }); }
+    }
+    assert.equal(reports[0].first.batchedReadInstruction, false);
+    assert.equal(reports[1].first.batchedReadInstruction, true);
+    assert.equal(reports[1].first.materializedPatchBytes, reports[0].first.materializedPatchBytes);
+    assert.equal(reports[1].first.commonInstructionBytes, reports[0].first.commonInstructionBytes);
+    assert.equal(reports[1].first.contextEvidence.work.map, false);
+    assert.equal(reports[1].first.model.executed, false);
+  }
+});
 test('comparação usa engines reais, separa preparo de leitura e comprova reuso em análises distintas', () => {
   for (const flow of ['review', 'self']) {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-engine-compare-test-'));
