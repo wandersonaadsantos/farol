@@ -89,3 +89,21 @@ test('remoção manual respeita a mesma sessão quando a URL usa outra caixa no 
   const before = calls.length; assert.equal(await addInProgressLabel(engine, PR, run), '');
   assert.equal(calls.length, before); assert.equal(session.cancelled, false);
 });
+
+test('remoção manual espera a inclusão em voo e impede que ela restaure a tag', async () => {
+  const session = { keys: [PR.key], mode: 'auto' }; engine.activeReviews.set('s', session);
+  let liberar, avisar;
+  const entrou = new Promise(resolve => { avisar = resolve; });
+  const espera = new Promise(resolve => { liberar = resolve; });
+  const adicionar = addInProgressLabel(engine, PR, async () => {
+    avisar(); await espera; tags.add('me:revisando'); return { ok: true };
+  });
+  await entrou;
+  const remover = request('remove', 'me:revisando');
+  await new Promise(resolve => setImmediate(resolve));
+  liberar(); await adicionar;
+  assert.equal((await remover).ok, true);
+  assert.equal(tags.has('me:revisando'), false);
+  assert.equal(await addInProgressLabel(engine, PR, run), '');
+  assert.equal(tags.has('bug'), true);
+});
