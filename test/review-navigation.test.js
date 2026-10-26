@@ -5,6 +5,37 @@ import { navigationBlock, MAX_BLOCK_CHARS } from '../lib/review-context/navigati
 import { navigationSource, H, M } from './helpers/navigation-fixture.js';
 
 const contents = block => JSON.parse(block.trim().split('\n').at(-1));
+
+test('o limite do mapa prioriza arquivos alterados e seus nomes anteriores', async () => {
+  const head = { 'a-noise.js': 'export const noise=0;', 'z-new.js': 'export const changed=1;' };
+  const previous = { 'a-noise.js': head['a-noise.js'], 'z-old.js': 'export const changed=0;' };
+  const source = navigationSource(head, previous, 'z-new.js');
+  source.manifest.files[0].previousPath = 'z-old.js';
+  const map = await buildMap(source, { limits: { files: 1 } });
+  assert.ok(map.head.files.some(file => file.path === 'z-new.js'));
+  assert.ok(map.previous.files.some(file => file.path === 'z-old.js'));
+  assert.equal(map.complete, false);
+  assert.equal(map.head.metrics.omitted, 1);
+});
+
+test('o teto do prompt conserva pistas de símbolos, relações, arquivos e dos dois commits', async () => {
+  const names = Array.from({ length: 60 }, (_, n) => `export const symbol${n}=1;`).join('\n');
+  const head = { 'src/a.js': names, 'src/z.js': "import {helper} from './dependency.js';\n" + names.replaceAll('symbol', 'last'),
+    'src/dependency.js': 'export const helper=1;',
+    'src/caller.js': "import * as a from './a.js'; import * as z from './z.js';" };
+  for (let n = 0; n < 60; n++) head[`src/consumer${n}.js`] = "import * as a from './a.js';";
+  const source = navigationSource(head, head, 'src/a.js');
+  source.manifest.files.push({ path: 'src/z.js', status: 'modified' });
+  const result = navigationBlock(await buildMap(source), source.manifest), data = contents(result.block);
+  assert.ok(result.block.length <= MAX_BLOCK_CHARS);
+  for (const commit of [H, M]) {
+    for (const file of ['src/a.js', 'src/z.js']) assert.ok(data.symbols.some(s => s.path === file && s.commit === commit));
+    assert.ok(data.relations.some(r => r.commit === commit));
+    assert.ok(data.relations.some(r => r.path === 'src/z.js' && r.target === 'src/dependency.js' && r.commit === commit));
+  }
+  assert.ok(data.omitted.symbols > 0 && data.omitted.relations > 0);
+  assert.equal(data.readingProof, false);
+});
 test('orientação usa parser real e conserva símbolos e consumidores nos commits corretos', async () => {
   const source = navigationSource(), map = await buildMap(source);
   const result = navigationBlock(map, source.manifest), data = contents(result.block);

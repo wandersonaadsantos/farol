@@ -102,6 +102,12 @@ devem ser alterados junto de uma otimização de navegação ou leitura.
 
 ## Candidato de orientação sintática
 
+Quando o mapa atinge seus limites, os arquivos alterados e os nomes anteriores
+recebem prioridade. O bloco adicional intercala arquivos, símbolos, relações e
+os dois commits, para que uma lista longa não elimine todas as pistas de outra
+categoria. O teto continua igual e as omissões continuam explícitas. A seleção
+é parcial; não representa todos os consumidores nem dispensa investigar fontes.
+
 `reviewNavigationFacts` é um experimento desligado por padrão, sem controle na UI.
 Só o booleano `true` explícito liga a preparação adicional. Não alterar o arquivo
 de configuração real para executar avaliações: usar um engine e armazenamento
