@@ -9,8 +9,10 @@ import { envSemRepositorioHerdado } from '../lib/git-env.js';
 const option = (name, fallback) => { const index = process.argv.indexOf(`--${name}`); return index < 0 ? fallback : process.argv[index + 1]; };
 const root = path.resolve(option('root', path.join(import.meta.dirname, '..')));
 const mode = option('mode', 'off'), flow = option('flow', 'review'), scenario = option('scenario', 'breaking');
+const navigation = option('navigation', 'off');
 const startNumber = Number(option('start', '1'));
 if (!['off', 'observe', 'assist'].includes(mode) || !['review', 'self'].includes(flow)) throw new Error('Modo ou fluxo inválido.');
+if (!['off', 'on'].includes(navigation)) throw new Error('Orientação inválida.');
 const load = relative => import(pathToFileURL(path.join(root, relative)).href);
 const { Engine } = await load('server.js');
 const io = (await load('lib/io.js')).default;
@@ -98,7 +100,7 @@ async function analysis() {
   calls = []; denied = []; sourceReads = 0; sourceTrees = 0;
   const cpu = process.cpuUsage(), started = performance.now(), memoryBefore = process.memoryUsage();
   const engine = new Engine();
-  engine.config = { ...engine.config, sync: {}, jiraSites: [], claudeProfiles: [], reReviewResume: false, reviewContextMode: mode,
+  engine.config = { ...engine.config, sync: {}, jiraSites: [], claudeProfiles: [], reReviewResume: false, reviewContextMode: mode, reviewNavigationFacts: navigation === 'on',
     accounts: [{ user: 'fixture', owners: ['org'], onClean: 'wait', onCaveats: 'wait', onReject: 'wait', autoReview: false }] };
   engine.accountForPr = () => 'fixture'; engine.tokenFor = () => 'synthetic-token'; engine.ghEnv = () => ({});
   engine.resolveClaudeAuth = () => ({ kind: 'dir' }); engine.headSha = async () => H;
@@ -148,7 +150,7 @@ const git = args => execFileSync('git', ['-C', root, ...args], { env: envSemRepo
 console.log(safeStringify({ root, commit: execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8', env: envSemRepositorioHerdado() }).trim(),
   trackedDiffSha256: createHash('sha256').update(git(['diff', '--binary', 'HEAD'])).digest('hex'),
   trackedChangedFiles: git(['diff', '--name-only', 'HEAD']).toString('utf8').trim().split(/\r?\n/).filter(Boolean),
-  runtime: process.version, arch: process.arch, platform: process.platform, mode, flow, scenario, frozen: { H, B, M }, first, distinctAnalysis,
+  runtime: process.version, arch: process.arch, platform: process.platform, mode, flow, scenario, navigation, frozen: { H, B, M }, first, distinctAnalysis,
   maxProcessRssKiB: process.resourceUsage().maxRSS,
   limitations: ['Transporte GitHub congelado; não mede latência remota nem decide qualidade de review.',
     'Prompt completo mais patch materializado e instruções comuns disponíveis; provedor stub não prova leitura automática desses arquivos.',

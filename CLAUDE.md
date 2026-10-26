@@ -43,6 +43,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | **`lib/`** | **Funções puras e infraestrutura, sem estado do engine** |
 | `lib/paths.js` | Caminhos do app e `IS_WIN`/`IS_MAC` (fonte única do branch de plataforma) |
 | `lib/io.js` | `run`/`runShell` (todo `gh` do Farol passa aqui; NUNCA lançam, devolvem `{ok,code,stdout,stderr}`), `readJson`, `copyRecursive`, `detectGitBash` |
+| `lib/review-context/` | Mapa sintático e seleção de contexto por fonte fixada. `navigation.js` acrescenta pistas de símbolos e dependências com procedência; `reviewNavigationFacts` nasce desligado e não concede prova de leitura |
 | `lib/parse.js` | Normalizadores de config: contas, reviewers, perfis Claude, e o saneamento de `reviewModel`/`reviewEffort` por allowlist (os únicos valores que entram numa linha de comando de shell) |
 | `lib/format.js` | `modelLabel` (id cru do CLI vira "Opus 5") e `isPermanentBranch` (protege develop/release/main de serem deletadas num merge) |
 | `lib/taxonomy.js` | Papéis, domínios e níveis do perfil de review, com os textos de tom que entram no prompt |

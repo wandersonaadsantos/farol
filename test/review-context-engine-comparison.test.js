@@ -26,3 +26,30 @@ test('comparação usa engines reais, separa preparo de leitura e comprova reuso
     } finally { fs.rmSync(home, { recursive: true, force: true }); }
   }
 });
+
+test('orientação experimental acrescenta referências sem substituir patches ou alegar review de modelo', () => {
+  for (const flow of ['review', 'self']) {
+    const reports = [];
+    for (const navigation of ['off', 'on']) {
+      const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-engine-compare-navigation-'));
+      try {
+        reports.push(JSON.parse(execFileSync(process.execPath, [path.join(root, 'tools/comparar-contexto-engine.js'),
+          '--mode', 'off', '--navigation', navigation, '--flow', flow],
+        { cwd: root, env: { ...envSemRepositorioHerdado(), FAROL_HOME: home }, encoding: 'utf8', timeout: 30000 })));
+      } finally { fs.rmSync(home, { recursive: true, force: true }); }
+    }
+    const [baseline, candidate] = reports;
+    assert.deepEqual(candidate.frozen, baseline.frozen);
+    assert.equal(candidate.first.materializedPatchBytes, baseline.first.materializedPatchBytes);
+    assert.equal(candidate.first.commonInstructionBytes, baseline.first.commonInstructionBytes);
+    assert.ok(candidate.first.fullPromptBytes > baseline.first.fullPromptBytes);
+    assert.equal(baseline.first.contextEvidence.work.map, false);
+    assert.equal(candidate.first.contextEvidence.navigation.status, 'bounded');
+    assert.ok(candidate.first.contextEvidence.navigation.symbols > 0);
+    assert.ok(candidate.first.contextEvidence.navigation.relations > 0);
+    assert.equal(candidate.first.contextEvidence.navigation.readingProof, false);
+    assert.equal(candidate.first.recoveredEvidence.consumerInPrompt, false, 'referência não substitui conteúdo do consumidor');
+    assert.equal(candidate.first.model.executed, false);
+    assert.equal(candidate.first.acquisition.modelReads, 0);
+  }
+});

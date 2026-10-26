@@ -99,3 +99,35 @@ Três repetições são um piso operacional, não uma garantia estatística. Ant
 ativação, conferir os casos críticos, ampliar a amostra, validar o fluxo completo
 em ambiente isolado e manter reversão. Modelo, esforço e saída compacta não
 devem ser alterados junto de uma otimização de navegação ou leitura.
+
+## Candidato de orientação sintática
+
+`reviewNavigationFacts` é um experimento desligado por padrão, sem controle na UI.
+Só o booleano `true` explícito liga a preparação adicional. Não alterar o arquivo
+de configuração real para executar avaliações: usar um engine e armazenamento
+isolados. A preferência padrão é omitida da gravação da configuração.
+
+O experimento reaproveita o mapa e o parser existentes. Acrescenta ao prompt
+símbolos dos arquivos alterados e dependências candidatas, com arquivo, linha,
+blob, lado e commit. Preserva relações do merge-base para renomeações e mudanças
+de alias. Importação de tipo continua identificada como tipo; uma dependência não
+é promovida a chamada comprovada. O vínculo com o escopo das fontes e H/B/M impede
+usar mapa de outra identidade. A autorização continua na aquisição canônica;
+o hash do mapa não autentica nem revalida permissões. Entradas sem origem sintática ou localização ficam
+omitidas e contadas, sem gerar conclusão favorável.
+
+O bloco adicional tem teto de 12.000 caracteres, separado do orçamento de trechos
+já existente. Somente os metadados novos são reduzidos para caber nesse teto;
+patches, referências e contexto anterior permanecem disponíveis. As contagens de
+omissão são limites inferiores, pois o próprio parser e o mapa são limitados.
+Os metadados nunca contam como leitura observada nem alteram a herança de leitura
+do modo `off`. Se a orientação falhar, registra indisponibilidade e preserva o
+bloco de contexto existente.
+Sem pistas aplicáveis, nenhum bloco adicional é enviado ao modelo.
+
+O comparador offline aceita `--navigation off` e `--navigation on`, mantendo
+`--mode off` nos dois lados para isolar a orientação da seleção de trechos.
+Ele mede preparação, bytes, CPU e memória com transporte congelado e provedor
+substituído. Não mede tokens reais nem qualidade das decisões. A orientação
+acrescenta entrada e trabalho local; sua adoção depende de provar que reduz
+investigação repetida sem perder qualidade nas reviews reais.
