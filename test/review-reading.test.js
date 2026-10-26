@@ -78,3 +78,12 @@ test('resultado de outro agente ou de fora do escopo não satisfaz leitura pende
   request(e, '../outside.js', 'outside'); response(e, '../outside.js', 'outside');
   assert.equal(e.review.filesRead.size, 1);
 });
+
+test('formato nativo inclui linha vazia final e aceita separador tab sem apagar conteúdo ou lacunas', () => {
+  const e = fixture(); request(e, 'a.js', 'native');
+  response(e, 'a.js', 'native', { lines: ['first', 'second', 'third', ''], display: '1\tfirst\n2\tsecond\n3\tthird\n4\t' });
+  assert.deepEqual([...e.review.filesRead], ['a.js']);
+  const truncated = fixture(); request(truncated, 'a.js', 'native');
+  response(truncated, 'a.js', 'native', { lines: ['first', 'second', 'third', ''], display: '1\tfirst\n3\tthird\n4\t' });
+  assert.equal(truncated.review.filesRead.size, 0);
+});
