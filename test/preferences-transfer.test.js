@@ -175,3 +175,17 @@ test('sincronização não reutiliza chave em outro projeto e preserva credencia
   assert.equal((await command(engine, { action: 'apply', document, token: preview.token, keys: ['sync'] })).ok, false);
   assert.equal(engine.config.sync.apiKey, apiKey);
 });
+
+
+test('políticas de conta são explícitas no arquivo e entrada parcial não ativa padrões implícitos', async () => {
+  const engine = fixture(); engine.config.accounts = [{ user: 'dev', owners: [] }];
+  const exported = await command(engine, { action: 'export' });
+  assert.equal(exported.ok, true, exported.error);
+  const account = exported.document.values.accounts[0];
+  assert.equal(typeof account.autoReview, 'boolean');
+  for (const key of ['onClean', 'onCaveats', 'onReject']) assert.equal(typeof account[key], 'string');
+  const document = doc({ accounts: [{ user: 'dev', owners: [] }] });
+  assert.equal((await command(engine, { action: 'preview', document })).ok, false);
+  const invalid = doc({ accounts: [{ ...account, onClean: 'wait', onCaveats: 'approve' }] });
+  assert.equal((await command(engine, { action: 'preview', document: invalid })).ok, false);
+});
