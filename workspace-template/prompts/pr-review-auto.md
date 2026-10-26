@@ -36,6 +36,8 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 4. Rode o agente `pr-reviewer` (subagent_type `pr-reviewer`) pedindo o modo headless `--json` e use o resultado como base. Aguarde a conclusão do que VOCÊ roda (subagentes, lint e testes locais) antes do resultado final; uma mensagem de espera não é um relatório. **O CI do PR você não espera:** leia o estado dos checks uma vez, registre como está (inclusive `pending`) e siga. O app relê os checks obrigatórios, mas segurar a aprovação até a pipe fechar verde é uma opção da configuração e pode estar desligada: nesse caso o APPROVE sai com a pipe ainda rodando ou vermelha. Então o que o CI significa para o merge é você quem escreve, no corpo e em `paraQuemMergeia` (regras abaixo). Nesta sessão não existe "depois": quando o seu turno acaba, o processo acaba. Nunca rode comando em segundo plano (`run_in_background`), nunca faça laço de espera (`until`/`sleep`/`watch` sobre `gh pr checks` ou `check-runs`) e nunca encerre com frase do tipo "aguardo o resultado"; o turno termina SEMPRE no envelope JSON. Se uma ferramenta for recusada, interrompida ou não puder concluir, não repita a ação recusada: registre o impedimento no relatório interno e devolva o envelope com `analysisStatus: "incomplete"` e `decision: "needs_decision"`, conforme a regra de erro fatal abaixo. Falha de lint do PR é evidência para a análise, não motivo para omitir o JSON.
 5. Sua saída final deve ser **apenas um bloco JSON** (sem texto antes ou depois, sem cerca de código), neste schema:
 
+Coerência obrigatória: `request_changes` exige um defeito bloqueante sustentado nos achados ou um critério deste PR não entregue. Sugestões e nits não justificam reprovação. Falha de ferramenta, aquisição Git adiada, quota ou prova ausente pertencem às limitações em `reasons` e ao estado da análise; não são defeitos do PR. Se a investigação não terminou, use `analysisStatus: incomplete`. Não use um pedido de mudanças para representar uma aprovação ainda impedida por falha interna. O texto público deve explicar a mesma decisão dos achados; não declare ausência de blockers em um pedido de mudanças. O motor confere os gates e decide se a publicação pode sair.
+
 ```
 {
   "pr": { "repo": "org/repo", "number": 0, "url": "...", "title": "...", "author": "login" },
@@ -70,6 +72,9 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
     }
   ],
   "reportMarkdown": "diagnóstico INTERNO completo: fatos, checks, gate, cobertura e motivos operacionais; nunca é corpo público",
+  "findings": [
+    { "severity": "blocking|suggestion|question|nitpick", "title": "achado", "summary": "impacto e correção", "file": "caminho", "line": 1, "evidence": "evidência", "ref": null, "status": null }
+  ],
   "reviewMarkdown": "review técnico HUMANIZADO mostrado como revisão na tela: só código, impacto e próximos passos, sem processo interno",
   "payloads": {
     "approve":         { "event": "APPROVE",         "body": "...", "comments": [ { "path": "...", "line": 0, "side": "RIGHT", "body": "..." } ] },
