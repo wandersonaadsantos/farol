@@ -71,6 +71,26 @@ test('área sem defeito não é afirmação de ausência global de blockers', ()
   assert.equal(reviewCoherenceGap(r), '');
 });
 
+test('arquivo entre crases preserva o escopo da conclusão', () => {
+  const r = result('request_changes', [blocker]);
+  r.payloads.request_changes.body = 'Não encontrei nada bloqueante no código `src/auth.js`. Porém, o pagamento grava antes de validar o saldo.';
+  assert.equal(payloadCoherenceGap(r.payloads.request_changes), '');
+  assert.equal(reviewCoherenceGap(r), '');
+});
+
+test('CI obrigatório vermelho confirmado no mesmo head sustenta reprovação sem finding de código', () => {
+  const body = 'Não encontrei nada bloqueante no código. Os checks obrigatórios estão falhando no commit abc1234.';
+  const r = { ...result('request_changes', []), headSha: 'abc1234', checksVerifiedHead: 'abc1234', checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] };
+  r.payloads.request_changes.body = body;
+  assert.equal(reviewCoherenceGap(r), '');
+  assert.equal(reviewCoherenceGap({ ...r, checksVerifiedHead: 'def5678' }), REVIEW_COHERENCE_GAP);
+  assert.equal(reviewCoherenceGap({ ...r, checksVerifiedHead: null }), REVIEW_COHERENCE_GAP);
+  assert.equal(reviewCoherenceGap({ ...r, checksObrigatorios: [{ nome: 'test', estado: 'rodando' }] }), REVIEW_COHERENCE_GAP);
+  assert.equal(reviewCoherenceGap({ ...r, checksObrigatorios: [] }), REVIEW_COHERENCE_GAP);
+  const approve = { ...r, verdict: 'approve', payloads: { approve: { event: 'APPROVE', body: 'Sem defeito bloqueante.' } } };
+  assert.equal(reviewCoherenceGap(approve), '', 'CI não muda a ação do modelo neste gate; aprovação ainda depende do gate de CI');
+});
+
 test('menção histórica ou negada de CI não dá passe para uma contradição', () => {
   for (const body of ['Sem blockers. O CI não falhou.', 'Não encontrei nada bloqueante no código. O CI falhou antes, mas já passou no head atual.']) {
     assert.equal(payloadCoherenceGap({ event: 'REQUEST_CHANGES', body }), REVIEW_COHERENCE_GAP, body);

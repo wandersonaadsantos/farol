@@ -345,6 +345,18 @@ test('falha passageira ao postar o pedido por defeito: o reenvio de sempre posta
 
 // ---------------------------------------------------------------- CI vermelho
 
+test('modelo reprova por CI obrigatório confirmado sem inventar finding de código', async () => {
+  const e = motor();
+  e.bloqueadoPorChecks = async () => ({ verifiedHead: HEAD, faltando: [{ nome: 'audit', estado: 'vermelho' }] });
+  const body = `Não encontrei nada bloqueante no código. Os checks obrigatórios estão falhando no commit ${HEAD.slice(0, 7)}.`;
+  await revisar(e, 153, { extra: { verdict: 'request_changes', findings: [], payloads: { request_changes: { event: 'REQUEST_CHANGES', body } } } });
+  assert.deepEqual(envios.map(p => p.event), ['REQUEST_CHANGES']);
+  assert.equal(envios[0].body, body);
+  assert.equal(envios[0].commit_id, HEAD);
+  assert.equal(resolvida(e, 153).status, 'auto_rejected');
+  assert.equal(pendente(e, 153), undefined, 'não fica recuperando uma reprovação coerente');
+});
+
 test('CI obrigatório vermelho e a conta reprovando sozinha: REQUEST_CHANGES citando os checks, e a aprovação sai quando ficar verde', async () => {
   const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }] });
   await revisar(e, 20);
