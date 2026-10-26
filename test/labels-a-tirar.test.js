@@ -12,7 +12,7 @@ import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 const io = (await import('../lib/io.js')).default;
-const { tirarPendentes, ARQUIVO } = await import('../lib/engine/labels-a-tirar.js');
+const { anotar, tirarPendentes, ARQUIVO } = await import('../lib/engine/labels-a-tirar.js');
 const { removeInProgressLabel } = await import('../lib/engine/review.js');
 
 const runReal = io.run;
@@ -38,14 +38,14 @@ test('remoção que falha fica anotada em disco, com o WARN dizendo que tenta de
   io.run = async () => ({ ok: false, code: 1, stdout: '', stderr: 'dial tcp: i/o timeout' });
   const e = motor();
   await removeInProgressLabel(e, PR, 'eu:revisando');
-  assert.match(e.logs[0], /não saiu de acme\/app#7: dial tcp: i\/o timeout; tento de novo/);
-  assert.equal(lerArquivo()['acme/app#7'].label, 'eu:revisando');
+  assert.match(e.logs[0], /não saiu de acme\/app#7; tento de novo/);
+  assert.equal(Object.values(lerArquivo())[0].label, 'eu:revisando');
 });
 
 test('remoção que dá certo não anota nada', async () => {
   io.run = async () => ({ ok: true, code: 0, stdout: '', stderr: '' });
   await removeInProgressLabel(motor(), PR, 'eu:revisando');
-  assert.equal(fs.existsSync(ARQUIVO), false);
+  assert.deepEqual(lerArquivo(), {});
 });
 
 test('o ciclo seguinte tira a label e limpa a anotação, inclusive depois de reiniciar', async () => {
@@ -62,9 +62,9 @@ test('falha de novo mantém a anotação; label que já não está lá encerra',
   const e = motor();
   e.labelsATirar = { [PR.key]: { url: PR.url, label: 'eu:revisando', desde: Date.now() } };
   await tirarPendentes(e, async () => ({ ok: false, stderr: 'rede' }));
-  assert.ok(e.labelsATirar[PR.key]);
-  await tirarPendentes(e, async () => ({ ok: false, stderr: "'eu:revisando' not found" }));
-  assert.equal(e.labelsATirar[PR.key], undefined);
+  assert.equal(Object.values(e.labelsATirar).length, 1);
+  await tirarPendentes(e, async (_cmd, args) => args[1] === 'view' ? { ok: true, stdout: '{"labels":[]}' } : { ok: false, stderr: "'eu:revisando' not found" });
+  assert.deepEqual(e.labelsATirar, {});
 });
 
 test('revisão viva deste aparelho no mesmo PR adia: a label é dela', async () => {
@@ -86,13 +86,79 @@ test('conta sem token não chama o gh e não perde a anotação', async () => {
   assert.ok(e.labelsATirar[PR.key]);
 });
 
-test('depois de 7 dias desiste com um WARN, sem chamar o gh', async () => {
+test('pendência antiga continua sendo tentada em vez de desaparecer após sete dias', async () => {
   const e = motor();
   const agora = Date.now();
   e.labelsATirar = { [PR.key]: { url: PR.url, label: 'eu:revisando', desde: agora - 8 * 24 * 3600 * 1000 } };
   let chamou = false;
   await tirarPendentes(e, async () => { chamou = true; return { ok: true }; }, agora);
-  assert.equal(chamou, false);
-  assert.equal(e.labelsATirar[PR.key], undefined);
-  assert.match(e.logs.join('\n'), /parei de tentar/);
+  assert.equal(chamou, true);
+  assert.deepEqual(e.labelsATirar, {});
+});
+
+test('pendências de duas contas no mesmo PR são preservadas e removidas individualmente', async () => {
+  const e = motor();
+  anotar(e, PR, 'eu:revisando'); anotar(e, PR, 'outra:revisando');
+  assert.equal(Object.values(lerArquivo()).length, 2);
+  const seen = [];
+  await tirarPendentes(e, async (_cmd, args) => { seen.push(args.at(-1)); return { ok: true }; });
+  assert.deepEqual(seen.sort(), ['eu:revisando', 'outra:revisando']);
+  assert.deepEqual(lerArquivo(), {});
+});
+
+test('404 sem consulta conclusiva não é prova de que a tag saiu', async () => {
+  const e = motor(); anotar(e, PR, 'eu:revisando');
+  await tirarPendentes(e, async () => ({ ok: false, stderr: 'not found' }));
+  assert.equal(Object.values(lerArquivo()).length, 1);
+});
+
+test('limpeza adiada disputa o lease e preserva a revisão de outro aparelho', async () => {
+  const { startFakeRtdb } = await import('./helpers/fake-rtdb.js');
+  const { createRtdbClient } = await import('../lib/sync/rtdb.js');
+  const { acquireLease, releaseLease, leasePath } = await import('../lib/sync/lease.js');
+  const { accountHash, prHash } = await import('../lib/sync/keys.js');
+  const fake = await startFakeRtdb({ token: 'synthetic-token' });
+  const client = createRtdbClient({ databaseUrl: fake.url, getIdToken: async () => ({ ok: true, idToken: 'synthetic-token' }) });
+  const ids = { uid: 'u1', accountHash: accountHash('eu'), prHash: prHash(PR.key) };
+  const now = Date.now();
+  const data = { leaseId: 'other', deviceId: 'other-device', operationKind: 'review', headSha: 'a'.repeat(40), nowMs: now, farolVersion: '2.77.9' };
+  try {
+    assert.equal((await acquireLease(client, ids, data)).ok, true);
+    const e = motor({ syncCoordenacaoAtiva: () => true, sync: { status: 'conectado', client, uid: 'u1', deviceId: 'this-device' } });
+    anotar(e, PR, 'eu:revisando'); let called = 0;
+    await tirarPendentes(e, async () => { called++; return { ok: true }; }, now);
+    assert.equal(called, 0); assert.equal(Object.values(lerArquivo()).length, 1);
+    await releaseLease(client, ids, { leaseId: 'other' });
+    await tirarPendentes(e, async () => {
+      called++;
+      const concurrent = await acquireLease(client, ids, { ...data, leaseId: 'next-review', nowMs: Date.now() });
+      assert.equal(concurrent.ok, false); assert.equal(concurrent.reason, 'alheio');
+      return { ok: true };
+    }, Date.now());
+    assert.equal(called, 1); assert.deepEqual(lerArquivo(), {});
+    assert.equal((await client.get(leasePath(ids.uid, ids.accountHash, ids.prHash))).data, null);
+  } finally { await fake.close(); }
+});
+
+test('coordenação indisponível adia limpeza automática sem perder a pendência', async () => {
+  const e = motor({ syncCoordenacaoAtiva: () => true, sync: { status: 'desconectado' } });
+  anotar(e, PR, 'eu:revisando'); let called = false;
+  await tirarPendentes(e, async () => { called = true; return { ok: true }; });
+  assert.equal(called, false); assert.equal(Object.values(lerArquivo()).length, 1);
+});
+
+test('caixa e representação antiga não duplicam pendência da mesma tag', () => {
+  const e = motor();
+  e.labelsATirar = { [PR.key]: { url: PR.url, label: 'Eu:Revisando', desde: 100 } };
+  anotar(e, PR, 'eu:revisando', 200);
+  assert.equal(Object.values(lerArquivo()).length, 1);
+  assert.equal(Object.values(lerArquivo())[0].desde, 100);
+});
+
+test('arquivo de pendências inválido não provoca chamadas ao GitHub', async () => {
+  fs.mkdirSync(path.dirname(ARQUIVO), { recursive: true });
+  fs.writeFileSync(ARQUIVO, JSON.stringify({ invalid: null, broken: { key: 5, url: PR.url, label: 'eu:revisando' }, foreign: { key: PR.key, url: 'https://evil.invalid/acme/app/pull/7', label: 'eu:revisando' } }));
+  let called = false;
+  await tirarPendentes(motor(), async () => { called = true; return { ok: true }; });
+  assert.equal(called, false);
 });

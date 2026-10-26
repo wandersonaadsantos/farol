@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.0
+
+Controle manual das tags de revisão e recuperação mais confiável dos marcadores que ficaram no GitHub.
+
+**Novidades**
+- Sistema > Visão geral permite consultar um PR e remover individualmente qualquer marcador `conta:revisando`, com confirmação e indicação da conta usada. A ação remove a tag do PR, sem apagar sua definição no repositório nem cancelar a revisão ativa. A mesma sessão local respeita a remoção manual.
+
+**Correções**
+- A tentativa de inclusão da tag é registrada antes do envio ao GitHub. Se a resposta se perder depois da inclusão, o cancelamento ou a falha ainda conseguem limpar o marcador.
+- Limpezas que falharam por rede ou token, inclusive após reinício, continuam pendentes até confirmação da remoção. Elas não são mais esquecidas depois de sete dias e comportam mais de uma conta no mesmo PR.
+- A limpeza adiada respeita a posse entre aparelhos para não apagar a tag de uma revisão que começou depois. Um erro de acesso não é tratado como prova de que a tag deixou de existir.
+
 ## v2.77.9
 
 Correções na atualização dos cards de revisão, na presença entre aparelhos e na transferência de preferências.

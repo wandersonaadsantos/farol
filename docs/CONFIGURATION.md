@@ -752,6 +752,19 @@ aberto; nas demais instalações pode ser aberto quando necessário. Login, orga
 são informações distintas de configuração preenchida. Use **Reverificar saúde** para
 atualizar o diagnóstico. O roteiro não ativa automação nem aprova a política da conta.
 
+**Tags de revisão no GitHub**, em Sistema > Visão geral, consulta um PR e permite
+remover individualmente os marcadores `conta:revisando`, inclusive de outro login.
+A ação usa a conta autenticada que cobre o PR e pede confirmação. Ela tira a tag
+daquele PR, sem excluir sua definição no repositório nem cancelar uma revisão ativa.
+A sessão local respeita a remoção manual; uma revisão nova pode recolocar o marcador.
+Tags de outras ferramentas e outros assuntos ficam fora desse controle.
+
+Ao concluir, falhar ou cancelar uma revisão, o Farol tenta remover sua tag. A intenção
+é registrada antes da inclusão, inclusive para resposta perdida do GitHub. Falhas de
+remoção e limpeza após reinício ficam pendentes para os próximos ciclos, sem expirar
+após sete dias. Sem rede, token ou permissão, a remoção não pode ser garantida na hora.
+A limpeza automática adiada respeita revisões vivas e a posse entre aparelhos.
+
 **Preferências entre instalações** exporta JSON versão 2 com todas as preferências
 editáveis do Sistema, a partir da tabela central de configurações. Inclui contas e
 políticas de automação, modelos e esforço, limites de revisões, regras e revisores,
