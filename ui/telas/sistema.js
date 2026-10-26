@@ -23,6 +23,7 @@ import { initReviewAudits } from './review-audits.js';
 import { initCapacity } from './capacity.js';
 import { initSetup, renderSetup } from './setup.js';
 import { initPreferencesTransfer } from './preferences-transfer.js';
+import { initReviewLabels } from './review-labels.js';
 import { syncTheme } from './tema.js';
 import { renderAutomationSettings } from './sistema-automacao.js';
 
@@ -55,6 +56,7 @@ $('#sysNav').addEventListener('click', (e) => {
    e empilhava tudo na vertical. Com índice, o resultado é uma lista curta que aponta
    pra UMA linha. 'at' é o seletor do alvo, e todo alvo tem que existir no HTML. */
 const SYS_INDEX = [
+  { sec: 'overview', at: '#reviewLabels', title: 'Tags de revisão no GitHub', hint: 'tags, labels, marcador, revisando, remover, limpeza' },
   { sec: 'overview', at: '#setupManager', title: 'Configuração e retomada', hint: 'onboarding, começar, roteiro, configurar, retomar' },
   { sec: 'overview', at: '#preferencesTransfer', title: 'Importar preferências', hint: 'importação, exportação, arquivo, tema, toque, lembretes, diferenças' },
   { sec: 'plans', at: '#capacityManager', title: 'Reserva de cota e recursos', hint: 'cota, reserva, percentual, janela, memória, ram, cpu, processos, recursos' },
@@ -213,6 +215,7 @@ initReviewAudits();
 initCapacity();
 initSetup();
 initPreferencesTransfer();
+initReviewLabels();
 registrarTela({
   id: 'sistema',
   aoEntrar: () => { switchSistemaSection(); loadLog(); carregarAparelhos(); loadReviewerCands(); },

@@ -103,31 +103,31 @@ test('label inexistente é criada no repo e a adição é retentada uma vez', as
   assert.doesNotMatch(desc, /farol|autom|bot/i);
 });
 
-test('criação que falha devolve vazio sem terceira tentativa', async () => {
+test('criação que falha preserva a tag tentada para limpeza, sem terceira tentativa', async () => {
   const chamadas = [];
   const run = async (cmd, args) => { chamadas.push(args.slice(0, 2).join(' ')); return { ok: false, stderr: 'boom' }; };
   const label = await addInProgressLabel(engineComGh(), PR, run);
-  assert.equal(label, '');
+  assert.equal(label, 'thiagocarvalho-dev:revisando');
   assert.deepEqual(chamadas, ['pr edit', 'label create']);
 });
 
-test('retentativa que falha depois da criação devolve vazio (best-effort)', async () => {
+test('retentativa que falha mantém a tag tentada disponível para limpeza', async () => {
   const chamadas = [];
   const run = async (cmd, args) => {
     chamadas.push(args.slice(0, 2).join(' '));
     return { ok: args[0] === 'label' };
   };
   const label = await addInProgressLabel(engineComGh(), PR, run);
-  assert.equal(label, '');
+  assert.equal(label, 'thiagocarvalho-dev:revisando');
   assert.deepEqual(chamadas, ['pr edit', 'label create', 'pr edit']);
 });
 
-test('PR sem repo resolvível não tenta criar label', async () => {
+test('identidade do PR incompatível com a URL não escreve label', async () => {
   const chamadas = [];
   const run = async (cmd, args) => { chamadas.push(args.slice(0, 2).join(' ')); return { ok: false }; };
   const label = await addInProgressLabel(engineComGh(), { key: 'estranho', url: 'https://github.com/o/r/pull/1' }, run);
   assert.equal(label, '');
-  assert.deepEqual(chamadas, ['pr edit']);
+  assert.deepEqual(chamadas, []);
 });
 
 test('removeInProgressLabel sem label aplicada é no-op (não toca o engine)', async () => {
