@@ -51,5 +51,5 @@ Section "Farol"
 
   DetailPrint "Pronto. Abrindo o Farol..."
   ; abre pelo atalho do Menu Iniciar (herda icone e AUMID corretos)
-  Exec '"$APPDATA\Microsoft\Windows\Start Menu\Programs\Farol.lnk"'
+  ExecShell "open" "$APPDATA\Microsoft\Windows\Start Menu\Programs\Farol.lnk"
 SectionEnd
