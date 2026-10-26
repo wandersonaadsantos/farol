@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.77.7', ['Preparação de otimizações de review com gate offline de qualidade: omissões conhecidas, falsos positivos e avaliação incompleta impedem considerar um piloto.', 'Orientação sintática, leituras agrupadas e responsabilidades por lote são experimentos desligados por padrão, sem ativação pela interface. Patches e critérios ficam preservados; economia de tokens e qualidade real ainda não foram comprovadas. Voz permanece desligada por padrão.']],
   ['2.77.6', ['Esperar o CI antes de revisar é reconferido na boca da sessão automática, preservando a retomada e as tentativas quando houver espera. A recuperação recebe as lacunas completas, e os cards distinguem espera e execução. Decisões e histórico não oferecem nova revisão do mesmo PR e conta enquanto ele está ativo.', 'A sincronização confirma presença sem esperar consultas longas ao GitHub. Falhas de rede continuam impedindo a admissão quando não há presença válida. Analisando agora só aparece com sessões; pedidos em espera continuam na fila. Voz e seleção de contexto permanecem desligadas por padrão.']],
   ['2.77.5', ['Uma revisão em andamento sai da fila de espera da mesma conta, incluindo os contadores e Revisar tudo. Pedidos de outra conta continuam visíveis; sem decisão ao terminar, o PR pode voltar à fila.']],
   ['2.77.4', [
