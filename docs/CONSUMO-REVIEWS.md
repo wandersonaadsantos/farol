@@ -12,6 +12,8 @@ tipo. IDs diferentes não são unidos por PR ou por proximidade de horário. Só
 último resultado da operação determina a conclusão; uma conclusão fora do período
 ou do filtro não é atribuída ao recorte. Registros sem ID entram no consumo, mas
 não permitem inferir conclusões ou retentativas. Subagentes não são reviews extras.
+Retentativas são tentativas posteriores à primeira da operação; contam no recorte
+em que ocorreram mesmo quando a tentativa anterior ficou fora do período ou filtro.
 
 A consulta autenticada `GET /api/usage` lê o diário permanente completo, sem o
 limite de 100 sessões recentes do snapshot. Aceita `start` e `end` inclusivos,

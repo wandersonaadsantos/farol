@@ -22,6 +22,17 @@ test('soma todas as tentativas, mas conclusão e PR único não duplicam', () =>
   assert.equal(r.totals.cacheReadTokens + r.totals.cacheCreationTokens, 360);
 });
 
+test('retentativa mantém a classificação quando a tentativa anterior está fora do recorte', () => {
+  const rows = [row({ at: NOW - 86400000, model: 'anterior', status: 'erro' }), row({ model: 'atual' })];
+  for (const filters of [{ start: '2026-10-26' }, { model: 'atual' }]) {
+    const r = report(rows, filters);
+    assert.equal(r.totals.attempts, 1);
+    assert.equal(r.retries, 1);
+    assert.equal(r.completed.reviews, 1);
+  }
+  assert.equal(report(rows, { model: 'anterior' }).retries, 0);
+});
+
 test('identidade separa aparelho, conta, perfil e tipo; subagentes não viram reviews', () => {
   const rows = [row(), row({ account: 'other' }), row({ profileId: 'other' }), row({ kind: 'self' }), row({ modelUsage: { subagent: {} }, id: 'review-2' })];
   const r = activityReport([{ device: 'one', rows }, { device: 'two', rows: [row()] }], query, NOW);
