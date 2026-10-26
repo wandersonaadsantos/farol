@@ -13,7 +13,8 @@ async function request(body) {
 function invalidate() { generation++; pending = null; $('#preferencesApply').disabled = true; $('#preferencesPreview').replaceChildren(); }
 function preferenceRow(change) {
   const disabled = change.blocked ? ' disabled' : '';
-  const reason = change.blocked ? `<small class="set-desc">${esc(change.blocked)}</small>` : '';
+  const explanation = change.blocked || change.note;
+  const reason = explanation ? `<small class="set-desc">${esc(explanation)}</small>` : '';
   return `<label class="diff-row"><input type="checkbox" data-preference-key="${esc(change.key)}"${disabled}><span>${esc(PREFERENCE_LABELS[change.key])}${reason}</span><span class="was preferences-value">${esc(preferenceValue(change.key, change.current))}</span><span class="new preferences-value">${esc(preferenceValue(change.key, change.incoming))}</span></label>`;
 }
 async function preview() {

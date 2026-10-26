@@ -1,5 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { baseConfig, fieldCases } from './helpers/preferences-cases.js';
+import { PREFERENCE_LABELS } from '../ui/pure/preferences.js';
 import { instalarDom } from './helpers/dom-stub.js';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -22,6 +24,8 @@ const engine = new Engine();
 engine.checks = 0;
 engine.pushState = () => {};
 engine.checkNow = () => { engine.checks++; };
+engine.doctor = async () => {};
+engine.syncAplicarConfig = () => {};
 globalThis.fetch = async (_url, init) => ({ json: () => command(engine, JSON.parse(init.body)) });
 const { initPreferencesTransfer } = await import('../ui/telas/preferences-transfer.js');
 initPreferencesTransfer();
@@ -84,4 +88,56 @@ test('tela mostra dependência ausente com seleção indisponível, sem credenci
   assert.match(preview.innerHTML, /data-preference-key="claudeProfiles" disabled/);
   assert.match(preview.innerHTML, /Cadastre neste aparelho as credenciais/);
   assert.equal($('#preferencesApply').disabled, true);
+});
+
+
+test('todos os 45 campos passam pelo seletor e aplicação do módulo da tela', async () => {
+  let exercised = 0;
+  for (const [key, candidates] of Object.entries(fieldCases())) {
+    engine.config = baseConfig();
+    if (key === 'accounts') engine.config.ghUser = '';
+    let document;
+    for (const value of candidates) {
+      const candidate = { type: 'farol-preferences', schema: 2, values: { [key]: value } };
+      const result = await command(engine, { action: 'preview', document: candidate });
+      if (result.ok && result.changes.length && !result.changes[0].blocked) { document = candidate; break; }
+    }
+    assert.ok(document, `sem diferença para ${key}`);
+    await inspect(document);
+    assert.match(preview.innerHTML, new RegExp(`data-preference-key="${key}"`), key);
+    assert.ok(preview.innerHTML.includes(PREFERENCE_LABELS[key]), key);
+    assert.doesNotMatch(preview.innerHTML, /undefined|\[object Object\]/, key);
+    selected = [{ dataset: { preferenceKey: key } }];
+    preview.onchange(); assert.equal($('#preferencesApply').disabled, false, key);
+    await $('#preferencesApply').onclick();
+    assert.match($('#preferencesMessage').textContent, /salvas/, key);
+    await inspect(document);
+    assert.equal(preview.innerHTML, '', key);
+    assert.equal($('#preferencesApply').disabled, true, key);
+    exercised++;
+  }
+  assert.equal(exercised, 45);
+});
+
+
+test('a tela explica por que a última conta não pode ser removida pela importação', async () => {
+  engine.config = baseConfig();
+  const incoming = { type: 'farol-preferences', schema: 2, values: { accounts: [] } };
+  await inspect(incoming);
+  assert.match(preview.innerHTML, /última conta configurada/);
+  assert.match(preview.innerHTML, /data-preference-key="accounts" disabled/);
+  assert.equal($('#preferencesApply').disabled, true);
+  assert.equal(engine.config.accounts.length, 1);
+});
+
+test('limpar o perfil padrão pela tela informa e desativa a cadeia', async () => {
+  engine.config = baseConfig(); engine.config.claudeProfileId = 'p'; engine.config.cadeiaPerfis[0].ativo = true;
+  const incoming = { type: 'farol-preferences', schema: 2, values: { claudeProfileId: '' } };
+  await inspect(incoming);
+  assert.match(preview.innerHTML, /desativa os perfis da cadeia/);
+  selected = [{ dataset: { preferenceKey: 'claudeProfileId' } }]; preview.onchange();
+  await $('#preferencesApply').onclick();
+  assert.match($('#preferencesMessage').textContent, /salvas/); assert.equal(engine.config.claudeProfileId, '');
+  assert.equal(engine.config.cadeiaPerfis.some(entry => entry.ativo), false);
+  await inspect(incoming); assert.equal(preview.innerHTML, '');
 });

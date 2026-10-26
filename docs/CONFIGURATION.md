@@ -776,6 +776,11 @@ Importar exige arquivo de até 1 MiB, prévia e seleção explícita das diferen
 salvamento em Sistema, incluindo voz, inicialização, checagem e sincronização.
 A prévia não grava. Valores iguais, inclusive objetos com chaves em outra ordem,
 não aparecem. Se tudo é igual, a tela informa que não há diferenças.
+A prévia explica os ajustes dependentes: a última conta configurada não pode ser
+removida por importação, como na edição normal de Contas. Deixar o perfil padrão
+vazio desativa a cadeia. Uma cadeia vazia
+representa os perfis existentes desligados, sem diferenças que reapareçam após aplicar.
+IDs duplicados e datas inexistentes nos orçamentos são recusados antes da gravação.
 
 Arquivos antigos na versão 1 continuam aceitos como parciais. Preferências ausentes
 são preservadas, com aviso; para transferir todos os ajustes é necessária uma nova
