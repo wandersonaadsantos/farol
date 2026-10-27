@@ -162,3 +162,20 @@ test('reserva de disco tem precedência e consumidor interrompido não é recolh
   assert.equal((await recovered.inventory()).reservations, 1);
   await assert.rejects(recovered.reserve('new', 170000), /Quota global/);
 });
+
+// Farol encerrado no meio do fetch (revisão do PR da v2.78.7): a lease fica com gitProcessPending, sem marcador
+// e sem monitor estendendo a reserva. Esse escopo entra na folga; o Git em curso deste processo não entra.
+for (const [caso, dono, admite] of [['de outro processo', 'outro', false], ['deste processo', 'este', true]]) {
+  test(`Git pendente ${caso} ${admite ? 'não ' : ''}entra na folga dos outros escopos`, async t => {
+    const { first, second } = await fixture(t, { maxBytes: 200000, globalMaxBytes: 150000 });
+    const lease = await first.acquire({});
+    await first.protectedGit(lease, true);
+    const leaseFile = path.join(first.root, 'leases', lease + '.json');
+    if (dono === 'outro') await fs.writeFile(leaseFile, JSON.stringify({ ...JSON.parse(await fs.readFile(leaseFile, 'utf8')), pid: 999999 }));
+    const inventory = await scopeInventory(first.root);
+    assert.equal(inventory.pendingGitProcess, true);
+    assert.equal(Boolean(inventory.foreignGitProcess), dono === 'outro');
+    if (admite) await second.put('other', { text: 'b' });
+    else await assert.rejects(second.put('other', { text: 'b' }), /Quota global/);
+  });
+}
