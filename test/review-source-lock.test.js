@@ -96,7 +96,8 @@ test('dono antigo sem nascimento registrado vale pelo pid ausente (writer.lock d
 });
 
 for (const [caso, probe] of [
-  ['vivo', async () => ({ status: 'found', birth: new Date(T0 + 1500).toISOString() })],
+  ['vivo', async () => ({ status: 'found', birth: new Date(T0 - 25).toISOString() })],
+  ['vivo com o relógio recuado depois da partida', async () => ({ status: 'found', birth: new Date(T0 + 1500).toISOString() })],
   ['sem resposta do SO', async () => ({ status: 'unknown' })],
 ]) {
   test(`dono de outro processo ${caso} mantém a trava intacta`, async t => {
@@ -192,4 +193,52 @@ test('erro ao adquirir vira ocupado só para quem tenta (recuperação e reclaim
   assert.equal(await tryWithLock(file, () => 'depois', async () => 'feito'), 'depois');
   assert.ok(logs.some(l => /ENOENT/.test(l.text)));
   await assert.rejects(withLock(file, () => 'depois', async () => 'feito'), { code: 'ENOENT' });
+});
+
+test('Farol reaberto com o mesmo PID: dono de outra instância neste PID está encerrado', async t => {
+  const { file } = await fixture(t, { probe: async () => ({ status: 'found', birth: new Date(T0).toISOString() }) });
+  await fs.writeFile(file, owner({ pid: process.pid, startedAt: Math.round(performance.timeOrigin) - 10000 }));
+  const lock = await acquireLock(file);
+  assert.ok(lock);
+  assert.equal(JSON.parse(await fs.readFile(`${file}-recovered.json`, 'utf8')).proof, 'owner-ended');
+  await releaseLock(lock);
+});
+
+test('dono vivo confirmado não cai na prova de boot, mesmo com a trava anterior ao boot medido', async t => {
+  const { file } = await fixture(t, { probe: async () => ({ status: 'found', birth: new Date(T0).toISOString() }) });
+  const raw = owner();
+  await fs.writeFile(file, raw);
+  const old = new Date(T0 + 1000);
+  await fs.utimes(file, old, old);
+  recoveryBoot.read = async () => Date.now() - 1000;
+  assert.equal(await acquireLock(file), null);
+  assert.equal(await fs.readFile(file, 'utf8'), raw);
+});
+
+test('sobra da trava auxiliar de retomada não impede retomar a órfã principal', async t => {
+  const { file } = await fixture(t);
+  await fs.writeFile(file, owner());
+  await fs.writeFile(`${file}.retomada`, owner({ nonce: 'auxiliar-morta' }));
+  const lock = await acquireLock(file);
+  assert.ok(lock);
+  await assert.rejects(fs.access(`${file}.retomada`), { code: 'ENOENT' });
+  await releaseLock(lock);
+});
+
+test('recusa passageira do link é repetida antes de cair no open exclusivo', async t => {
+  const { file } = await fixture(t);
+  let tries = 0;
+  lockIo.link = async (from, to) => { if (++tries < 3) { const e = new Error('antivírus'); e.code = 'EPERM'; throw e; } return original.link(from, to); };
+  const lock = await acquireLock(file);
+  assert.equal(tries, 3);
+  assert.equal(JSON.parse(await fs.readFile(file, 'utf8')).pid, process.pid);
+  await releaseLock(lock);
+});
+
+test('relógio recuado depois da partida não faz dono vivo parecer reaproveitado', async t => {
+  const { file } = await fixture(t, { probe: async () => ({ status: 'found', birth: new Date(T0 - 25).toISOString() }) });
+  const raw = owner({ at: T0 - 3 * 3600e3 });
+  await fs.writeFile(file, raw);
+  assert.equal(await acquireLock(file), null);
+  assert.equal(await fs.readFile(file, 'utf8'), raw);
 });
