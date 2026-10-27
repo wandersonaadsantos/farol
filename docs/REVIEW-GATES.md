@@ -29,6 +29,16 @@
 > ausente do cadastro (ou cadastro inexistente) mantém a aprovação bloqueada e pede
 > corrigir a configuração do aparelho, sem solicitar uma decisão sobre o PR.
 > Baselines existentes podem ser fornecidos no perfil privado; o revisor não os cria.
+> Desde a v2.78.9 o Farol confere, antes da ferramenta, se cada pasta dos campos de diretório
+> (`testDirs`, `e2eDirs`, `sourceDirs`, `componentDirs`) existe no commit analisado. Pasta
+> ausente é a falha `declaration`: o card nomeia as pastas (até cinco), a lacuna é dura (não
+> vira ressalva depois das duas tentativas), não é defeito do PR (nunca vira pedido de
+> mudanças) e a recuperação fica parada até a declaração do repositório mudar. Antes, a
+> ferramenta recusava a declaração inteira na primeira pasta ausente, o worker engolia o
+> motivo e a avaliação terminava "a ferramenta não concluiu": em 27/10/2026, um PR do
+> biud-frontend apagou duas das 1206 pastas de teste declaradas e toda avaliação daquele
+> repositório passou a falhar. Declare as raízes, não cada pasta: os campos recortam por
+> prefixo (`src` já cobre `src/a/b`), e uma lista exaustiva quebra a cada pasta apagada.
 
 # Gates de revisão e postagem do Farol
 
