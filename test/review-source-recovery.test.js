@@ -144,7 +144,7 @@ for (const [caso, owner] of [['dono encerrado', { status: 'absent' }], ['PID rea
   });
 }
 
-for (const caso of ['dono vivo', 'dono desconhecido', 'Git anterior vivo', 'Git sem início', 'lista indisponível']) {
+for (const caso of ['dono vivo', 'dono desconhecido', 'Git anterior vivo', 'Git sem início', 'Git na folga do relógio', 'lista indisponível']) {
   test(`mesmo boot preserva bloqueio quando falta prova: ${caso}`, async t => {
     const f = await fixture(t);
     recoveryBoot.read = async () => 1;
@@ -153,6 +153,7 @@ for (const caso of ['dono vivo', 'dono desconhecido', 'Git anterior vivo', 'Git 
     if (caso === 'dono desconhecido') processProbe.read = async () => ({ status: 'unknown' });
     if (caso === 'Git anterior vivo') recoveryProcesses.list = async () => [{ name: 'git.exe', born: f.interruptedAt - 5000 }];
     if (caso === 'Git sem início') recoveryProcesses.list = async () => [{ name: 'git.exe', born: NaN }];
+    if (caso === 'Git na folga do relógio') recoveryProcesses.list = async () => [{ name: 'git.exe', born: f.interruptedAt + 1000 }];
     if (caso === 'lista indisponível') recoveryProcesses.list = async () => null;
     await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
     assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
@@ -179,8 +180,18 @@ test('lista de Git do SO reconhece só a família git e marca início desconheci
   assert.equal(win[0].born, 1793043600000);
   assert.ok(Number.isNaN(win[1].born));
   const now = 1793050000000;
-  const posix = posixGit(['  10 01:05 /usr/bin/git', '  11 1-02:00:00 /Applications/GitHub Desktop.app/x/github',
-    '  12 00:03 git-remote-https', ''].join('\n'), now);
-  assert.deepEqual(posix.map(r => r.name), ['git', 'git-remote-https']);
+  const posix = posixGit(['  10 01:05 /usr/bin/git fetch --quiet origin', '  11 1-02:00:00 /Applications/GitHub Desktop.app/x/github',
+    '  12 00:03 /usr/lib/git-core/git-remote-https origin https://github.com/o/r', '  13 00:01 node server.js', 'linha sem formato', ''].join('\n'), now);
+  assert.deepEqual(posix.map(r => r.name), ['git', 'git-remote-https', 'git']);
   assert.equal(posix[0].born, now - 65000);
+  assert.ok(Number.isNaN(posix[2].born), 'linha que o ps não deveria produzir conta como Git de início desconhecido');
+});
+
+test('prova de boot dispensa a lista de processos do SO', async t => {
+  const { second } = await fixture(t);
+  let consultas = 0;
+  processProbe.read = async () => ({ status: 'absent' });
+  recoveryProcesses.list = async () => { consultas++; return []; };
+  await second.put('new-source', { code: 'reviewable' });
+  assert.equal(consultas, 0);
 });
