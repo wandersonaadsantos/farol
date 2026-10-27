@@ -20,6 +20,7 @@ set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARCH="${ARCH:-arm64}"
+case "${1:-}" in --arch=*) ARCH="${1#--arch=}" ;; esac
 case "$ARCH" in
   arm64|x64) ;;
   *) echo '  x  ARCH deve ser arm64 (Apple Silicon) ou x64 (Intel).'; exit 1 ;;
@@ -28,6 +29,7 @@ esac
 # estilo git-bash "/c/...". Assim funciona em qualquer SO.
 DIST="$SRC/dist"
 OUT="$DIST/Farol-Instalar-mac.command"
+if [ "$ARCH" = 'x64' ]; then OUT="$DIST/Farol-Instalar-mac-x64.command"; fi
 
 command -v node >/dev/null || { echo '  x  Node.js necessario pro build.'; exit 1; }
 (cd "$SRC" && node lib/node-runtime.js package.json)

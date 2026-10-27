@@ -45,10 +45,11 @@ Section "Farol"
   Pop $0
   ${If} $0 != 0
     DetailPrint "Falha na instalacao (codigo $0)."
+    SetErrorLevel 1
     Abort "Nao consegui instalar o Farol. Veja os detalhes acima."
   ${EndIf}
 
   DetailPrint "Pronto. Abrindo o Farol..."
   ; abre pelo atalho do Menu Iniciar (herda icone e AUMID corretos)
-  Exec '"$APPDATA\Microsoft\Windows\Start Menu\Programs\Farol.lnk"'
+  ExecShell "open" "$APPDATA\Microsoft\Windows\Start Menu\Programs\Farol.lnk"
 SectionEnd

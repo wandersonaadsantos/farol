@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.4
+
+O botão Atualizar agora também prepara a troca do Electron, sem baixar o instalador à mão.
+
+### Correções
+
+- Quando o pacote leve exige outro Electron, o Farol baixa o instalador completo da mesma release e confere o SHA-256 antes de instalar. Downloads interrompidos ou inválidos preservam a instalação atual.
+- O Windows instala em segundo plano e reabre o Farol. No macOS, o pacote é preparado e o runtime validado antes de fechar o app; a publicação inclui Apple Silicon e Intel.
+- O botão mostra que a atualização está sendo preparada. Sessões iniciadas durante o download continuam adiando a instalação até o Farol ficar ocioso.
+
 ## v2.78.3
 
 Consumo mostra operações concluídas, tentativas e tokens com filtros e histórico detalhado.
