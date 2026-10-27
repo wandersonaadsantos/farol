@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.6
+
+A análise técnica de repositórios grandes deixa de travar por tempo esgotado na busca do código.
+
+### Correções
+
+- A busca do código para a análise técnica baixava o histórico inteiro do repositório a cada revisão, porque o cache não guardava nenhuma referência entre uma revisão e outra. Em repositórios grandes isso passava do limite de 2 minutos, a busca era interrompida e o cache travava. O cache agora mantém as referências do último código preparado, e a busca seguinte traz só o que falta (de 179 MB e 153 s para 7,7 MB e 7 s no caso medido). A primeira busca de um cache vazio, que ainda precisa trazer tudo, ganhou limite próprio de 10 minutos.
+- Quando uma busca é interrompida por tempo esgotado, o cache se recupera sem precisar reiniciar o Farol, assim que nenhum processo Git anterior à interrupção continua em execução. Material em uso e Git ainda ativo mantêm o bloqueio.
+
 ## v2.78.5
 
 Revisões voltam a preparar o código quando o Farol encerrou no meio de uma operação Git sem o computador reiniciar.
