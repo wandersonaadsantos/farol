@@ -78,7 +78,7 @@ for (const pending of ['same-boot', 'unknown', 'future-boot', 'consumer', 'write
     if (pending === 'consumer') updateRecord(f.destination, r => ({ ...r, consumers: ['session'] }));
     if (pending === 'writer') await fs.writeFile(path.join(f.store.root, 'writer.lock'), 'active-writer');
     if (pending === 'identity') updateRecord(f.destination, r => ({ ...r, sourceReference: { ...r.sourceReference, leaseId: 'other' } }));
-    await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
+    await assert.rejects(f.store.put('new-source', { code: 'unsafe' }), /não confirmado/);
     assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
     assert.equal((await f.store.budget.inventory()).reservations, 1);
     assert.equal(await fs.readFile(f.partial, 'utf8'), 'preserved-partial');
@@ -121,7 +121,7 @@ test('mudança do consumidor durante consulta de boot é revalidada antes de rec
     updateRecord(destination, r => ({ ...r, consumers: ['new-session'] }));
     return bootAt;
   };
-  await assert.rejects(second.put('source', { ready: false }), /não confirmado/);
+  await assert.rejects(store.put('source', { ready: false }), /não confirmado/);
   assert.equal((await store.lease(lease)).gitProcessPending, true);
   assert.equal((await store.budget.inventory()).reservations, 1);
 });
@@ -155,7 +155,7 @@ for (const caso of ['dono vivo', 'dono desconhecido', 'Git anterior vivo', 'Git 
     if (caso === 'Git sem início') recoveryProcesses.list = async () => [{ name: 'git.exe', born: NaN }];
     if (caso === 'Git na folga do relógio') recoveryProcesses.list = async () => [{ name: 'git.exe', born: f.interruptedAt + 1000 }];
     if (caso === 'lista indisponível') recoveryProcesses.list = async () => null;
-    await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
+    await assert.rejects(f.store.put('new-source', { code: 'unsafe' }), /não confirmado/);
     assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
     assert.equal((await f.store.budget.inventory()).reservations, 1);
   });
@@ -170,7 +170,7 @@ test('mesmo boot revalida a interrupção sob a trava antes de recuperar', async
     await atomic(pendingFile, { ...await read(pendingFile), at: f.interruptedAt + 1 });
     return [];
   };
-  await assert.rejects(f.second.put('source', { ready: false }), /não confirmado/);
+  await assert.rejects(f.store.put('source', { ready: false }), /não confirmado/);
   assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
 });
 
@@ -213,7 +213,7 @@ for (const [caso, git, recupera] of [['sem Git anterior', [], true], ['com Git a
       assert.equal(lease.recovered.ownerState, 'self');
       assert.equal(await fs.readFile(f.partial, 'utf8'), 'preserved-partial');
     } else {
-      await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
+      await assert.rejects(f.store.put('new-source', { code: 'unsafe' }), /não confirmado/);
       assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
     }
   });
@@ -224,7 +224,7 @@ test('dono neste processo com o material ainda em uso preserva o bloqueio', asyn
   recoveryBoot.read = async () => 1;
   updateRecord(f.destination, r => ({ ...r, owner: { ...r.owner, pid: process.pid }, consumers: ['session'] }));
   await atomic(f.leaseFile, { ...await f.store.lease(f.lease), pid: process.pid });
-  await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
+  await assert.rejects(f.store.put('new-source', { code: 'unsafe' }), /não confirmado/);
   assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
 });
 
@@ -233,6 +233,31 @@ test('mesmo PID com outra instância do Farol não conta como este processo', as
   recoveryBoot.read = async () => 1;
   updateRecord(f.destination, r => ({ ...r, owner: { ...r.owner, pid: process.pid, instance: '00000000-0000-4000-8000-000000000000' } }));
   await atomic(f.leaseFile, { ...await f.store.lease(f.lease), pid: process.pid });
-  await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
+  await assert.rejects(f.store.put('new-source', { code: 'unsafe' }), /não confirmado/);
+  assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
+});
+
+// A trava é do repositório, não do Farol (27/10/2026): a do biud-frontend barrava a análise técnica
+// de todos os outros. O escopo travado segue adiado; os outros entram com a folga do órfão na quota.
+test('trava de um repositório não barra outro quando a quota comporta a folga do órfão', async t => {
+  const f = await fixture(t);
+  recoveryBoot.read = async () => 1;
+  const options = { root: f.store.base, materialRoot: f.store.budget.materialRoot,
+    limits: { globalMaxBytes: 5000000, maxBytes: 400000, reserveBytes: 1, globalReserveBytes: 1, acquisitionReserveBytes: 10000 } };
+  const other = await new SourceStore({ host: 'github.com', account: 'fixture', repo: 'org/api', repositoryId: 3 }, options).initialize();
+  await other.put('independent-source', { code: 'reviewable' });
+  assert.deepEqual(await other.get('independent-source'), { code: 'reviewable' });
+  await assert.rejects(f.store.put('same-scope', { code: 'unsafe' }), /não confirmado/);
+  assert.equal((await f.store.lease(f.lease)).gitProcessPending, true, 'a trava do repositório travado continua');
+});
+
+test('outro repositório segue adiado quando a quota não comporta a folga do órfão', async t => {
+  const f = await fixture(t);
+  recoveryBoot.read = async () => 1;
+  // A folga do escopo travado é o que falta para ele chegar a 400 KB, e a quota global aqui é de 300 KB.
+  const options = { root: f.store.base, materialRoot: f.store.budget.materialRoot,
+    limits: { globalMaxBytes: 300000, maxBytes: 400000, reserveBytes: 1, globalReserveBytes: 1, acquisitionReserveBytes: 10000 } };
+  const other = await new SourceStore({ host: 'github.com', account: 'fixture', repo: 'org/api', repositoryId: 3 }, options).initialize();
+  await assert.rejects(other.put('new-source', { code: 'unsafe' }), /Quota global/);
   assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
 });

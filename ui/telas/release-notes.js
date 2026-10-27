@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.7', ['Uma busca de código travada num repositório deixa de parar a análise técnica dos outros: só o repositório afetado espera, e a quota de disco desconta com folga o que o processo interrompido ainda pode gravar.']],
   ['2.78.6', ['A busca do código para a análise técnica traz só o que falta em vez do histórico inteiro, e repositórios grandes deixam de passar do limite de 2 minutos. A primeira busca de um cache vazio tem limite próprio de 10 minutos.', 'Uma busca interrompida por tempo esgotado deixa de travar o cache até reiniciar o Farol: a recuperação age assim que nenhum Git anterior à interrupção continua em execução.']],
   ['2.78.5', ['Revisões voltam a preparar o código quando o Farol encerrou no meio de uma operação Git sem o computador reiniciar, desde que o processo dono tenha terminado e nenhum Git anterior à interrupção continue em execução.', 'Na dúvida o cache continua bloqueado, preservando arquivos parciais e sessões em andamento.']],
   ['2.78.4', ['Atualizar agora baixa e verifica o instalador completo quando a versão exige outro Electron, sem abrir a página de downloads. O botão mostra a preparação, e sessões ativas continuam protegidas. Pacotes de macOS para Apple Silicon e Intel.']],
