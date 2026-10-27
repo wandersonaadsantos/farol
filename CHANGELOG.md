@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.7
+
+Uma busca de código travada num repositório deixa de parar a análise técnica dos outros.
+
+### Correções
+
+- Quando a busca do código de um repositório era interrompida sem confirmação do fim do Git, o Farol adiava a preparação de todos os repositórios até a recuperação. Em 26 e 27/10/2026, uma trava no biud-frontend fez a análise técnica falhar em oito repositórios e cada PR voltar para novas rodadas. Agora só o repositório afetado espera; os outros seguem, com a quota de disco descontando com folga o que o processo interrompido ainda pode gravar.
+
 ## v2.78.6
 
 A análise técnica de repositórios grandes deixa de travar por tempo esgotado na busca do código.
