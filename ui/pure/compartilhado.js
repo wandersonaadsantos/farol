@@ -358,6 +358,7 @@ const CODIGO = {
   technical_review: 'Aprovação bloqueada: a prova técnica necessária não está confirmada. Abra o review completo no aparelho responsável para conferir as pendências; o comando do Admin não dispensa essa prova',
   'technical_review:declaracao-ausente': 'Aprovação bloqueada: falta cadastrar a declaração técnica do repositório no aparelho responsável. Depois do cadastro, revise o commit atual',
   'technical_review:avaliacao-ausente': 'Aprovação bloqueada: falta uma avaliação técnica válida. Revise novamente o commit atual no aparelho responsável',
+  'technical_review:declaracao-desatualizada': 'Aprovação bloqueada: a declaração técnica do repositório cita pasta que não existe no commit. Corrija a declaração no aparelho responsável; a revisão retoma sozinha depois',
   'technical_review:execucao-incompleta': 'Aprovação bloqueada: a execução da análise técnica não concluiu. O aparelho responsável recupera a análise conforme a política automática; o comando de aprovar não substitui essa análise',
   'technical_review:commit-mudou': 'Aprovação bloqueada: a avaliação é de outro commit. Revise novamente o commit atual',
   'technical_review:declaracao-mudou': 'Aprovação bloqueada: a declaração técnica mudou. Revise novamente com a declaração atual',
