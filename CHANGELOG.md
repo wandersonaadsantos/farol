@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.5
+
+Revisões voltam a preparar o código quando o Farol encerrou no meio de uma operação Git sem o computador reiniciar.
+
+### Correções
+
+- Uma operação Git interrompida deixava o cache do repositório bloqueado até o próximo reinício do sistema, e a análise técnica de todos os PRs daquele repositório parava em "Não foi possível preparar o código para análise". A recuperação agora também vale no mesmo boot quando o processo do Farol dono da operação terminou e nenhum processo Git iniciado antes da interrupção continua em execução.
+- Processo dono ainda ativo, identidade desconhecida, Git anterior em execução ou consulta ao sistema indisponível mantêm o bloqueio. Arquivos parciais e sessões em andamento continuam preservados.
+
 ## v2.78.4
 
 O botão Atualizar agora também prepara a troca do Electron, sem baixar o instalador à mão.
