@@ -1382,7 +1382,10 @@ o término dos processos não é comprovado. Na próxima aquisição, o cache po
 uma operação anterior ao último boot confirmado pelo sistema operacional: exige material
 liberado, sem consumidores e com referência íntegra ao mesmo escopo e lease. A recuperação
 reconcilia os marcadores e a reserva sob as travas de escrita e de quota global, sem apagar
-os arquivos parciais. Operação do boot atual ou boot desconhecido continua bloqueada.
+os arquivos parciais. No mesmo boot, a recuperação exige outra prova: o processo do Farol que
+abriu a operação terminou (PID ausente ou reaproveitado, conferido pela data de criação) e
+nenhum processo da família Git iniciado antes da interrupção continua em execução. Dono ativo,
+identidade desconhecida ou consulta indisponível mantêm o bloqueio.
 As leituras, verificações técnicas e gates de publicação continuam obrigatórios após a retomada.
 Fontes indisponíveis, consumidor candidato e limite atingido continuam limitações.
 As consultas adicionais revalidam autorização e leem a versão fixada. A seleção nova é
