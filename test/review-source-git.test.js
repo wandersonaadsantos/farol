@@ -9,6 +9,7 @@ import { envGitLimpo } from './helpers/git-limpo.js';
 import { SourceStore } from '../lib/review-source/store.js';
 import { GitSource } from '../lib/review-source/git.js';
 import { releaseMaterialReference } from '../lib/review-source/index.js';
+import { DEFAULTS } from '../lib/review-source/contract.js';
 
 async function gitFixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'farol-source-git-'));
@@ -56,6 +57,26 @@ test('dois materiais compartilham objetos sem alternates e liberar um preserva o
   await fs.rm(second.destination, { recursive: true, force: true });
   await releaseMaterialReference(second.reference, second.destination, fx.options);
   await releaseMaterialReference(second.reference, second.destination, fx.options);
+});
+// Sem ref nenhuma entre aquisições, o fetch seguinte não anunciava o que o cache tinha e baixava o
+// histórico inteiro (179 MB e 153 s no biud-frontend, acima do teto de 120 s).
+test('refs conhecidas sobrevivem à liberação para o próximo fetch negociar', async t => {
+  const fx = await gitFixture(t), first = await fx.make('known');
+  await first.source.materialize(first.destination);
+  await fs.rm(first.destination, { recursive: true, force: true });
+  await releaseMaterialReference(first.reference, first.destination, fx.options);
+  const refs = (await first.source.run(['for-each-ref', '--format=%(refname) %(objectname)'], { cleanup: true })).trim().split(/\r?\n/);
+  const [base, head] = [fx.git(['rev-parse', 'HEAD~1']), fx.git(['rev-parse', 'HEAD'])];
+  assert.deepEqual(refs.sort(), [`refs/farol/known/base ${base}`, `refs/farol/known/head ${head}`]);
+});
+test('fetch usa teto próprio para o cache frio e os demais comandos seguem com o teto comum', async t => {
+  const fx = await gitFixture(t), first = await fx.make('cold'), inner = io.run, tetos = {};
+  io.run = async (cmd, args, opts) => { tetos[args.includes('fetch') ? 'fetch' : 'outro'] = opts.timeout; return inner(cmd, args, opts); };
+  await first.source.materialize(first.destination);
+  io.run = inner;
+  assert.equal(tetos.fetch, DEFAULTS.fetchTimeoutMs);
+  assert.equal(tetos.outro, DEFAULTS.timeoutMs);
+  assert.ok(DEFAULTS.fetchTimeoutMs > DEFAULTS.timeoutMs);
 });
 test('material existente não libera refs e aquisição repetida mantém o consumidor', async t => {
   const fx = await gitFixture(t), first = await fx.make('active');

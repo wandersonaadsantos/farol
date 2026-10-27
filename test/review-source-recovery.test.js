@@ -195,3 +195,44 @@ test('prova de boot dispensa a lista de processos do SO', async t => {
   await second.put('new-source', { code: 'reviewable' });
   assert.equal(consultas, 0);
 });
+
+// Timeout no próprio processo (biud-frontend#1558, 26/10/2026): o git morto por timeout deixava a trava
+// enquanto o Farol dono seguia vivo, e a recuperação só agia depois de o processo acabar.
+for (const [caso, git, recupera] of [['sem Git anterior', [], true], ['com Git anterior vivo', 'anterior', false]]) {
+  test(`mesmo boot com o dono neste processo e a operação encerrada: ${caso}`, async t => {
+    const f = await fixture(t);
+    recoveryBoot.read = async () => 1;
+    updateRecord(f.destination, r => ({ ...r, owner: { ...r.owner, pid: process.pid } }));
+    await atomic(f.leaseFile, { ...await f.store.lease(f.lease), pid: process.pid });
+    recoveryProcesses.list = async () => (git === 'anterior' ? [{ name: 'git.exe', born: f.interruptedAt - 5000 }] : git);
+    if (recupera) {
+      await f.second.put('new-source', { code: 'reviewable' });
+      const lease = await f.store.lease(f.lease);
+      assert.equal(lease.gitProcessPending, false);
+      assert.equal(lease.recovered.proof, 'own-interruption-without-git');
+      assert.equal(lease.recovered.ownerState, 'self');
+      assert.equal(await fs.readFile(f.partial, 'utf8'), 'preserved-partial');
+    } else {
+      await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
+      assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
+    }
+  });
+}
+
+test('dono neste processo com o material ainda em uso preserva o bloqueio', async t => {
+  const f = await fixture(t);
+  recoveryBoot.read = async () => 1;
+  updateRecord(f.destination, r => ({ ...r, owner: { ...r.owner, pid: process.pid }, consumers: ['session'] }));
+  await atomic(f.leaseFile, { ...await f.store.lease(f.lease), pid: process.pid });
+  await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
+  assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
+});
+
+test('mesmo PID com outra instância do Farol não conta como este processo', async t => {
+  const f = await fixture(t);
+  recoveryBoot.read = async () => 1;
+  updateRecord(f.destination, r => ({ ...r, owner: { ...r.owner, pid: process.pid, instance: '00000000-0000-4000-8000-000000000000' } }));
+  await atomic(f.leaseFile, { ...await f.store.lease(f.lease), pid: process.pid });
+  await assert.rejects(f.second.put('new-source', { code: 'unsafe' }), /não confirmado/);
+  assert.equal((await f.store.lease(f.lease)).gitProcessPending, true);
+});
