@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { acquireLock, releaseLock, withLock, lockIo, lockLog } from '../lib/review-source/lock-file.js';
+import { acquireLock, releaseLock, withLock, tryWithLock, lockIo, lockLog, lockMemo } from '../lib/review-source/lock-file.js';
 import { INSTANCE } from '../lib/review-source/instance.js';
 import { recoveryBoot } from '../lib/review-source/recovery-boot.js';
 import { processProbe } from '../lib/technical-review/material-process.js';
@@ -11,13 +11,16 @@ import { SourceStore } from '../lib/review-source/store.js';
 
 const original = { boot: recoveryBoot.read, probe: processProbe.read, unlink: lockIo.unlink, link: lockIo.link, log: lockLog.write };
 const DEAD = 999999;
+const T0 = Date.parse('2026-10-27T16:18:00Z');
 async function fixture(t, { probe } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'farol-lock-'));
   const logs = [];
   recoveryBoot.read = async () => 1;
-  processProbe.read = probe || (async pid => (pid === process.pid ? { status: 'found', birth: 'eu' } : { status: 'absent' }));
+  processProbe.read = probe || (async () => ({ status: 'absent' }));
   lockLog.write = (level, text) => logs.push({ level, text });
+  lockMemo.clear();
   t.after(async () => {
+    lockMemo.clear();
     Object.assign(recoveryBoot, { read: original.boot });
     Object.assign(processProbe, { read: original.probe });
     Object.assign(lockIo, { unlink: original.unlink, link: original.link });
@@ -26,7 +29,7 @@ async function fixture(t, { probe } = {}) {
   });
   return { root, file: path.join(root, 'storage-budget.lock'), logs };
 }
-const owner = value => JSON.stringify({ schema: 1, instance: 'outra', pid: DEAD, birth: 'antes', at: Date.now(), ...value });
+const owner = value => JSON.stringify({ schema: 1, instance: 'outra', pid: DEAD, startedAt: T0, at: Date.now(), ...value });
 
 test('a trava nasce com o dono escrito e sai ao liberar', async t => {
   const { file } = await fixture(t);
@@ -34,6 +37,7 @@ test('a trava nasce com o dono escrito e sai ao liberar', async t => {
   const value = JSON.parse(await fs.readFile(file, 'utf8'));
   assert.equal(value.instance, INSTANCE);
   assert.equal(value.pid, process.pid);
+  assert.ok(Number.isSafeInteger(value.startedAt) && value.startedAt <= Date.now());
   assert.ok(Number.isSafeInteger(value.at));
   assert.equal(await releaseLock(lock), true);
   await assert.rejects(fs.access(file), { code: 'ENOENT' });
@@ -92,8 +96,8 @@ test('dono antigo sem nascimento registrado vale pelo pid ausente (writer.lock d
 });
 
 for (const [caso, probe] of [
-  ['vivo', async pid => (pid === process.pid ? { status: 'found', birth: 'eu' } : { status: 'found', birth: 'antes' })],
-  ['sem resposta do SO', async pid => (pid === process.pid ? { status: 'found', birth: 'eu' } : { status: 'unknown' })],
+  ['vivo', async () => ({ status: 'found', birth: new Date(T0 + 1500).toISOString() })],
+  ['sem resposta do SO', async () => ({ status: 'unknown' })],
 ]) {
   test(`dono de outro processo ${caso} mantém a trava intacta`, async t => {
     const { file } = await fixture(t, { probe });
@@ -113,6 +117,7 @@ test('trava sem dono legível só sai com boot posterior a ela, nunca por prazo'
   assert.equal(await acquireLock(file), null);
   assert.equal(await fs.readFile(file, 'utf8'), '');
   recoveryBoot.read = async () => Date.now() - 3600e3;
+  lockMemo.clear();
   const lock = await acquireLock(file);
   assert.ok(lock);
   assert.equal(JSON.parse(await fs.readFile(`${file}-recovered.json`, 'utf8')).proof, 'previous-system-boot');
@@ -140,4 +145,51 @@ test('quota global travada por processo morto não para a análise de outro repo
   assert.deepEqual(await store.get('fonte'), { code: 'ok' });
   await assert.rejects(fs.access(path.join(base, 'storage-budget.lock')), { code: 'ENOENT' });
   await assert.rejects(fs.access(path.join(store.root, 'writer.lock')), { code: 'ENOENT' });
+});
+
+test('trava em unlink repetido continua deste processo: aquisição concorrente daqui espera (revisão da 2.78.8)', async t => {
+  const { file } = await fixture(t);
+  let tries = 0;
+  lockIo.unlink = async target => { if (++tries < 3) { const e = new Error('negado'); e.code = 'EPERM'; throw e; } return original.unlink(target); };
+  const lock = await acquireLock(file);
+  const releasing = releaseLock(lock);
+  assert.equal(await acquireLock(file), null);
+  assert.equal(await releasing, true);
+  await assert.rejects(fs.access(file), { code: 'ENOENT' });
+});
+
+test('PID reaproveitado por outro processo (data de criação diferente) prova o fim do dono', async t => {
+  const { file } = await fixture(t, { probe: async () => ({ status: 'found', birth: new Date(T0 + 3600e3).toISOString() }) });
+  await fs.writeFile(file, owner({ pid: 4242 }));
+  const lock = await acquireLock(file);
+  assert.ok(lock);
+  assert.equal(JSON.parse(await fs.readFile(`${file}-recovered.json`, 'utf8')).proof, 'owner-ended');
+  await releaseLock(lock);
+});
+
+test('recuperação de escopo não toma o writer.lock que este processo segura', async t => {
+  const { root } = await fixture(t);
+  const file = path.join(root, 'writer.lock');
+  const lock = await acquireLock(file);
+  const raw = await fs.readFile(file, 'utf8');
+  assert.equal(await tryWithLock(file, () => 'ocupado', async () => 'tomou'), 'ocupado');
+  assert.equal(await fs.readFile(file, 'utf8'), raw);
+  await releaseLock(lock);
+});
+
+test('duas retomadas simultâneas da mesma órfã deixam um dono só', async t => {
+  const { file } = await fixture(t);
+  await fs.writeFile(file, owner());
+  const [a, b] = await Promise.all([acquireLock(file), acquireLock(file)]);
+  assert.equal([a, b].filter(Boolean).length, 1);
+  assert.deepEqual((await fs.readdir(path.dirname(file))).filter(n => n.includes('.orfa-') || n.endsWith('.retomada') || n.endsWith('.novo')), []);
+  await releaseLock(a || b);
+});
+
+test('erro ao adquirir vira ocupado só para quem tenta (recuperação e reclaim)', async t => {
+  const { root, logs } = await fixture(t);
+  const file = path.join(root, 'nao-existe', 'writer.lock');
+  assert.equal(await tryWithLock(file, () => 'depois', async () => 'feito'), 'depois');
+  assert.ok(logs.some(l => /ENOENT/.test(l.text)));
+  await assert.rejects(withLock(file, () => 'depois', async () => 'feito'), { code: 'ENOENT' });
 });
