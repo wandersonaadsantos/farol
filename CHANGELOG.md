@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.9
+
+A avaliação técnica deixa de falhar sem explicação quando a declaração do repositório cita uma pasta que não existe mais.
+
+### Correções
+
+- A declaração técnica de um repositório lista as pastas de teste, de código e de componentes. Quando uma delas deixava de existir no código, a verificação técnica recusava a declaração inteira, e o Farol mostrava só "a execução da verificação técnica não concluiu", tentava de novo duas vezes e no fim tratava como ressalva. Em 27/10/2026 um PR do biud-frontend apagou duas das 1206 pastas de teste declaradas, e toda revisão daquele repositório ficou sem análise técnica. Agora o Farol confere as pastas antes da verificação: o card diz quais pastas faltam, a revisão espera a declaração ser corrigida (sem novas tentativas inúteis nem ressalva genérica) e nunca transforma isso em pedido de mudanças no PR.
+
 ## v2.78.8
 
 A análise técnica deixa de parar em todos os repositórios quando a trava da quota de disco fica para trás.
