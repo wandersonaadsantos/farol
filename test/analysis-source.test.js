@@ -169,3 +169,11 @@ test('falha de liberação é registrada sem expor erro ou impedir limpeza exter
   assert.equal(prepared.diagnostics.releaseStatus, 'pending'); assert.ok(warnings.length);
   assert.equal(warnings.some(w => w.includes('conteúdo externo')), false);
 });
+test('falha de liberação registra o código da causa (27/10/2026: o erro engolido escondia a trava órfã)', async () => {
+  const warnings = [], e = engine(); e.log = (_level, message) => warnings.push(message);
+  const failure = Object.assign(new Error('C:\caminho\interno'), { code: 'EPERM' });
+  const prepared = { source: { release: async () => { throw failure; } }, diagnostics: {} };
+  assert.equal(await analysis.releaseAnalysisSource(prepared, e), false);
+  assert.ok(warnings.some(w => w.includes('EPERM')));
+  assert.equal(warnings.some(w => w.includes('caminho')), false);
+});

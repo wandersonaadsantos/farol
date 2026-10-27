@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.8
+
+A análise técnica deixa de parar em todos os repositórios quando a trava da quota de disco fica para trás.
+
+### Correções
+
+- A trava que serializa a quota de disco entre os repositórios nascia vazia e só saía quando o Farol a apagava no fim de cada operação. Em 27/10/2026, às 13:18, o arquivo ficou para trás junto com a trava de escrita do cache do engine-ai, e a análise técnica de todos os repositórios deu "não rodou" por duas horas, inclusive depois de atualizar e reiniciar o Farol, até a remoção manual. Agora a trava nasce com o dono escrito e é retomada sozinha, com evidência, quando o próprio Farol a deixou para trás, quando o computador reiniciou depois dela ou quando o processo dono já terminou. Trava de processo vivo, ou sem prova de que o dono acabou, continua valendo.
+- Apagar a trava no fim da operação tenta de novo quando o Windows recusa por instantes, e a recusa que persiste não derruba mais o resultado da operação.
+- A falha ao liberar as fontes da análise técnica passa a registrar o código da causa no log, em vez de só dizer que ficou pendente.
+
 ## v2.78.7
 
 Uma busca de código travada num repositório deixa de parar a análise técnica dos outros.
