@@ -22,7 +22,7 @@ function executar(args, saida, erro) {
     erro.write(USO);
     return 2;
   }
-  const codigo = criarCodigo();
+  const { codigo } = criarCodigo();
   const minutos = Math.round(TEMPOS.PAREAMENTO_VALIDADE_MS / MINUTO_MS);
   saida.write(`Código de pareamento: ${codigo}\nVale por ${minutos} minutos e funciona uma vez só.\n`);
   return 0;

@@ -207,7 +207,7 @@ test('sessões da A4: a lista marca a atual e nunca leva hash inteiro nem token'
   assert.equal(atual.rotulo, 'navegador de teste');
   for (const s of r.body.sessoes) {
     assert.match(s.id, /^[0-9a-f]{16}$/);
-    assert.deepEqual(Object.keys(s).sort(), ['atual', 'criadoEm', 'id', 'rotulo', 'ultimoUsoEm']);
+    assert.deepEqual(Object.keys(s).sort(), ['atual', 'classe', 'criadoEm', 'id', 'rotulo', 'ultimoUsoEm']);
   }
   assert.equal(JSON.stringify(r.body).includes(minha), false);
 });

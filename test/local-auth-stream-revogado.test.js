@@ -116,7 +116,7 @@ test('sem a exigência (desktop), stream sem credencial segue recebendo depois d
 });
 
 test('o pareamento continua funcionando depois disso', async () => {
-  const codigo = criarCodigo();
+  const { codigo } = criarCodigo();
   const r = await new Promise((resolve, reject) => {
     const dados = JSON.stringify({ codigo, rotulo: 'teste' });
     const req = http.request(`${base}/api/auth/pair`, { method: 'POST', headers: { 'x-farol': '1', 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(dados), Connection: 'close' } }, (res) => {

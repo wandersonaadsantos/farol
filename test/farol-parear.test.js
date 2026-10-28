@@ -54,7 +54,7 @@ test('imprime um código que funciona uma vez, só no stdout e só dentro do FAR
 
 test('--revogar-todas derruba sessões e códigos pendentes', () => {
   const token = emitirSessao('celular');
-  const codigo = criarCodigo();
+  const { codigo } = criarCodigo();
   const r = rodar(['--revogar-todas']);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /revogados/);

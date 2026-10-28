@@ -25,8 +25,8 @@ beforeEach(() => revogarCodigos());
 const ERRADO = 'AAAAAAAAAA';
 
 test('código certo: ok, sem motivo e sem contagem', () => {
-  const codigo = criarCodigo();
-  assert.deepEqual(tentarCodigo(codigo), { ok: true, code: '', restantes: null });
+  const { codigo } = criarCodigo();
+  assert.deepEqual(tentarCodigo(codigo), { ok: true, classe: '', code: '', restantes: null });
 });
 
 test('errado com código pendente: diz quantas tentativas sobraram', () => {
@@ -36,7 +36,7 @@ test('errado com código pendente: diz quantas tentativas sobraram', () => {
 });
 
 test('a última tentativa bloqueia, e o código pendente some', () => {
-  const codigo = criarCodigo();
+  const { codigo } = criarCodigo();
   for (let i = 0; i < LOCAL_AUTH.CODIGO_MAX_ERROS - 1; i++) tentarCodigo(ERRADO);
   assert.deepEqual(tentarCodigo(ERRADO), { ok: false, code: 'bloqueado', restantes: 0 });
   assert.deepEqual(tentarCodigo(codigo), { ok: false, code: 'sem_codigo_pendente', restantes: null }, 'nem o código certo vale depois do bloqueio');
@@ -47,12 +47,12 @@ test('sem nenhum código pendente: não há tentativa para contar', () => {
 });
 
 test('código vencido cai em sem código pendente, não em errado', () => {
-  const codigo = criarCodigo(1000);
+  const { codigo } = criarCodigo(1000);
   assert.deepEqual(tentarCodigo(codigo, 1000 + TEMPOS.PAREAMENTO_VALIDADE_MS), { ok: false, code: 'sem_codigo_pendente', restantes: null });
 });
 
 test('consumirCodigo continua booleano para quem já o usava', () => {
-  const codigo = criarCodigo();
+  const { codigo } = criarCodigo();
   assert.equal(consumirCodigo(codigo), true);
   assert.equal(consumirCodigo(codigo), false);
 });
@@ -63,7 +63,7 @@ test('a rota de pareamento leva o motivo e a contagem para a tela', () => {
   assert.equal(r.ok, false);
   assert.equal(r.code, 'codigo_invalido');
   assert.equal(r.restantes, LOCAL_AUTH.CODIGO_MAX_ERROS - 1);
-  const certo = criarCodigo();
+  const { codigo: certo } = criarCodigo();
   const bom = acesso.parear({ codigo: certo, rotulo: 'Chrome de teste' });
   assert.equal(bom.ok, true);
   assert.match(bom.token, /^[A-Za-z0-9_-]{43}$/);

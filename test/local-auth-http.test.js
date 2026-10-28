@@ -84,7 +84,7 @@ async function comExigencia(fn) {
 }
 
 async function parearViaHttp(rotulo = 'teste') {
-  const codigo = criarCodigo();
+  const { codigo } = criarCodigo();
   const r = await pedir('POST', '/api/auth/pair', { corpo: { codigo, rotulo } });
   const corpo = JSON.parse(r.body);
   assert.equal(corpo.ok, true, 'o pareamento com código válido tem que funcionar');
@@ -177,14 +177,14 @@ test('GET /api/auth/status devolve só exigida e autenticado', async () => {
 });
 
 test('pareamento: código não funciona duas vezes e exige x-farol', async () => {
-  const codigo = criarCodigo();
+  const { codigo } = criarCodigo();
   const primeira = JSON.parse((await pedir('POST', '/api/auth/pair', { corpo: { codigo } })).body);
   assert.equal(primeira.ok, true);
   const segunda = JSON.parse((await pedir('POST', '/api/auth/pair', { corpo: { codigo } })).body);
   // desde a tela de pareamento (B2, 2.1) a recusa leva o motivo: reusar um código já gasto
   // cai em "não há código pendente", que é o que o disco sabe. A garantia é a mesma: recusa.
   assert.deepEqual(segunda, { ok: false, code: 'sem_codigo_pendente', restantes: null });
-  const outro = criarCodigo();
+  const { codigo: outro } = criarCodigo();
   const semHeader = await pedir('POST', '/api/auth/pair', { corpo: { codigo: outro }, cabecalhos: { 'x-farol': '' } });
   assert.equal(semHeader.status, 403);
   assert.equal(JSON.parse((await pedir('POST', '/api/auth/pair', { corpo: { codigo: outro } })).body).ok, true, 'a recusa por x-farol não gasta o código');
