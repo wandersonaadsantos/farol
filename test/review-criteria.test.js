@@ -134,16 +134,35 @@ test('PR relacionado exige mesmo card, site, conta e repositório confirmados e 
   }
   const engine = { accountForPr: () => 'ana', decisions };
   const pr = { key: 'acme/app#9', repo: 'acme/app' };
-  const related = relatedCriteriaParents(engine, pr, card);
+  const history = relatedCriteriaParents(engine, pr, card);
+  const related = history.parents;
+  assert.equal(history.complete, true);
   assert.equal(related.length, 1);
   assert.equal(related[0].scope, 'ana|acme/app#1');
-  assert.deepEqual(relatedCriteriaParents(engine, pr, ''), []);
+  assert.deepEqual(relatedCriteriaParents(engine, pr, ''), { parents: [], complete: null });
   const promoted = finding({ severity: 'blocking', evidence: 'Novo head' });
   assert.equal(criteriaEvidence(review([promoted]), { criteriaRelated: related }, sources).ok, false);
   assert.equal(criteriaEvidence(review([]), { criteriaRelated: related }, sources).ok, true, 'não obriga encerrar outro PR');
   const own = finding({ severity: 'blocking', criteria: { ...finding().criteria, criterion: 'Regra atual do próprio PR' } });
   const ownContext = { criteriaParents: [{ findings: [own] }], criteriaRelated: related };
   assert.equal(criteriaEvidence(review([own]), ownContext, sources).ok, true, 'outro PR não redefine critério próprio');
+  const foreign = finding({ ref: related[0].findings[0].id, status: 'resolvido', evidence: 'Resolvido em outro PR' });
+  assert.match(criteriaEvidence(review([foreign]), { criteriaRelated: related }, sources).issues.join(), /referência não pertence/);
+  fs.writeFileSync(path.join(roundsPath(scopeFor('acme/app#4', 'ana')), 'bad.json'), 'corrompido');
+  assert.equal(relatedCriteriaParents(engine, pr, card).complete, false, 'corrupção não significa ausência');
+  assert.equal(fs.readFileSync(path.join(roundsPath(scopeFor('acme/app#4', 'ana')), 'bad.json'), 'utf8'), 'corrompido');
+});
+
+test('grafo relacionado incompleto impede afirmar continuidade e não libera veredito', () => {
+  const card = 'https://jira-a.example/browse/CARD-2', id = 'd'.repeat(32);
+  saveRound({ schema: 1, id, scope: scopeFor('outro/app#1', 'ana'), parents: ['e'.repeat(32)], headSha: 'A', baseSha: 'base',
+    at: 1, findings: [finding({ id: `${id}:f1`, criteria: { ...finding().criteria, card } })], unresolved: [], files: [] });
+  const engine = { accountForPr: () => 'ana', decisions: { resolved: [{ roundId: id, status: 'auto_approved' }] } };
+  const related = relatedCriteriaParents(engine, { key: 'outro/app#2', repo: 'outro/app' }, card);
+  assert.equal(related.complete, false);
+  const r = criteriaEvidence(review([], { criteriaVersion: 1, productDecisions: [] }),
+    { criteriaContractRequired: true, criteriaRelatedAvailable: related.complete }, sources);
+  assert.match(r.issues.join(), /relacionados não verificável/);
 });
 
 test('card do achado persistido é atribuído pelo engine e não pelo modelo', async () => {
