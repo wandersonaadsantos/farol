@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.11
+
+A análise técnica volta a rodar nos repositórios cuja declaração diz que não têm testes de ponta a ponta ou componentes.
+
+### Correções
+
+- A conferência das pastas da declaração técnica, nova na v2.78.9, tratava como inválido o campo que o repositório responde com "não tem" (por exemplo, sem testes de ponta a ponta). Quase todos os repositórios cadastrados respondem assim em algum campo, e os PRs deles passaram a ficar parados com "a declaração técnica cita pasta que não existe neste commit", sem defeito nenhum na declaração. Agora essa resposta é aceita, e os PRs que ficaram parados voltam a ser revisados sozinhos. Quando uma pasta declarada tem outro problema além de não existir (outra caixa, fora da raiz), o card diz qual.
+
 ## v2.78.10
 
 A análise técnica deixa de parar em todos os repositórios quando o Farol encerra no meio de uma busca de código.

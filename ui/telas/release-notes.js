@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.11', ['Repositórios cuja declaração técnica diz que não têm testes de ponta a ponta ou componentes deixam de ter os PRs parados por "pasta que não existe"; os PRs que ficaram parados voltam a ser revisados sozinhos. Quando a pasta declarada tem outro problema, o card diz qual.']],
   ['2.78.10', ['Quando o Farol fecha no meio de uma busca de código, a marca de Git em andamento e a reserva de disco que ficaram para trás são recuperadas sozinhas, assim que o processo dono terminou e nenhum Git anterior continua em execução. Antes elas prendiam até 2 GB de folga e paravam a análise técnica de todos os repositórios.']],
   ['2.78.9', ['Quando a declaração técnica de um repositório cita uma pasta que não existe mais, o card diz quais pastas faltam e a revisão espera a declaração ser corrigida, em vez de falhar sem explicação, tentar de novo e virar ressalva genérica. Isso nunca vira pedido de mudanças no PR.']],
   ['2.78.8', ['A trava da quota de disco que fica para trás deixa de parar a análise técnica de todos os repositórios: ela nasce com o dono escrito e é retomada sozinha quando o próprio Farol a deixou, quando o computador reiniciou depois dela ou quando o processo dono já terminou.', 'Apagar a trava tenta de novo quando o Windows recusa por instantes, e a falha ao liberar as fontes registra o código da causa no log.']],
