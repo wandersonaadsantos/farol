@@ -9,9 +9,9 @@ const { criteriaEvidence, criteriaPublicationRefusal, applyCriteriaEvidence, con
 const { rememberReview } = await import('../lib/technical-review/registry.js');
 const { normalizeFindings } = await import('../lib/engine/review-findings.js');
 const { postReview } = await import('../lib/engine/decision.js');
-const { publishedCriteriaParents } = await import('../lib/engine/review-criteria-history.js');
+const { publishedCriteriaParents, relatedCriteriaParents } = await import('../lib/engine/review-criteria-history.js');
 const { finishRoundReview } = await import('../lib/engine/review-rounds.js');
-const { readRounds, roundsPath, scopeFor } = await import('../lib/engine/review-round-store.js');
+const { readRounds, roundsPath, scopeFor, saveRound } = await import('../lib/engine/review-round-store.js');
 after(() => fs.rmSync(home, { recursive: true, force: true }));
 const finding = (extra = {}) => ({ id: 'prior', severity: 'suggestion', title: 'Turno', summary: 'Mistura regras',
   evidence: 'A: turno.js:3', criteria: { key: 'turno', criterion: 'Separar política', source: 'ARCH.md:1', scope: 'Diff do turno' }, ...extra });
@@ -113,4 +113,44 @@ test('falha de gravação local impede publicar mesmo em observação; roundId f
   assert.equal(result.analysisStatus, 'incomplete');
   assert.equal(result.roundId, undefined);
   assert.match(result.criteriaEvidence.issues.join(), /não gravado/);
+});
+
+test('PR relacionado exige mesmo card, site, conta e repositório confirmados e publicação efetiva', () => {
+  const card = 'https://jira-a.example/browse/CARD-1';
+  const cases = [
+    ['ana', 'acme/app#1', card, 'auto_approved'],
+    ['bia', 'acme/app#2', card, 'auto_approved'],
+    ['ana', 'acme/other#3', card, 'auto_approved'],
+    ['ana', 'acme/app#4', 'https://jira-b.example/browse/CARD-1', 'auto_approved'],
+    ['ana', 'acme/app#5', card, 'pending'],
+  ];
+  const decisions = { resolved: [] };
+  for (const [i, [account, key, url, status]] of cases.entries()) {
+    const id = (i + 1).toString(16).repeat(32);
+    const f = finding({ id: `${id}:f1`, criteria: { ...finding().criteria, card: url } });
+    saveRound({ schema: 1, id, scope: scopeFor(key, account), parents: [], headSha: 'A', baseSha: 'base',
+      at: i, findings: [f], unresolved: [], files: [] });
+    decisions.resolved.push({ roundId: id, status });
+  }
+  const engine = { accountForPr: () => 'ana', decisions };
+  const pr = { key: 'acme/app#9', repo: 'acme/app' };
+  const related = relatedCriteriaParents(engine, pr, card);
+  assert.equal(related.length, 1);
+  assert.equal(related[0].scope, 'ana|acme/app#1');
+  assert.deepEqual(relatedCriteriaParents(engine, pr, ''), []);
+  const promoted = finding({ severity: 'blocking', evidence: 'Novo head' });
+  assert.equal(criteriaEvidence(review([promoted]), { criteriaRelated: related }, sources).ok, false);
+  assert.equal(criteriaEvidence(review([]), { criteriaRelated: related }, sources).ok, true, 'não obriga encerrar outro PR');
+  const own = finding({ severity: 'blocking', criteria: { ...finding().criteria, criterion: 'Regra atual do próprio PR' } });
+  const ownContext = { criteriaParents: [{ findings: [own] }], criteriaRelated: related };
+  assert.equal(criteriaEvidence(review([own]), ownContext, sources).ok, true, 'outro PR não redefine critério próprio');
+});
+
+test('card do achado persistido é atribuído pelo engine e não pelo modelo', async () => {
+  const pr = { key: 'o/r#22' }, scope = scopeFor(pr.key, 'eu');
+  const ctx = { id: 'c'.repeat(32), scope, parents: [], headSha: 'B', baseSha: 'A', mode: 'observe',
+    criteriaCard: 'https://jira-a.example/browse/CARD-1' };
+  const result = review([finding({ criteria: { ...finding().criteria, card: 'https://inventado.example/CARD-1' } })], { analysisStatus: 'complete' });
+  await finishRoundReview({ config: {}, log() {} }, pr, ctx, { status: 'complete', files: [] }, result);
+  assert.equal(readRounds(scope).rounds[0].findings[0].criteria.card, ctx.criteriaCard);
 });

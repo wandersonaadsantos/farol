@@ -15,7 +15,7 @@ import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
   ['2.78.12', [
-    'Critérios publicados mantêm identidade, fonte e escopo entre rodadas; mudar classificação exige nova evidência e justificativa.',
+    'Critérios publicados mantêm identidade, fonte e escopo entre rodadas e PRs do mesmo card confirmado; mudar classificação exige nova evidência e justificativa.',
     'Recomendações distinguem hipótese de solução validada, com prova da correção e de um comportamento preservado no commit atual.',
     'Decisões de produto exigem procedência no Jira: alegação no PR ou autoria de comentário não comprovam aceite de PO.',
     'Resultados inconsistentes não saem pelo automático, clique ou reenvio. A confirmação dos critérios publicados é local; registros antigos permanecem como contexto.',

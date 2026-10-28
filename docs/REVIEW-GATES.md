@@ -55,6 +55,11 @@ tentativas não publicadas não redefinem o critério. A seleção atravessa os 
 intermediários para que uma resolução publicada não ressuscite apontamento antigo.
 Não há um segundo diário: os metadados acompanham findings. A confirmação de publicação
 é local nesta etapa; receber uma rodada de outro aparelho não comprova sua postagem.
+Entre PRs diferentes, só entram achados publicados da mesma conta e repositório
+com a mesma URL de card confirmada pelo Jira configurado. A URL inclui o site;
+a chave isolada não mistura tenants. A comparação usa a key do comportamento e
+não exige encerrar pontos de outro PR. O histórico próprio tem precedência. O
+vínculo do card é gravado pelo engine, sem aceitar um card alegado pelo modelo.
 
 Mudar critério ou classificação exige change com tipo, motivo, evidência nova e
 escopo. Apontamento publicado com critérios precisa receber destino; encerramento

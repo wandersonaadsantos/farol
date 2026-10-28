@@ -42,7 +42,7 @@ test('rodarSessao sem sid passa os argumentos intactos', async () => {
 const FONTE = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'review.js'), 'utf8');
 
 test('o bloco do card CHEGA no promptFinal do headless', () => {
-  assert.match(FONTE, /await criteriaContext\(cardRes\)/);
+  assert.match(FONTE, /await criteriaContext\(cardRes, engine, pr\)/);
   assert.match(FONTE, /promptFinal \+= criteriaCtx\.prompt/);
 });
 
