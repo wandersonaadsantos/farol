@@ -15,7 +15,7 @@ A análise técnica deixa de parar em todos os repositórios quando o Farol ence
 
 ### Correções
 
-- Quando o Farol fechava no meio de uma busca de código (por exemplo, numa atualização), o repositório ficava marcado com "Git em andamento" e a reserva de disco daquela busca ficava no livro, sem nenhum marcador que permitisse recuperar. Desde a v2.78.7 essa marca reserva até 2 GB de folga na quota de disco, e em 27/10/2026 isso fez toda revisão de todo repositório terminar com "Reserva global de disco insuficiente" até a remoção manual. Agora o Farol recupera sozinho a marca e a reserva quando o processo que as deixou já terminou e nenhum Git anterior continua em execução, com a mesma prova da recuperação que já existia. Marca e reserva de processo vivo continuam valendo.
+- Quando o Farol fechava no meio de uma busca de código (por exemplo, numa atualização), o repositório ficava marcado com "Git em andamento" e a reserva de disco daquela busca ficava no livro, sem nenhum marcador que permitisse recuperar. Desde a v2.78.7 essa marca reserva até 2 GB de folga na quota de disco, e em 27/10/2026 isso fez toda revisão de todo repositório terminar com "Reserva global de disco insuficiente" até a remoção manual. Agora o Farol recupera sozinho a marca e a reserva quando o processo que as deixou já terminou e nenhum Git anterior continua em execução, com a mesma prova da recuperação que já existia. Marca e reserva de processo vivo, ou com algum Git iniciado depois dela ainda em execução, continuam valendo. Reservas gravadas por versões anteriores não registram o processo dono e só saem depois de reiniciar o computador.
 
 ## v2.78.9
 
