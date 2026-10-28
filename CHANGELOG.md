@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.10
+
+A análise técnica deixa de parar em todos os repositórios quando o Farol encerra no meio de uma busca de código.
+
+### Correções
+
+- Quando o Farol fechava no meio de uma busca de código (por exemplo, numa atualização), o repositório ficava marcado com "Git em andamento" e a reserva de disco daquela busca ficava no livro, sem nenhum marcador que permitisse recuperar. Desde a v2.78.7 essa marca reserva até 2 GB de folga na quota de disco, e em 27/10/2026 isso fez toda revisão de todo repositório terminar com "Reserva global de disco insuficiente" até a remoção manual. Agora o Farol recupera sozinho a marca e a reserva quando o processo que as deixou já terminou e nenhum Git anterior continua em execução, com a mesma prova da recuperação que já existia. Marca e reserva de processo vivo continuam valendo.
+
 ## v2.78.9
 
 A avaliação técnica deixa de falhar sem explicação quando a declaração do repositório cita uma pasta que não existe mais.
