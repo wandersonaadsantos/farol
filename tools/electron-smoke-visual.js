@@ -11,7 +11,9 @@ async function settleTheme(web, theme) {
     await web.executeJavaScript(`document.querySelector('#btnTheme').click()`);
   }
   const expected = theme === 'light' ? 'rgb(28, 37, 54)' : 'rgb(231, 236, 245)';
-  for (let attempt = 0; attempt < 20; attempt++) {
+  // A transição de cor é de 250 ms, mas o runner do macOS desacelera a janela em segundo plano:
+  // em 28/10/2026 o smoke reprovou duas vezes seguidas com o limite antigo de 1 s. Até 5 s.
+  for (let attempt = 0; attempt < 100; attempt++) {
     if (await web.executeJavaScript('getComputedStyle(document.body).color') === expected) return;
     await delay(50);
   }
