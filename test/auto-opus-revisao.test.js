@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // O Auto pelo contexto do PR, na revisão de verdade (25/09/2026; qualidade primeiro desde 26/09/2026).
 //
 // O roteador é puro e tem os próprios testes (model-router.test.js). Aqui se prova a
@@ -57,7 +58,7 @@ function motor(autoOpus) {
   e.sessoes = [];
   e.runClaudeStream = async (_prompt, opts) => {
     e.sessoes.push({ model: opts.model, effort: opts.effort, fast: opts.fast });
-    return { text: JSON.stringify({ analysisStatus: 'complete', verdict: 'comment', decision: 'manual', cardMet: true, reasons: [], payloads: {}, reportMarkdown: '# ok' }), sessionId: 's1' };
+    return { text: JSON.stringify({ ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'comment', decision: 'manual', cardMet: true, reasons: [], payloads: {}, reportMarkdown: '# ok' }), sessionId: 's1' };
   };
   return e;
 }

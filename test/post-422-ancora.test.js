@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // O 422 opaco do biud-esg#224 (21/08/2026): a revisão terminou, decidiu aprovar, o gate
 // liberou, e o APPROVE morreu num "gh: Unprocessable Entity (HTTP 422)". Oito palavras que
 // não dizem NADA, no log e na tela, e o clique em Aprovar repetia a mesma recusa pra sempre
@@ -228,7 +229,7 @@ function engineDeRevisao({ heads, policyApprove = 'approve' }) {
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
       result: JSON.stringify({
-        protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+        protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
         reportMarkdown: 'relatório',
         payloads: { approve: { event: 'APPROVE', body: 'A matriz de permissões fecha.' } }
       })

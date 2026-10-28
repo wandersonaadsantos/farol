@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.12
+
+Revisões preservam os critérios já comunicados ao autor e distinguem recomendação testada de hipótese.
+
+### Correções
+
+- Sugestões e apontamentos publicados passam a registrar identidade do comportamento, critério, fonte e escopo. Mudar a classificação ou a regra exige nova evidência e justificativa; omitir um ponto não significa resolvê-lo. Uma tentativa que não foi publicada não redefine esse compromisso. A comparação usa o diário de rodadas existente, preservando as resoluções mesmo quando houve tentativas intermediárias.
+- Entre PRs do mesmo card confirmado no Jira, os critérios do mesmo comportamento também são confrontados, isolados por conta, repositório e site. Um PR relacionado não encerra pontos nem redefine o histórico do próprio PR.
+- Uma recomendação só pode ser declarada validada com prova no commit atual de que corrige o defeito e preserva outro comportamento. Sem execução, permanece hipótese e deve ser apresentada assim ao autor; o defeito comprovado continua podendo impedir a aprovação.
+- Decisões de produto ficam ligadas a trechos da descrição e dos comentários relidos no Jira configurado. Uma alegação no PR não comprova aceite, e autoria de comentário não comprova autoridade de produto. Quando a conclusão depende de decisão conflitante, leitura incompleta ou aceite não confirmado, o resultado não é publicado até a confirmação e nova revisão.
+- A conferência alcança a publicação automática, o clique e o reenvio. Registros antigos continuam disponíveis sem receber classificações inventadas. Nesta etapa, a confirmação de quais critérios foram publicados usa o histórico local do executor; o diário de rodadas já existente continua sincronizado, mas não comprova a publicação feita por outro aparelho. A suficiência técnica das provas e a identificação de conflitos de produto continuam exigindo julgamento.
+
 ## v2.78.11
 
 A análise técnica volta a rodar nos repositórios cuja declaração diz que não têm testes de ponta a ponta ou componentes.

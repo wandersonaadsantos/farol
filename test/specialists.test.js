@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -183,7 +184,7 @@ test('pipeline real entrega contexto à sessão e grava a versão usada sem incl
     e.postReview = async (_pr, payload) => { posts.push(payload); return { ok: true }; };
     e.runClaudeStream = async prompt => {
       prompts.push(prompt);
-      return { sessionId: 'specialist-fixture', text: JSON.stringify({ analysisStatus: 'complete', protocolo: { prReviewer: 'rodou' }, verdict: 'approve', decision: 'auto_approve', cardMet: true,
+      return { sessionId: 'specialist-fixture', text: JSON.stringify({ ...criteriaFixture('approve'), analysisStatus: 'complete', protocolo: { prReviewer: 'rodou' }, verdict: 'approve', decision: 'auto_approve', cardMet: true,
         reasons: [], findings: [], coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'entrypoint' }],
         reportMarkdown: 'Analisado.', payloads: { approve: { event: 'APPROVE', body: 'O contrato foi conferido.' } } }) };
     };

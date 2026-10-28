@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // O alcance da revisão: onde o código alterado é usado FORA do diff, declarado pela sessão e
 // conferido pelo engine no head (lib/engine/alcance.js, 27/09/2026).
 import os from 'node:os';
@@ -167,7 +168,7 @@ function motor(alcance) {
   e.postReview = async (_pr, payload) => { e.postados.push(payload); return { ok: true }; };
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
-      analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+      ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
       coverage: { total: 1, reviewed: ['src/veredito.ts'], missing: [] }, alcance,
       payloads: { approve: { event: 'APPROVE', body: 'Li o diff e o comportamento fecha com o card.' } }, reportMarkdown: '# ok',
     }),

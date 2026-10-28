@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // A cobertura declarada pela sessão é conferida contra o diff MEDIDO pelo engine, na
 // revisão de verdade (26/09/2026).
 //
@@ -57,7 +58,7 @@ function motor(diffMedido, coverage, ressalvas = 'wait') {
   e.postReview = async (_pr, payload) => { e.postados.push(payload); return { ok: true }; };
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
-      analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [], coverage,
+      ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [], coverage,
       alcance: diffMedido.map((alterado) => ({ alterado, chamadores: [], semChamador: 'fixture sintética sem consumidor' })),
       payloads: { approve: { event: 'APPROVE', body: 'Li o diff e o comportamento fecha com o card.' } }, reportMarkdown: '# ok',
     }),

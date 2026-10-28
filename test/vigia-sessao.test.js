@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // Abandonar cedo o que ja virou trabalho perdido (23/09/2026).
 //
 // Medido nos 25 reviews de biudtech/infra-k8s deste aparelho: a passada de #145 rodou
@@ -198,7 +199,7 @@ test('a sessão de revisão liga o vigia com o head lido, e o desliga no fim', a
     e.postReview = async () => ({ ok: true });
     e.runClaudeStream = async () => ({
       text: JSON.stringify({ result: JSON.stringify({
-        analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', cardMet: true,
+        ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', cardMet: true,
         reasons: [], reportMarkdown: 'ok', payloads: {} }) }), sessionId: 's1'
     });
     await e.runHeadlessReview({ ...PR });

@@ -14,6 +14,12 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.12', [
+    'Critérios publicados mantêm identidade, fonte e escopo entre rodadas e PRs do mesmo card confirmado; mudar classificação exige nova evidência e justificativa.',
+    'Recomendações distinguem hipótese de solução validada, com prova da correção e de um comportamento preservado no commit atual.',
+    'Decisões de produto exigem procedência no Jira: alegação no PR ou autoria de comentário não comprovam aceite de PO.',
+    'Resultados inconsistentes não saem pelo automático, clique ou reenvio. A confirmação dos critérios publicados é local; registros antigos permanecem como contexto.',
+  ]],
   ['2.78.11', ['Repositórios cuja declaração técnica diz que não têm testes de ponta a ponta ou componentes deixam de ter os PRs parados por "pasta que não existe"; os PRs que ficaram parados voltam a ser revisados sozinhos. Quando a pasta declarada tem outro problema, o card diz qual.']],
   ['2.78.10', ['Quando o Farol fecha no meio de uma busca de código, a marca de Git em andamento e a reserva de disco que ficaram para trás são recuperadas sozinhas, assim que o processo dono terminou e nenhum Git anterior continua em execução. Antes elas prendiam até 2 GB de folga e paravam a análise técnica de todos os repositórios.']],
   ['2.78.9', ['Quando a declaração técnica de um repositório cita uma pasta que não existe mais, o card diz quais pastas faltam e a revisão espera a declaração ser corrigida, em vez de falhar sem explicação, tentar de novo e virar ressalva genérica. Isso nunca vira pedido de mudanças no PR.']],

@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // G1 da auditoria 15/08/2026: payload sem commit_id faz o GitHub ancorar o
 // review no head do momento do POST, não no head que a sessão leu. Estes
 // testes travam: normalize aceita/valida o campo, e os três pontos de
@@ -162,7 +163,7 @@ test('runHeadlessReview usa knownHead quando o fetch do headSha falha', async ()
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
       result: JSON.stringify({
-        analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision',
+        ...criteriaFixture('request_changes'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision',
         cardMet: true, reasons: ['o redirect não fechou'], reportMarkdown: 'relatório',
         payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
       })
@@ -201,7 +202,7 @@ test('runHeadlessReview usa knownHead quando o headSha devolve vazio (o caminho 
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
       result: JSON.stringify({
-        analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision',
+        ...criteriaFixture('request_changes'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision',
         cardMet: true, reasons: ['o redirect não fechou'], reportMarkdown: 'relatório',
         payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
       })

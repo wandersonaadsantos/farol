@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // Dois defeitos medidos no celular (v2.72.5, 17/10/2026), corrigidos na v2.72.6.
 //
 // 1. Espera armada por uma versão anterior nunca era reavaliada depois de uma mudança de regra:
@@ -89,7 +90,7 @@ function motor() {
 function sessao(e, extra) {
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
-      protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+      protocolo: { prReviewer: 'rodou' }, ...criteriaFixture(extra?.verdict || 'approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
       coverage: { total: 0, reviewed: [], missing: [] },
       payloads: { approve: { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.' } },
       reportMarkdown: '# ok', ...extra,
@@ -196,10 +197,10 @@ test('relançamento pela regra respeita o recibo de outro aparelho: não relanç
 
 test('gate: PR da própria conta nunca é aprovado nem reprovado sozinho (caixa ignorada)', () => {
   const e = motor();
-  const resultado = { analysisStatus: 'complete', verdict: 'approve', payloads: { approve: { event: 'APPROVE', body: 'ok' } } };
+  const resultado = { ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', payloads: { approve: { event: 'APPROVE', body: 'ok' } } };
   assert.deepEqual(shouldAutoApprove(e, PROPRIO, resultado), { ok: false, motivo: 'pr_proprio' });
   assert.notEqual(shouldAutoApprove(e, PR, resultado).motivo, 'pr_proprio');
-  const rc = { analysisStatus: 'complete', verdict: 'request_changes', payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } } };
+  const rc = { ...criteriaFixture('request_changes'), analysisStatus: 'complete', verdict: 'request_changes', payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } } };
   assert.equal(shouldAutoReject(e, PROPRIO, rc), false);
   assert.equal(shouldAutoReject(e, PR, rc), true);
   assert.equal(esperaProva.armarEspera(e, PROPRIO, 'pr_proprio', { headSha: HEAD, approvalEvidence: ['protocolo de revisão não comprovado'], reasons: [] }, []), null);
