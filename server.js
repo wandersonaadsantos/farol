@@ -18,7 +18,7 @@ import { snapshotDecisions } from './lib/engine/snapshot-decisions.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
-  executadoDireto, rodandoComoRoot, sinaisDoModoCelular,
+  executadoDireto, rodandoComoRoot, sinaisDoModoCelular, modoCasca,
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR, CLAUDE_JSON_DA_CONFIANCA,
@@ -97,6 +97,7 @@ import acesso from './lib/local-auth/acesso.js';
 import credMod from './lib/jira/credentials.js';
 import jiraMod from './lib/engine/jira.js';
 import { startServer } from './lib/http-server.js';
+import { publicarCasca, apagarCasca } from './lib/engine/casca-arquivo.js';
 
 function codexWindowsPathDirs() {
   const root = path.join(os.homedir(), 'AppData', 'Local', 'OpenAI', 'Codex', 'bin');
@@ -2217,7 +2218,11 @@ class Engine extends EventEmitter {
 function registrarSaidaOrdenada(engine) {
   if (engine.saidaRegistrada) return;
   engine.saidaRegistrada = true;
-  const sair = () => { pararManutencaoMaterial(); try { engine.syncStop(); } catch { /* encerrando: nada a fazer */ } };
+  const sair = () => {
+    pararManutencaoMaterial();
+    try { engine.syncStop(); } catch { /* encerrando: nada a fazer */ }
+    if (modoCasca()) apagarCasca();
+  };
   process.once('SIGINT', () => { sair(); process.exit(0); });
   process.once('SIGTERM', () => { sair(); process.exit(0); });
   process.once('beforeExit', sair);
@@ -2233,6 +2238,10 @@ function start(onReady) {
     // em dobro e escreveria seen/inflight/usage sem lock (A7). Por isso o
     // monitoramento só começa DEPOIS do listen dar certo.
     if (!err && !began) { began = true; engine.schedule(); engine.start(); registrarSaidaOrdenada(engine); }
+    // Sidecar de uma casca nativa: só agora, com o socket escutando, a casca pode achar o
+    // motor. Porta EFETIVA do socket. Com a porta ocupada nada é gravado: a casca reconhece
+    // o Farol vivo pelo GET /api/auth/status.
+    if (!err && modoCasca()) publicarCasca(engine, server.address().port);
     if (onReady) onReady(url, err);
   });
   return { engine, server, port: engine.config.port };
