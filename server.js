@@ -18,10 +18,9 @@ import { snapshotDecisions } from './lib/engine/snapshot-decisions.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
-  executadoDireto, rodandoComoRoot, sinaisDoModoCelular, modoCasca,
-  APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
+  executadoDireto, rodandoComoRoot, sinaisDoModoCelular, modoCasca, APP_VERSION, APP_NAME, IS_WIN, IS_MAC, IS_LINUX,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
-  INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR, CLAUDE_JSON_DA_CONFIANCA,
+  INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, CLAUDE_JSON_DA_CONFIANCA,
 } from './lib/paths.js';
 
 // Helpers puros e utilitários movidos pra lib/ (Onda 1 do refactor, ver docs/QUALITY.md).
@@ -98,6 +97,7 @@ import credMod from './lib/jira/credentials.js';
 import jiraMod from './lib/engine/jira.js';
 import { startServer } from './lib/http-server.js';
 import { publicarCasca, apagarCasca } from './lib/engine/casca-arquivo.js';
+import { bootstrapDaCasca } from './lib/engine/casca-bootstrap.js';
 
 function codexWindowsPathDirs() {
   const root = path.join(os.homedir(), 'AppData', 'Local', 'OpenAI', 'Codex', 'bin');
@@ -2253,8 +2253,9 @@ export default farol;
 export { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, applyClaudeAuthEnv, claudeAuthShellLines };
 
-// execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
-if (executadoDireto(import.meta.url)) {
+// execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento). Como sidecar de
+// casca nativa, antes do engine existir, o motor semeado pode se reexecutar de ~/.farol/engine.
+if (executadoDireto(import.meta.url) && !bootstrapDaCasca()) {
   start((url, err) => {
     if (err) { console.error('[farol] erro ao subir o servidor:', err.message); process.exit(1); }
     console.log(`[farol] monitorando · UI em ${url}`);
