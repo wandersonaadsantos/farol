@@ -10,6 +10,21 @@ import { StorageBudget } from '../lib/review-source/storage-budget.js';
 import { scopeInventory } from '../lib/review-source/storage-inventory.js';
 import { envGitLimpo } from './helpers/git-limpo.js';
 import io from '../lib/io.js';
+import { recoveryProcesses } from '../lib/review-source/recovery-owner.js';
+import { processProbe } from '../lib/technical-review/material-process.js';
+import { orphanMemo, orphanProof } from '../lib/review-source/recovery-orphans.js';
+
+// SO simulado por teste: dono de outro PID ausente e lista de Git controlada.
+function soSimulado(t, git, vivos = {}) {
+  orphanMemo.clear();
+  const original = { list: recoveryProcesses.list, read: processProbe.read };
+  recoveryProcesses.list = async () => git;
+  processProbe.read = async pid => {
+    if (pid === process.pid) return { status: 'found', birth: new Date(Math.round(performance.timeOrigin)).toISOString() };
+    return vivos[pid] ? { status: 'found', birth: new Date(vivos[pid]).toISOString() } : { status: 'absent' };
+  };
+  t.after(() => { recoveryProcesses.list = original.list; processProbe.read = original.read; });
+}
 
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', env: envGitLimpo(), windowsHide: true }).trim();
 const runtime = { head, node: process.version, arch: process.arch, platform: process.platform, concurrency: 1 };
@@ -168,6 +183,9 @@ test('reserva de disco tem precedência e consumidor interrompido não é recolh
 for (const [caso, dono, admite] of [['de outro processo', 'outro', false], ['deste processo', 'este', true]]) {
   test(`Git pendente ${caso} ${admite ? 'não ' : ''}entra na folga dos outros escopos`, async t => {
     const { first, second } = await fixture(t, { maxBytes: 200000, globalMaxBytes: 150000 });
+    // Git nascido depois do instante protegido ainda vivo (o órfão do fetch): o dono morto não
+    // basta para recuperar, e a folga continua
+    soSimulado(t, [{ name: 'git.exe', born: Date.now() + 60000 }]);
     const lease = await first.acquire({});
     await first.protectedGit(lease, true);
     const leaseFile = path.join(first.root, 'leases', lease + '.json');
@@ -179,3 +197,49 @@ for (const [caso, dono, admite] of [['de outro processo', 'outro', false], ['des
     else await assert.rejects(second.put('other', { text: 'b' }), /Quota global/);
   });
 }
+
+// Dono morto sem marcador e sem Git anterior vivo (27/10/2026, atualização das 19:19): a lease sai da
+// folga com evidência e a reserva que ele deixou some do livro global.
+test('lease e reserva de dono encerrado sem Git anterior vivo são recuperadas sem marcador', async t => {
+  const { first, second } = await fixture(t, { maxBytes: 200000, globalMaxBytes: 150000 });
+  // só Git que já rodava antes da operação (credencial, editor): não é órfão dela
+  soSimulado(t, [{ name: 'git.exe', born: Date.now() - 3600e3 }]);
+  const lease = await first.acquire({});
+  await first.protectedGit(lease, true);
+  const leaseFile = path.join(first.root, 'leases', lease + '.json');
+  const value = JSON.parse(await fs.readFile(leaseFile, 'utf8'));
+  assert.ok(Number.isSafeInteger(value.gitProcessAt) && Number.isSafeInteger(value.startedAt));
+  await fs.writeFile(leaseFile, JSON.stringify({ ...value, pid: 999999 }));
+  const budgetFile = path.join(first.base, 'storage-budget.json');
+  const budget = JSON.parse(await fs.readFile(budgetFile, 'utf8').catch(() => '{"schema":1,"reservations":{}}'));
+  budget.reservations.morta = { scope: path.basename(first.root), kind: 'git-materialization', bytes: 140000, baselineBytes: 0,
+    createdAt: Date.now() - 1000, owner: { instance: 'outra', pid: 999999, startedAt: Date.now() - 3600e3 } };
+  budget.reservations.semDono = { scope: path.basename(first.root), kind: 'object-cache', bytes: 1, baselineBytes: 0, createdAt: Date.now() - 1000 };
+  await fs.writeFile(budgetFile, JSON.stringify(budget));
+  await second.put('other', { text: 'b' });
+  assert.deepEqual(await second.get('other'), { text: 'b' });
+  const depois = JSON.parse(await fs.readFile(leaseFile, 'utf8'));
+  assert.equal(depois.gitProcessPending, false);
+  assert.equal(depois.recovered.proof, 'owner-ended-without-git');
+  const livro = JSON.parse(await fs.readFile(budgetFile, 'utf8'));
+  assert.equal(livro.reservations.morta, undefined);
+  assert.ok(livro.reservations.semDono, 'reserva sem dono gravado só sai com boot posterior');
+});
+
+test('reserva de dono vivo, de término não confirmado e lease deste processo não são tocadas', async t => {
+  const { first } = await fixture(t);
+  const inicio = Date.now() - 3600e3;
+  soSimulado(t, [], { 4242: inicio - 25 });
+  const lease = await first.acquire({});
+  await first.protectedGit(lease, true);
+  const budgetFile = path.join(first.base, 'storage-budget.json');
+  const budget = JSON.parse(await fs.readFile(budgetFile, 'utf8').catch(() => '{"schema":1,"reservations":{}}'));
+  budget.reservations.viva = { scope: path.basename(first.root), kind: 'object-cache', bytes: 1, baselineBytes: 0, createdAt: Date.now(),
+    owner: { instance: 'outra', pid: 4242, startedAt: inicio } };
+  budget.reservations.incerta = { scope: 'f'.repeat(64), kind: 'git-fetch', bytes: 1, baselineBytes: 0, createdAt: Date.now() - 1000,
+    terminationUnconfirmed: true, owner: { instance: 'outra', pid: 999999, startedAt: inicio } };
+  await fs.writeFile(budgetFile, JSON.stringify(budget));
+  const prova = await orphanProof(first.base, recoveryProcesses.list, async () => 1);
+  assert.equal(prova, null, 'nada a recuperar: dono de outro PID vivo, término não confirmado e Git pendente deste processo');
+  assert.equal(JSON.parse(await fs.readFile(path.join(first.root, 'leases', lease + '.json'), 'utf8')).gitProcessPending, true);
+});
