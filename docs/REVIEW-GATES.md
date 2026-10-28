@@ -37,7 +37,12 @@
 > ferramenta recusava a declaração inteira na primeira pasta ausente, o worker engolia o
 > motivo e a avaliação terminava "a ferramenta não concluiu": em 27/10/2026, um PR do
 > biud-frontend apagou duas das 1206 pastas de teste declaradas e toda avaliação daquele
-> repositório passou a falhar. Declare as raízes, não cada pasta: os campos recortam por
+> repositório passou a falhar. Campo em `null` é resposta válida (o repositório não tem aquele
+> material, situação "ausente" da ferramenta) e não é conferido; só lista vazia é recusada. A
+> v2.78.9 acusava `null` como lista inválida e pausou PRs sem defeito (25 dos 27 repositórios do
+> cadastro respondem algum campo com `null`); desde a v2.78.11 a falha grava a versão da
+> conferência (`declarationCheck`), e só a falha da versão atual segura a recuperação, então os
+> PRs pausados pela anterior voltam a ser conferidos sozinhos. Declare as raízes, não cada pasta: os campos recortam por
 > prefixo (`src` já cobre `src/a/b`), e uma lista exaustiva quebra a cada pasta apagada.
 
 # Gates de revisão e postagem do Farol

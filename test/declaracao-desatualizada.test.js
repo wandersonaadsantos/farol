@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-declaracao-'));
 process.env.FAROL_HOME = path.join(root, 'home');
 const { PROFILE_FILE, profileFor } = await import('../lib/technical-review/profiles.js');
-const { pastasAusentes, textoDasAusentes } = await import('../lib/technical-review/declaracao.js');
+const { pastasAusentes, textoDasAusentes, VERSAO_DA_CONFERENCIA } = await import('../lib/technical-review/declaracao.js');
 const { finishTechnicalReview } = await import('../lib/technical-review/runtime.js');
 const { technicalGap, technicalSummary, ehLacunaDura, LACUNA_DE_DECLARACAO } = await import('../lib/technical-review/verdict.js');
 const { pausaDaRecuperacao } = await import('../lib/engine/recuperacao-prova.js');
@@ -32,7 +32,8 @@ function declarar(declaration) {
   return profileFor(REPO).fingerprint;
 }
 function relatorio(fingerprint, error = 'a declaração técnica cita pasta que não existe neste commit: testDirs "src/sumiu"') {
-  return { schema: 1, verdict: 'not-run', error, failure: 'declaration', missingDirs: [{ campo: 'testDirs', dir: 'src/sumiu' }], declarationProfile: fingerprint };
+  return { schema: 1, verdict: 'not-run', error, failure: 'declaration', missingDirs: [{ campo: 'testDirs', dir: 'src/sumiu' }], declarationProfile: fingerprint,
+    declarationCheck: VERSAO_DA_CONFERENCIA };
 }
 
 test('as pastas ausentes são listadas em todos os campos de diretório, e o texto nomeia até cinco', async () => {
@@ -53,8 +54,8 @@ test('as pastas ausentes são listadas em todos os campos de diretório, e o tex
 
 test('a falha de declaração sai do runtime com as pastas e a impressão da declaração que falhou', async () => {
   const fim = await finishTechnicalReview({ repo: REPO, head: 'a'.repeat(40), error: 'texto', failure: 'declaration',
-    missingDirs: [{ campo: 'testDirs', dir: 'x' }], missingCount: 1, declarationProfile: 'f1' });
-  assert.deepEqual(fim, { schema: 1, verdict: 'not-run', error: 'texto', failure: 'declaration', missingDirs: [{ campo: 'testDirs', dir: 'x' }], missingCount: 1, declarationProfile: 'f1' });
+    missingDirs: [{ campo: 'testDirs', dir: 'x' }], missingCount: 1, declarationProfile: 'f1', declarationCheck: 2 });
+  assert.deepEqual(fim, { schema: 1, verdict: 'not-run', error: 'texto', failure: 'declaration', missingDirs: [{ campo: 'testDirs', dir: 'x' }], missingCount: 1, declarationProfile: 'f1', declarationCheck: 2 });
 });
 
 test('é lacuna dura com texto próprio: nunca vira ressalva, nem "tentará novamente"', () => {
@@ -110,4 +111,29 @@ test('registro sem a impressão da declaração não prende a recuperação', as
   const engine = { accountForPr: () => 'eu', autoReviewFor: () => true, isMuted: () => false, tokenFor: () => 't', autoReviewParked: new Set() };
   const item = { key: 'org/fora#1', pr: { repo: 'org/fora' }, technicalReview: { ...relatorio(undefined), declarationProfile: undefined } };
   assert.equal(await pausaDaRecuperacao(engine, item), '');
+});
+
+// v2.78.9 acusava `null` como lista inválida (28/10/2026): 25 dos 27 repositórios do cadastro
+// respondem algum campo de pasta com null, e o engine-ai#703 ficou pausado sem defeito nenhum.
+test('null é resposta válida (o repositório não tem aquele material); só lista vazia é recusada', async () => {
+  const repo = path.join(root, 'repo-null');
+  fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
+  assert.deepEqual(await pastasAusentes({ testDirs: ['src'], e2eDirs: null, componentDirs: null, sourceDirs: ['src'] }, repo), []);
+  assert.deepEqual((await pastasAusentes({ testDirs: [] }, repo)).map(a => a.motivo), ['lista inválida']);
+});
+
+test('o card diz o motivo quando a pasta não está simplesmente ausente', () => {
+  const report = { ...relatorio('f1'), missingDirs: [{ campo: 'testDirs', dir: 'src/Comp', motivo: 'outra caixa' }, { campo: 'e2eDirs', dir: '', motivo: 'invente' }] };
+  const { message } = technicalSummary(report);
+  assert.ok(message.includes('testDirs "src/Comp" (outra caixa)'), message);
+  assert.doesNotMatch(message, /invente/);
+});
+
+test('falha gravada pela conferência anterior não segura a recuperação: volta a ser conferida', async () => {
+  const engine = { accountForPr: () => 'eu', autoReviewFor: () => true, isMuted: () => false, tokenFor: () => 't', autoReviewParked: new Set() };
+  const fp = declarar({ scopes: ['core'], testDirs: ['src'], e2eDirs: null });
+  const antiga = { ...relatorio(fp), declarationCheck: undefined };
+  assert.equal(await pausaDaRecuperacao(engine, { key: `${REPO}#9`, pr: { repo: REPO }, technicalReview: antiga }), '');
+  assert.match(await pausaDaRecuperacao(engine, { key: `${REPO}#9`, pr: { repo: REPO }, technicalReview: relatorio(fp) }), /cita pasta/);
+  fs.rmSync(PROFILE_FILE, { force: true });
 });
