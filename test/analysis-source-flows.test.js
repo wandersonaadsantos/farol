@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -42,7 +43,7 @@ function setup(kind = 'dir') {
   return e;
 }
 function reviewResult() {
-  return { analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', reasons: [],
+  return { ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', reasons: [],
     findings: [], reportMarkdown: 'Análise sintética.', reviewMarkdown: 'Análise sintética.',
     coverage: { total: 1, reviewed: [], missing: ['src/a.js'] },
     alcance: [{ alterado: 'src/a.js', chamadores: [], semChamador: 'Fixture não declara consumidor externo.' }],

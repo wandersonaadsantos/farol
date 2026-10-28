@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -18,7 +19,7 @@ after(() => { fanout.prMetrics = original; fs.rmSync(home, { recursive: true, fo
 const HEAD = 'a'.repeat(40);
 const PR = { key: 'acme/app#972', repo: 'acme/app', number: 972,
   url: 'https://github.com/acme/app/pull/972', author: 'dev', requested: true };
-const envelope = { analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve',
+const envelope = { ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve',
   reasons: [], reportMarkdown: 'Análise concluída.', payloads: { approve: { event: 'APPROVE', body: 'Revisado.' } } };
 
 function engine() {

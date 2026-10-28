@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // A sessão que encerra em prosa não autoriza repetir uma VERIFICAÇÃO: pode haver
 // ferramenta recusada/interrompida no contexto. O Farol mantém a decisão pendente
 // de uma revisão válida, sem fabricar resultado.
@@ -37,7 +38,7 @@ const HEAD = 'a'.repeat(40);
 const PROGRESSO = 'Still waiting on the lint provenance check to close out the CI picture.';
 const PR = { key: 'acme/app#971', repo: 'acme/app', number: 971,
   url: 'https://github.com/acme/app/pull/971', author: 'dev', requested: true };
-const ENVELOPE = { analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision',
+const ENVELOPE = { ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision',
   cardMet: true, reasons: [], reportMarkdown: 'Análise concluída.', payloads: {} };
 const resposta = (text, sessionId = SID) => ({ text, sessionId });
 

@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // Dedup de postagem TEM que ser por ROUND, não por "alguma vez".
 //
 // Bug real (biudtech/biud-frontend#742, 11/08/2026): o Farol postou CHANGES_REQUESTED às
@@ -47,7 +48,7 @@ const PR = {
 
 function envelopeReject() {
   return {
-    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+    protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('request_changes'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
     reasons: ['Open redirect ainda ativo no head novo'],
     reportMarkdown: 'relatório',
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
@@ -56,7 +57,7 @@ function envelopeReject() {
 
 function envelopeApprove() {
   return {
-    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório',
     payloads: { approve: { event: 'APPROVE', body: 'ok' } }
   };
@@ -66,6 +67,7 @@ function envelopeApprove() {
 // ponto do teste é justamente saber SE postou.
 function engineCom(envelope, { meusReviews, head, policyReject = 'wait', policyApprove = 'wait' } = {}) {
   const e = new Engine();
+  e.decisions = { pending: [], resolved: [] };
   const postados = [];
   e.accountForPr = () => 'trabalho';
   e.approvePolicyFor = () => policyApprove;

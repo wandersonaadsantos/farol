@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // Retomada durável na Engine real (CT-RET, 7.A5 da spec
 // docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md).
 // FAROL_HOME temporário ANTES do import do server.js (const de nível de módulo) e
@@ -47,7 +48,7 @@ const PR = {
   requested: true, title: 'fix: algo', author: 'alguem'
 };
 const ENVELOPE = {
-  analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', cardMet: true,
+  ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', cardMet: true,
   reasons: [], reportMarkdown: 'relatório', payloads: {}
 };
 const CONTEXTO = { provedor: 'dir', perfilId: '' };

@@ -47,6 +47,35 @@
 
 # Gates de revisão e postagem do Farol
 
+Novas sessões headless exigem `criteriaVersion: 1`, `productDecisions` e `findings`
+explícitos. Os achados canônicos do diário de rodadas carregam `criteria` com key
+estável do comportamento, criterion, source e scope. Bloqueio ativo exige evidence.
+O histórico local de decisões publicadas confirma os compromissos da revisão;
+tentativas não publicadas não redefinem o critério. A seleção atravessa os ancestrais
+intermediários para que uma resolução publicada não ressuscite apontamento antigo.
+Não há um segundo diário: os metadados acompanham findings. A confirmação de publicação
+é local nesta etapa; receber uma rodada de outro aparelho não comprova sua postagem.
+
+Mudar critério ou classificação exige change com tipo, motivo, evidência nova e
+escopo. Apontamento publicado com critérios precisa receber destino; encerramento
+atualiza a prova. Legado continua contexto e não ganha classificação inventada.
+Essas inconsistências impedem publicar o resultado mesmo no modo de observação,
+pelo clique ou reenvio; exigem nova análise. Pular continua disponível.
+
+Recommendation distingue hipótese de solução validada no head atual. Validação
+exige dois casos distintos, defeito e preservação, com esperado, observado, prova
+e execução aprovada. Sem execução, o texto público deve dizer que é hipótese;
+a hipótese não remove defeito comprovado nem obriga um único remédio. O engine
+confere o contrato da prova, não sua suficiência semântica.
+
+ProductDecisions liga trechos às fontes primárias do Jira configurado: URL, hash,
+autoria registrada e data disponível. A descrição é relida sem cache e os comentários
+são paginados até cinco páginas; erros, repetição ou variação de total deixam leitura
+incompleta. Só requisito do card com leitura completa fundamenta automaticamente o
+veredito. Registro de comentário não prova autoridade de PO; alegação sem fonte e
+conflito determinante exigem decisão humana registrada no card e nova revisão.
+Identificar conflitos e alegações omitidos pelo modelo continua sendo julgamento.
+
 Extraído do `CLAUDE.md` na Fase 1.5 da reorganização. O `CLAUDE.md` da raiz é o sumário, e os
 invariantes continuam lá.
 

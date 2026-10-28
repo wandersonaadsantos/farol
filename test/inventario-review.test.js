@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -45,7 +46,7 @@ function motor(verdict, { partial = false, moved = false, fail = false, coverage
   e.postReview = async (_pr, payload) => { e.postados.push(payload); return { ok: true }; };
   e.runClaudeStream = async prompt => {
     e.promptMedido = prompt;
-    return { text: JSON.stringify({ protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', verdict,
+    return { text: JSON.stringify({ protocolo: { prReviewer: 'rodou' }, ...criteriaFixture(verdict), analysisStatus: 'complete', verdict,
       decision: verdict === 'approve' ? 'auto_approve' : 'request_changes', cardMet: true, reasons: [], reportMarkdown: 'Analisado.',
       ...(coverage ? { coverage: { total: 132, reviewed: FILES.map(f => f.path), missing: [] } } : {}),
       alcance: FILES.map(f => ({ alterado: f.path, chamadores: [], semChamador: 'entrypoint sintético' })),
@@ -107,7 +108,7 @@ for (const own of [false, true]) {
 
 test('tentativas esgotadas não liberam aprovação com inventário desconhecido', () => {
   const { e } = motor('approve');
-  const result = { analysisStatus: 'complete', verdict: 'approve', provaEsgotada: true,
+  const result = { ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', provaEsgotada: true,
     inventarioDiff: { status: 'unavailable', reason: 'sem rede' }, payloads: { approve: { event: 'APPROVE', body: 'ok' } } };
   assert.equal(e.shouldAutoApprove(PR, result).ok, false);
 });

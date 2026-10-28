@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // Retomada depois de falha transitória: quando a sessão da revisão cai por
 // instabilidade de conexão ou por tempo esgotado, o relançamento continua a MESMA
 // sessão (`--resume`) em vez de recomeçar do zero relendo o PR inteiro. Isso NÃO é
@@ -32,7 +33,7 @@ const PR_BASE = {
 };
 
 const ENVELOPE = {
-  analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', cardMet: true,
+  ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', cardMet: true,
   reasons: [], reportMarkdown: 'relatório', payloads: {}
 };
 

@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // A decisão sem mesa (18/10/2026, v2.73.2). Regra do dono: "Se foi configurado pra aprovar
 // sozinho ele aprova sozinho, se foi configurado pra reprovar sozinho ele reprova sozinho, sem
 // depender da minha ação. Não quero desculpas pra entregar a decisão pra mim."
@@ -103,7 +104,7 @@ function motor({ checks = [], aprova = 'approve', reprova = 'request_changes' } 
 function sessao(e, extra) {
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
-      protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+      protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
       coverage: { total: 0, reviewed: [], missing: [] },
       payloads: {
         approve: { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.' },
@@ -198,7 +199,7 @@ test('texto incoerente com defeito real é recuperado sem apagar o defeito', asy
   assert.ok(d.approvalEvidence.includes('violação técnica confirmada'));
   assert.ok(d.approvalEvidence.some(g => /incompat/.test(g)));
   await revisar(e, 151, { extra: { verdict: 'request_changes', findings: [
-    { severity: 'blocking', title: 'Regra duplicada', summary: 'Unifique a regra antes do merge.', file: 'src/a.ts', line: 12 },
+    { ...criteriaFixture('request_changes').findings[0], severity: 'blocking', title: 'Regra duplicada', summary: 'Unifique a regra antes do merge.', file: 'src/a.ts', line: 12 },
   ] } });
   assert.deepEqual(envios.map(p => p.event), ['REQUEST_CHANGES'], 'a revisão coerente continua reprovando o defeito real');
 });
@@ -207,7 +208,7 @@ test('modo enforce recupera texto contraditório mesmo com blocker persistente',
   const e = motor();
   e.config.reviewRoundsMode = 'enforce';
   technicalRuntime.finishTechnicalReview = violacao();
-  const blocker = { severity: 'blocking', title: 'Regra duplicada', summary: 'Unifique a regra.', file: 'src/a.ts', line: 12 };
+  const blocker = { ...criteriaFixture('request_changes').findings[0], severity: 'blocking', title: 'Regra duplicada', summary: 'Unifique a regra.', file: 'src/a.ts', line: 12 };
   await revisar(e, 152, { extra: { verdict: 'request_changes', findings: [blocker], payloads: {
     request_changes: { event: 'REQUEST_CHANGES', body: 'Não encontrei nada bloqueante no código.' },
   } } });

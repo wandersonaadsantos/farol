@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // A revisão headless com a coordenação entre aparelhos ligada (D9, D11, D13, D14 e D19
 // do contrato da sincronização). O gate mora em runClaudeStream; aqui a prova é o que o
 // CHAMADOR faz com a resposta dele:
@@ -52,7 +53,7 @@ const prDe = (key, extra = {}) => ({ key, repo: key.split('#')[0], number: Numbe
 
 function envelopeApprove() {
   return {
-    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'Leitura atenta, tudo certo por aqui.' } },
   };
 }
@@ -425,7 +426,7 @@ for (const [nome, marcar] of [['antes de o resultado chegar ao gate', (h) => { h
 test('handle perdido depois de o provedor resolver também segura o REQUEST_CHANGES', async () => {
   const h = handleFalso();
   const env = {
-    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+    protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('request_changes'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
     reasons: ['bloqueio real'], reportMarkdown: 'relatório',
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Tem um problema na validação do redirect.' } },
   };
@@ -494,7 +495,7 @@ test('retomada recusada que recomeça do zero não reserva outra rodada', async 
 // do recibo. Na ordem inversa, um aparelho que assumisse o head novo no intervalo teria a
 // label dele (mesma conta, mesmo nome) apagada pela remoção atrasada do finally.
 const ENV_REJEITA = {
-  protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+  protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('request_changes'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
   reasons: ['bloqueio real'], reportMarkdown: 'relatório',
   payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Tem um problema na validação do redirect.' } },
 };
