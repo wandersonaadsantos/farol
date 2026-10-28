@@ -46,7 +46,9 @@ function abrirStream() {
           buffer = buffer.slice(corte + 2);
           const tipo = /^event: (.+)$/m.exec(bloco);
           const dado = /^data: (.*)$/m.exec(bloco);
-          if (tipo && dado) eventos.push({ tipo: tipo[1], dados: dado[1] });
+          // só o canal do estado: o `casca` das cascas nativas (test/casca-sse.test.js)
+          // sai no mesmo stream e não é assunto deste teste
+          if (tipo && dado && (tipo[1] === 'state' || tipo[1] === 'state-patch')) eventos.push({ tipo: tipo[1], dados: dado[1] });
         }
       });
       resolve({ eventos, headers: res.headers, fechar: () => req.destroy() });

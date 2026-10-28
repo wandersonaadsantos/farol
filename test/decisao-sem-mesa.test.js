@@ -617,7 +617,10 @@ test('Codex 8: o comentário automático chega à tela (SSE) e à notificação 
   const http = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
   const main = fs.readFileSync(path.join(import.meta.dirname, '..', 'main.js'), 'utf8');
   const app = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
-  assert.match(http, /engine\.on\('auto-commented', p => broadcast\('auto-commented', p\)\)/);
+  // desde 28/10/2026 os eventos que viram notificação passam por comAviso, que repassa o
+  // evento cru à tela e acrescenta o aviso-nativo das cascas (test/casca-sse.test.js)
+  assert.match(http, /\[[^\]\n]*'auto-commented'[^\]\n]*\]\.forEach\(comAviso\)/);
+  assert.match(http, /function comAviso\(evento\) \{\n\s*engine\.on\(evento, p => \{\n\s*broadcast\(evento, p\);/);
   assert.match(main, /engine\.on\('auto-commented'/);
   assert.match(app, /addEventListener\('auto-commented'/);
 });
