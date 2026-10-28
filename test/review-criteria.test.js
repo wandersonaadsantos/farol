@@ -37,6 +37,10 @@ test('renomear arquivo não muda identidade nem permite promoção sem nova prov
 test('regra/fonte alterada, duplicação e encerramento com a mesma evidência são recusados', () => {
   const previous = finding();
   assert.equal(criteriaEvidence(review([finding({ criteria: { ...previous.criteria, source: 'outra.md:2' } })]), context(previous), sources).ok, false);
+  assert.equal(criteriaEvidence(review([finding({ criteria: { ...previous.criteria, scope: 'Todos os endpoints legados' } })]), context(previous), sources).ok, false);
+  const broadened = finding({ criteria: { ...previous.criteria, scope: 'Todos os endpoints legados' },
+    change: { type: 'requisito_alterado', reason: 'Decisão documentada', evidence: 'SPEC.md:10 agora abrange endpoints existentes', scope: 'O card inclui os endpoints legados' } });
+  assert.equal(criteriaEvidence(review([broadened]), context(previous), sources).ok, true);
   assert.equal(criteriaEvidence(review([finding(), finding()]), context(previous), sources).ok, false);
   assert.equal(criteriaEvidence(review([finding({ status: 'retirado' })]), context(previous), sources).ok, false);
   assert.equal(criteriaEvidence(review([finding({ status: 'retirado', evidence: 'B: chamada demonstrou que avaliação anterior estava errada' })]), context(previous), sources).ok, true);
@@ -74,6 +78,8 @@ test('fronteira publicada atravessa tentativas pendentes sem ressuscitar apontam
   assert.equal(criteriaEvidence(review([]), { criteriaParents: parents }, sources).ok, true);
   const attempt = { resolved: [{ roundId: 'B', status: 'pending' }, { roundId: 'A', status: 'auto_approved', postRetry: {} }] };
   assert.deepEqual(publishedCriteriaParents([a, b], attempt), []);
+  const oldManual = { resolved: [{ roundId: 'A', status: 'posted', postRetry: { event: 'request_changes' } }] };
+  assert.deepEqual(publishedCriteriaParents([a, b], oldManual).map(r => r.id), ['A'], 'sucesso manual confirmado prevalece sobre marca legada');
 });
 
 test('barreira de postagem lê evidência do engine, inclusive após recarregar pendência', async () => {

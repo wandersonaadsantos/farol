@@ -122,6 +122,23 @@ test('saída do modelo não decide a evidência reservada nem contamina a recupe
   assert.ok(!d.approvalEvidence.some(g => /incompat|forjado/.test(g)));
 });
 
+test('postagem manual após falha transitória limpa retry e passa a definir compromisso de critério', async () => {
+  const { e, run, scope } = motor('observe');
+  e.postReview = async () => ({ ok: false, error: 'HTTP 502 Bad Gateway' });
+  const d = await run([blocker], 'request_changes');
+  assert.ok(d.postRetry);
+  e.postReview = async (_pr, payload) => { e.postados.push(payload); return { ok: true }; };
+  assert.equal((await e.decide(d.id, 'request_changes')).ok, true);
+  const saved = e.decisions.resolved.find(x => x.id === d.id);
+  assert.equal(saved.status, 'posted');
+  assert.equal(saved.postRetry, null);
+  assert.ok(readRounds(scope).rounds.some(r => r.id === saved.roundId));
+  e.head = 'b'.repeat(40);
+  const next = await run([]);
+  assert.match(next.criteriaEvidence.issues.join(), /omitido sem destino/);
+  assert.equal(e.postados.length, 1, 'a rodada seguinte não apaga o compromisso publicado manualmente');
+});
+
 test('rodadas reais: blocker esquecido não some, chega ao prompt e impede aprovação no modo ativo', async () => {
   const { e, pr, run, scope } = motor();
   const first = await run([blocker], 'request_changes');
