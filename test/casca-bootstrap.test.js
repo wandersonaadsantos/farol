@@ -39,6 +39,63 @@ test('ENGINE_DIR mora no HOME do Farol e bootstrapFeito lê FAROL_BOOTSTRAP_FEIT
   assert.equal(paths.bootstrapFeito({ FAROL_BOOTSTRAP_FEITO: '' }), false);
   assert.equal(paths.ambienteDoBootstrap({ A: 'b' }).FAROL_BOOTSTRAP_FEITO, '1');
   assert.equal(paths.ambienteDoBootstrap({ A: 'b' }).A, 'b');
+  assert.equal(paths.ambienteDoBootstrap({}, 4321).FAROL_PAI_PID, '4321');
+  assert.equal(paths.ambienteDoBootstrap({}).FAROL_PAI_PID, String(process.pid));
+});
+
+test('pidDoPai lê FAROL_PAI_PID e só aceita inteiro positivo', () => {
+  assert.equal(paths.pidDoPai({ FAROL_PAI_PID: '4321' }), 4321);
+  for (const v of ['0', '-1', 'abc', '12a', '', undefined]) assert.equal(paths.pidDoPai({ FAROL_PAI_PID: v }), 0, `recusa ${JSON.stringify(v)}`);
+});
+
+function pidMorto() {
+  // pid de um processo que acabou de sair: não existe mais
+  return spawnSync(process.execPath, ['-e', '']).pid;
+}
+
+test('vigiarPai chama aoMorrer quando o pai não existe mais, uma vez só', async () => {
+  let vezes = 0;
+  const parar = mod.vigiarPai({ pid: pidMorto(), intervaloMs: 5, aoMorrer: () => { vezes++; } });
+  await new Promise(r => setTimeout(r, 60));
+  parar();
+  assert.equal(vezes, 1);
+});
+
+test('vigiarPai com agora confere na hora', () => {
+  let vezes = 0;
+  const parar = mod.vigiarPai({ pid: pidMorto(), intervaloMs: 60000, aoMorrer: () => { vezes++; }, agora: true });
+  parar();
+  assert.equal(vezes, 1);
+});
+
+test('vigiarPai com o pai vivo não chama aoMorrer', async () => {
+  let vezes = 0;
+  const parar = mod.vigiarPai({ pid: process.pid, intervaloMs: 5, aoMorrer: () => { vezes++; }, agora: true });
+  await new Promise(r => setTimeout(r, 40));
+  parar();
+  assert.equal(vezes, 0);
+});
+
+test('o filho reexecutado em modo casca liga a vigia do pai', () => {
+  const vigias = [];
+  const env = { FAROL_SHELL: 'mac', FAROL_BOOTSTRAP_FEITO: '1', FAROL_PAI_PID: '4321' };
+  assert.equal(mod.bootstrapDaCasca({ env, vigiar: (o) => { vigias.push(o); return () => {}; } }), false);
+  assert.equal(vigias.length, 1);
+  assert.equal(vigias[0].pid, 4321);
+  assert.equal(typeof vigias[0].aoMorrer, 'function');
+  const semPai = [];
+  mod.bootstrapDaCasca({ env: { FAROL_SHELL: 'mac', FAROL_BOOTSTRAP_FEITO: '1' }, vigiar: (o) => { semPai.push(o); } });
+  mod.bootstrapDaCasca({ env: { FAROL_BOOTSTRAP_FEITO: '1', FAROL_PAI_PID: '4321' }, vigiar: (o) => { semPai.push(o); } });
+  assert.equal(semPai.length, 0, 'sem pid do pai, ou fora da casca, não há vigia');
+});
+
+test('o aviso padrão de manifesto inválido vai para o farol.log', () => {
+  fs.mkdirSync(paths.STATE_DIR, { recursive: true });
+  const pastaEngine = pastaNova();
+  motor(pastaEngine, '2.95.0', '{ corrompido');
+  mod.bootstrapDaCasca({ env: { FAROL_SHELL: 'mac', FAROL_SHELL_VERSION: '3.0.0' }, semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, reexec: () => {} });
+  const log = fs.readFileSync(paths.LOG_FILE, 'utf8');
+  assert.match(log, /\[WARN\].*manifesto inválido.*2\.95\.0/);
 });
 
 test('package.json declara engines.farolShell e mantém o contrato do Node', () => {
@@ -181,10 +238,10 @@ function scriptQueReexecuta(raiz) {
 test('reexecutar sobe o server.js escolhido e repassa o código de saída', () => {
   const raiz = fs.mkdtempSync(path.join(TMP, 'raiz-'));
   fs.writeFileSync(path.join(raiz, 'server.js'),
-    'process.stdout.write(JSON.stringify({ feito: process.env.FAROL_BOOTSTRAP_FEITO, argv: process.argv.slice(2) }));\nprocess.exit(75);\n');
+    'process.stdout.write(JSON.stringify({ feito: process.env.FAROL_BOOTSTRAP_FEITO, pai: process.env.FAROL_PAI_PID, argv: process.argv.slice(2) }));\nprocess.exit(75);\n');
   const r = spawnSync(process.execPath, [scriptQueReexecuta(raiz), 'a', '--b'], { encoding: 'utf8' });
   assert.equal(r.status, 75, r.stderr);
-  assert.deepEqual(JSON.parse(r.stdout), { feito: '1', argv: ['a', '--b'] });
+  assert.deepEqual(JSON.parse(r.stdout), { feito: '1', pai: String(r.pid), argv: ['a', '--b'] });
 });
 
 test('reexecutar: filho morto por sinal vira código 1', () => {
