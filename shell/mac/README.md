@@ -31,7 +31,7 @@ brew install xcodegen swift-format
 
 ```sh
 xcodegen generate     # gera o Farol.xcodeproj a partir do project.yml
-scripts/build.sh      # gera o projeto quando preciso e compila o app em Debug, sem assinatura
+scripts/build.sh      # regenera o projeto e compila o app em Debug, sem assinatura
 ```
 
 O app compilado fica em `DerivedData/Build/Products/Debug/Farol.app`.
