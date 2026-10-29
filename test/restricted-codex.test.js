@@ -9,13 +9,19 @@ import { sourceRead, dispatchSource, serveSource } from '../lib/engine/restricte
 import { observeRestrictedCodex, restrictedCodex } from '../lib/engine/restricted-codex.js';
 import io from '../lib/io.js';
 import { IS_WIN } from '../lib/paths.js';
+import { blobHash } from '../lib/review-source/contract.js';
 
 const base = await fs.mkdtemp(path.join(os.tmpdir(), 'farol-codex-restricted-'));
 after(() => fs.rm(base, { recursive: true, force: true }));
-const source = { status: 'complete', manifest: { H: 'a'.repeat(40), files: [
-  { path: '.env.example', patch: '+FLAG=false', patchStatus: 'available' },
+const source = { status: 'complete', manifest: { H: 'a'.repeat(40), B: 'b'.repeat(40), M: 'c'.repeat(40), files: [
+  { path: '.env.example', status: 'added', patch: '+FLAG=false', patchStatus: 'available' },
   { path: 'a.js', patch: '+one\n+two', patchStatus: 'available' }] },
-  reader: { tree: async () => ({ complete: true, entries: [] }) } };
+  reader: { tree: async side => ({ complete: true, entries: [
+    ...(side === 'head' ? [{ path: '.env.example', readable: true, mode: '100644' }] : []),
+    { path: 'a.js', readable: true, mode: '100644' }] }),
+    read: async (_path, side) => ({ status: side === 'head' ? 'available' : 'missing',
+      commit: side === 'head' ? 'a'.repeat(40) : 'c'.repeat(40), mode: '100644',
+      blob: blobHash(Buffer.from('FLAG=false\n')), text: 'FLAG=false\n' }) } };
 const snapshot = await prepareSelfIsolation({ source }, { base });
 
 test('protocolo RPC recusa identificador fora do orçamento antes de produzir resposta', async () => {
@@ -34,7 +40,9 @@ test('MCP só expõe leitura/listagem fixadas e recusa escapes, operações e in
   const listed = await dispatchSource(snapshot.root, { method: 'tools/list' });
   assert.deepEqual(listed.tools.map(t => t.name), ['read_source', 'list_sources']);
   assert.ok(listed.tools.every(t => t.annotations.readOnlyHint && !t.annotations.destructiveHint));
-  assert.equal((await sourceRead(snapshot.root, { side: 'patches', path: '.env.example' })).text, '+FLAG=false');
+  const template = (await sourceRead(snapshot.root, { side: 'patches', path: '.env.example' })).text;
+  assert.match(template, /FLAG=\[FAROL_REDACTED_/);
+  assert.equal(template.includes('FLAG=false'), false);
   for (const input of [{ side: 'patches', path: '../outside' }, { side: 'patches', path: '/outside' },
     { side: 'patches', path: 'C:/outside' }, { side: 'runtime', path: 'file' },
       { side: 'patches', path: 'a.js', start: -1 }, { side: 'patches', path: 'a.js', count: 61 }]) {

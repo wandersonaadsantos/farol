@@ -1133,10 +1133,31 @@ O endpoint original também aceita `isolation`, mas clientes que exigem isolamen
 devem usar a rota específica, sem fallback. O modo fica no item da fila, não na configuração
 da conta. Suporta Claude de assinatura com `--restricted` e Codex autenticado
 pelo plano ChatGPT; provedor incompatível ou fontes incompletas recusam a execução,
-sem fallback. A sessão recebe material exclusivo de head, base e merge-base fixados, patches por arquivo e
-manifesto de exclusões. Credenciais, links e conteúdo sensível não são copiados;
-patch sensível ou indisponível impede iniciar. Os materiais são preservados para
+sem fallback. A sessão recebe material exclusivo de head, base e merge-base fixados, representações por arquivo e
+manifesto de exclusões. Caminhos protegidos e links não são copiados. Valores reconhecidos
+são ocultos antes da entrega e da persistência; fontes não verificadas impedem iniciar. Os materiais são preservados para
 diagnóstico, sem limpeza de diretórios compartilhados ou retomada de sessão.
+
+**Projeção de fontes (`source-redaction-v1`).** O fluxo normal continua recusando patches
+sensíveis. Somente a execução restrita solicita representações: mantém contexto e linhas,
+com marcadores opacos por execução. Marcadores iguais comprovam igualdade do texto oculto
+reconhecido, não formato, tamanho ou validade da credencial.
+Valores não citados são ocultados até o fim da faixa reconhecida, inclusive pontuação
+ambígua; a projeção pode perder sintaxe e não serve para executar ou validar parsing.
+O manifesto registra H/B/M, caminhos, OIDs já verificados, regiões ocultadas, versão da transformação e SHA-256 da
+representação entregue, sem gravar valor de credencial, sua versão base64 ou hash individual.
+Quando o patch falta ou é parcial, compara projeções verificadas M/H, distinguindo ausência
+confirmada de erro de leitura e usando o caminho anterior nas renomeações; não as chama de
+diff GitHub. Binários, links, árvores incompletas e caminhos protegidos continuam recusados.
+Somente `.env.example` e `.env.sample` regulares têm opt-in fechado: mostram chaves
+convencionais, ocultando valores, comentários e continuações multilinha. Outros `.env*`
+continuam excluídos. Templates sem o esquema suportado são recusados.
+
+O índice sintático compartilhado não é reutilizado na projeção, para não misturar fatos de
+texto original e ocultado; isso não altera a configuração de contexto. A evidência do host
+distingue leitura integral da representação de leitura dos valores originais, e conserva
+as limitações mesmo que o modelo as omita. Qualquer contraprova em arquivo com partes
+ocultas é marcada inconclusiva pelo host. Isso não dispensa CI, aprovação humana ou QA.
 
 O filho inicia diretamente, sem shell do sistema ou tokens GitHub herdados.
 Temporários pertencem à execução; associação de conta, perfil e provedor não muda.
@@ -1150,10 +1171,10 @@ do Codex permanece ligado porque também transporta o MCP; isso não habilita sh
 As páginas de leitura têm até 60 linhas e 2.048 caracteres de conteúdo; o limite
 explícito de saída é 32.768 tokens, acima da resposta serializada máxima. O manifesto
 e suas exclusões entram no prompt. Cobertura exige conferir conteúdo e intervalos
-de cada resposta com o patch local, mesmo quando o observador global é o antigo.
+de cada resposta com a representação local, mesmo quando o observador global é o antigo.
 Ela comprova conteúdo disponibilizado, não compreensão ou persistência após compactação.
 Checkpoints de leitura usam `FAROL_CHECKPOINT` em texto principal, com `method:
-"read"`, depois da entrega do patch; o registro explicita que não houve execução
+"read"`, depois da entrega da representação; o registro explicita que não houve execução
 de teste. Entradas de outra sessão ou head não contam e ausência fica desconhecida.
 Testes locais, CI, aprovação humana e QA continuam provas separadas. Esse modo
 não concede capacidade de publicar no GitHub nem permissão de integrar.
