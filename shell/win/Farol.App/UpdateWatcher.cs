@@ -22,17 +22,21 @@ internal sealed class UpdateWatcher : IDisposable
 
     private readonly UpdateGate _gate = new();
     private readonly DispatcherQueue _dispatcher;
-    private readonly Func<Task> _beforeRestart;
+    private readonly Func<Task<bool>> _beforeRestart;
     private readonly Func<Task> _afterFailedRestart;
     private readonly Action<string> _log;
     private readonly CancellationTokenSource _stop = new();
     private bool _restarting;
+    private bool _disposed;
 
     /// <param name="dispatcher">A fila da thread da interface.</param>
-    /// <param name="beforeRestart">Encerra o motor e o fluxo de eventos antes do reinício.</param>
+    /// <param name="beforeRestart">
+    /// Encerra o motor e o fluxo de eventos antes do reinício; <c>false</c> desiste (a casca está
+    /// saindo).
+    /// </param>
     /// <param name="afterFailedRestart">Põe o motor de volta quando o sistema recusa o reinício.</param>
     /// <param name="log">O log de falhas da casca.</param>
-    public UpdateWatcher(DispatcherQueue dispatcher, Func<Task> beforeRestart, Func<Task> afterFailedRestart, Action<string> log)
+    public UpdateWatcher(DispatcherQueue dispatcher, Func<Task<bool>> beforeRestart, Func<Task> afterFailedRestart, Action<string> log)
     {
         _dispatcher = dispatcher;
         _beforeRestart = beforeRestart;
@@ -46,14 +50,23 @@ internal sealed class UpdateWatcher : IDisposable
     /// <summary>Cada retrato <c>casca</c>, na thread da interface: libera o reinício adiado.</summary>
     public void OnShell(ShellEvent.Shell shell)
     {
-        if (_gate.OnShell(shell))
+        if (!_disposed && _gate.OnShell(shell))
         {
             _ = RestartAsync();
         }
     }
 
+    /// <summary>
+    /// Para as checagens e qualquer reinício ainda não feito. O Sair chama antes de tudo, então
+    /// uma checagem que chegue durante a saída não vira reinício.
+    /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
         _stop.Cancel();
         _stop.Dispose();
     }
@@ -105,25 +118,28 @@ internal sealed class UpdateWatcher : IDisposable
     private void OnUpdateAvailable()
     {
         // Repetir o pedido a cada hora é inofensivo: o gate libera uma vez só.
-        if (_gate.RequestRestart())
+        if (!_disposed && _gate.RequestRestart())
         {
             _ = RestartAsync();
         }
     }
 
-    // O motor sai pelo caminho ordenado (o casca.json some) antes de o processo reiniciar. O
-    // Restart só volta quando o sistema recusa; aí o motor sobe de novo e a próxima checagem
-    // do App Installer (uma hora depois) pede outra tentativa.
+    // O motor é encerrado antes de o processo reiniciar. O Restart só volta quando o sistema
+    // recusa; aí o motor sobe de novo e a próxima checagem do App Installer (uma hora depois) pede
+    // outra tentativa. Saindo (Dispose), nada reinicia.
     private async Task RestartAsync()
     {
-        if (_restarting)
+        if (_restarting || _disposed)
         {
             return;
         }
         _restarting = true;
         try
         {
-            await _beforeRestart();
+            if (!await _beforeRestart() || _disposed)
+            {
+                return;
+            }
             var reason = AppInstance.Restart("");
             _log($"WARN reinício para o update recusado pelo sistema ({reason})");
         }
@@ -131,6 +147,15 @@ internal sealed class UpdateWatcher : IDisposable
         {
             _log($"WARN reinício para o update falhou ({e.GetType().Name})");
         }
+        finally
+        {
+            _restarting = false;
+        }
+        await AfterRefusedAsync();
+    }
+
+    private async Task AfterRefusedAsync()
+    {
         _gate.RestartFailed();
         try
         {
@@ -139,10 +164,6 @@ internal sealed class UpdateWatcher : IDisposable
         catch (Exception e)
         {
             _log($"WARN o motor não voltou depois do reinício recusado ({e.GetType().Name})");
-        }
-        finally
-        {
-            _restarting = false;
         }
     }
 }

@@ -16,9 +16,14 @@ preenchida numa máquina Windows, no mesmo dia para as duas versões.
   navegador, renderizador, GPU, utilitários). Do lado do Electron: `Farol.exe`
   do Electron com todos os filhos (navegador, renderizador, GPU) e o `node.exe`
   do motor com os filhos.
-- **Métrica**: Working Set privado (memória privada residente), em MB. No
-  PowerShell é `PrivateMemorySize64` do `Get-Process`; no Process Explorer, a
-  coluna "Private Bytes" serve de conferência.
+- **Métrica**: memória privada comprometida (private commit), em MB: o
+  `PrivateMemorySize64` do `Get-Process`, que é a coluna "Private Bytes" do
+  Process Explorer, usada como conferência. Não é o Working Set privado
+  (a parte residente); se quiser também esse número, é a coluna "Private WS" do
+  Process Explorer, registrada à parte.
+- **Um Farol só**: feche o Electron antes de medir a casca nativa, e o
+  contrário. O comando procura processos chamados `Farol`, e com os dois
+  abertos somaria os dois.
 - **Condição**: o Farol aberto com as contas reais, a janela mostrada uma vez e
   depois parado (sem clicar, sem revisão em curso) por 10 minutos antes da
   primeira leitura.
@@ -29,8 +34,8 @@ preenchida numa máquina Windows, no mesmo dia para as duas versões.
 
 ## Comando
 
-Cole no PowerShell (não precisa de administrador). Ele soma, por grupo, o
-privado de cada processo e de todos os descendentes.
+Cole no PowerShell (não precisa de administrador). Ele soma, por grupo,
+a memória privada comprometida de cada processo e de todos os descendentes.
 
 ```powershell
 $todos = Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name
@@ -74,13 +79,15 @@ WebView2 sai vazio e os processos do Chromium entram no total.
 
 A preencher no Windows.
 
-| processo | privado MB | leitura 1 | leitura 2 | leitura 3 | mediana |
-|---|---|---|---|---|---|
-| `Farol.exe` (casca nativa) | a preencher no Windows | | | | |
-| `node.exe` do motor e filhos | a preencher no Windows | | | | |
-| `msedgewebview2.exe` e filhos | a preencher no Windows | | | | |
-| total da casca nativa | a preencher no Windows | | | | |
-| referência: Electron (total, mesmo dia) | a preencher no Windows | | | | |
+Valores em MB de memória privada comprometida.
+
+| processo | leitura 1 | leitura 2 | leitura 3 | mediana |
+|---|---|---|---|---|
+| `Farol.exe` (casca nativa) | a preencher no Windows | | | |
+| `node.exe` do motor e filhos | a preencher no Windows | | | |
+| `msedgewebview2.exe` e filhos | a preencher no Windows | | | |
+| total da casca nativa | a preencher no Windows | | | |
+| referência: Electron (total, mesmo dia) | a preencher no Windows | | | |
 
 Registre também a data, a versão da casca, a versão do Electron, a versão do
 WebView2 Runtime e o número de contas monitoradas.

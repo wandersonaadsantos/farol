@@ -85,9 +85,14 @@ papel dela é escolher a hora de reiniciar: de hora em hora o `UpdateWatcher`
 `UpdateGate` (`Farol.Contrato`, puro e testado). O gate só libera com o motor
 livre (`Busy` falso no último evento `casca`, que chega pela composição):
 pedido com o motor ocupado espera o primeiro retrato livre, e o reinício sai uma
-vez só. Antes de `AppInstance.Restart` o motor é encerrado pelo caminho ordenado;
-se o sistema recusar o reinício, o motor volta e a próxima checagem tenta de
-novo. Esse é o update do pacote da casca; o do motor (`casca-saida` e código 75)
+vez só. Antes de `AppInstance.Restart` o motor é encerrado como no Sair da
+bandeja; se o sistema recusar o reinício, o motor volta e a próxima checagem
+tenta de novo.
+
+A confirmar no Windows: se a reabertura aplica o pacote novo depende das opções
+do `.appinstaller` (`OnLaunch`, `UpdateBlocksActivation`), que ainda não existe
+em `shell/win`; e o `AppInstance.Restart` de um Farol só na bandeja pode ser
+recusado com `NotInForeground`. Esse é o update do pacote da casca; o do motor (`casca-saida` e código 75)
 segue o contrato acima.
 
 ## Medição de memória

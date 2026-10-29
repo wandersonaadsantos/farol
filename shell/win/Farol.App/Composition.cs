@@ -24,6 +24,10 @@ internal sealed class Composition
 {
     private static readonly TimeSpan EngineFileTimeout = TimeSpan.FromSeconds(30);
 
+    // Quanto a volta depois do reinício recusado espera o código da parada pedida chegar e ser
+    // descartado; o StopAsync já espera o processo morrer por até 5 s.
+    private static readonly TimeSpan OwnExitWait = TimeSpan.FromSeconds(10);
+
     private readonly MainWindow _window;
     private readonly DispatcherQueue _dispatcher;
     private readonly string _home;
@@ -69,6 +73,8 @@ internal sealed class Composition
     private bool _repairing;
     private bool _quitting;
     private bool _updating;
+    private readonly OwnExitFilter _ownExit = new();
+    private TaskCompletionSource? _ownExitSeen;
 
     /// <param name="window">A janela principal, já criada e ainda não mostrada.</param>
     /// <param name="home">O home em uso (<see cref="FarolPaths.Home"/>).</param>
@@ -172,7 +178,13 @@ internal sealed class Composition
     // Só na thread da interface, e nunca de dentro de um efeito: resultado de efeito volta por Post.
     private void Feed(SidecarInput input)
     {
-        // Na parada para o update, a saída do motor é pedida pela casca e não deve religá-lo.
+        // A saída que a casca pediu para o update nunca chega à máquina, nem à nova criada quando
+        // o reinício é recusado; ela é consumida aqui, antes de qualquer outra conferência.
+        if (input is SidecarInput.Exited && _ownExit.TryConsume())
+        {
+            _ownExitSeen?.TrySetResult();
+            return;
+        }
         if (_quitting || _updating)
         {
             return;
@@ -842,14 +854,27 @@ internal sealed class Composition
 
     // ---------- update do pacote ----------
 
-    // Antes do reinício pedido pelo gate (motor livre): fecha o SSE, encerra o motor pelo caminho
-    // ordenado e tira o ícone da bandeja, que senão ficaria órfão até alguém passar o mouse.
-    private async Task StopForUpdateAsync()
+    // Antes do reinício pedido pelo gate (motor livre): fecha o SSE, encerra o motor e tira o
+    // ícone da bandeja, que senão ficaria órfão até alguém passar o mouse. O encerramento é o
+    // mesmo do Sair (taskkill na árvore): o casca.json pode ficar para trás, e o StartAsync
+    // seguinte o apaga. Devolve false quando a casca está saindo: o Sair vence o reinício.
+    private async Task<bool> StopForUpdateAsync()
     {
+        if (_quitting)
+        {
+            return false;
+        }
         _updating = true;
         _wait.Cancel();
         AbandonProof();
         StopStream();
+        // Marcado na mesma volta da thread da interface em que se confere o processo: nenhuma
+        // saída entra no Feed entre as duas linhas.
+        if (_engine.IsRunning)
+        {
+            _ownExit.Expect();
+            _ownExitSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
         try
         {
             await _engine.StopAsync();
@@ -860,11 +885,20 @@ internal sealed class Composition
         }
         _tray?.Dispose();
         _tray = null;
+        return !_quitting;
     }
 
-    // O sistema recusou o reinício: a bandeja e o motor voltam, pelo boot inteiro.
+    // O sistema recusou o reinício: a bandeja e o motor voltam, pelo boot inteiro. Antes, o código
+    // da parada pedida tem que ter passado pelo Feed (e sido descartado); só então a máquina nova
+    // nasce, e a próxima saída que chegar é queda de verdade do motor novo.
     private async Task ResumeAfterFailedUpdateAsync()
     {
+        if (_ownExitSeen is { } seen && await Task.WhenAny(seen.Task, Task.Delay(OwnExitWait)) != seen.Task)
+        {
+            Log($"WARN a saída do motor parado para o update não chegou em {OwnExitWait.TotalSeconds:0} s");
+        }
+        _ownExit.Clear();
+        _ownExitSeen = null;
         _updating = false;
         if (_quitting)
         {
@@ -924,6 +958,8 @@ internal sealed class Composition
             return;
         }
         _quitting = true;
+        // Primeiro o update: uma checagem que chegue durante o Sair não vira reinício.
+        _updates.Dispose();
         _wait.Cancel();
         AbandonProof();
         try
@@ -936,7 +972,6 @@ internal sealed class Composition
             Log($"WARN encerrar o motor na saída falhou ({e.GetType().Name})");
         }
         _engine.Dispose();
-        _updates.Dispose();
         _tray?.Dispose();
         _tray = null;
         _overlay.Dispose();
