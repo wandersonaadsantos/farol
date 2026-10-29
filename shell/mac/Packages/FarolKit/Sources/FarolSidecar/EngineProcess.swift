@@ -11,7 +11,8 @@ public enum EngineProcessError: Error, Equatable, Sendable {
 /// O processo do motor (`node server.js`) como sidecar da casca.
 ///
 /// Sobe o motor com o ambiente do app mais `FAROL_SHELL=mac`, `FAROL_SHELL_VERSION` e, quando
-/// dado, `FAROL_HOME`, na pasta do `server.js`. A saída do motor não vai para a do app: cada
+/// dado, `FAROL_HOME`, na pasta do `server.js`. A entrada padrão do motor é um pipe que a casca
+/// segura aberto enquanto vive. A saída do motor não vai para a do app: cada
 /// linha segue para o `os.Logger` em nível de depuração, e linha com cara de credencial é
 /// omitida. O ambiente nunca é registrado.
 public actor EngineProcess {
@@ -36,6 +37,11 @@ public actor EngineProcess {
     private let exitContinuation: AsyncStream<Int32>.Continuation
 
     private var process: Process?
+    /// A ponta de escrita da entrada padrão do motor, retida pela vida do processo e fechada
+    /// quando ele termina. Se o app morrer por qualquer motivo (inclusive SIGKILL ou queda),
+    /// o kernel fecha esta ponta e o motor recebe EOF na entrada; detectar isso e sair é
+    /// escolha do lado do motor.
+    private var inputWriter: FileHandle?
     /// Conta as subidas, para o fim de uma subida antiga não ser confundido com a atual.
     private var generation = 0
     /// A subida cujo fim ainda não foi tratado por `didTerminate`; `nil` sem motor vivo.
@@ -84,7 +90,10 @@ public actor EngineProcess {
         }
         process.environment = environment
 
-        process.standardInput = FileHandle.nullDevice
+        // Um pipe, não `/dev/null`: com `/dev/null` o motor leria EOF na hora e não teria
+        // como notar a morte do app.
+        let input = Pipe()
+        process.standardInput = input
         process.standardOutput = Self.forwardingPipe()
         process.standardError = Self.forwardingPipe()
 
@@ -100,6 +109,7 @@ public actor EngineProcess {
             throw EngineProcessError.launchFailed(error.localizedDescription)
         }
         self.process = process
+        inputWriter = input.fileHandleForWriting
         liveGeneration = current
     }
 
@@ -160,6 +170,8 @@ public actor EngineProcess {
         if liveGeneration == finished {
             liveGeneration = nil
             process = nil
+            try? inputWriter?.close()
+            inputWriter = nil
         }
         for (id, waiter) in terminationWaiters where waiter.generation == finished {
             terminationWaiters.removeValue(forKey: id)

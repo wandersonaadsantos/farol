@@ -29,14 +29,20 @@ public enum SidecarInput: Equatable, Sendable {
     case pairFailed
     /// O motor lançado pela casca saiu com `code`.
     case exited(code: Int32)
-    /// O SSE respondeu 401; `current` é o `casca.json` lido agora, se houver.
-    case unauthorized(current: EngineFile?)
+    /// O SSE respondeu 401.
+    case unauthorized
+    /// O motor lançado ficou de pé pela janela de estabilidade inteira depois de publicar o
+    /// `casca.json` (o supervisor entrega esta entrada; a máquina não mede tempo).
+    case stable
     /// O timer de religar disparou, ou a pessoa pediu "Tentar de novo".
     case restartNow
 }
 
 /// O que a camada do app precisa executar.
 public enum SidecarEffect: Equatable, Sendable {
+    /// Parar o motor que a casca lançou; a parada pedida não volta como `.exited` e não
+    /// conta falha. O `.spawn` seguinte só sobe o motor novo depois de a parada terminar.
+    case stopEngine
     /// Lançar o processo do motor.
     case spawn
     /// Esperar o `casca.json` aparecer.
@@ -64,11 +70,15 @@ public enum SidecarEffect: Equatable, Sendable {
 ///   Também é ignorado em `.restarting` e `.stopped`, onde não há processo nosso vivo.
 /// - `.exited` com falha (código que não é `75` nem `0`) soma uma falha seguida antes de
 ///   consultar a `RestartPolicy`; `75` e `0` não somam.
-/// - `.fileAppeared` prova que o motor ficou de pé: zera as falhas seguidas e libera de novo
-///   o repareamento automático desta subida.
-/// - `.unauthorized` em `.ready` repareia uma vez por subida do motor, com o código do
-///   arquivo atual; da segunda vez (ou sem arquivo) só reabre a janela, e a `ui/` mostra o
-///   próprio painel de pareamento. Fora de `.ready` é ignorado.
+/// - `.fileAppeared` NÃO zera as falhas seguidas: o motor que publica o arquivo e cai logo
+///   depois continua contando para a desistência. Quem zera é o `.stable`, que o supervisor
+///   entrega depois da janela de estabilidade (60 s) sem saída do motor.
+/// - `.unauthorized` em `.ready` para e relança o NOSSO motor, sem contar falha: o código
+///   de pareamento do `casca.json` atual já foi gasto (é de uso único), e só um motor novo
+///   publica um código válido. Da segunda vez seguida (sem `.stable` nem saída do motor
+///   entre elas) só reabre a janela sem token, e a `ui/` mostra o próprio painel de
+///   pareamento. Em `.viewer` o motor não é nosso: o 401 reabre a janela de visor sem
+///   token, sempre. Nas outras fases é ignorado.
 public struct SidecarMachine: Sendable {
     public private(set) var phase: SidecarPhase = .starting
     public private(set) var consecutiveFailures = 0
@@ -76,8 +86,9 @@ public struct SidecarMachine: Sendable {
     private let policy: RestartPolicy
     /// Porta do motor que a casca lançou, conhecida desde o último `.fileAppeared`.
     private var enginePort: Int?
-    /// Se o `.unauthorized` já repareou nesta subida do motor.
-    private var repairedThisRun = false
+    /// Se um `.unauthorized` já relançou o motor sem que um `.stable` ou uma saída do motor
+    /// viessem depois.
+    private var restartedForAuth = false
 
     public init(policy: RestartPolicy = RestartPolicy()) {
         self.policy = policy
@@ -93,22 +104,22 @@ public struct SidecarMachine: Sendable {
             return spawn()
         case (.waitingForFile, .fileAppeared(let file)):
             enginePort = file.port
-            consecutiveFailures = 0
-            repairedThisRun = false
             phase = .pairing
             return [.pair(code: file.pairingCode, port: file.port)]
         case (.pairing, .paired), (.pairing, .pairFailed):
             guard let port = enginePort else { return [] }
             phase = .ready(port: port)
             return [.openWindow(port: port, viewer: false)]
-        case (.ready(let port), .unauthorized(let file)):
-            if let file, !repairedThisRun {
-                repairedThisRun = true
-                enginePort = file.port
-                phase = .pairing
-                return [.pair(code: file.pairingCode, port: file.port)]
-            }
-            return [.openWindow(port: port, viewer: false)]
+        case (.ready(let port), .unauthorized):
+            guard !restartedForAuth else { return [.openWindow(port: port, viewer: false)] }
+            restartedForAuth = true
+            return [.stopEngine] + spawn()
+        case (.viewer(let port), .unauthorized):
+            return [.openWindow(port: port, viewer: true)]
+        case (.pairing, .stable), (.ready, .stable):
+            consecutiveFailures = 0
+            restartedForAuth = false
+            return []
         case (.waitingForFile, .exited(let code)), (.pairing, .exited(let code)),
             (.ready, .exited(let code)):
             return exited(code: code)
@@ -125,6 +136,7 @@ public struct SidecarMachine: Sendable {
     }
 
     private mutating func exited(code: Int32) -> [SidecarEffect] {
+        restartedForAuth = false
         if code != RestartPolicy.intentionalExit && code != 0 {
             consecutiveFailures += 1
         }

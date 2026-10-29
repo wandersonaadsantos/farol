@@ -3,136 +3,37 @@ import FarolSidecar
 import Foundation
 import os
 
-/// O processo do motor visto pelo supervisor (o `EngineProcess`, ou um falso nos testes).
-public protocol EngineControl: Sendable {
-    /// Os códigos de saída do motor; o fim pedido pelo próprio `stop()` não aparece.
-    var exitCodes: AsyncStream<Int32> { get }
-    func start() async throws
-    func stop() async
-}
-
-extension EngineProcess: EngineControl {}
-
-/// O fluxo de eventos do motor visto pelo supervisor (o `EventStream`, ou um falso).
-public protocol EventSource: Sendable {
-    var events: AsyncStream<EventStreamOutput> { get }
-    func start() async
-    func stop() async
-}
-
-extension EventStream: EventSource {}
-
-/// O que o supervisor pede à interface nativa (janela, bandeja, Dock, avisos).
-@MainActor
-public protocol ShellUI: AnyObject {
-    /// Abre (ou refaz) a janela da `ui/` na porta, com o token injetado quando houver.
-    func openWindow(port: Int, token: String?, viewer: Bool)
-    /// O aviso único de que outro Farol já roda nesta porta.
-    func showViewerNotice()
-    /// O alerta de falha com "Tentar de novo" (que chama `SidecarSupervisor.retry()`).
-    func showFailure(_ message: String)
-    /// O retrato do evento `casca`: cores, selo do Dock e dica da bandeja.
-    func apply(_ state: ShellState)
-    /// Abrir junto com o sistema; chamado só quando o pedido do motor muda.
-    func applyAutostart(_ wanted: Bool)
-    /// Um aviso nativo.
-    func post(_ notice: NativeNotice)
-}
-
-/// As fronteiras de entrada e saída do supervisor, trocadas por falsos nos testes.
-public struct SidecarServices: Sendable {
-    public var engine: any EngineControl
-    /// O `casca.json` agora, ou `nil`.
-    public var readEngineFile: @Sendable () -> EngineFile?
-    /// Apaga o `casca.json` que sobrou de um motor morto, antes de subir outro.
-    public var removeEngineFile: @Sendable () -> Void
-    /// Espera o motor publicar o `casca.json`; lança no prazo estourado.
-    public var waitForEngineFile: @Sendable () async throws -> EngineFile
-    public var isEngineAlive: @Sendable (EngineFile) async -> Bool
-    /// Troca o código por token: `(porta, código)`.
-    public var pair: @Sendable (Int, String) async throws -> String
-    public var saveToken: @Sendable (String) throws -> Void
-    /// Um fluxo de eventos novo para `(porta, token)`.
-    public var makeEventSource: @Sendable (Int, String) -> any EventSource
-    /// O "Checar agora": `(porta, token)`.
-    public var checkNow: @Sendable (Int, String) async throws -> Void
-    /// Consome o marcador de reabertura silenciosa e devolve a versão nova.
-    public var consumeSilentReopen: @Sendable () -> String?
-    public var sleep: @Sendable (Double) async throws -> Void
-
-    public init(
-        engine: any EngineControl,
-        readEngineFile: @escaping @Sendable () -> EngineFile?,
-        removeEngineFile: @escaping @Sendable () -> Void,
-        waitForEngineFile: @escaping @Sendable () async throws -> EngineFile,
-        isEngineAlive: @escaping @Sendable (EngineFile) async -> Bool,
-        pair: @escaping @Sendable (Int, String) async throws -> String,
-        saveToken: @escaping @Sendable (String) throws -> Void,
-        makeEventSource: @escaping @Sendable (Int, String) -> any EventSource,
-        checkNow: @escaping @Sendable (Int, String) async throws -> Void,
-        consumeSilentReopen: @escaping @Sendable () -> String?,
-        sleep: @escaping @Sendable (Double) async throws -> Void
-    ) {
-        self.engine = engine
-        self.readEngineFile = readEngineFile
-        self.removeEngineFile = removeEngineFile
-        self.waitForEngineFile = waitForEngineFile
-        self.isEngineAlive = isEngineAlive
-        self.pair = pair
-        self.saveToken = saveToken
-        self.makeEventSource = makeEventSource
-        self.checkNow = checkNow
-        self.consumeSilentReopen = consumeSilentReopen
-        self.sleep = sleep
-    }
-
-    /// As peças de verdade: `EngineProcess` do `EngineLocator`, `casca.json` e marcador nos
-    /// caminhos de `paths`, token no Keychain e o `EventStream`.
-    public static func live(
-        paths: ShellPaths, environment: [String: String], shellVersion: String
-    ) -> SidecarServices {
-        let located = EngineLocator.resolve(environment: environment)
-        let engine = EngineProcess(
-            node: located.node, serverJS: located.serverJS, home: paths.explicitHome,
-            shellVersion: shellVersion)
-        let fileURL = paths.engineFile
-        let stateDir = paths.workspaceState
-        return SidecarServices(
-            engine: engine,
-            readEngineFile: { try? EngineFile.read(at: fileURL) },
-            removeEngineFile: { try? FileManager.default.removeItem(at: fileURL) },
-            waitForEngineFile: { try await FarolSidecar.waitForEngineFile(at: fileURL) },
-            isEngineAlive: { await EngineProbe.isEngineAlive($0) },
-            pair: { try await Pairing.pair(port: $0, code: $1) },
-            saveToken: { try TokenStore().save($0) },
-            makeEventSource: { EventStream(port: $0, token: $1) },
-            checkNow: { try await EngineCommands(port: $0, token: $1).checkNow() },
-            consumeSilentReopen: { SilentReopen.consume(stateDir: stateDir) },
-            sleep: { try await Task.sleep(for: .seconds($0)) }
-        )
-    }
-}
-
 /// Dirige a `SidecarMachine`: executa cada efeito e devolve cada resultado como entrada.
 ///
-/// - `.spawn` apaga o `casca.json` velho (o motor morto por sinal não apaga o dele, e a
-///   espera leria o código já gasto) e sobe o motor; falha ao subir conta como saída 1.
-/// - `.waitFile` espera o arquivo; prazo estourado com o processo vivo é motor que não
-///   publicou: o supervisor o para e entrega `.exited(code: 1)`, para o recuo valer.
+/// - `.stopEngine` para o nosso motor (o 401 da `ui/`); o `.spawn` seguinte espera a parada.
+/// - `.spawn` sobe o motor; antes, apaga o `casca.json` velho só quando o pid dele não está
+///   vivo (o motor morto por sinal não apaga o dele, e a espera leria o código já gasto; o
+///   de um processo vivo não é nosso para apagar). Falha ao subir conta como saída 1.
+/// - `.waitFile` espera a subida e então o arquivo; prazo estourado com o processo vivo é
+///   motor que não publicou: o supervisor o para e entrega `.exited(code: 1)`, para o recuo
+///   valer. Com o arquivo, começa a janela de estabilidade: passados
+///   `SidecarServices.stabilityWindow` segundos sem saída do motor, entrega `.stable`.
 /// - `.pair` troca o código pelo token; recusa vira `.pairFailed` direto, outra falha tenta
 ///   de novo uma vez depois de 1 s.
-/// - `.openWindow` abre a janela e, com token, um `EventStream` novo (o token é fixo por fluxo).
+/// - `.openWindow` abre a janela com o token atual (o do pareamento, ou, como visor, o do
+///   Keychain) e, com token, um `EventStream` novo (o token é fixo por fluxo).
 /// - `.restart(after:)` dorme e entrega `.restartNow`.
+///
+/// No boot, um `casca.json` cujo pid está vivo é sondado até `probeAttempts` vezes antes da
+/// decisão; sem resposta, a casca prefere o visor a subir um segundo motor sobre o arquivo
+/// de outro processo.
 ///
 /// Saída `75` (update do motor) consome também o marcador de reabertura silenciosa e posta o
 /// "Farol atualizado": a casca não reinicia, só o motor, e um marcador esquecido faria a
 /// próxima abertura manual, dentro de 10 minutos, subir sem janela.
 ///
 /// Depois de `shutdown()` nada mais é entregue à máquina: a tarefa que lê os códigos de saída
-/// é cancelada antes do `stop()` do motor.
+/// é cancelada antes do `stop()` do motor, e o `stop()` só vem depois da subida pendente.
 @MainActor
 public final class SidecarSupervisor {
     private nonisolated static let logger = Logger(subsystem: "com.biud.farol", category: "casca")
+    /// Quantas vezes o boot sonda a porta de um `casca.json` cujo pid está vivo.
+    nonisolated static let probeAttempts = 3
 
     private var machine: SidecarMachine
     private let services: SidecarServices
@@ -142,9 +43,14 @@ public final class SidecarSupervisor {
     private var waitTask: Task<Void, Never>?
     private var pairTask: Task<Void, Never>?
     private var restartTask: Task<Void, Never>?
+    private var stableTask: Task<Void, Never>?
+    /// A parada pedida por `.stopEngine`; o próximo `.spawn` espera por ela.
+    private var stopTask: Task<Void, Never>?
+    /// A subida em andamento; a espera do arquivo e o `shutdown()` esperam por ela.
+    private var spawnTask: Task<Void, Never>?
     private var eventsTask: Task<Void, Never>?
     private var eventSource: (any EventSource)?
-    /// O token desta subida do motor, ou `nil` sem pareamento válido.
+    /// O token da janela: o do pareamento desta subida, o do Keychain como visor, ou `nil`.
     private var token: String?
     private var lastAutostart: Bool?
     private var shuttingDown = false
@@ -171,10 +77,30 @@ public final class SidecarSupervisor {
         }
         let file = services.readEngineFile()
         var alive = false
-        if let file {
-            alive = await services.isEngineAlive(file)
+        if let file, services.isProcessAlive(file.pid) {
+            if await !engineAnswers(port: file.port) {
+                Self.logger.warning(
+                    "o processo do casca.json está vivo, mas a porta não respondeu como Farol; abrindo como visor"
+                )
+            }
+            alive = true
+        }
+        if alive {
+            // O motor não é nosso e não há código para gastar: o visor usa o token guardado.
+            token = services.loadToken()
         }
         feed(.boot(existingEngine: file, engineAlive: alive))
+    }
+
+    /// Sonda a porta até `probeAttempts` vezes, com `probeRetryInterval` entre as sondas.
+    private func engineAnswers(port: Int) async -> Bool {
+        for attempt in 1...Self.probeAttempts {
+            if await services.isFarol(port) { return true }
+            if attempt < Self.probeAttempts {
+                try? await Task.sleep(for: .seconds(services.probeRetryInterval))
+            }
+        }
+        return false
     }
 
     /// O "Tentar de novo" do alerta de falha.
@@ -182,9 +108,15 @@ public final class SidecarSupervisor {
         feed(.restartNow)
     }
 
-    /// O "Checar agora" da bandeja; sem motor nosso pareado não há o que pedir.
+    /// O "Checar agora" da bandeja: com o nosso motor pareado ou, como visor, com o token
+    /// guardado; sem token não há o que pedir.
     public func checkNow() async {
-        guard case .ready(let port) = machine.phase, let token else {
+        let port: Int?
+        switch machine.phase {
+        case .ready(let current), .viewer(let current): port = current
+        default: port = nil
+        }
+        guard let port, let token else {
             Self.logger.notice("checar agora: sem motor pareado, nada a pedir")
             return
         }
@@ -195,8 +127,10 @@ public final class SidecarSupervisor {
         }
     }
 
-    /// Encerra: para de ouvir, cancela o que está pendente e para o motor (como visor, o
-    /// motor não é nosso e o `stop()` não tem processo a parar).
+    /// Encerra: para de ouvir, cancela o que está pendente, espera a subida em andamento e
+    /// para o motor (como visor, o motor não é nosso e o `stop()` não tem processo a parar).
+    /// Sem esperar a subida, o `stop()` chegaria antes do processo existir e o motor ficaria
+    /// órfão depois que o app saísse.
     public func shutdown() async {
         shuttingDown = true
         exitTask?.cancel()
@@ -205,6 +139,7 @@ public final class SidecarSupervisor {
         restartTask?.cancel()
         restartTask = nil
         await detachEvents()?.stop()
+        await spawnTask?.value
         await services.engine.stop()
     }
 
@@ -219,6 +154,8 @@ public final class SidecarSupervisor {
 
     private func perform(_ effect: SidecarEffect) {
         switch effect {
+        case .stopEngine:
+            stopEngine()
         case .spawn:
             spawn()
         case .waitFile:
@@ -260,13 +197,31 @@ public final class SidecarSupervisor {
 
     // MARK: Efeitos
 
+    private func stopEngine() {
+        Self.logger.notice("a ui/ recusou o token; parando o motor para parear com um código novo")
+        cancelPending()
+        if let source = detachEvents() {
+            Task { await source.stop() }
+        }
+        token = nil
+        let engine = services.engine
+        let pendingSpawn = spawnTask
+        stopTask = Task {
+            await pendingSpawn?.value
+            await engine.stop()
+        }
+    }
+
     private func spawn() {
         token = nil
-        services.removeEngineFile()
-        let engine = services.engine
-        Task { [weak self] in
+        let services = services
+        let pendingStop = stopTask
+        stopTask = nil
+        spawnTask = Task { [weak self] in
+            await pendingStop?.value
+            Self.removeStaleEngineFile(services: services)
             do {
-                try await engine.start()
+                try await services.engine.start()
             } catch {
                 Self.logger.error("motor não subiu: \(String(describing: error), privacy: .public)")
                 self?.engineExited(code: 1)
@@ -274,13 +229,25 @@ public final class SidecarSupervisor {
         }
     }
 
+    /// Apaga o `casca.json` de um processo que não existe mais; o de um processo vivo fica.
+    private nonisolated static func removeStaleEngineFile(services: SidecarServices) {
+        if let file = services.readEngineFile(), services.isProcessAlive(file.pid) {
+            logger.notice("o casca.json é de um processo vivo; mantido")
+            return
+        }
+        services.removeEngineFile()
+    }
+
     private func waitForFile() {
         waitTask?.cancel()
         let services = services
+        let pendingSpawn = spawnTask
         waitTask = Task { [weak self] in
+            await pendingSpawn?.value
+            guard !Task.isCancelled else { return }
             do {
                 let file = try await services.waitForEngineFile()
-                self?.feed(.fileAppeared(file))
+                self?.engineFilePublished(file)
             } catch is CancellationError {
                 return
             } catch {
@@ -289,6 +256,23 @@ public final class SidecarSupervisor {
                 await services.engine.stop()
                 self?.engineExited(code: 1)
             }
+        }
+    }
+
+    private func engineFilePublished(_ file: EngineFile) {
+        guard !shuttingDown else { return }
+        feed(.fileAppeared(file))
+        scheduleStable()
+    }
+
+    /// A janela de estabilidade: sem saída do motor até o fim dela, as falhas zeram.
+    private func scheduleStable() {
+        stableTask?.cancel()
+        let window = services.stabilityWindow
+        stableTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(window)) } catch { return }
+            guard !Task.isCancelled else { return }
+            self?.feed(.stable)
         }
     }
 
@@ -336,7 +320,7 @@ public final class SidecarSupervisor {
     }
 
     private func openWindow(port: Int, viewer: Bool) {
-        let token = viewer ? nil : self.token
+        let token = self.token
         ui?.openWindow(port: port, token: token, viewer: viewer)
         guard let token else { return }
         let source = services.makeEventSource(port, token)
@@ -345,7 +329,10 @@ public final class SidecarSupervisor {
         eventsTask?.cancel()
         eventsTask = Task { [weak self] in
             await previous?.stop()
+            // Cancelada antes ou durante a subida (o motor saiu): a fonte nova não fica de pé.
+            guard !Task.isCancelled else { return await source.stop() }
             await source.start()
+            guard !Task.isCancelled else { return await source.stop() }
             for await output in source.events {
                 guard let self, !Task.isCancelled else { return }
                 self.handle(output)
@@ -371,7 +358,10 @@ public final class SidecarSupervisor {
             break
         case .unauthorized:
             token = nil
-            feed(.unauthorized(current: services.readEngineFile()))
+            if let source = detachEvents() {
+                Task { await source.stop() }
+            }
+            feed(.unauthorized)
         }
     }
 
@@ -392,6 +382,8 @@ public final class SidecarSupervisor {
         waitTask = nil
         pairTask?.cancel()
         pairTask = nil
+        stableTask?.cancel()
+        stableTask = nil
     }
 
     /// Solta o fluxo de eventos atual na hora (o próximo `.openWindow` nunca é parado por

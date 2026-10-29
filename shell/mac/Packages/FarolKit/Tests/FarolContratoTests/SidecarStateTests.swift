@@ -121,45 +121,90 @@ private func readyMachine(port: Int = 47170, code: String = "K7QMZP2XWD") -> Sid
     #expect(machine.phase == .waitingForFile)
 }
 
-@Test func fileAppearedResetsTheFailureCounter() {
-    var machine = readyMachine()
+@Test func fileAppearedAloneDoesNotResetTheFailureCounter() {
+    var machine = SidecarMachine()
+    _ = machine.on(.boot(existingEngine: nil, engineAlive: false))
+    var last: [SidecarEffect] = []
+    for _ in 1...5 {
+        _ = machine.on(.fileAppeared(engineFile()))
+        last = machine.on(.exited(code: 1))
+        _ = machine.on(.restartNow)
+    }
+    let reason = "o motor não ficou de pé depois de 5 tentativas"
+    #expect(last == [.showFailure(reason)])
+    #expect(machine.consecutiveFailures == 5)
+}
+
+@Test func stableResetsTheFailureCounter() {
+    var machine = SidecarMachine()
+    _ = machine.on(.boot(existingEngine: nil, engineAlive: false))
     for _ in 1...4 {
+        _ = machine.on(.fileAppeared(engineFile()))
         _ = machine.on(.exited(code: 1))
         _ = machine.on(.restartNow)
     }
     #expect(machine.consecutiveFailures == 4)
     _ = machine.on(.fileAppeared(engineFile()))
+    #expect(machine.on(.stable) == [])
     #expect(machine.consecutiveFailures == 0)
     #expect(machine.on(.exited(code: 1)) == [.restart(after: 1)])
     #expect(machine.phase == .restarting(in: 1))
 }
 
-@Test func unauthorizedRepairsOnceThenOpensTheWindow() {
+@Test func stableInsideTheWindowKeepsTheMachineGoing() {
+    var machine = SidecarMachine()
+    _ = machine.on(.boot(existingEngine: nil, engineAlive: false))
+    for _ in 1...6 {
+        _ = machine.on(.fileAppeared(engineFile()))
+        _ = machine.on(.stable)
+        #expect(machine.on(.exited(code: 1)) == [.restart(after: 1)])
+        _ = machine.on(.restartNow)
+    }
+    #expect(machine.consecutiveFailures == 1)
+}
+
+@Test func unauthorizedRestartsOurEngineOnceThenOpensTheWindow() {
     var machine = readyMachine(port: 47175, code: "PRIMEIRO01")
-    let current = engineFile(port: 47175, code: "ATUAL00001")
-    #expect(machine.on(.unauthorized(current: current)) == [.pair(code: "ATUAL00001", port: 47175)])
-    #expect(machine.phase == .pairing)
-    #expect(machine.on(.paired) == [.openWindow(port: 47175, viewer: false)])
-    #expect(machine.on(.unauthorized(current: current)) == [.openWindow(port: 47175, viewer: false)])
-    #expect(machine.phase == .ready(port: 47175))
+    #expect(machine.on(.unauthorized) == [.stopEngine, .spawn, .waitFile])
+    #expect(machine.phase == .waitingForFile)
+    #expect(machine.consecutiveFailures == 0)
+    #expect(
+        machine.on(.fileAppeared(engineFile(port: 47176, code: "NOVO000001"))) == [
+            .pair(code: "NOVO000001", port: 47176)
+        ])
+    #expect(machine.on(.paired) == [.openWindow(port: 47176, viewer: false)])
+    #expect(machine.on(.unauthorized) == [.openWindow(port: 47176, viewer: false)])
+    #expect(machine.phase == .ready(port: 47176))
+    #expect(machine.consecutiveFailures == 0)
 }
 
-@Test func unauthorizedWithoutFileOpensTheWindow() {
+@Test func unauthorizedRestartAllowedAgainAfterANewEngineRun() {
     var machine = readyMachine(port: 47175)
-    #expect(machine.on(.unauthorized(current: nil)) == [.openWindow(port: 47175, viewer: false)])
-    #expect(machine.phase == .ready(port: 47175))
-}
-
-@Test func unauthorizedRepairAllowedAgainAfterANewEngineRun() {
-    var machine = readyMachine(port: 47175)
-    _ = machine.on(.unauthorized(current: engineFile(port: 47175)))
+    _ = machine.on(.unauthorized)
+    _ = machine.on(.fileAppeared(engineFile(port: 47175)))
     _ = machine.on(.paired)
     _ = machine.on(.exited(code: 75))
     _ = machine.on(.restartNow)
     _ = machine.on(.fileAppeared(engineFile(port: 47176)))
     _ = machine.on(.paired)
-    let effects = machine.on(.unauthorized(current: engineFile(port: 47176, code: "NOVO000001")))
-    #expect(effects == [.pair(code: "NOVO000001", port: 47176)])
+    #expect(machine.on(.unauthorized) == [.stopEngine, .spawn, .waitFile])
+}
+
+@Test func unauthorizedRestartAllowedAgainAfterStability() {
+    var machine = readyMachine(port: 47175)
+    _ = machine.on(.unauthorized)
+    _ = machine.on(.fileAppeared(engineFile(port: 47175)))
+    _ = machine.on(.paired)
+    _ = machine.on(.stable)
+    #expect(machine.on(.unauthorized) == [.stopEngine, .spawn, .waitFile])
+}
+
+@Test func unauthorizedInViewerReopensWithoutToken() {
+    var machine = SidecarMachine()
+    _ = machine.on(.boot(existingEngine: engineFile(port: 47180), engineAlive: true))
+    #expect(machine.on(.unauthorized) == [.openWindow(port: 47180, viewer: true)])
+    #expect(machine.on(.unauthorized) == [.openWindow(port: 47180, viewer: true)])
+    #expect(machine.phase == .viewer(port: 47180))
 }
 
 @Test func exitedInViewerIsIgnored() {
@@ -175,7 +220,8 @@ private func readyMachine(port: Int = 47170, code: String = "K7QMZP2XWD") -> Sid
     #expect(machine.on(.paired) == [])
     #expect(machine.on(.pairFailed) == [])
     #expect(machine.on(.restartNow) == [])
-    #expect(machine.on(.unauthorized(current: engineFile())) == [])
+    #expect(machine.on(.unauthorized) == [])
+    #expect(machine.on(.stable) == [])
     #expect(machine.on(.fileAppeared(engineFile())) == [])
     #expect(machine.phase == .starting)
 

@@ -35,6 +35,15 @@ private let stubbornNode = """
 
     """
 
+/// `node` falso que lê a entrada padrão até o fim: com `/dev/null` sai na hora; com o pipe
+/// retido pela casca fica esperando, como o motor que detecta o EOF quando o app morre.
+private let stdinReadingNode = """
+    if [ -p /dev/stdin ]; then echo pipe > "$FAROL_HOME/stdin.txt"; fi
+    echo $$ > "$FAROL_HOME/pids"
+    exec cat > /dev/null
+
+    """
+
 /// Tempo de CPU (usuário mais sistema) do processo de teste, em segundos.
 private func processCPUSeconds() -> Double {
     var usage = rusage()
@@ -161,6 +170,25 @@ private func pids(in dir: URL, count: Int) async throws -> [Int32] {
         await engine.stop()
         #expect(!EngineProbe.isProcessAlive(pid: second))
         #expect(await firstValue(of: engine.exitCodes, within: 0.5) == nil)
+    }
+
+    @Test func standardInputIsAPipeHeldOpenWhileTheEngineLives() async throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let node = try writeScript(stdinReadingNode, named: "node", in: dir)
+        let engine = EngineProcess(
+            node: node, serverJS: dir.appendingPathComponent("server.js"), home: dir,
+            shellVersion: "3.0.0")
+
+        try await engine.start()
+        let pid = try await pids(in: dir, count: 1)[0]
+        #expect(await firstValue(of: engine.exitCodes, within: 0.5) == nil)
+        #expect(EngineProbe.isProcessAlive(pid: pid))
+        let kind = try String(contentsOf: dir.appendingPathComponent("stdin.txt"), encoding: .utf8)
+        #expect(kind == "pipe\n")
+
+        await engine.stop()
+        #expect(!EngineProbe.isProcessAlive(pid: pid))
     }
 
     @Test func waitForEngineFileTimesOutOnEmptyDirectory() async throws {

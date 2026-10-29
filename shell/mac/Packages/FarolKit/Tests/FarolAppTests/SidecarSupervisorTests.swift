@@ -8,21 +8,36 @@ import os
 
 // MARK: Falsos
 
-/// Motor falso: conta subidas e paradas, e o teste decide quando ele "sai".
+/// Motor falso: registra subidas e paradas em ordem, e o teste decide quando ele "sai" e
+/// quando uma subida pendente termina.
 final class FakeEngine: EngineControl {
     let exitCodes: AsyncStream<Int32>
     private let continuation: AsyncStream<Int32>.Continuation
-    private let counts = OSAllocatedUnfairLock(initialState: (starts: 0, stops: 0))
+    private let state = OSAllocatedUnfairLock(
+        initialState: (operations: [String](), entered: 0, holding: false))
 
     init() {
         (exitCodes, continuation) = AsyncStream.makeStream(of: Int32.self)
     }
 
-    var starts: Int { counts.withLock { $0.starts } }
-    var stops: Int { counts.withLock { $0.stops } }
+    var starts: Int { operations.filter { $0 == "start" }.count }
+    var stops: Int { operations.filter { $0 == "stop" }.count }
+    /// "start" e "stop" na ordem em que terminaram.
+    var operations: [String] { state.withLock { $0.operations } }
+    /// Quantas subidas começaram (terminadas ou não).
+    var entered: Int { state.withLock { $0.entered } }
 
-    func start() async throws { counts.withLock { $0.starts += 1 } }
-    func stop() async { counts.withLock { $0.stops += 1 } }
+    /// Com `true`, a próxima subida fica pendente até `holdStarts(false)`.
+    func holdStarts(_ hold: Bool) { state.withLock { $0.holding = hold } }
+
+    func start() async throws {
+        state.withLock { $0.entered += 1 }
+        while state.withLock({ $0.holding }) {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        state.withLock { $0.operations.append("start") }
+    }
+    func stop() async { state.withLock { $0.operations.append("stop") } }
     func exit(_ code: Int32) { continuation.yield(code) }
 }
 
@@ -84,24 +99,53 @@ final class FakePairing: Sendable {
     }
 }
 
-/// Fluxo de eventos falso, um por pareamento.
+/// Fluxo de eventos falso, um por pareamento; registra subidas e paradas em ordem.
 final class FakeEventSource: EventSource {
     let events: AsyncStream<EventStreamOutput>
     let token: String
+    private let startDelay: Duration
     private let continuation: AsyncStream<EventStreamOutput>.Continuation
-    private let flags = OSAllocatedUnfairLock(initialState: (started: false, stopped: false))
+    private let log = OSAllocatedUnfairLock(initialState: [String]())
 
-    init(token: String) {
+    init(token: String, startDelay: Duration = .zero) {
         self.token = token
+        self.startDelay = startDelay
         (events, continuation) = AsyncStream.makeStream(of: EventStreamOutput.self)
     }
 
-    var started: Bool { flags.withLock { $0.started } }
-    var stopped: Bool { flags.withLock { $0.stopped } }
+    var operations: [String] { log.withLock { $0 } }
+    var started: Bool { operations.contains("start") }
+    var stopped: Bool { operations.contains("stop") }
 
-    func start() async { flags.withLock { $0.started = true } }
-    func stop() async { flags.withLock { $0.stopped = true } }
+    func start() async {
+        if startDelay > .zero { try? await Task.sleep(for: startDelay) }
+        log.withLock { $0.append("start") }
+    }
+    func stop() async { log.withLock { $0.append("stop") } }
     func send(_ output: EventStreamOutput) { continuation.yield(output) }
+}
+
+/// Os processos vivos e a sonda do Farol vistos pelo supervisor.
+final class FakeProbe: Sendable {
+    private struct State {
+        var alivePids: Set<Int32> = []
+        var farolAnswers: [Bool] = []
+        var probes = 0
+    }
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    var probes: Int { state.withLock { $0.probes } }
+    func setAlive(_ pids: Set<Int32>) { state.withLock { $0.alivePids = pids } }
+    /// As respostas das próximas sondas, em ordem; acabou a fila, a sonda falha.
+    func answer(_ answers: [Bool]) { state.withLock { $0.farolAnswers = answers } }
+
+    func isAlive(_ pid: Int32) -> Bool { state.withLock { $0.alivePids.contains(pid) } }
+    func isFarol() -> Bool {
+        state.withLock { state in
+            state.probes += 1
+            return state.farolAnswers.isEmpty ? false : state.farolAnswers.removeFirst()
+        }
+    }
 }
 
 /// Guarda o que o supervisor criou e o que ele dormiu.
@@ -110,6 +154,7 @@ final class Recorder: Sendable {
         var sources: [FakeEventSource] = []
         var sleeps: [Double] = []
         var tokens: [String] = []
+        var checks: [String] = []
         var reopenVersion: String?
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -117,10 +162,12 @@ final class Recorder: Sendable {
     var sources: [FakeEventSource] { state.withLock { $0.sources } }
     var sleeps: [Double] { state.withLock { $0.sleeps } }
     var tokens: [String] { state.withLock { $0.tokens } }
+    var checks: [String] { state.withLock { $0.checks } }
 
     func add(_ source: FakeEventSource) { state.withLock { $0.sources.append(source) } }
     func slept(_ seconds: Double) { state.withLock { $0.sleeps.append(seconds) } }
     func saved(_ token: String) { state.withLock { $0.tokens.append(token) } }
+    func checked(port: Int, token: String) { state.withLock { $0.checks.append("\(port) \(token)") } }
     func setReopenVersion(_ version: String?) { state.withLock { $0.reopenVersion = version } }
     func takeReopenVersion() -> String? {
         state.withLock { state in
@@ -162,33 +209,44 @@ private struct Harness {
     let engine = FakeEngine()
     let files = FakeFiles()
     let pairing = FakePairing()
+    let probe = FakeProbe()
     let recorder = Recorder()
     let ui = FakeShellUI()
     let supervisor: SidecarSupervisor
 
-    init(alive: Bool = false) {
+    /// `storedToken` é o que o Keychain devolve; `stabilityWindow` vale 60 s como no app, e
+    /// os testes da janela passam um valor curto.
+    init(
+        storedToken: String? = nil, stabilityWindow: Double = 60,
+        sourceStartDelay: Duration = .zero
+    ) {
         let files = files
         let pairing = pairing
+        let probe = probe
         let recorder = recorder
         let services = SidecarServices(
             engine: engine,
             readEngineFile: { files.current },
             removeEngineFile: { files.remove() },
             waitForEngineFile: { try await files.wait() },
-            isEngineAlive: { _ in alive },
+            isProcessAlive: { probe.isAlive($0) },
+            isFarol: { _ in probe.isFarol() },
             pair: { try await pairing.pair(port: $0, code: $1) },
             saveToken: { recorder.saved($0) },
+            loadToken: { storedToken },
             makeEventSource: { _, token in
-                let source = FakeEventSource(token: token)
+                let source = FakeEventSource(token: token, startDelay: sourceStartDelay)
                 recorder.add(source)
                 return source
             },
-            checkNow: { _, _ in },
+            checkNow: { port, token in recorder.checked(port: port, token: token) },
             consumeSilentReopen: { recorder.takeReopenVersion() },
             sleep: { seconds in
                 recorder.slept(seconds)
                 await Task.yield()
-            }
+            },
+            stabilityWindow: stabilityWindow,
+            probeRetryInterval: 0
         )
         supervisor = SidecarSupervisor(services: services, ui: ui)
     }
@@ -242,8 +300,10 @@ private func bootToReady(_ h: Harness) async {
     }
 
     @Test func bootWithLiveEngineOpensAsViewerWithoutSpawning() async {
-        let h = Harness(alive: true)
+        let h = Harness()
         h.files.current = engineFile(code: "OUTRO")
+        h.probe.setAlive([4242])
+        h.probe.answer([true])
 
         await h.supervisor.boot()
 
@@ -287,24 +347,179 @@ private func bootToReady(_ h: Harness) async {
         #expect(await eventually { h.engine.starts == 6 })
     }
 
-    @Test func unauthorizedRepairsOnceThenReopensWithoutToken() async {
+    @Test func unauthorizedRestartsTheEngineOnceThenReopensWithoutToken() async {
         let h = Harness()
         await bootToReady(h)
-        h.files.current = engineFile(code: "C2")
+        h.files.current = engineFile(code: "C1")
         h.pairing.enqueue(.success("tok2"))
 
         h.recorder.sources[0].send(.unauthorized)
 
+        #expect(await eventually { h.engine.starts == 2 })
+        #expect(h.engine.operations == ["start", "stop", "start"])
+        #expect(h.recorder.sources[0].stopped)
+        #expect(h.supervisor.phase == .waitingForFile)
+        h.files.publish(engineFile(code: "C2"))
+
         #expect(await eventually { h.recorder.sources.count == 2 && h.recorder.sources[1].started })
         #expect(h.pairing.codes == ["C1", "C2"])
         #expect(h.ui.windows.last == .init(port: 47190, token: "tok2", viewer: false))
+        #expect(h.supervisor.consecutiveFailures == 0)
 
         h.recorder.sources[1].send(.unauthorized)
 
         #expect(await eventually { h.ui.windows.count == 3 })
         #expect(h.ui.windows.last == .init(port: 47190, token: nil, viewer: false))
         #expect(h.pairing.codes == ["C1", "C2"])
+        #expect(h.engine.operations == ["start", "stop", "start"])
         #expect(h.recorder.sources.count == 2)
+        #expect(await eventually { h.recorder.sources[1].stopped })
+        #expect(h.supervisor.consecutiveFailures == 0)
+    }
+
+    @Test func viewerWithStoredTokenOpensWithTheTokenAndListens() async {
+        let h = Harness(storedToken: "guardado")
+        h.files.current = engineFile(code: "OUTRO")
+        h.probe.setAlive([4242])
+        h.probe.answer([true])
+
+        await h.supervisor.boot()
+
+        #expect(h.ui.windows == [.init(port: 47190, token: "guardado", viewer: true)])
+        #expect(await eventually { h.recorder.sources.first?.started == true })
+        #expect(h.recorder.sources.map(\.token) == ["guardado"])
+
+        await h.supervisor.checkNow()
+        #expect(h.recorder.checks == ["47190 guardado"])
+
+        h.recorder.sources[0].send(.unauthorized)
+
+        #expect(await eventually { h.ui.windows.count == 2 })
+        #expect(h.ui.windows.last == .init(port: 47190, token: nil, viewer: true))
+        #expect(await eventually { h.recorder.sources[0].stopped })
+        #expect(h.recorder.sources.count == 1)
+        #expect(h.engine.entered == 0)
+        #expect(h.pairing.codes.isEmpty)
+        #expect(h.supervisor.phase == .viewer(port: 47190))
+
+        await h.supervisor.checkNow()
+        #expect(h.recorder.checks == ["47190 guardado"])
+    }
+
+    @Test func engineExitWhileTheEventSourceStartsLeavesNoSourceRunning() async {
+        let h = Harness(sourceStartDelay: .milliseconds(80))
+        h.pairing.enqueue(.success("tok1"))
+        await h.supervisor.boot()
+        _ = await eventually { h.engine.starts == 1 }
+        h.files.publish(engineFile(code: "C1"))
+        _ = await eventually { h.recorder.sources.count == 1 }
+
+        h.engine.exit(1)
+
+        #expect(await eventually { h.engine.starts == 2 })
+        try? await Task.sleep(for: .milliseconds(200))
+        let operations = h.recorder.sources[0].operations
+        #expect(operations.last == "stop")
+    }
+
+    @Test func engineThatDiesBeforeTheStabilityWindowShowsTheAlert() async {
+        let h = Harness()
+        await h.supervisor.boot()
+        for attempt in 1...5 {
+            _ = await eventually { h.engine.starts == attempt }
+            h.pairing.enqueue(.success("tok\(attempt)"))
+            h.files.publish(engineFile(code: "C\(attempt)"))
+            _ = await eventually { h.ui.windows.count == attempt }
+            h.engine.exit(1)
+        }
+
+        #expect(await eventually { h.ui.failures.count == 1 })
+        #expect(h.engine.starts == 5)
+        #expect(h.recorder.sleeps == [1, 2, 4, 8])
+        #expect(h.supervisor.consecutiveFailures == 5)
+    }
+
+    @Test func engineThatStaysUpThroughTheWindowResetsTheFailures() async {
+        let h = Harness(stabilityWindow: 0.05)
+        await h.supervisor.boot()
+        for attempt in 1...5 {
+            _ = await eventually { h.engine.starts == attempt }
+            h.pairing.enqueue(.success("tok\(attempt)"))
+            h.files.publish(engineFile(code: "C\(attempt)"))
+            _ = await eventually { h.ui.windows.count == attempt }
+            try? await Task.sleep(for: .milliseconds(150))
+            h.engine.exit(1)
+        }
+
+        #expect(await eventually { h.engine.starts == 6 })
+        #expect(h.ui.failures.isEmpty)
+        #expect(h.recorder.sleeps == [1, 1, 1, 1, 1])
+    }
+
+    @Test func liveEnginePidWithSlowProbeOpensViewerAndKeepsTheFile() async {
+        let h = Harness()
+        h.files.current = engineFile(code: "OUTRO")
+        h.probe.setAlive([4242])
+        h.probe.answer([false, false, true])
+
+        await h.supervisor.boot()
+
+        #expect(h.probe.probes == 3)
+        #expect(h.ui.windows == [.init(port: 47190, token: nil, viewer: true)])
+        #expect(h.engine.entered == 0)
+        #expect(h.files.removals == 0)
+    }
+
+    @Test func liveEnginePidThatNeverAnswersStillPrefersTheViewer() async {
+        let h = Harness()
+        h.files.current = engineFile(code: "OUTRO")
+        h.probe.setAlive([4242])
+
+        await h.supervisor.boot()
+
+        #expect(h.probe.probes == 3)
+        #expect(h.supervisor.phase == .viewer(port: 47190))
+        #expect(h.engine.entered == 0)
+        #expect(h.files.removals == 0)
+    }
+
+    @Test func deadEnginePidIsSpawnedOverAndTheOldFileRemoved() async {
+        let h = Harness()
+        h.files.current = engineFile(code: "VELHO")
+
+        await h.supervisor.boot()
+
+        #expect(await eventually { h.engine.starts == 1 })
+        #expect(h.probe.probes == 0)
+        #expect(h.files.removals == 1)
+    }
+
+    @Test func spawnKeepsTheFileOfALiveProcess() async {
+        let h = Harness()
+        await bootToReady(h)
+        #expect(h.files.removals == 1)
+        h.files.current = engineFile(code: "C1", pid: 5151)
+        h.probe.setAlive([5151])
+
+        h.recorder.sources[0].send(.unauthorized)
+
+        #expect(await eventually { h.engine.starts == 2 })
+        #expect(h.files.removals == 1)
+    }
+
+    @Test func shutdownDuringAPendingSpawnStopsAfterTheStart() async {
+        let h = Harness()
+        h.engine.holdStarts(true)
+        await h.supervisor.boot()
+        _ = await eventually { h.engine.entered == 1 }
+
+        let supervisor = h.supervisor
+        let shutdown = Task { await supervisor.shutdown() }
+        try? await Task.sleep(for: .milliseconds(50))
+        h.engine.holdStarts(false)
+        await shutdown.value
+
+        #expect(h.engine.operations == ["start", "stop"])
     }
 
     @Test func refusedPairingOpensTheWindowWithoutToken() async {
