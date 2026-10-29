@@ -1,0 +1,20 @@
+# Farol, web hospedada: unidade systemd de USUARIO, uma por pessoa.
+# Instalada pelo tools/web/provisionar-pessoa.sh em ~/.config/systemd/user/farol.service.
+# @NODE@ vira o caminho ABSOLUTO do node (o systemd de usuario tem PATH minimo e nao ve o nvm),
+# @PORTA@ vira a porta da pessoa em /etc/farol/portas (a mesma do ~/.farol/config.json, que
+# e de onde o motor le de verdade; aqui ela so documenta) e @AMBIENTE_EXTRA@ vira uma linha
+# Environment= a mais, ou nada.
+[Unit]
+Description=Farol (porta @PORTA@)
+
+[Service]
+Type=simple
+Environment=FAROL_HOME=%h/.farol
+@AMBIENTE_EXTRA@
+WorkingDirectory=%h/.farol/app
+ExecStart=@NODE@ %h/.farol/app/server.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
