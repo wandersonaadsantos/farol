@@ -44,7 +44,11 @@ public sealed class EngineProcess : IDisposable
     /// </summary>
     public string EngineFilePath { get; }
 
-    /// <summary>O código de saída de cada término do filho, na ordem em que acontecem.</summary>
+    /// <summary>
+    /// O código de saída de cada término do filho, na ordem em que acontecem. O canal tem um
+    /// consumidor só: duas enumerações ao mesmo tempo dividiriam os códigos entre si. Termina
+    /// no <see cref="Dispose"/>.
+    /// </summary>
     public IAsyncEnumerable<int> ExitCodes => _exitCodes.Reader.ReadAllAsync();
 
     /// <summary>O pid do filho mais recente, ou <c>null</c> se nunca subiu.</summary>
@@ -126,7 +130,15 @@ public sealed class EngineProcess : IDisposable
             process.OutputDataReceived += (_, _) => { };
             process.ErrorDataReceived += (_, e) => KeepStderr(e.Data);
             process.Exited += (_, _) => _exitCodes.Writer.TryWrite(SafeExitCode(process));
-            process.Start();
+            try
+            {
+                process.Start();
+            }
+            catch
+            {
+                process.Dispose();
+                throw;
+            }
             if (OperatingSystem.IsWindows())
             {
                 AssignToJob(process);
@@ -198,6 +210,7 @@ public sealed class EngineProcess : IDisposable
             _job?.Dispose();
             _job = null;
         }
+        _exitCodes.Writer.TryComplete();
     }
 
     // Um job por EngineProcess, criado no primeiro spawn e reaproveitado nos seguintes. O handle
@@ -220,6 +233,12 @@ public sealed class EngineProcess : IDisposable
             if (_job is null)
             {
                 _jobFailed = true;
+            }
+            if (_job is not null && HasExited(process))
+            {
+                // O filho saiu antes da atribuição: não há o que pôr no job, e o código de saída
+                // já segue pelo canal.
+                return;
             }
             _log?.Invoke("WARN não consegui pôr o motor num Job Object: " + e.Message);
         }
@@ -272,12 +291,12 @@ public sealed class EngineProcess : IDisposable
 
     private static async Task RunTaskkillAsync(string arguments)
     {
+        // Sem redirecionar a saída: o taskkill imprime uma linha por processo morto, e um pipe que
+        // ninguém lê enche com uma árvore grande e o trava no meio. CreateNoWindow já esconde a janela.
         var info = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "taskkill.exe"), arguments)
         {
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
         };
         try
         {

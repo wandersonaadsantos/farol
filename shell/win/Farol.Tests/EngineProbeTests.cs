@@ -101,6 +101,23 @@ public sealed class EngineProbeTests
     }
 
     [Fact]
+    public async Task CallerCancellationPropagates()
+    {
+        var (listener, port) = Serve("""{"exigida":true}""");
+        try
+        {
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => EngineProbe.IsFarolAsync(port, cts.Token));
+        }
+        finally
+        {
+            listener.Close();
+        }
+    }
+
+    [Fact]
     public async Task ClosedPortIsNotFarol()
     {
         Assert.False(await EngineProbe.IsFarolAsync(FreePort()));

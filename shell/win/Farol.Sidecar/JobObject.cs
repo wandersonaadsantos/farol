@@ -5,14 +5,27 @@ using Microsoft.Win32.SafeHandles;
 namespace Farol.Sidecar;
 
 /// <summary>
-/// Job Object do Windows com <c>JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE</c>: o motor posto aqui
-/// morre quando o último handle do job fecha, inclusive quando a casca cai sem chance de parar
-/// o filho (o handle é do processo da casca e o sistema o fecha junto). Só existe no Windows.
+/// Job Object do Windows com <c>JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE</c> e
+/// <c>JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK</c>. Só existe no Windows.
 /// </summary>
+/// <remarks>
+/// O job segura SÓ o node que a casca abriu: com o breakaway silencioso, todo filho que ele
+/// abre nasce fora do job. É de propósito: o motor abre terminais visíveis por
+/// <c>powershell Start-Process cmd.exe</c>, e dentro do job fechar a casca mataria a sessão
+/// interativa do Claude Code que a pessoa tem aberta, o que o Electron não faz hoje.
+/// O que isso dá:
+/// parada normal sem mudança: <c>taskkill /T /F</c> mata o motor e os filhos headless pela
+/// cadeia de pais, e os terminais sobrevivem porque o powershell que os abriu já saiu, como hoje;
+/// casca que cai: o sistema fecha o handle do job (é do processo da casca) e o node aberto morre;
+/// se esse node era o bootstrap, o motor reexecutado vê o pai sumir (<c>vigiarPai</c>) e sai pelo
+/// caminho ordenado, levando os próprios filhos; se era o motor direto, filhos headless podem
+/// ficar órfãos (custo aceito).
+/// </remarks>
 internal sealed class JobObject : IDisposable
 {
     private const int JobObjectExtendedLimitInformation = 9;
     private const uint JobObjectLimitKillOnJobClose = 0x2000;
+    private const uint JobObjectLimitSilentBreakawayOk = 0x1000;
 
     private readonly JobHandle _handle;
 
@@ -40,7 +53,7 @@ internal sealed class JobObject : IDisposable
         {
             BasicLimitInformation = new JobObjectBasicLimitInformation
             {
-                LimitFlags = JobObjectLimitKillOnJobClose,
+                LimitFlags = JobObjectLimitKillOnJobClose | JobObjectLimitSilentBreakawayOk,
             },
         };
         var size = Marshal.SizeOf<JobObjectExtendedLimitInformationData>();

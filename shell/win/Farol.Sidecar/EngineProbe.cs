@@ -46,6 +46,12 @@ public static class EngineProbe
             return doc.RootElement.ValueKind == JsonValueKind.Object
                 && doc.RootElement.TryGetProperty("exigida", out _);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cancelamento de quem chamou não é resposta sobre a porta: sobe. O prazo interno de
+            // 2 s cai no catch de baixo como "não é Farol".
+            throw;
+        }
         catch (Exception)
         {
             // Porta fechada, outro programa, corpo que não é JSON, prazo: nada disso é um Farol.

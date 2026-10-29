@@ -43,13 +43,14 @@ public sealed class EngineProcessTests : IDisposable
                 Fake.ExitsWith3 => "exit /b 3\r\n",
                 Fake.OnlySleeps => "ping -n 31 127.0.0.1 > nul\r\n",
                 _ =>
-                    "> \"%FAROL_HOME%\\env.txt\" (\r\n"
+                    "(\r\n"
                     + "echo FAROL_SHELL=%FAROL_SHELL%\r\n"
                     + "echo FAROL_SHELL_VERSION=%FAROL_SHELL_VERSION%\r\n"
                     + "echo FAROL_HOME=%FAROL_HOME%\r\n"
-                    + ")\r\n"
+                    + ") > \"%FAROL_HOME%\\env.txt\"\r\n"
                     + "if not exist \"%FAROL_HOME%\\state\" mkdir \"%FAROL_HOME%\\state\"\r\n"
-                    + "> \"%FAROL_HOME%\\state\\casca.json\" echo {\"porta\":47170,\"pid\":1,\"versao\":\"9.9.9\",\"codigoPareamento\":\"NOVO\",\"iniciadoEm\":0}\r\n"
+                    // O cmd não sabe o próprio pid; 99999 é um pid falso de propósito (os testes não o leem).
+                    + "(echo {\"porta\":47170,\"pid\":99999,\"versao\":\"9.9.9\",\"codigoPareamento\":\"NOVO\",\"iniciadoEm\":0}) > \"%FAROL_HOME%\\state\\casca.json\"\r\n"
                     + "ping -n 31 127.0.0.1 > nul\r\n",
             };
             var cmd = Path.Combine(_dir, "node.cmd");
@@ -208,6 +209,22 @@ public sealed class EngineProcessTests : IDisposable
         await engine.StartAsync();
 
         Assert.Equal(3, await NextExitCode(engine, TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task DisposeCompletesExitCodes()
+    {
+        var engine = NewProcess(Fake.OnlySleeps);
+        engine.Dispose();
+
+        var codes = new List<int>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await foreach (var code in engine.ExitCodes.WithCancellation(cts.Token))
+        {
+            codes.Add(code);
+        }
+
+        Assert.Empty(codes);
     }
 
     [Fact]
