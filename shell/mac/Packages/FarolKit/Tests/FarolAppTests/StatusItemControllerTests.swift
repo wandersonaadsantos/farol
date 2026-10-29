@@ -73,4 +73,23 @@ final class FakeStatusItemActions: StatusItemActions {
         controller.apply(state(label: ""))
         #expect(controller.statusItem.button?.toolTip == "Farol")
     }
+
+    @Test func bundledIconIsFound() {
+        #expect(StatusItemController.bundledIconURL() != nil)
+    }
+
+    @Test func missingFileGivesNoImage() {
+        let missing = URL(fileURLWithPath: "/nao/existe/tray.png")
+        #expect(StatusItemController.image(from: missing) == nil)
+        #expect(StatusItemController.image(from: nil) == nil)
+    }
+
+    @Test func withoutIconTheNameShowsInstead() {
+        let actions = FakeStatusItemActions()
+        let controller = StatusItemController(actions: actions, iconURL: nil)
+        defer { controller.remove() }
+
+        #expect(controller.statusItem.button?.image == nil)
+        #expect(controller.statusItem.button?.title == "Farol")
+    }
 }

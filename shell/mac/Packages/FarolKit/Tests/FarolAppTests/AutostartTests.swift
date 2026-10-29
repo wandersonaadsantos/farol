@@ -1,5 +1,6 @@
 import FarolContrato
 import Foundation
+import ServiceManagement
 import Testing
 import os
 
@@ -87,5 +88,12 @@ final class LogSink: Sendable {
         #expect(service.recorded == ["register"])
         #expect(sink.recorded.count == 1)
         #expect(sink.recorded.first?.contains("abrir junto com o sistema") == true)
+    }
+
+    @Test func enabledAndAwaitingApprovalCountAsRegistered() {
+        #expect(MainAppLoginItem.isRegistered(status: .enabled))
+        #expect(MainAppLoginItem.isRegistered(status: .requiresApproval))
+        #expect(!MainAppLoginItem.isRegistered(status: .notRegistered))
+        #expect(!MainAppLoginItem.isRegistered(status: .notFound))
     }
 }

@@ -14,7 +14,14 @@ public protocol LoginItemService: Sendable {
 public struct MainAppLoginItem: LoginItemService {
     public init() {}
 
-    public var isRegistered: Bool { SMAppService.mainApp.status == .enabled }
+    public var isRegistered: Bool { Self.isRegistered(status: SMAppService.mainApp.status) }
+
+    /// Ligado ou aguardando aprovação em Ajustes do Sistema contam como registrado: registrar
+    /// de novo enquanto a pessoa não aprova só repetiria a falha, e o item que aguarda
+    /// aprovação também precisa ser removido quando o motor desliga o autostart.
+    public static func isRegistered(status: SMAppService.Status) -> Bool {
+        status == .enabled || status == .requiresApproval
+    }
 
     public func register() throws { try SMAppService.mainApp.register() }
 
