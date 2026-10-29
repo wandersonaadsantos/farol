@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.13
+
+Revisões orientadas a comunicar com clareza por que um ponto impede o merge.
+
+### Correções
+
+- A orientação de escrita distingue obrigações comprovadas de sugestões opcionais, tanto no corpo quanto nos comentários inline. Um bloqueio deve explicar o motivo, a evidência e o que falta para liberar o merge, em vez de soar apenas como "vale padronizar".
+- Sugestões devem ser apresentadas como opcionais e não justificar um pedido de mudanças. O perfil do autor ajusta a explicação, preservando a classificação técnica. Convenções obrigatórias são descritas como exigências de conformidade, sem inventar falha funcional ou expor fontes privadas.
+
+Esta correção orienta a geração do texto; a adequação semântica da redação continua dependendo da revisão do modelo. Revisões já publicadas não são reescritas.
+
 ## v2.78.12
 
 Revisões preservam os critérios já comunicados ao autor e distinguem recomendação testada de hipótese.
