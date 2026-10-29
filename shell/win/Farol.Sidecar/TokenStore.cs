@@ -74,7 +74,8 @@ public sealed class TokenStore
         }
         try
         {
-            // Sem o RetrievePassword o Password vem vazio.
+            // O Retrieve já devolve a senha preenchida (o RetrievePassword só é obrigatório depois
+            // dos FindAll*); a chamada fica como garantia barata e não muda nada aqui.
             credential.RetrievePassword();
             return string.IsNullOrEmpty(credential.Password) ? null : credential.Password;
         }

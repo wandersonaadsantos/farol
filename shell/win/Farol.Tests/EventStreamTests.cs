@@ -184,6 +184,79 @@ public sealed class EventStreamTests
     }
 
     [Fact]
+    public async Task StartAfterStopWithUndrainedEventsDeliversTheNewStream()
+    {
+        var firstSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        FakeServer? server = null;
+        server = new FakeServer(async (ctx, n) =>
+        {
+            if (!Valid(ctx, server!.Port))
+            {
+                await FakeServer.Respond(ctx, 403, """{"error":"forbidden"}""");
+                return;
+            }
+            if (n == 1)
+            {
+                await Stream(ctx, ("casca", CascaBody));
+                firstSent.SetResult();
+                return;
+            }
+            await Stream(ctx, ("casca", CascaBody.Replace("\"contador\":3", "\"contador\":7", StringComparison.Ordinal)));
+        });
+        using (server)
+        {
+            var stream = new EventStream(server.Port, Token);
+            stream.Start();
+            await firstSent.Task.WaitAsync(Wait);
+            // folga para o cliente enfileirar o evento, que fica sem ser lido
+            await Task.Delay(300);
+            stream.Stop();
+
+            stream.Start();
+            await using var events = stream.Events.GetAsyncEnumerator();
+            var shell = Assert.IsType<ShellEvent.Shell>(await Next(events));
+            stream.Stop();
+
+            Assert.Equal(7, shell.BadgeCount);
+        }
+    }
+
+    [Fact]
+    public async Task RepeatedFailuresLogOneLineAndCleanEndsLogNothing()
+    {
+        var lines = new List<string>();
+        using var failing = new FakeServer((ctx, _) => FakeServer.Respond(ctx, 500, """{"error":"x"}"""));
+        var stream = new EventStream(failing.Port, Token, line => { lock (lines) { lines.Add(line); } },
+            initialBackoff: TimeSpan.FromMilliseconds(10));
+        stream.Start();
+        while (failing.Requests < 4)
+        {
+            await Task.Delay(20);
+        }
+        stream.Stop();
+        lock (lines)
+        {
+            Assert.Single(lines);
+            Assert.DoesNotContain(Token, lines[0], StringComparison.Ordinal);
+            lines.Clear();
+        }
+
+        using var clean = new FakeServer((ctx, _) => Stream(ctx, ("casca", CascaBody)));
+        var healthy = new EventStream(clean.Port, Token, line => { lock (lines) { lines.Add(line); } },
+            initialBackoff: TimeSpan.FromMilliseconds(10));
+        healthy.Start();
+        while (clean.Requests < 4)
+        {
+            await Task.Delay(20);
+        }
+        healthy.Stop();
+        lock (lines)
+        {
+            Assert.Empty(lines);
+        }
+    }
+
+    [Fact]
     public async Task LogNeverCarriesTheToken()
     {
         var lines = new List<string>();

@@ -14,3 +14,15 @@ public sealed class WindowsFactAttribute : FactAttribute
         }
     }
 }
+
+/// <summary>Fato do xUnit que só roda fora do Windows (o inverso de <see cref="WindowsFactAttribute"/>).</summary>
+public sealed class NonWindowsFactAttribute : FactAttribute
+{
+    public NonWindowsFactAttribute()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Skip = "Só roda fora do Windows";
+        }
+    }
+}

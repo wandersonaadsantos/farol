@@ -35,13 +35,9 @@ public sealed class TokenStoreTests
         }
     }
 
-    [Fact]
+    [NonWindowsFact]
     public void OutsideWindowsIsNotSupported()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
         var store = new TokenStore(TestResource);
 
         Assert.Throws<PlatformNotSupportedException>(() => store.Load());

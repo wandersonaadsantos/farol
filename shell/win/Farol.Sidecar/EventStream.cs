@@ -28,6 +28,9 @@ public sealed class EventStream
     private readonly object _gate = new();
 
     private Channel<ShellEvent> _channel = NewChannel();
+    // O canal atual já foi completado por um Stop. Não dá para ler isso do Reader.Completion,
+    // que só termina quando o último item enfileirado for lido.
+    private bool _channelStopped;
     private CancellationTokenSource? _cts;
     private Task? _loop;
 
@@ -81,7 +84,12 @@ public sealed class EventStream
         return doubled > Reconnect.MaxBackoff ? Reconnect.MaxBackoff : doubled;
     }
 
-    /// <summary>Abre o fluxo. Já aberto, não faz nada; depois de um <see cref="Stop"/>, abre de novo.</summary>
+    /// <summary>
+    /// Abre o fluxo. Já aberto, não faz nada; depois de um <see cref="Stop"/>, abre de novo num
+    /// canal novo (leia <see cref="Events"/> outra vez). Depois de um
+    /// <see cref="ShellEvent.Unauthorized"/> o laço já terminou: chame <see cref="Stop"/> antes de
+    /// abrir de novo, ou crie outra instância com o token novo.
+    /// </summary>
     public void Start()
     {
         lock (_gate)
@@ -90,9 +98,10 @@ public sealed class EventStream
             {
                 return;
             }
-            if (_channel.Reader.Completion.IsCompleted)
+            if (_channelStopped)
             {
                 _channel = NewChannel();
+                _channelStopped = false;
             }
             _cts = new CancellationTokenSource();
             _loop = RunAsync(_channel.Writer, _cts.Token);
@@ -114,6 +123,7 @@ public sealed class EventStream
             }
             _cts = null;
             _channel.Writer.TryComplete();
+            _channelStopped = true;
         }
     }
 
@@ -129,22 +139,27 @@ public sealed class EventStream
             Timeout = Timeout.InfiniteTimeSpan,
         };
         var backoff = _initialBackoff;
+        // Só falha vai ao log: uma linha quando a reconexão continua falhando depois da primeira
+        // tentativa, e outra só se voltar a falhar depois de uma conexão sã.
+        var failures = 0;
         while (!ct.IsCancellationRequested)
         {
             ConnectionResult result;
+            string? reason = null;
             try
             {
-                result = await ConnectAsync(client, writer, ct).ConfigureAwait(false);
+                (result, reason) = await ConnectAsync(client, writer, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 return;
             }
-            catch (Exception e) when (e is HttpRequestException or IOException or OperationCanceledException)
+            catch (Exception e)
             {
-                // A mensagem dessas exceções traz no máximo o endereço, que não leva o token.
-                _log?.Invoke($"WARN eventos: conexão caiu ({e.GetType().Name}: {e.Message})");
+                // Só o tipo: a mensagem pode trazer pedaço de corpo. Qualquer exceção religa com
+                // recuo, para o laço nunca morrer calado.
                 result = ConnectionResult.Failed;
+                reason = e.GetType().Name;
             }
 
             if (result == ConnectionResult.Unauthorized)
@@ -156,6 +171,11 @@ public sealed class EventStream
             if (result == ConnectionResult.Delivered)
             {
                 backoff = _initialBackoff;
+                failures = 0;
+            }
+            else if (++failures == 2)
+            {
+                _log?.Invoke($"WARN eventos: sem fluxo do motor depois de {failures} tentativas ({reason ?? "fluxo vazio"})");
             }
             try
             {
@@ -176,7 +196,7 @@ public sealed class EventStream
         Unauthorized,
     }
 
-    private async Task<ConnectionResult> ConnectAsync(HttpClient client, ChannelWriter<ShellEvent> writer, CancellationToken ct)
+    private async Task<(ConnectionResult Result, string? Reason)> ConnectAsync(HttpClient client, ChannelWriter<ShellEvent> writer, CancellationToken ct)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{_port}/api/events");
         request.Headers.Host = $"127.0.0.1:{_port}";
@@ -187,12 +207,11 @@ public sealed class EventStream
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
-            return ConnectionResult.Unauthorized;
+            return (ConnectionResult.Unauthorized, null);
         }
         if (!response.IsSuccessStatusCode)
         {
-            _log?.Invoke($"WARN eventos: o motor respondeu {(int)response.StatusCode}");
-            return ConnectionResult.Failed;
+            return (ConnectionResult.Failed, $"HTTP {(int)response.StatusCode}");
         }
 
         await using var body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
@@ -213,7 +232,8 @@ public sealed class EventStream
                 }
             }
         }
-        _log?.Invoke("WARN eventos: o motor fechou o fluxo");
-        return delivered ? ConnectionResult.Delivered : ConnectionResult.Failed;
+        // Fim limpo do fluxo não é falha e não vai ao log; fluxo que fechou sem evento nenhum conta
+        // como tentativa que falhou.
+        return delivered ? (ConnectionResult.Delivered, null) : (ConnectionResult.Failed, "fluxo vazio");
     }
 }
