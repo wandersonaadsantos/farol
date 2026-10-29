@@ -1,6 +1,7 @@
 import AppKit
 import FarolContrato
 import WebKit
+import os
 
 /// O que fazer com uma navegação pedida pela página.
 public enum NavigationPolicy: Equatable, Sendable {
@@ -15,9 +16,13 @@ public enum NavigationPolicy: Equatable, Sendable {
 /// O `WKWebView` que mostra a `ui/` do motor, com o token injetado antes da página.
 ///
 /// Paridade com o Electron: link com `target=_blank` e navegação para fora da origem do
-/// motor (`127.0.0.1` ou `localhost` na porta dele) abrem no navegador padrão.
+/// motor (`127.0.0.1` ou `localhost` na porta dele) abrem no navegador padrão. Download
+/// (`<a download>`, `blob:`, `data:` ou resposta que a página não mostra) vai para um arquivo
+/// escolhido no painel nativo de salvar.
 @MainActor
-public final class WebViewController: NSObject, WKNavigationDelegate, WKUIDelegate {
+public final class WebViewController: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
+    private static let logger = Logger(subsystem: "com.biud.farol", category: "janela")
+
     public let port: Int
     public let webView: WKWebView
 
@@ -79,6 +84,14 @@ public final class WebViewController: NSObject, WKNavigationDelegate, WKUIDelega
         }
     }
 
+    /// A navegação vira download quando o WebKit já diz que é (`<a download>`) ou quando o
+    /// endereço é `blob:` ou `data:` (o que a `ui/` monta na hora para exportar).
+    public static func shouldDownload(url: URL, requested: Bool) -> Bool {
+        if requested { return true }
+        let scheme = url.scheme?.lowercased()
+        return scheme == "blob" || scheme == "data"
+    }
+
     /// Lê `#rrggbb` em sRGB; qualquer outro formato devolve `nil`.
     public static func color(fromHex hex: String) -> NSColor? {
         guard hex.count == 7, hex.hasPrefix("#") else { return nil }
@@ -109,26 +122,83 @@ public final class WebViewController: NSObject, WKNavigationDelegate, WKUIDelega
             decisionHandler(.cancel)
             return
         }
+        if Self.shouldDownload(url: url, requested: navigationAction.shouldPerformDownload) {
+            decisionHandler(.download)
+            return
+        }
         switch Self.policy(for: url, port: port) {
         case .allow:
             decisionHandler(.allow)
         case .openExternally:
-            NSWorkspace.shared.open(url)
+            // Só o quadro principal leva ao navegador: um iframe navegando não abre nada.
+            if navigationAction.targetFrame?.isMainFrame == true {
+                NSWorkspace.shared.open(url)
+            }
             decisionHandler(.cancel)
         case .deny:
             decisionHandler(.cancel)
         }
     }
 
+    /// Resposta que a página não sabe mostrar (anexo, por exemplo) vira download.
+    public func webView(
+        _ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
+    ) {
+        decisionHandler(navigationResponse.canShowMIMEType ? .allow : .download)
+    }
+
+    public func webView(
+        _ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload
+    ) {
+        download.delegate = self
+    }
+
+    public func webView(
+        _ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload
+    ) {
+        download.delegate = self
+    }
+
+    // MARK: WKDownloadDelegate
+
+    /// Pergunta onde salvar, com o nome sugerido; cancelar o painel cancela o download.
+    public func download(
+        _ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String,
+        completionHandler: @escaping @MainActor @Sendable (URL?) -> Void
+    ) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = suggestedFilename
+        panel.canCreateDirectories = true
+        let finish: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .OK, let url = panel.url else {
+                completionHandler(nil)
+                return
+            }
+            // O WebKit recusa destino que já existe; o painel já perguntou se pode substituir.
+            try? FileManager.default.removeItem(at: url)
+            completionHandler(url)
+        }
+        if let window = webView.window {
+            panel.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            finish(panel.runModal())
+        }
+    }
+
+    public func download(_ download: WKDownload, didFailWithError error: any Error, resumeData: Data?) {
+        Self.logger.warning("download falhou: \(error.localizedDescription, privacy: .public)")
+    }
+
     // MARK: WKUIDelegate
 
-    /// `target=_blank` e `window.open` nunca abrem janela nova: vão ao navegador padrão,
-    /// como o `setWindowOpenHandler` do Electron.
+    /// `target=_blank` e `window.open` nunca abrem janela nova: endereço de fora vai ao
+    /// navegador padrão, como o `setWindowOpenHandler` do Electron; o resto não abre nada.
     public func webView(
         _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        if let url = navigationAction.request.url, Self.policy(for: url, port: port) != .deny {
+        if let url = navigationAction.request.url, Self.policy(for: url, port: port) == .openExternally {
             NSWorkspace.shared.open(url)
         }
         return nil

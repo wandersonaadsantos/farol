@@ -58,6 +58,25 @@ import Testing
         #expect(controller.webView.configuration.userContentController.userScripts.count == 1)
     }
 
+    @Test func blobAndDataURLsBecomeDownloads() throws {
+        #expect(
+            WebViewController.shouldDownload(
+                url: try url("blob:http://127.0.0.1:47170/abc"), requested: false))
+        #expect(
+            WebViewController.shouldDownload(url: try url("data:text/plain;base64,QQ=="), requested: false))
+        #expect(WebViewController.shouldDownload(url: try url("DATA:text/plain,x"), requested: false))
+    }
+
+    @Test func downloadAttributeBecomesDownloadEvenOnTheEngineOrigin() throws {
+        #expect(
+            WebViewController.shouldDownload(url: try url("http://127.0.0.1:47170/x.md"), requested: true))
+    }
+
+    @Test func ordinaryNavigationIsNotADownload() throws {
+        #expect(!WebViewController.shouldDownload(url: try url("http://127.0.0.1:47170/"), requested: false))
+        #expect(!WebViewController.shouldDownload(url: try url("https://github.com/"), requested: false))
+    }
+
     private func url(_ text: String) throws -> URL {
         try #require(URL(string: text))
     }
