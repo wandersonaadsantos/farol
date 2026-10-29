@@ -13,6 +13,7 @@ public struct EngineProbe {
         else { return false }
         var request = URLRequest(
             url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        // O URLSession trata `Host` como reservado e o preenche pela URL (o teste confere o valor).
         request.setValue("127.0.0.1:\(port)", forHTTPHeaderField: "Host")
         request.setValue("1", forHTTPHeaderField: "x-farol")
 

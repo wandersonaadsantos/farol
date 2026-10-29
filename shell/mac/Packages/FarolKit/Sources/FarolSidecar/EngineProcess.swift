@@ -17,8 +17,6 @@ public enum EngineProcessError: Error, Equatable, Sendable {
 public actor EngineProcess {
     private static let logger = Logger(subsystem: "com.biud.farol", category: "engine")
     private static let stopGrace: Duration = .seconds(5)
-    private static let stopPoll: Duration = .milliseconds(50)
-
     private let node: URL
     private let serverJS: URL
     private let home: URL?
@@ -31,13 +29,25 @@ public actor EngineProcess {
     /// SIGKILL) que a casca manda não é falha do motor, e contá-lo faria a política de religar
     /// tratar o desligamento pedido como queda. O `stop()` marca a subida antes de sinalizar,
     /// e o fim de uma subida marcada não é publicado.
+    ///
+    /// Consumidor único (`AsyncStream`): itere numa tarefa de vida longa, porque cancelar a
+    /// tarefa que itera encerra o fluxo para sempre.
     public nonisolated let exitCodes: AsyncStream<Int32>
     private let exitContinuation: AsyncStream<Int32>.Continuation
 
     private var process: Process?
     /// Conta as subidas, para o fim de uma subida antiga não ser confundido com a atual.
     private var generation = 0
+    /// A subida cujo fim ainda não foi tratado por `didTerminate`; `nil` sem motor vivo.
+    private var liveGeneration: Int?
     private var stoppingGeneration: Int?
+    /// O desligamento em andamento. `start()` e outro `stop()` esperam por ele, então uma
+    /// subida nova nunca cruza com o desligamento da anterior.
+    private var stopTask: Task<Void, Never>?
+    /// Quem espera o fim de uma subida, por identificador: a subida esperada e a continuação.
+    private var terminationWaiters: [Int: (generation: Int, continuation: CheckedContinuation<Bool, Never>)] =
+        [:]
+    private var nextWaiterID = 0
 
     public init(node: URL, serverJS: URL, home: URL?, shellVersion: String) {
         self.node = node
@@ -51,9 +61,13 @@ public actor EngineProcess {
         exitContinuation.finish()
     }
 
-    /// Sobe o motor. Com um motor desta instância ainda rodando, não faz nada.
+    /// Sobe o motor. Com um desligamento em andamento, espera ele terminar antes; com um motor
+    /// desta instância ainda vivo, não faz nada.
     public func start() async throws {
-        if let process, process.isRunning { return }
+        while let stopTask {
+            await stopTask.value
+        }
+        if liveGeneration != nil { return }
 
         generation += 1
         let current = generation
@@ -86,36 +100,71 @@ public actor EngineProcess {
             throw EngineProcessError.launchFailed(error.localizedDescription)
         }
         self.process = process
+        liveGeneration = current
     }
 
     /// Desliga o motor: SIGTERM, até 5 s de espera e então SIGKILL. Sem motor rodando, não faz
-    /// nada; chamar de novo é seguro. Volta só depois de o processo ter terminado.
+    /// nada; chamar de novo, inclusive durante um desligamento, é seguro. Volta só depois de o
+    /// processo ter terminado.
+    ///
+    /// O trabalho roda numa tarefa própria, que não herda o cancelamento de quem chama: a saída
+    /// do app e o fim de um `.task` chamam `stop()` de tarefa já cancelada, e o motor precisa
+    /// morrer do mesmo jeito.
     public func stop() async {
-        guard let process, process.isRunning else { return }
-        stoppingGeneration = generation
+        if let stopTask {
+            await stopTask.value
+            return
+        }
+        guard let target = liveGeneration, let process else { return }
+        stoppingGeneration = target
         let pid = process.processIdentifier
-
-        kill(pid, SIGTERM)
-        if await waitForTermination(within: Self.stopGrace) { return }
-        kill(pid, SIGKILL)
-        _ = await waitForTermination(within: nil)
+        let task = Task { await self.terminate(pid: pid, generation: target) }
+        stopTask = task
+        await task.value
     }
 
-    /// Espera o fim da subida atual ser tratado (`didTerminate` zera `process`). `nil` espera
-    /// sem prazo. A espera é por consulta curta: o ator fica livre entre uma e outra.
-    private func waitForTermination(within limit: Duration?) async -> Bool {
-        let clock = ContinuousClock()
-        let deadline = limit.map { clock.now.advanced(by: $0) }
-        while process != nil {
-            if let deadline, clock.now >= deadline { return false }
-            try? await Task.sleep(for: Self.stopPoll)
+    private func terminate(pid: Int32, generation target: Int) async {
+        kill(pid, SIGTERM)
+        if await !waitForTermination(of: target, within: Self.stopGrace) {
+            if liveGeneration == target {
+                kill(pid, SIGKILL)
+            }
+            _ = await waitForTermination(of: target, within: nil)
         }
-        return true
+        stopTask = nil
+    }
+
+    /// Espera `didTerminate` tratar o fim da subida `target`, sem consulta repetida: a
+    /// continuação é retomada pelo fim ou pelo prazo (`nil` espera sem prazo). Devolve se o
+    /// processo terminou.
+    private func waitForTermination(of target: Int, within limit: Duration?) async -> Bool {
+        guard liveGeneration == target else { return true }
+        let id = nextWaiterID
+        nextWaiterID += 1
+        if let limit {
+            Task {
+                try? await Task.sleep(for: limit)
+                expireWaiter(id)
+            }
+        }
+        return await withCheckedContinuation { continuation in
+            terminationWaiters[id] = (target, continuation)
+        }
+    }
+
+    private func expireWaiter(_ id: Int) {
+        terminationWaiters.removeValue(forKey: id)?.continuation.resume(returning: false)
     }
 
     private func didTerminate(generation finished: Int, status: Int32, byExit: Bool) {
-        guard finished == generation else { return }
-        process = nil
+        if liveGeneration == finished {
+            liveGeneration = nil
+            process = nil
+        }
+        for (id, waiter) in terminationWaiters where waiter.generation == finished {
+            terminationWaiters.removeValue(forKey: id)
+            waiter.continuation.resume(returning: true)
+        }
         if stoppingGeneration == finished {
             stoppingGeneration = nil
             return
