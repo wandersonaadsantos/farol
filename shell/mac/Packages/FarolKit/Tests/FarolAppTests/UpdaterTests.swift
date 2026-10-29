@@ -90,4 +90,23 @@ final class FakeUpdateChecker: UpdateChecker {
 
         #expect(checker.backgroundChecks == 0)
     }
+
+    @Test func menuCheckNeedsSparkleStartedAndIdleEngine() {
+        #expect(Updater.canCheck(sparkleReady: true, engineBusy: false))
+        #expect(!Updater.canCheck(sparkleReady: false, engineBusy: false))
+        #expect(!Updater.canCheck(sparkleReady: true, engineBusy: true))
+        #expect(!Updater.canCheck(sparkleReady: false, engineBusy: true))
+    }
+
+    @Test func canCheckNowFollowsTheCheckerAndTheEngine() {
+        let checker = FakeUpdateChecker()
+        let updater = Updater(checker: checker)
+        #expect(updater.canCheckNow)
+
+        updater.engineBusy = true
+        #expect(!updater.canCheckNow)
+        updater.engineBusy = false
+        checker.canCheckForUpdates = false
+        #expect(!updater.canCheckNow)
+    }
 }

@@ -7,7 +7,7 @@ import os
 /// com o sistema e os avisos. Guarda forte tudo o que o sistema só referencia fraco (o
 /// `Notifier`, delegate da central; o controlador da bandeja, alvo do menu).
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, StatusItemActions, ShellUI {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, StatusItemActions, ShellUI {
     private static let logger = Logger(subsystem: "com.biud.farol", category: "app")
 
     private let presenter = WindowPresenterAdapter()
@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, StatusItemActions, She
     /// A primeira janela nasce escondida depois de um update (reabertura silenciosa).
     private var startHidden = false
     private var terminating = false
+    private var terminationReplied = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.make()
@@ -59,16 +60,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, StatusItemActions, She
         false
     }
 
+    /// Quanto o encerramento espera o motor parar antes de deixar o app sair mesmo assim.
+    private static let shutdownLimit: Duration = .seconds(8)
+
     /// Para o motor antes de sair; o processo do motor nunca fica órfão.
+    ///
+    /// O encerramento corre contra um teto de 8 s: o `stop()` do motor já tem o próprio limite
+    /// (SIGTERM, 5 s, SIGKILL), mas um passo que trave antes dele (uma subida pendente, um
+    /// alerta modal aberto) não pode prender o Sair para sempre. Quem chegar primeiro responde,
+    /// e a resposta é sempre "pode sair". Não é um grupo de tarefas: o grupo espera todas as
+    /// filhas no fim, e o `shutdown()` não para quando cancelado, então o teto não valeria.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let supervisor else { return .terminateNow }
         if terminating { return .terminateLater }
         terminating = true
-        Task {
+        let limit = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: Self.shutdownLimit) } catch { return }
+            Self.logger.error("o motor não parou em 8 s; saindo assim mesmo")
+            self?.replyToTermination()
+        }
+        Task { @MainActor [weak self] in
             await supervisor.shutdown()
-            NSApp.reply(toApplicationShouldTerminate: true)
+            limit.cancel()
+            self?.replyToTermination()
         }
         return .terminateLater
+    }
+
+    /// Responde ao pedido de saída uma vez só, a quem chegar primeiro.
+    private func replyToTermination() {
+        guard !terminationReplied else { return }
+        terminationReplied = true
+        NSApp.reply(toApplicationShouldTerminate: true)
     }
 
     // MARK: StatusItemActions
@@ -85,6 +108,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, StatusItemActions, She
     /// "Verificar atualizações..." do menu Farol, pela cadeia de resposta.
     @objc func checkForUpdates(_ sender: Any?) {
         updater?.checkNow()
+    }
+
+    /// O item "Verificar atualizações..." só fica habilitado quando a verificação pode rodar
+    /// (a Sparkle iniciou e o motor não está revisando); os outros itens que chegam aqui seguem
+    /// habilitados.
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard menuItem.action == #selector(checkForUpdates(_:)) else { return true }
+        return updater?.canCheckNow ?? false
     }
 
     // MARK: ShellUI

@@ -41,10 +41,23 @@ public final class Updater {
     /// O gate puro: verifica só com o motor parado.
     public var mayCheck: Bool { !engineBusy }
 
+    /// A regra pura de "dá para verificar agora": a Sparkle iniciou (sem a chave EdDSA ela não
+    /// inicia e não verifica nada) e o motor não está revisando. O item "Verificar
+    /// atualizações..." fica desabilitado quando ela diz não, porque clique que não faz nada
+    /// é pior que item cinza.
+    public static func canCheck(sparkleReady: Bool, engineBusy: Bool) -> Bool {
+        sparkleReady && !engineBusy
+    }
+
+    /// `canCheck` com o estado atual; o menu consulta isto ao validar o item.
+    public var canCheckNow: Bool {
+        Self.canCheck(sparkleReady: checker.canCheckForUpdates, engineBusy: engineBusy)
+    }
+
     /// Verificação silenciosa; devolve se ela foi pedida à Sparkle.
     @discardableResult
     public func checkInBackground() -> Bool {
-        guard mayCheck, checker.canCheckForUpdates else { return false }
+        guard canCheckNow else { return false }
         checker.checkForUpdatesInBackground()
         return true
     }
@@ -52,7 +65,7 @@ public final class Updater {
     /// "Verificar atualizações..." do menu; devolve se ela foi pedida à Sparkle.
     @discardableResult
     public func checkNow() -> Bool {
-        guard mayCheck, checker.canCheckForUpdates else { return false }
+        guard canCheckNow else { return false }
         checker.checkForUpdates()
         return true
     }
