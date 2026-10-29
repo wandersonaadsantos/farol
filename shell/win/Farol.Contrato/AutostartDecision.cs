@@ -49,6 +49,12 @@ public static class AutostartDecision
     public const string EnabledByPolicyWarning =
         "WARN iniciar com o Windows: ligado pela política da organização, a casca não desliga";
 
+    /// <summary>O começo do aviso de tarefa indisponível; o único lugar onde esse texto existe.</summary>
+    public const string UnavailableWarningPrefix = "WARN iniciar com o Windows: indisponível";
+
+    /// <summary>O aviso de tarefa indisponível, só com o nome do tipo da exceção (nunca a mensagem).</summary>
+    public static string UnavailableWarning(Exception e) => $"{UnavailableWarningPrefix} ({e.GetType().Name})";
+
     public static async Task<AutostartOutcome> ApplyAsync(IStartupTask task, bool wanted, Action<string>? log)
     {
         try
@@ -97,7 +103,7 @@ public static class AutostartDecision
         catch (Exception e)
         {
             // Sem pacote (execução fora do MSIX) a tarefa nem existe; a casca segue sem autostart.
-            log?.Invoke($"WARN iniciar com o Windows: indisponível ({e.GetType().Name})");
+            log?.Invoke(UnavailableWarning(e));
             return AutostartOutcome.Unchanged;
         }
     }

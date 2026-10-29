@@ -28,8 +28,8 @@ public sealed class OverlayDotTests
     [Fact]
     public void EdgeIsAntialiased()
     {
-        // Distância 6,5 do centro (7,5; 7,5): meio caminho na borda, alfa 128.
+        // (14, 7) fica a cerca de 6,52 do centro (7,5; 7,5): dentro da faixa suavizada, alfa 123.
         var alpha = At(OverlayDot.Pixels(), 14, 7) >> 24;
-        Assert.InRange(alpha, 1u, 254u);
+        Assert.Equal(123u, alpha);
     }
 }

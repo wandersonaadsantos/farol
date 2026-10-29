@@ -21,6 +21,7 @@ internal sealed class TaskbarOverlay : IDisposable
     private ITaskbarList3? _taskbar;
     private bool _initFailed;
     private IntPtr _dot;
+    private bool _dotFailed;
     private bool _warned;
 
     public TaskbarOverlay(Action<string>? log = null)
@@ -95,14 +96,37 @@ internal sealed class TaskbarOverlay : IDisposable
         return _taskbar;
     }
 
-    // A bolinha vira um HICON de 16x16 com alfa: bitmap de cor de 32 bits (DIB de cima para
-    // baixo) e máscara monocromática zerada, que o sistema ignora quando o alfa existe.
+    // Criada uma vez. Se falhar, um WARN e nenhuma tentativa nova: o DIB não é refeito a cada
+    // evento, e o overlay fica sem bolinha (a chamada com ícone zero só limpa).
     private IntPtr Dot()
     {
-        if (_dot != IntPtr.Zero)
+        if (_dot != IntPtr.Zero || _dotFailed)
         {
             return _dot;
         }
+        try
+        {
+            _dot = BuildDot();
+        }
+        catch (Exception e)
+        {
+            _log?.Invoke($"WARN barra de tarefas: bolinha do overlay não foi criada ({e.GetType().Name})");
+            _dotFailed = true;
+            return IntPtr.Zero;
+        }
+        if (_dot == IntPtr.Zero)
+        {
+            _log?.Invoke("WARN barra de tarefas: bolinha do overlay não foi criada (GDI recusou)");
+            _dotFailed = true;
+        }
+        return _dot;
+    }
+
+    // A bolinha vira um HICON de 16x16 com alfa: bitmap de cor de 32 bits (DIB de cima para
+    // baixo) e máscara monocromática zerada, que o sistema ignora quando o alfa existe.
+    // Devolve zero quando o GDI recusa.
+    private static IntPtr BuildDot()
+    {
         var size = OverlayDot.Size;
         var header = new BitmapInfoHeader
         {
@@ -131,8 +155,12 @@ internal sealed class TaskbarOverlay : IDisposable
         var mask = CreateBitmap(size, size, 1, 1, new byte[size * 2]);
         try
         {
+            if (mask == IntPtr.Zero)
+            {
+                return IntPtr.Zero;
+            }
             var info = new IconInfo { fIcon = true, hbmMask = mask, hbmColor = color };
-            _dot = CreateIconIndirect(ref info);
+            return CreateIconIndirect(ref info);
         }
         finally
         {
@@ -143,7 +171,6 @@ internal sealed class TaskbarOverlay : IDisposable
                 DeleteObject(mask);
             }
         }
-        return _dot;
     }
 
     private const uint BiRgb = 0;

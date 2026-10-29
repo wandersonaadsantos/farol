@@ -4,32 +4,44 @@ namespace Farol.Tests;
 
 public sealed class AutostartTests
 {
-    private sealed class FakeStartupTask : IStartupTask
+    internal sealed class FakeStartupTask : IStartupTask
     {
-        private readonly StartupState _state;
         private readonly StartupState _afterRequest;
         private readonly bool _throws;
+        private readonly bool _disableThrows;
 
-        public FakeStartupTask(StartupState state, StartupState afterRequest = StartupState.Enabled, bool throws = false)
+        public FakeStartupTask(StartupState state, StartupState afterRequest = StartupState.Enabled, bool throws = false, bool disableThrows = false)
         {
-            _state = state;
+            Current = state;
             _afterRequest = afterRequest;
             _throws = throws;
+            _disableThrows = disableThrows;
         }
+
+        public StartupState Current { get; set; }
 
         public int RequestCalls { get; private set; }
 
         public int DisableCalls { get; private set; }
 
-        public StartupState State => _throws ? throw new InvalidOperationException("sem pacote") : _state;
+        public StartupState State => _throws ? throw new InvalidOperationException("sem pacote") : Current;
 
         public Task<StartupState> RequestEnableAsync()
         {
             RequestCalls++;
+            Current = _afterRequest;
             return Task.FromResult(_afterRequest);
         }
 
-        public void Disable() => DisableCalls++;
+        public void Disable()
+        {
+            DisableCalls++;
+            if (_disableThrows)
+            {
+                throw new UnauthorizedAccessException("negado");
+            }
+            Current = StartupState.Disabled;
+        }
     }
 
     private static async Task<(AutostartOutcome Outcome, List<string> Log)> Run(IStartupTask task, bool wanted)
@@ -134,5 +146,25 @@ public sealed class AutostartTests
     {
         var task = new FakeStartupTask(StartupState.DisabledByUser);
         Assert.Equal(AutostartOutcome.RefusedByUser, await AutostartDecision.ApplyAsync(task, true, null));
+    }
+
+    [Fact]
+    public async Task RequestReturningDisabledByPolicyIsRefusedByPolicy()
+    {
+        var task = new FakeStartupTask(StartupState.Disabled, StartupState.DisabledByPolicy);
+        var (outcome, log) = await Run(task, wanted: true);
+        Assert.Equal(AutostartOutcome.RefusedByPolicy, outcome);
+        Assert.Equal(1, task.RequestCalls);
+        Assert.Equal(AutostartDecision.DisabledByPolicyWarning, Assert.Single(log));
+    }
+
+    [Fact]
+    public async Task ThrowingDisableWarnsOnceAndNeverThrows()
+    {
+        var task = new FakeStartupTask(StartupState.Enabled, disableThrows: true);
+        var (outcome, log) = await Run(task, wanted: false);
+        Assert.Equal(AutostartOutcome.Unchanged, outcome);
+        Assert.Equal(1, task.DisableCalls);
+        Assert.Equal(AutostartDecision.UnavailableWarning(new UnauthorizedAccessException()), Assert.Single(log));
     }
 }

@@ -33,6 +33,7 @@ internal sealed class TrayIcon : IDisposable
     private readonly WndProcDelegate _wndProc;
     private readonly IntPtr _hInstance;
     private readonly uint _taskbarCreated;
+    private readonly string _iconPath;
     private IntPtr _hwnd;
     private IntPtr _icon;
     private string _tooltip = "Farol";
@@ -45,6 +46,7 @@ internal sealed class TrayIcon : IDisposable
     public TrayIcon(string iconPath, Action<string>? log = null)
     {
         _log = log;
+        _iconPath = iconPath;
         _wndProc = WndProc;
         _hInstance = GetModuleHandleW(null);
 
@@ -71,15 +73,7 @@ internal sealed class TrayIcon : IDisposable
 
         _taskbarCreated = RegisterWindowMessageW("TaskbarCreated");
 
-        // Tamanho do ícone pequeno do sistema (16 px a 100%): o LoadImageW escolhe no .ico a
-        // imagem mais próxima. Falha aqui não impede a bandeja: o ícone fica vazio e vai ao log.
-        _icon = LoadImageW(IntPtr.Zero, iconPath, ImageIcon,
-            GetSystemMetrics(SmCxSmIcon), GetSystemMetrics(SmCySmIcon), LrLoadFromFile);
-        if (_icon == IntPtr.Zero)
-        {
-            _log?.Invoke($"WARN bandeja: ícone não carregou (erro {Marshal.GetLastWin32Error()})");
-        }
-
+        LoadIcon();
         Add();
     }
 
@@ -114,14 +108,13 @@ internal sealed class TrayIcon : IDisposable
             return;
         }
         _disposed = true;
-        if (_added)
+        if (_hwnd != IntPtr.Zero)
         {
+            // Sempre, mesmo com _added falso: um NIM_ADD que falhou não prova que o ícone não
+            // está lá, e ícone esquecido fica fantasma na bandeja depois do Sair.
             var data = NewData(0);
             Shell_NotifyIconW(NimDelete, ref data);
             _added = false;
-        }
-        if (_hwnd != IntPtr.Zero)
-        {
             DestroyWindow(_hwnd);
             _hwnd = IntPtr.Zero;
         }
@@ -133,7 +126,41 @@ internal sealed class TrayIcon : IDisposable
         }
     }
 
-    // NIM_ADD e depois NIM_SETVERSION 4. Também roda de novo no TaskbarCreated.
+    // Tamanho do ícone pequeno do sistema NESTE momento (16 px a 100%): o LoadImageW escolhe no
+    // .ico a imagem mais próxima. Falha não impede a bandeja: fica o ícone anterior (ou nenhum)
+    // e vai ao log. O anterior só é destruído depois que o novo carregou; a bandeja guarda
+    // cópia própria do que recebeu.
+    private void LoadIcon()
+    {
+        var icon = LoadImageW(IntPtr.Zero, _iconPath, ImageIcon,
+            GetSystemMetrics(SmCxSmIcon), GetSystemMetrics(SmCySmIcon), LrLoadFromFile);
+        if (icon == IntPtr.Zero)
+        {
+            _log?.Invoke($"WARN bandeja: ícone não carregou (erro {Marshal.GetLastWin32Error()})");
+            return;
+        }
+        var old = _icon;
+        _icon = icon;
+        if (old != IntPtr.Zero)
+        {
+            DestroyIcon(old);
+        }
+    }
+
+    // O TaskbarCreated chega quando o Explorer reinicia (o ícone sumiu) E, no Windows 10 em
+    // diante, quando a escala da barra muda (o ícone continua lá). Nos dois casos: apaga o que
+    // houver (resultado ignorado), recarrega o ícone no tamanho atual e adiciona de novo. Só
+    // NIM_ADD falharia no caso da escala e deixaria _added falso para sempre.
+    private void Readd()
+    {
+        var data = NewData(0);
+        Shell_NotifyIconW(NimDelete, ref data);
+        _added = false;
+        LoadIcon();
+        Add();
+    }
+
+    // NIM_ADD e depois NIM_SETVERSION 4.
     private void Add()
     {
         var data = NewData(NifMessage | NifIcon | NifTip | NifShowTip);
@@ -173,14 +200,14 @@ internal sealed class TrayIcon : IDisposable
             }
             if (_taskbarCreated != 0 && msg == _taskbarCreated && !_disposed)
             {
-                Add();
+                Readd();
                 return IntPtr.Zero;
             }
         }
         catch (Exception e)
         {
             // Exceção que atravessa o WndProc derruba o processo: vira linha de log.
-            _log?.Invoke($"WARN bandeja: falha ao tratar o clique ({e.GetType().Name})");
+            _log?.Invoke($"WARN bandeja: falha ao tratar a mensagem ({e.GetType().Name})");
             return IntPtr.Zero;
         }
         return DefWindowProcW(hwnd, msg, wParam, lParam);

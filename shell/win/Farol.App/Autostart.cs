@@ -6,59 +6,26 @@ namespace Farol.App;
 /// <summary>
 /// Liga e desliga o "iniciar com o Windows" pela tarefa <c>FarolAutostart</c> do manifesto,
 /// seguindo o <c>autostart</c> de cada evento <c>casca</c>. A decisão é a de
-/// <see cref="AutostartDecision"/>; aqui fica só o WinRT e a memória do aviso.
+/// <see cref="AutostartDecision"/> e a memória do aviso é a de <see cref="AutostartReporter"/>;
+/// aqui fica só o WinRT.
 /// </summary>
-/// <remarks>
-/// O mesmo aviso não se repete a cada evento: só sai quando o desfecho muda. Fora do pacote
-/// MSIX a tarefa não existe; vira um WARN e a casca segue, nunca cai.
-/// </remarks>
+/// <remarks>Fora do pacote MSIX a tarefa não existe; vira um WARN e a casca segue, nunca cai.</remarks>
 internal sealed class Autostart
 {
     private const string TaskId = "FarolAutostart";
 
-    private readonly Action<string>? _log;
-    private readonly SemaphoreSlim _gate = new(1, 1);
-    private string? _lastWarning;
+    private readonly AutostartReporter _reporter;
 
     public Autostart(Action<string>? log = null)
     {
-        _log = log;
+        _reporter = new AutostartReporter(GetTaskAsync, log);
     }
 
     /// <summary>Aplica o desejado; chamadas seguidas entram em fila, uma por vez.</summary>
-    public async Task ApplyAsync(bool wanted)
-    {
-        await _gate.WaitAsync();
-        try
-        {
-            var lines = new List<string>();
-            var outcome = AutostartOutcome.Unchanged;
-            try
-            {
-                var task = await StartupTask.GetAsync(TaskId);
-                outcome = await AutostartDecision.ApplyAsync(new StartupTaskAdapter(task), wanted, lines.Add);
-            }
-            catch (Exception e)
-            {
-                lines.Add($"WARN iniciar com o Windows: indisponível ({e.GetType().Name})");
-            }
+    public Task ApplyAsync(bool wanted) => _reporter.ApplyAsync(wanted);
 
-            var warning = lines.Count == 0 ? null : outcome + "|" + string.Join("\n", lines);
-            if (warning is not null && warning != _lastWarning)
-            {
-                foreach (var line in lines)
-                {
-                    _log?.Invoke(line);
-                }
-            }
-            // Sem aviso, a memória zera: uma recusa que volte depois é avisada de novo.
-            _lastWarning = warning;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
+    private static async Task<IStartupTask> GetTaskAsync() =>
+        new StartupTaskAdapter(await StartupTask.GetAsync(TaskId));
 
     private sealed class StartupTaskAdapter : IStartupTask
     {
