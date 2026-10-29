@@ -14,6 +14,13 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.17', [
+    'Depois de uma aprovação ou reprovação publicada, o mesmo commit não é revisado automaticamente de novo, mesmo quando alguém pede review outra vez. Outro commit libera nova análise.',
+    'A leitura percorre o histórico paginado e a conferência final respeita qualquer parecer decisivo anterior da conta naquele commit.',
+    'Uma reprovação pelo CI encerra aquele commit; o CI ficar verde depois, sem outro commit, não publica uma segunda review de aprovação.',
+    'Uma tag residual da própria conta num head já decidido entra na limpeza durável, preservando sessões ativas e a posse de outro aparelho.',
+    'Falhas sem parecer publicado continuam pendentes. A revisão manual explícita mantém seu caminho próprio.',
+  ]],
   ['2.78.16', [
     'A API local oferece autoanálise restrita por execução, sem reconfigurar a conta ou interromper outras sessões.',
     'Claude e Codex recebem fontes fixadas; cobertura e contraprovas de leitura ficam separadas de testes executados e aprovação humana.',

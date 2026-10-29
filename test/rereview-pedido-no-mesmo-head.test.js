@@ -1,15 +1,5 @@
-// Pedido de revisão NOVO num PR que eu já revisei, SEM commit novo (02/10/2026).
-//
-// Caso de campo: o autor removeu e pediu a revisão de novo pelo botão do GitHub, o head
-// continuou o mesmo, e não aconteceu nada — sem round, sem recusa, sem aviso. Duas
-// barreiras somadas: o PR já estava `seen` e o `markReRequests` só desmarca uma vez por
-// temporada de pedido (a chave fica em reReviewedKeys enquanto eu seguir pedido, e
-// remover+pedir no mesmo instante nunca é observado entre dois ciclos); e, mesmo que o
-// round saísse, o dedup por head acharia o meu APPROVE naquele head e resolveria como
-// already_reviewed.
-//
-// A regra que estes casos travam é do PRODUTO, sem nada de repositório ou organização:
-// pedido de revisão PRA MIM, posterior ao meu último review, é estado novo do PR.
+// Pedido novo pode retomar uma tentativa pendente. Uma aprovação ou reprovação
+// publicada continua contando no mesmo head para o automático (regra de29/10/2026).
 import test, { after } from 'node:test';
 import assert from 'node:assert';
 import os from 'node:os';
@@ -150,10 +140,10 @@ test('sem pedido novo, o dedup por head segue valendo (proteção do #742)', asy
   assert.deepEqual(states, ['APPROVED'], 'sem sinal novo, o review antigo continua contando');
 });
 
-test('review ANTERIOR ao pedido novo não conta: ele não responde ao que foi pedido agora', async () => {
+test('pedido novo não apaga decisão anterior no mesmo head para o automático', async () => {
   const e = engineComReviews([{ state: 'APPROVED', at: REVIEW_EM, commit: HEAD }], { at: PEDIDO_EM, tipo: 'pedido' });
   const states = await decisionMod.myReviewStates(e, { key: KEY, repo: 'acme/r', number: 1 }, HEAD);
-  assert.deepEqual(states, [], 'é esta linha que fazia o round rodar e se recusar a postar');
+  assert.deepEqual(states, ['APPROVED']);
 });
 
 test('review POSTERIOR ao pedido conta, e o dedup volta a proteger contra duplicata', async () => {
@@ -162,7 +152,12 @@ test('review POSTERIOR ao pedido conta, e o dedup volta a proteger contra duplic
     { state: 'APPROVED', at: PEDIDO_EM + MIN, commit: HEAD },
   ], { at: PEDIDO_EM, tipo: 'pedido' });
   const states = await decisionMod.myReviewStates(e, { key: KEY, repo: 'acme/r', number: 1 }, HEAD);
-  assert.deepEqual(states, ['APPROVED'], 'o review que já respondeu ao pedido novo impede o segundo APPROVE');
+  assert.deepEqual(states, ['APPROVED', 'APPROVED'], 'as decisões deste head continuam contando');
+});
+
+test('a exceção de pedido continua disponível somente para a revisão manual explícita', async () => {
+  const e = engineComReviews([{ state: 'APPROVED', at: REVIEW_EM, commit: HEAD }], { at: PEDIDO_EM, tipo: 'pedido' });
+  assert.deepEqual(await decisionMod.myReviewStates(e, { key: KEY, manual: true }, HEAD), []);
 });
 
 // Commit novo já tinha caminho próprio (o recorte por head): a marca de push não pode
