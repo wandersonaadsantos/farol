@@ -1,0 +1,42 @@
+# Farol, web hospedada: o bloco do Caddy de UMA pessoa. Fonte legivel que o
+# tools/web/caddyfile.js le e repete para cada linha de /etc/farol/portas; este cabecalho
+# (tudo ate a primeira linha vazia) nao vai para o Caddyfile gerado.
+# Marcadores: @PESSOA@ (login Linux, que vira o subdominio), @DOMINIO@ (o dominio do
+# Farol, de /etc/farol/dominio) e @PORTA@ (a porta do motor dela em 127.0.0.1).
+# TLS automatico pelo Caddy (ACME), sem diretiva tls: o nome do site basta.
+
+@PESSOA@.farol.@DOMINIO@ {
+	# Origem conferida NA BORDA. O motor (lib/http-guard.js), no bind loopback, aceita
+	# Origin ausente ou http://127.0.0.1:<porta> e http://localhost:<porta>; o navegador
+	# manda Origin: https://@PESSOA@.farol.@DOMINIO@ em todo POST, entao reescrever so o
+	# Host daria 403 { motivo: 'origin' } em todo POST da tela. Aqui, Origin presente e
+	# diferente da origem desta pessoa leva 403 do proprio Caddy, e o aceito e retirado
+	# antes do motor (header_up -Origin). O token da A4 viaja no cabecalho Authorization,
+	# nunca em cookie, entao a protecao entre sites nao depende de o motor ver o Origin.
+	@origem_alheia {
+		header Origin *
+		not header Origin https://@PESSOA@.farol.@DOMINIO@
+	}
+	respond @origem_alheia 403
+
+	# Um arquivo por pessoa, em JSON, com a query string cortada da URI: nada que
+	# viaje em query (token=, por exemplo) chega ao disco. O Caddy ja mascara o
+	# Authorization nos cabecalhos registrados.
+	log {
+		output file /var/log/caddy/farol-@PESSOA@.log
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ""
+			}
+		}
+	}
+
+	# Host reescrito para o que a allowlist do motor aceita no bind loopback;
+	# flush_interval -1 entrega cada evento do SSE (/api/events) na hora, sem buffer.
+	reverse_proxy 127.0.0.1:@PORTA@ {
+		header_up Host 127.0.0.1:@PORTA@
+		header_up -Origin
+		flush_interval -1
+	}
+}
