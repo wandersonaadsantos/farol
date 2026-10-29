@@ -38,6 +38,9 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public bool HideOnClose { get; set; } = true;
 
+    /// <summary>O HWND da janela, para o overlay da barra de tarefas (<see cref="TaskbarOverlay"/>).</summary>
+    public IntPtr Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
+
     /// <summary>A interface web; existe depois de <see cref="AttachEngineAsync"/>.</summary>
     internal WebHost Web => _web ?? throw new InvalidOperationException("O motor ainda não foi ligado à janela.");
 

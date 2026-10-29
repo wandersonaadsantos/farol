@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <Content Include="Assets\*.png" />
+    <!-- Ícone da bandeja, lido do disco pelo LoadImageW; copiado de assets/farol.ico da raiz. -->
+    <Content Include="Assets\farol.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
