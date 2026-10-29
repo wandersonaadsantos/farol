@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 using Farol.Sidecar;
 
@@ -12,14 +11,7 @@ namespace Farol.Tests;
 /// </summary>
 public sealed class EngineProbeTests
 {
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
+    private static int FreePort() => FakeServer.FreePort();
 
     /// <summary>
     /// Sobe um listener que responde com <paramref name="body"/>; sem <c>x-farol: 1</c>, com o

@@ -31,6 +31,12 @@ public abstract record ShellEvent
     public sealed record Other(string Name) : ShellEvent;
 
     /// <summary>
+    /// O motor recusou o token (401). Não é um evento da rede: é o sinal do próprio cliente
+    /// SSE, emitido uma vez, para quem decide se pareia de novo.
+    /// </summary>
+    public sealed record Unauthorized : ShellEvent;
+
+    /// <summary>
     /// Decodifica o corpo de um evento. JSON malformado, ou que não seja objeto, devolve
     /// <c>null</c>; campo ausente num objeto bem formado cai no valor neutro e nunca lança.
     /// </summary>
