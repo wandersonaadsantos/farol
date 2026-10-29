@@ -6,7 +6,7 @@ import UserNotifications
 @testable import FarolApp
 
 /// Central de notificações falsa: guarda os pedidos em vez de falar com o sistema.
-final class FakeNotificationCenter: NotificationCenterProtocol, @unchecked Sendable {
+final class FakeNotificationCenter: NotificationCenterProtocol {
     weak var delegate: (any UNUserNotificationCenterDelegate)?
     private(set) var authorizationRequests: [UNAuthorizationOptions] = []
     private(set) var requests: [UNNotificationRequest] = []

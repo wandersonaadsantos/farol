@@ -16,6 +16,8 @@ public protocol NotificationCenterProtocol: AnyObject {
 extension UNUserNotificationCenter: NotificationCenterProtocol {}
 
 /// Mostra os avisos nativos do motor e leva o clique ao `NoticeDispatcher`.
+///
+/// O `delegate` da central é fraco: quem cria o `Notifier` (o AppDelegate) guarda a referência forte.
 @MainActor
 public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// Marca, nas preferências, que a permissão já foi pedida nesta instalação.
