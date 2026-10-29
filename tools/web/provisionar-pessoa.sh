@@ -11,6 +11,7 @@
 #
 # Uso:
 #   sudo bash tools/web/provisionar-pessoa.sh <login-linux> [porta] [opcoes]
+#   O login vira subdominio: comeca por letra, minusculas, digitos e -, sem - na ponta.
 # Opcoes:
 #   --pacote <zip|pasta>  instala deste pacote leve (farol-vX.Y.Z.zip ou a pasta extraida);
 #                         sem ele, baixa farol-v*.zip da ultima release com o gh
@@ -18,7 +19,8 @@
 #                         FAROL_UPDATE_MANAGER=external: quem atualiza e o operador (git pull)
 #   --forcar              aceita login ja existente (usuario Linux ou linha em
 #                         /etc/farol/portas): reaproveita a porta, troca o app e a unidade e
-#                         reinicia o servico, preservando o resto de ~/.farol
+#                         reinicia o servico, preservando o resto de ~/.farol. Nunca conta
+#                         privilegiada: UID abaixo do UID_MIN ou membro de sudo, admin ou wheel
 # Ambiente:
 #   FAROL_NODE            caminho absoluto do node que a unidade usa; sem ele, o node que o
 #                         usuario criado enxerga (com o nvm dele, se houver)
@@ -40,7 +42,7 @@ RELEASE_REPO=wandersonaadsantos/farol
 step() { printf '  -> %s\n' "$1"; }
 ok()   { printf '     %s\n' "$1"; }
 die()  { printf '  x  %s\n' "$1" >&2; exit 1; }
-uso()  { sed -n '12,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
+uso()  { sed -n '12,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
 
 # --- argumentos ----------------------------------------------------------------
 LOGIN=''
@@ -77,9 +79,10 @@ for cmd in useradd loginctl systemctl getent sed flock stat readlink; do
   command -v "$cmd" >/dev/null 2>&1 || die "Comando ausente: $cmd"
 done
 [ -f "$PORTAS_JS" ] && [ -f "$TEMPLATE" ] || die "Rode a partir do clone do repositorio (faltou $PORTAS_JS ou $TEMPLATE)."
-# mesma regra de nome que tools/web/portas.js aplica; conferir aqui evita criar usuario
-# que o arquivo de portas recusaria depois
-[[ "$LOGIN" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "Login invalido: $LOGIN (minusculas, digitos, _ e -, ate 32)."
+# o login vira subdominio: regra de rotulo de DNS (a mesma do smoke, comecando por letra),
+# um subconjunto da regra do tools/web/portas.js. Conferir aqui evita criar usuario que o
+# gerar-caddyfile.sh recusaria depois, quebrando o Caddyfile de TODAS as pessoas
+[[ "$LOGIN" =~ ^[a-z]([a-z0-9-]{0,30}[a-z0-9])?$ ]] || die "Login invalido: $LOGIN (vira subdominio: comeca por letra, minusculas, digitos e -, sem - na ponta, sem _, ate 32)."
 if [ -n "$PACOTE" ]; then [ -e "$PACOTE" ] || die "Pacote nao encontrado: $PACOTE"; fi
 if [ -n "$CLONE" ]; then
   [ -d "$CLONE/.git" ] && [ -f "$CLONE/server.js" ] || die "--clone precisa de um clone git do Farol: $CLONE"
@@ -121,6 +124,16 @@ else
   useradd --create-home --shell /bin/bash "$LOGIN"
 fi
 UID_PESSOA="$(id -u "$LOGIN")"
+# as revisoes headless rodam com --dangerously-skip-permissions: numa conta privilegiada, uma
+# injecao de prompt num PR viraria root numa maquina com os tokens de todo mundo
+UID_MIN="$(awk '$1 == "UID_MIN" { print $2 }' /etc/login.defs 2>/dev/null || true)"
+[[ "$UID_MIN" =~ ^[0-9]+$ ]] || UID_MIN=1000
+[ "$UID_PESSOA" -ge "$UID_MIN" ] || die "$LOGIN tem UID $UID_PESSOA, abaixo de $UID_MIN: conta de sistema nao recebe o Farol."
+for grupo in $(id -nG "$LOGIN"); do
+  case "$grupo" in
+    sudo|admin|wheel) die "$LOGIN e membro do grupo $grupo: conta com sudo nao recebe o Farol (use um usuario sem privilegio)." ;;
+  esac
+done
 CASA="$(getent passwd "$LOGIN" | cut -d: -f6)"
 [ -n "$CASA" ] && [ -d "$CASA" ] || die "Pasta pessoal de $LOGIN nao encontrada."
 FAROL="$CASA/.farol"
@@ -264,10 +277,15 @@ echo
 echo "  Pronto: $LOGIN na porta $PORTA (127.0.0.1)."
 echo
 echo '  Proximos passos:'
-echo "   1. Login do GitHub como $LOGIN:"
-echo "        sudo -iu $LOGIN gh auth login"
-echo "   2. Codigo de pareamento para a pessoa abrir a tela (uso unico, 10 minutos):"
+echo "   1. Codigo de pareamento para a pessoa abrir a tela (uso unico, 10 minutos):"
 echo "        sudo -u $LOGIN FAROL_HOME=$FAROL $NODE $APP/tools/farol-parear.js"
-echo "   3. Expor pelo proxy com TLS (Caddy, Task 2 da web hospedada) apontando para 127.0.0.1:$PORTA."
-echo "   O login do Claude a pessoa faz pela propria tela (Sistema > Plano e chaves)."
+echo "   2. Instalar o claude da pessoa:"
+echo "        sudo -iu $LOGIN bash -c 'curl -fsSL https://claude.ai/install.sh | bash'"
+echo "   3. A pessoa faz o login do Claude pela propria tela (Sistema > Plano e chaves)."
+echo "   4. Politica da conta, ANTES do gh auth login: \"autoReview\": false no config.json,"
+echo "      com o servico parado (docs/WEB.md, Pessoa: logins do Claude e do GitHub)."
+echo "   5. Login do GitHub como $LOGIN:"
+echo "        sudo -iu $LOGIN gh auth login"
+echo "      Depois, a pessoa poe \"espera voce\" em aprovar e reprovar (Sistema > Contas)."
+echo "   Expor pelo proxy com TLS: gerar-caddyfile.sh, apontando para 127.0.0.1:$PORTA."
 echo

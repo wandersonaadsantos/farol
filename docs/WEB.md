@@ -51,6 +51,10 @@ navegador ──HTTPS──> Caddy (443, TLS automático)
   `config.json`, porque com o motor em loopback nenhum outro sinal liga a exigência sozinho: para
   o motor, o pedido vem de `127.0.0.1`. Sem token, `GET /api/state` devolve `401`. O token sai só
   no corpo do `POST /api/auth/pair`, viaja no cabeçalho `Authorization` e nunca em cookie ou URL.
+  A unidade falha FECHADA: um `ExecStartPre` (`grep`) recusa subir o motor se o `config.json` não
+  diz `"localAuth": "exigir"`. Sem ele, um arquivo corrompido ou ilegível seria lido como `{}`
+  (`readJson`, `lib/io.js`) e o motor subiria na porta padrão sem a A4, com o Caddy entregando a
+  internet a uma API sem autenticação.
 - **Supervisão pelo systemd de usuário**, com linger: o serviço sobe no boot da VPS sem
   ninguém abrir sessão, e o `Restart=always` religa o motor quando ele sai (inclusive depois de um
   update).
@@ -118,18 +122,27 @@ sudo bash /opt/farol/tools/web/provisionar-pessoa.sh ana
 | `[porta]` | pede essa porta; sem ela, a próxima livre a partir de 47170 |
 | `--pacote <zip\|pasta>` | instala deste pacote leve (`farol-vX.Y.Z.zip` ou a pasta extraída); sem ele, baixa `farol-v*.zip` da última release com o `gh` do root |
 | `--clone <pasta git>` | liga `~/.farol/app` a um clone (link simbólico) e marca a unidade com `FAROL_UPDATE_MANAGER=external` |
-| `--forcar` | aceita login que já existe (usuário Linux ou linha em `/etc/farol/portas`): reaproveita a porta, troca o app e a unidade e reinicia o serviço, preservando o resto de `~/.farol` |
+| `--forcar` | aceita login que já existe (usuário Linux ou linha em `/etc/farol/portas`): reaproveita a porta, troca o app e a unidade e reinicia o serviço, preservando o resto de `~/.farol`. Nunca aceita conta privilegiada (ver abaixo) |
 | `FAROL_NODE=/caminho/absoluto/node` | o node que a unidade usa; sem ele, o que o usuário criado enxerga (com o nvm dele, se houver) |
 
-**O login vira subdomínio.** Use minúsculas, dígitos e hífen, sem hífen na ponta e sem `_`:
-`ana`, `joao-silva`. O provisionamento aceita `_` (é a regra do `useradd`), mas
-`gerar-caddyfile.sh` recusa, porque não sai certificado para um nome de host com `_`.
+**O login vira subdomínio.** Comece por letra e use minúsculas, dígitos e hífen, sem hífen na
+ponta e sem `_`: `ana`, `joao-silva`. O provisionamento recusa o resto pela regra de rótulo de DNS
+(a mesma do smoke), porque não sai certificado para um nome de host com `_` e um login assim faria
+o `gerar-caddyfile.sh` recusar o Caddyfile de TODAS as pessoas. O `tools/web/portas.js` ainda
+aceita `_` (a regra do `useradd`), para o arquivo editado à mão, e o `caddyfile.js` continua
+conferindo.
+
+**Nunca uma conta privilegiada.** As revisões headless rodam `claude --dangerously-skip-permissions`:
+numa conta com sudo, uma injeção de prompt num PR viraria root numa máquina com os tokens de todo
+mundo. O provisionamento (com ou sem `--forcar`) recusa UID abaixo do `UID_MIN` de
+`/etc/login.defs` (1000 sem ele) e membro dos grupos `sudo`, `admin` ou `wheel`, o que inclui o
+`root` e o usuário `ubuntu` da imagem de nuvem.
 
 O que ele faz, nesta ordem, e onde grava:
 
 1. confere tudo antes de tocar algo: Linux, root, comandos presentes, login válido, node do root
    do sistema, e que o login ainda não existe (sem `--forcar`);
-2. cria o usuário (`useradd --create-home --shell /bin/bash`);
+2. cria o usuário (`useradd --create-home --shell /bin/bash`) e recusa a conta privilegiada;
 3. resolve o node da unidade, caminho absoluto (o systemd de usuário tem PATH mínimo e não vê o nvm);
 4. aloca a porta em **`/etc/farol/portas`** sob uma trava (`/etc/farol/portas.lock`): uma linha
    `<login> <porta>` por pessoa. `tools/web/portas.js` é o único leitor e escritor desse formato;
@@ -141,8 +154,8 @@ O que ele faz, nesta ordem, e onde grava:
    Se o arquivo já existe (`--forcar`), ele é mantido, e o script só pede para conferir a porta e
    o `localAuth`: ali moram as contas e a política da pessoa;
 7. instala **`~/.config/systemd/user/farol.service`** (de `tools/web/farol.service.template`:
-   `FAROL_HOME=%h/.farol`, `ExecStart=<node> %h/.farol/app/server.js`, `Restart=always`,
-   `RestartSec=10`);
+   `FAROL_HOME=%h/.farol`, o `ExecStartPre` que exige o `localAuth`,
+   `ExecStart=<node> %h/.farol/app/server.js`, `Restart=always`, `RestartSec=10`);
 8. liga o linger (`loginctl enable-linger <login>`), espera o systemd de usuário subir e roda
    `daemon-reload`, `enable` e `restart` do serviço como a pessoa, conferindo `is-active`.
 
@@ -150,8 +163,9 @@ O que ele faz, nesta ordem, e onde grava:
 `config.json`, unidade) é escrito COMO a pessoa (`sudo -u <login>`), então um link simbólico
 plantado ali só alcança o que ela já alcança.
 
-No fim, o script imprime a porta e os próximos passos: `gh auth login` como a pessoa, o comando do
-código de pareamento e o proxy.
+No fim, o script imprime a porta e os próximos passos, na ordem deste guia: o comando do código
+de pareamento, a instalação do `claude`, o login do Claude pela tela, a política da conta, o
+`gh auth login` como a pessoa e o proxy (`gerar-caddyfile.sh`).
 
 **Instale o `claude` da pessoa** logo depois do provisionamento (o script não instala, e a pessoa
 não tem shell na VPS para fazer isso ela mesma). O login do Claude pela tela roda
@@ -322,9 +336,11 @@ seguinte, com a política padrão de conta nova (desde 01/10/2026: revisa sozinh
 ressalvas e reprova sozinha; ver "Uma decisão, uma configuração" no `docs/CONFIGURATION.md`). O
 `config.json` do provisionamento não diz nada sobre isso. Quem quer começar devagar tem dois
 caminhos: a pessoa troca os seletores da conta logo depois do login, ou, ANTES do `gh auth login`,
-o operador acrescenta `"autoReview": false` ao `~/.farol/config.json` da pessoa (editando como
-ela, com `sudo -u ana`, e reiniciando o serviço dela, porque o motor lê o arquivo no boot), e a
-conta detectada nasce sem revisar sozinha: os PRs só entram na fila. A chave só cobre ISSO. As
+o operador acrescenta `"autoReview": false` ao `~/.farol/config.json` da pessoa, editando como
+ela (`sudo -u ana`) com o serviço PARADO: `systemctl --user stop farol`, editar,
+`systemctl --user start farol` (como a pessoa, com o `XDG_RUNTIME_DIR` dela). Com o motor rodando,
+um `saveConfig` nesse meio tempo regravaria o arquivo sem a chave, e a conta nasceria aprovando
+sozinha. Assim a conta detectada nasce sem revisar sozinha: os PRs só entram na fila. A chave só cobre ISSO. As
 outras três decisões da conta nascem no padrão (`onClean: approve`, `lib/engine/contas-migracao.js`),
 então um clique manual em Revisar num PR limpo ainda posta um APPROVE no GitHub. Para nada sair
 sem a pessoa decidir, ela põe também "espera você" nos seletores de aprovar e reprovar da conta,
@@ -335,6 +351,8 @@ Antigravity também entra pela tela.
 
 **Nunca como root.** O serviço de cada pessoa roda como o usuário dela, nunca como root: o Claude
 Code recusa `--dangerously-skip-permissions` com uid 0, e toda revisão headless passa essa flag.
+Nem como conta com sudo: o provisionamento recusa UID de sistema e membro de `sudo`, `admin` ou
+`wheel` (ver [Operador: provisionar uma pessoa](#operador-provisionar-uma-pessoa)).
 
 ## Update
 
@@ -514,7 +532,9 @@ O que NÃO foi validado, e como validar:
 4. o smoke pelo proxy real, com DNS e certificado do ACME;
 5. o reinício da VPS, com o linger trazendo os serviços de volta sem ninguém logar;
 6. (desejável) "Abrir sessão de login" abrindo o painel na tela, e um update do pacote leve sob o
-   systemd.
+   systemd;
+7. o instalador do `claude` (`curl -fsSL https://claude.ai/install.sh | bash`), escrito a partir da
+   documentação oficial e não executado aqui.
 
 Numa VM Ubuntu 24.04 limpa, com um domínio cujo DNS você controla, nesta ordem:
 
@@ -589,10 +609,10 @@ nas ferramentas.
    exemplo) evitaria a pessoa procurar um terminal que não existe.
 3. **`localAuth` só por arquivo, e a A4 do hospedado depende dele.** Com o motor em loopback, o
    único sinal que liga a exigência é `localAuth: "exigir"` no `config.json`. Apagar a chave do
-   arquivo (à mão, ou numa restauração de um `config.json` de outra instalação) deixa a instância
-   aberta para quem chega pelo proxy, sem aviso. O smoke pega (`GET /api/state` daria 200), mas só
-   quando roda. A config da pendência 1 poderia ligar a exigência sozinha, como o `bind` fora do
-   loopback já liga.
+   arquivo (à mão, ou numa restauração de um `config.json` de outra instalação) faria a instância
+   ficar aberta para quem chega pelo proxy; hoje quem impede é o `ExecStartPre` da unidade, que
+   recusa subir, e não o motor. A config da pendência 1 poderia ligar a exigência sozinha, como o
+   `bind` fora do loopback já liga.
 4. **Navegadores pareados só com a sincronização ligada.** A lista e a revogação de um navegador
    moram na seção Aparelhos, que com a sincronização desligada mostra só o aviso de desligada
    (`aparelhosSecaoHtml`, `ui/pure/aparelhos.js`). No hospedado, onde ela costuma ficar desligada,
@@ -609,10 +629,3 @@ nas ferramentas.
    o equivalente das três decisões de postar), o que pede o login da conta antes do `gh auth login`.
 6. **`config.json` não é conferido contra `/etc/farol/portas`.** Uma porta editada à mão de um
    lado só deixa o serviço em laço (porta ocupada) ou o proxy apontando para o lugar errado.
-7. **Login com `_`.** O provisionamento aceita (regra do `useradd`) e só o gerador do Caddyfile
-   recusa, com o usuário já criado. Recusar no provisionamento, pela regra de rótulo de DNS, fecha
-   isso.
-8. **A mensagem de revogação do smoke** manda revogar a sessão "smoke" em "Sistema > Seguranca",
-   seção que não existe. A lista de navegadores fica em Sistema > Aparelhos e, no hospedado com a
-   sincronização desligada, nem aparece (pendência 4): o caminho que a mensagem deveria dar é o
-   `--revogar-todas` como a pessoa, avisando que ele derruba também os navegadores dela.

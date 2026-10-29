@@ -4,6 +4,9 @@
 # @PORTA@ vira a porta da pessoa em /etc/farol/portas (a mesma do ~/.farol/config.json, que
 # e de onde o motor le de verdade; aqui ela so documenta) e @AMBIENTE_EXTRA@ vira uma linha
 # Environment= a mais, ou nada.
+# O ExecStartPre falha FECHADO: sem "localAuth": "exigir" legivel no config.json (chave
+# apagada, arquivo corrompido ou ilegivel, que o motor leria como {} e subiria sem a A4), o
+# servico nao sobe, em vez de o Caddy entregar a internet a uma API sem autenticacao.
 [Unit]
 Description=Farol (porta @PORTA@)
 
@@ -12,6 +15,7 @@ Type=simple
 Environment=FAROL_HOME=%h/.farol
 @AMBIENTE_EXTRA@
 WorkingDirectory=%h/.farol/app
+ExecStartPre=/usr/bin/grep -Eq '"localAuth"[[:space:]]*:[[:space:]]*"exigir"' %h/.farol/config.json
 ExecStart=@NODE@ %h/.farol/app/server.js
 Restart=always
 RestartSec=10

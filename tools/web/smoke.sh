@@ -24,7 +24,7 @@ set -euo pipefail
 DOMINIO_ARQ=/etc/farol/dominio
 
 die()    { printf '  x  %s\n' "$1" >&2; exit 1; }
-uso()    { sed -n '17,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
+uso()    { sed -n '17,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
 FALHAS=0
 passou() { printf '  ok %s\n' "$1"; }
 falhou() { printf '  x  %s\n' "$1" >&2; FALHAS=$((FALHAS + 1)); }
@@ -154,7 +154,12 @@ fi
 rm -f "$TMP/sse"
 
 if [ "$SESSAO_DO_SMOKE" -eq 1 ]; then
-  if revogar; then passou 'sessao "smoke" revogada'; else falhou 'nao consegui revogar a sessao "smoke" (Sistema > Seguranca)'; fi
+  if revogar; then
+    passou 'sessao "smoke" revogada'
+  else
+    # CASA e NODE existem aqui: so ha sessao do smoke quando ele mesmo pareou (passo 4)
+    falhou "nao consegui revogar a sessao \"smoke\". Revogue no servidor, como a pessoa (isso derruba TODOS os navegadores dela): sudo -u $LOGIN FAROL_HOME=$CASA/.farol $NODE $CASA/.farol/app/tools/farol-parear.js --revogar-todas"
+  fi
   SESSAO_DO_SMOKE=0
 fi
 
