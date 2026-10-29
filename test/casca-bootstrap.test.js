@@ -263,3 +263,30 @@ test('reexecutar: filho morto por sinal vira código 1', () => {
   assert.equal(r.status, 1, r.stderr);
 });
 
+// O repasse de sinal é o que impede o motor órfão segurando a porta quando a casca fecha: o
+// pai recebe SIGTERM, o filho reexecutado recebe o mesmo SIGTERM, e o pai sai com o código
+// do filho.
+test('reexecutar repassa o SIGTERM do pai ao filho e sai com o código dele', { skip: process.platform === 'win32' }, async () => {
+  const raiz = fs.mkdtempSync(path.join(TMP, 'raiz-'));
+  const marca = path.join(raiz, 'marca.txt');
+  fs.writeFileSync(path.join(raiz, 'server.js'), [
+    `const fs = require('node:fs');`,
+    `process.on('SIGTERM', () => { fs.appendFileSync(${JSON.stringify(marca)}, 'recebi SIGTERM ' + process.pid + '\\n'); process.exit(0); });`,
+    `fs.writeFileSync(${JSON.stringify(marca)}, 'pronto ' + process.pid + '\\n');`,
+    `setInterval(() => {}, 1000);`,
+  ].join('\n'));
+  fs.writeFileSync(path.join(raiz, 'package.json'), JSON.stringify({ type: 'commonjs' }));
+  const { spawn } = await import('node:child_process');
+  const pai = spawn(process.execPath, [scriptQueReexecuta(raiz)], { stdio: 'ignore' });
+  const saida = new Promise((resolve) => pai.on('exit', (code, signal) => resolve({ code, signal })));
+  const inicio = Date.now();
+  while (!(fs.existsSync(marca) && fs.readFileSync(marca, 'utf8').startsWith('pronto'))) {
+    if (Date.now() - inicio > 10000) { pai.kill('SIGKILL'); throw new Error('o filho não subiu'); }
+    await new Promise(r => setTimeout(r, 25));
+  }
+  const pidDoFilho = fs.readFileSync(marca, 'utf8').split(/\s+/)[1];
+  pai.kill('SIGTERM');
+  const r = await saida;
+  assert.deepEqual(r, { code: 0, signal: null }, 'o pai sai pelo código do filho, não morto pelo sinal');
+  assert.match(fs.readFileSync(marca, 'utf8'), new RegExp(`recebi SIGTERM ${pidDoFilho}`), 'o filho recebeu o SIGTERM');
+});
