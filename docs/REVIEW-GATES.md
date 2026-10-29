@@ -6,7 +6,9 @@
 > voltaram a ser ressalva, e só a parte do card que cabe a ESTE PR bloqueia (ver
 > "Card só na parte deste PR e dependência aberta voltam a ser ressalva", abaixo).
 > Recuperação vigente (PR #253, 18/10/2026): a falta de evidência é responsabilidade do Farol.
-> Antes de reagendar por resultado incompleto, o Farol tenta uma continuação dirigida na mesma
+> Antes de reagendar por resultado incompleto, o Farol confere critérios e avaliação técnica,
+> devolvendo os erros específicos à mesma conversa em até duas continuações dirigidas, sem
+> repetir quando não há progresso. Mantém o material até o fechamento da sessão. Retoma na mesma
 > conversa quando há sessionId, sem nova admissão e sem publicação direta. O resultado volta
 > a todos os gates. A recuperação usa cinco minutos de inatividade, sem reduzir o teto com
 > progresso; critérios pendentes específicos acompanham a próxima rodada. O Codex recebe
