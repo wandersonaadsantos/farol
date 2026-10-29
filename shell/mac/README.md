@@ -51,3 +51,11 @@ scripts/lint.sh
 
 Roda `swift-format lint --strict` com a configuração de `.swift-format`. Os três scripts funcionam a
 partir de qualquer pasta.
+
+## Limites conhecidos
+
+- **Sair com o motor travado**: o Sair espera o motor parar por até 8 s e então deixa o app sair
+  assim mesmo. Nesse caso o motor segue rodando até perceber o fim da entrada padrão (o pipe que a
+  casca segura fecha quando o app sai); essa detecção é trabalho do lado do motor e ainda não
+  existe, então hoje ele fica de pé até ser parado à mão (a próxima abertura do app o encontra
+  vivo e abre como visor).

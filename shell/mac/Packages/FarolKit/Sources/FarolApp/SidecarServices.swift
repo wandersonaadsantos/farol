@@ -45,8 +45,9 @@ public struct SidecarServices: Sendable {
     public var readEngineFile: @Sendable () -> EngineFile?
     /// Apaga o `casca.json` que sobrou de um motor morto, antes de subir outro.
     public var removeEngineFile: @Sendable () -> Void
-    /// Espera o motor publicar o `casca.json`; lança no prazo estourado.
-    public var waitForEngineFile: @Sendable () async throws -> EngineFile
+    /// Espera o motor publicar o `casca.json` desta subida (a marca recusa o de antes); lança
+    /// no prazo estourado.
+    public var waitForEngineFile: @Sendable (SpawnMark) async throws -> EngineFile
     /// O processo `pid` existe (`kill(pid, 0)`).
     public var isProcessAlive: @Sendable (Int32) -> Bool
     /// Quem escuta na porta responde como Farol (`GET /api/auth/status`).
@@ -78,7 +79,7 @@ public struct SidecarServices: Sendable {
         engine: any EngineControl,
         readEngineFile: @escaping @Sendable () -> EngineFile?,
         removeEngineFile: @escaping @Sendable () -> Void,
-        waitForEngineFile: @escaping @Sendable () async throws -> EngineFile,
+        waitForEngineFile: @escaping @Sendable (SpawnMark) async throws -> EngineFile,
         isProcessAlive: @escaping @Sendable (Int32) -> Bool,
         isFarol: @escaping @Sendable (Int) async -> Bool,
         pair: @escaping @Sendable (Int, String) async throws -> String,
@@ -123,7 +124,7 @@ public struct SidecarServices: Sendable {
             engine: engine,
             readEngineFile: { try? EngineFile.read(at: fileURL) },
             removeEngineFile: { try? FileManager.default.removeItem(at: fileURL) },
-            waitForEngineFile: { try await FarolSidecar.waitForEngineFile(at: fileURL) },
+            waitForEngineFile: { try await FarolSidecar.waitForEngineFile(at: fileURL, accepting: $0) },
             isProcessAlive: { EngineProbe.isProcessAlive(pid: $0) },
             isFarol: { await EngineProbe.isFarol(port: $0) },
             pair: { try await Pairing.pair(port: $0, code: $1) },

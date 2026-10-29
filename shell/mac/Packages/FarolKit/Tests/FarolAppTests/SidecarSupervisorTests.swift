@@ -48,6 +48,7 @@ final class FakeFiles: Sendable {
         var pending: EngineFile?
         var removals = 0
         var timeoutNext = false
+        var marks: [SpawnMark] = []
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
 
@@ -56,6 +57,8 @@ final class FakeFiles: Sendable {
         set { state.withLock { $0.current = newValue } }
     }
     var removals: Int { state.withLock { $0.removals } }
+    /// As marcas de subida que cada espera recebeu.
+    var marks: [SpawnMark] { state.withLock { $0.marks } }
 
     /// A próxima espera recebe `file`.
     func publish(_ file: EngineFile) { state.withLock { $0.pending = file } }
@@ -64,7 +67,8 @@ final class FakeFiles: Sendable {
 
     func remove() { state.withLock { $0.removals += 1 } }
 
-    func wait() async throws -> EngineFile {
+    func wait(_ mark: SpawnMark) async throws -> EngineFile {
+        state.withLock { $0.marks.append(mark) }
         while true {
             try Task.checkCancellation()
             let next: Result<EngineFile, any Error>? = state.withLock { state in
@@ -228,7 +232,7 @@ private struct Harness {
             engine: engine,
             readEngineFile: { files.current },
             removeEngineFile: { files.remove() },
-            waitForEngineFile: { try await files.wait() },
+            waitForEngineFile: { try await files.wait($0) },
             isProcessAlive: { probe.isAlive($0) },
             isFarol: { _ in probe.isFarol() },
             pair: { try await pairing.pair(port: $0, code: $1) },
@@ -470,7 +474,7 @@ private func bootToReady(_ h: Harness) async {
         #expect(h.files.removals == 0)
     }
 
-    @Test func liveEnginePidThatNeverAnswersStillPrefersTheViewer() async {
+    @Test func liveEnginePidThatNeverAnswersIsSpawnedOverAndTheFileRemoved() async {
         let h = Harness()
         h.files.current = engineFile(code: "OUTRO")
         h.probe.setAlive([4242])
@@ -478,9 +482,10 @@ private func bootToReady(_ h: Harness) async {
         await h.supervisor.boot()
 
         #expect(h.probe.probes == 3)
-        #expect(h.supervisor.phase == .viewer(port: 47190))
-        #expect(h.engine.entered == 0)
-        #expect(h.files.removals == 0)
+        #expect(await eventually { h.engine.starts == 1 })
+        #expect(h.files.removals == 1)
+        #expect(h.ui.viewerNotices == 0)
+        #expect(h.supervisor.phase == .waitingForFile)
     }
 
     @Test func deadEnginePidIsSpawnedOverAndTheOldFileRemoved() async {
@@ -505,6 +510,9 @@ private func bootToReady(_ h: Harness) async {
 
         #expect(await eventually { h.engine.starts == 2 })
         #expect(h.files.removals == 1)
+        #expect(await eventually { h.files.marks.count == 2 })
+        #expect(h.files.marks.last?.previousPid == 5151)
+        #expect(h.files.marks.first?.previousPid == nil)
     }
 
     @Test func shutdownDuringAPendingSpawnStopsAfterTheStart() async {

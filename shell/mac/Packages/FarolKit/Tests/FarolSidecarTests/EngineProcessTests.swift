@@ -215,4 +215,25 @@ private func pids(in dir: URL, count: Int) async throws -> [Int32] {
         #expect(file.port == 1)
         try await writer.value
     }
+
+    @Test func waitForEngineFileAfterSpawnSkipsThePreviousFile() async throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("casca.json")
+        let old = """
+            {"porta":1,"pid":77,"versao":"1.0.0","codigoPareamento":"VELHO","iniciadoEm":1000}
+            """
+        try Data(old.utf8).write(to: url)
+        let mark = SpawnMark(previousPid: 77, spawnedAt: Date(timeIntervalSince1970: 50))
+        let writer = Task {
+            try await Task.sleep(for: .milliseconds(300))
+            let json = """
+                {"porta":2,"pid":78,"versao":"1.0.0","codigoPareamento":"NOVO","iniciadoEm":1000}
+                """
+            try Data(json.utf8).write(to: url, options: .atomic)
+        }
+        let file = try await waitForEngineFile(at: url, accepting: mark, timeout: 5, pollInterval: 0.05)
+        #expect(file.pairingCode == "NOVO")
+        try await writer.value
+    }
 }

@@ -6,8 +6,8 @@ import os
 /// Dirige a `SidecarMachine`: executa cada efeito e devolve cada resultado como entrada.
 ///
 /// - `.stopEngine` para o nosso motor (o 401 da `ui/`); o `.spawn` seguinte espera a parada.
-/// - `.spawn` sobe o motor; antes, apaga o `casca.json` velho só quando o pid dele não está
-///   vivo (o motor morto por sinal não apaga o dele, e a espera leria o código já gasto; o
+/// - `.spawn` sobe o motor; antes, apaga o `casca.json` velho quando o pid dele não está
+///   vivo ou quando o boot já viu que não é Farol (o motor morto por sinal não apaga o dele, e a espera leria o código já gasto; o
 ///   de um processo vivo não é nosso para apagar). Falha ao subir conta como saída 1.
 /// - `.waitFile` espera a subida e então o arquivo; prazo estourado com o processo vivo é
 ///   motor que não publicou: o supervisor o para e entrega `.exited(code: 1)`, para o recuo
@@ -20,8 +20,10 @@ import os
 /// - `.restart(after:)` dorme e entrega `.restartNow`.
 ///
 /// No boot, um `casca.json` cujo pid está vivo é sondado até `probeAttempts` vezes antes da
-/// decisão; sem resposta, a casca prefere o visor a subir um segundo motor sobre o arquivo
-/// de outro processo.
+/// decisão; sem resposta, não é Farol: a casca sobe o próprio motor e essa primeira subida
+/// apaga o arquivo velho mesmo com o pid vivo (senão um pid reaproveitado depois de uma
+/// queda de energia prenderia o app num visor de porta morta). A espera do arquivo recebe a
+/// `SpawnMark` da subida e não aceita o arquivo que já estava lá.
 ///
 /// Saída `75` (update do motor) consome também o marcador de reabertura silenciosa e posta o
 /// "Farol atualizado": a casca não reinicia, só o motor, e um marcador esquecido faria a
@@ -46,13 +48,17 @@ public final class SidecarSupervisor {
     private var stableTask: Task<Void, Never>?
     /// A parada pedida por `.stopEngine`; o próximo `.spawn` espera por ela.
     private var stopTask: Task<Void, Never>?
-    /// A subida em andamento; a espera do arquivo e o `shutdown()` esperam por ela.
-    private var spawnTask: Task<Void, Never>?
+    /// A subida em andamento, que devolve a marca dela (ou `nil` quando não subiu); a espera
+    /// do arquivo e o `shutdown()` esperam por ela.
+    private var spawnTask: Task<SpawnMark?, Never>?
     private var eventsTask: Task<Void, Never>?
     private var eventSource: (any EventSource)?
     /// O token da janela: o do pareamento desta subida, o do Keychain como visor, ou `nil`.
     private var token: String?
     private var lastAutostart: Bool?
+    /// O boot sondou o `casca.json` e ele não é de um Farol: a próxima subida o apaga sem
+    /// olhar o pid.
+    private var removeFileOnNextSpawn = false
     private var shuttingDown = false
 
     /// A versão anunciada no último `casca-saida`, quando houver.
@@ -78,12 +84,15 @@ public final class SidecarSupervisor {
         let file = services.readEngineFile()
         var alive = false
         if let file, services.isProcessAlive(file.pid) {
-            if await !engineAnswers(port: file.port) {
+            alive = await engineAnswers(port: file.port)
+            if !alive {
+                // Sondado e não é Farol: o arquivo é velho (o pid foi reaproveitado), e a
+                // primeira subida o apaga mesmo com o pid vivo.
                 Self.logger.warning(
-                    "o processo do casca.json está vivo, mas a porta não respondeu como Farol; abrindo como visor"
+                    "o processo do casca.json está vivo, mas a porta não respondeu como Farol; subindo outro motor"
                 )
+                removeFileOnNextSpawn = true
             }
-            alive = true
         }
         if alive {
             // O motor não é nosso e não há código para gastar: o visor usa o token guardado.
@@ -217,25 +226,36 @@ public final class SidecarSupervisor {
         let services = services
         let pendingStop = stopTask
         stopTask = nil
+        let removeAlways = removeFileOnNextSpawn
+        removeFileOnNextSpawn = false
         spawnTask = Task { [weak self] in
             await pendingStop?.value
-            Self.removeStaleEngineFile(services: services)
+            let previous = Self.removeStaleEngineFile(services: services, evenIfAlive: removeAlways)
+            let mark = SpawnMark(previousPid: previous?.pid, spawnedAt: Date())
             do {
                 try await services.engine.start()
+                return mark
             } catch {
                 Self.logger.error("motor não subiu: \(String(describing: error), privacy: .public)")
                 self?.engineExited(code: 1)
+                return nil
             }
         }
     }
 
-    /// Apaga o `casca.json` de um processo que não existe mais; o de um processo vivo fica.
-    private nonisolated static func removeStaleEngineFile(services: SidecarServices) {
-        if let file = services.readEngineFile(), services.isProcessAlive(file.pid) {
+    /// Apaga o `casca.json` de um processo que não existe mais; o de um processo vivo fica,
+    /// salvo com `evenIfAlive` (o boot já sondou e viu que não é Farol). Devolve o arquivo que
+    /// havia antes, para a marca da subida.
+    private nonisolated static func removeStaleEngineFile(
+        services: SidecarServices, evenIfAlive: Bool
+    ) -> EngineFile? {
+        let file = services.readEngineFile()
+        if let file, !evenIfAlive, services.isProcessAlive(file.pid) {
             logger.notice("o casca.json é de um processo vivo; mantido")
-            return
+            return file
         }
         services.removeEngineFile()
+        return file
     }
 
     private func waitForFile() {
@@ -243,10 +263,9 @@ public final class SidecarSupervisor {
         let services = services
         let pendingSpawn = spawnTask
         waitTask = Task { [weak self] in
-            await pendingSpawn?.value
-            guard !Task.isCancelled else { return }
+            guard let mark = await pendingSpawn?.value, !Task.isCancelled else { return }
             do {
-                let file = try await services.waitForEngineFile()
+                let file = try await services.waitForEngineFile(mark)
                 self?.engineFilePublished(file)
             } catch is CancellationError {
                 return

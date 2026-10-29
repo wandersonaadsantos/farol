@@ -43,6 +43,12 @@ import Testing
         #expect(EngineProbe.isProcessAlive(pid: -1) == false)
     }
 
+    @Test func processOfAnotherUserIsNotOurs() {
+        // O pid 1 (launchd) é do root: o `kill(1, 0)` devolve EPERM, e o motor sempre roda
+        // com o mesmo usuário do app.
+        #expect(EngineProbe.isProcessAlive(pid: 1) == false)
+    }
+
     @Test func engineAliveNeedsBothProcessAndFarolAnswer() async throws {
         let server = try FakeHTTPServer(body: #"{"exigida":false}"#)
         defer { server.stop() }

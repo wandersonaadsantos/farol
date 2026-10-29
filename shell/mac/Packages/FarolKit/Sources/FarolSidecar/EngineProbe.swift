@@ -31,12 +31,14 @@ public struct EngineProbe {
         return object["exigida"] != nil
     }
 
-    /// O processo `pid` existe, pelo `kill(pid, 0)`: sucesso ou `EPERM` (existe e é de
-    /// outro usuário) contam como vivo; `ESRCH` e pid menor ou igual a zero, não.
+    /// O processo `pid` existe e é do nosso usuário, pelo `kill(pid, 0)`: só o sucesso conta.
+    /// `EPERM` (o processo existe, mas é de outro usuário) conta como não nosso: o motor roda
+    /// sempre com o mesmo usuário do app, e depois de uma queda de energia o pid velho do
+    /// `casca.json` costuma estar com um processo do sistema. `ESRCH` e pid menor ou igual a
+    /// zero também não contam.
     public static func isProcessAlive(pid: Int32) -> Bool {
         guard pid > 0 else { return false }
-        if kill(pid, 0) == 0 { return true }
-        return errno == EPERM
+        return kill(pid, 0) == 0
     }
 
     /// O motor do arquivo está de pé: o processo existe e a porta responde como Farol.

@@ -12,9 +12,11 @@ public enum EngineFileError: Error, Equatable, Sendable {
 /// Lê a cada `pollInterval` segundos. Arquivo ausente ou ainda pela metade lê como `nil`
 /// (`EngineFile.read`) e é só lido de novo; passado `timeout`, lança `EngineFileError.timeout`.
 /// Respeita o cancelamento da tarefa. Erro de leitura que esperar não resolve (permissão)
-/// sobe como veio.
+/// sobe como veio. Com `mark`, arquivo que a marca não aceita (o de antes da subida) é tratado
+/// como ausente.
 public func waitForEngineFile(
     at url: URL,
+    accepting mark: SpawnMark? = nil,
     timeout: Double = 30,
     pollInterval: Double = 0.2
 ) async throws -> EngineFile {
@@ -22,7 +24,7 @@ public func waitForEngineFile(
     let deadline = clock.now.advanced(by: .seconds(timeout))
     while true {
         try Task.checkCancellation()
-        if let file = try EngineFile.read(at: url) {
+        if let file = try EngineFile.read(at: url), mark?.accepts(file) ?? true {
             return file
         }
         if clock.now >= deadline {
