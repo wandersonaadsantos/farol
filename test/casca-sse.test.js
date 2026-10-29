@@ -122,3 +122,24 @@ test('evento que não vira notificação não sai como aviso-nativo, e casca igu
     s.fechar();
   }
 });
+
+test('aviso que não se monta (payload fora da forma) vira WARN e não derruba quem emitiu', async () => {
+  const s = abrirStream();
+  const logs = [];
+  const logReal = engine.log;
+  engine.log = (nivel, texto) => { logs.push([nivel, texto]); };
+  try {
+    await s.proximo('casca');
+    // sem `pr`: o avisoDeAprovado lança; o emit vem do desfecho que já postou no GitHub
+    assert.doesNotThrow(() => engine.emit('auto-approved', { result: {} }));
+    engine.emit('tool-done', { name: 'kudos', label: 'Kudos' });
+    const aviso = await s.proximo('aviso-nativo');
+    assert.equal(aviso.data.titulo, 'Farol · Kudos', 'o stream segue vivo e o aviso seguinte sai');
+    assert.ok(s.todos.some(q => q.evento === 'auto-approved'), 'o evento original foi repassado antes');
+    assert.equal(s.todos.filter(q => q.evento === 'aviso-nativo').length, 1, 'nenhum aviso do payload quebrado');
+    assert.ok(logs.some(([nivel, texto]) => nivel === 'WARN' && /auto-approved/.test(texto)), 'a falha fica no farol.log');
+  } finally {
+    engine.log = logReal;
+    s.fechar();
+  }
+});
