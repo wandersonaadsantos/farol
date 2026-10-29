@@ -20,6 +20,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { TEMPOS } = await import('../lib/constants.js');
 const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
 isolateTechnicalTool();
 
@@ -205,6 +206,37 @@ test('cancelamento durante a continuação impede qualquer publicação', async 
   await assert.rejects(e.runHeadlessReview({ ...PR, key: 'o/r#2204', number: 2204, url: 'https://github.com/o/r/pull/2204' }), /cancelada/);
   assert.equal(published, 0);
   assert.equal(e.activeReviews.size, 0);
+});
+
+test('commit novo durante a continuação cancela cedo a análise antiga e encerra o vigia', async t => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }, {}]);
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  const run = e.runClaudeStream;
+  let calls = 0, published = 0, cancelled = 0;
+  e.runClaudeStream = async (prompt, opts) => {
+    if (++calls === 2) { entered.resolve(opts.id); await release.promise; }
+    return run(prompt, opts);
+  };
+  const cancel = e.cancelSession.bind(e);
+  e.cancelSession = id => { cancelled++; return cancel(id); };
+  e.postReview = async () => { published++; return { ok: true }; };
+  const pr = { ...PR, key: 'o/r#2205', number: 2205, url: 'https://github.com/o/r/pull/2205' };
+  const pending = e.runHeadlessReview(pr);
+  const checked = assert.rejects(pending, /cancelada/);
+  await entered.promise;
+  e.headSha = async () => 'b'.repeat(40);
+  t.mock.timers.tick(TEMPOS.VIGIA_SESSAO_MS);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(cancelled, 1);
+  release.resolve();
+  await checked;
+  assert.equal(published, 0);
+  t.mock.timers.tick(TEMPOS.VIGIA_SESSAO_MS);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(cancelled, 1, 'o vigia foi encerrado no finally');
 });
 
 test('análise incompleta pode concluir com reprovação própria, sem aprovar por esgotamento', async () => {
