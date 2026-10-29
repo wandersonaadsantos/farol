@@ -358,37 +358,37 @@ test('modelo reprova por CI obrigatório confirmado sem inventar finding de cód
   assert.equal(pendente(e, 153), undefined, 'não fica recuperando uma reprovação coerente');
 });
 
-test('CI obrigatório vermelho e a conta reprovando sozinha: REQUEST_CHANGES citando os checks, e a aprovação sai quando ficar verde', async () => {
+test('CI obrigatório vermelho encerra o head com REQUEST_CHANGES, sem outra review quando ficar verde', async () => {
   const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }] });
   await revisar(e, 20);
   assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES'], 'nunca APPROVE com CI vermelho');
   assert.match(envios[0].body, /`audit` estão falhando no commit 706cc81/);
   assert.equal(envios[0].commit_id, HEAD);
   assert.deepEqual(publicReviewLanguageIssues(envios[0], 'eu'), []);
-  const d = pendente(e, 20);
-  assert.ok(d.esperaCi, 'segue esperando o CI');
-  assert.equal(d.esperaCi.rcHead, HEAD, 'o pedido saiu uma vez por head');
+  assert.equal(pendente(e, 20), undefined);
+  assert.equal(resolvida(e, 20).status, 'auto_rejected');
+  assert.equal(resolvida(e, 20).verdict, 'request_changes');
   semMesa(e);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'FAILURE')];
   for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await e.varrerEsperas(), 0);
   assert.equal(envios.length, 1, 'não repete o pedido de mudanças a cada ciclo');
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.varrerEsperas(), 1);
-  assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES', 'APPROVE']);
-  assert.equal(envios[1].commit_id, HEAD);
-  assert.equal(resolvida(e, 20).status, 'auto_approved');
+  assert.equal(await e.varrerEsperas(), 0);
+  assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES']);
+  assert.equal(resolvida(e, 20).status, 'auto_rejected');
   semMesa(e);
 });
 
-test('CI que fica vermelho DURANTE a espera: o pedido sai no ciclo, uma vez, e a espera continua', async () => {
+test('CI que fica vermelho durante a espera publica uma reprovação e encerra a pendência', async () => {
   const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
   await revisar(e, 21);
   assert.deepEqual(envios, []);
   gh.rollup = [check('test', 'FAILURE'), check('audit', 'SUCCESS')];
-  assert.equal(await e.varrerEsperas(), 0);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES']);
   assert.match(envios[0].body, /`test` estão falhando/);
-  assert.equal(pendente(e, 21).esperaCi.rcHead, HEAD);
+  assert.equal(pendente(e, 21), undefined);
+  assert.equal(resolvida(e, 21).status, 'auto_rejected');
   assert.equal(await e.varrerEsperas(), 0);
   assert.equal(envios.length, 1);
   semMesa(e);
@@ -406,9 +406,10 @@ test('o pedido de mudanças pelo CI que falhou ao postar: a espera continua e o 
   gh.postFalha = '';
   envios = [];
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'FAILURE')];
-  assert.equal(await e.varrerEsperas(), 0);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES']);
-  assert.equal(pendente(e, 24).esperaCi.rcHead, HEAD);
+  assert.equal(pendente(e, 24), undefined);
+  assert.equal(resolvida(e, 24).status, 'auto_rejected');
 });
 
 test('CI vermelho com a conta que não reprova sozinha: só espera, como antes', async () => {
@@ -561,20 +562,20 @@ test('payloadDoPrProprio prefere o comentário que a revisão escreveu', () => {
 
 // ---------------------------------------------------------------- revisão do Codex sobre 8c1a1e2
 
-test('Codex 1: o pedido de mudanças que o próprio Farol postou pelo CI não resolve a espera na reconciliação', async () => {
-  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }] });
+test('espera legada com pedido de mudanças já publicado é encerrada sem segunda review', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
   await revisar(e, 60);
-  assert.equal(pendente(e, 60).esperaCi.rcHead, HEAD);
+  pendente(e, 60).esperaCi.rcHead = HEAD;
   gh.meusReviews = [{ state: 'CHANGES_REQUESTED', submitted_at: new Date(Date.now() + 1000).toISOString(), commit_id: HEAD }];
   await e.reconcilePending();
-  assert.ok(pendente(e, 60), 'a espera continua: aquele pedido é o do CI, não uma decisão de fora');
+  assert.equal(pendente(e, 60), undefined);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.varrerEsperas(), 1);
-  assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES', 'APPROVE']);
+  assert.equal(await e.varrerEsperas(), 0);
+  assert.deepEqual(envios, []);
 });
 
 test('Codex 1: uma aprovação minha neste commit continua resolvendo a espera do CI', async () => {
-  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }] });
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
   await revisar(e, 61);
   gh.meusReviews = [{ state: 'APPROVED', submitted_at: new Date(Date.now() + 1000).toISOString(), commit_id: HEAD }];
   await e.reconcilePending();

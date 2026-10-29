@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.16
+
+Parecer publicado encerra a revisão automática daquele commit.
+
+### Correções
+
+- Um novo pedido de review no GitHub deixa de desconsiderar a aprovação ou reprovação anterior da mesma conta no mesmo head. Comentários e alterações de tags também não reabrem essa revisão; outro commit permite uma nova análise automática. A revisão solicitada manualmente conserva seu caminho próprio.
+- A consulta de reviews percorre todo o histórico paginado. A conferência final, o reenvio e a espera do CI respeitam também um parecer anterior de tipo diferente, sem publicar outra decisão automaticamente no mesmo head.
+- Uma reprovação pelo CI obrigatório encerra a revisão daquele commit. Reexecutar o CI até ficar verde, sem outro commit, deixa de gerar uma aprovação automática por cima; esperas antigas com parecer confirmado também são encerradas.
+- Quando a conferência encontra um head já decidido e uma tag residual da própria conta, a remoção entra na limpeza durável. Ela preserva sessões locais e a posse de outro aparelho antes de remover o marcador. Tags de outras contas continuam preservadas.
+- Tentativas sem parecer publicado continuam sendo pendências; esta mudança não transforma falha de provedor, limite de uso ou análise inconclusiva em revisão concluída.
+
 ## v2.78.15
 
 Erros de fechamento voltam à própria sessão antes de reagendar uma revisão inteira.

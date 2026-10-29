@@ -1,3 +1,11 @@
+> Regra de repetição automática (29/10/2026): uma aprovação ou reprovação publicada
+> encerra aquele head para a conta revisora. Novo pedido de review, comentário ou
+> alteração de label não invalida a decisão; somente outro commit permite nova revisão
+> automática. Isso inclui reprovação por CI: reexecutar o CI sem outro commit não gera
+> uma segunda review automática de aprovação. Uma tentativa sem parecer publicado continua pendente.
+> A revisão manual explícita mantém seu caminho próprio. Tag residual da própria conta
+> observada num head já decidido entra na limpeza durável, que preserva sessões e leases vivos.
+>
 > Política vigente: admissibilidade técnica e prova suficiente são obrigatórias antes
 > de qualquer APPROVE. Esta regra substitui os trechos históricos que tratavam lacunas
 > de leitura, checkpoint ou CI obrigatório como ressalvas

@@ -14,6 +14,13 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.16', [
+    'Depois de uma aprovação ou reprovação publicada, o mesmo commit não é revisado automaticamente de novo, mesmo quando alguém pede review outra vez. Outro commit libera nova análise.',
+    'A leitura percorre o histórico paginado e a conferência final respeita qualquer parecer decisivo anterior da conta naquele commit.',
+    'Uma reprovação pelo CI encerra aquele commit; o CI ficar verde depois, sem outro commit, não publica uma segunda review de aprovação.',
+    'Uma tag residual da própria conta num head já decidido entra na limpeza durável, preservando sessões ativas e a posse de outro aparelho.',
+    'Falhas sem parecer publicado continuam pendentes. A revisão manual explícita mantém seu caminho próprio.',
+  ]],
   ['2.78.15', [
     'Erros de formato e evidências da avaliação técnica voltam à própria conversa para correção, com a versão exigida fornecida pelo avaliador.',
     'Uma pendência nova permite uma segunda continuação na mesma sessão; erros repetidos encerram a tentativa. A aprovação continua bloqueada enquanto a análise for inconclusiva.',

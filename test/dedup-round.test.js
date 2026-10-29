@@ -99,6 +99,31 @@ test('myReviewStates: review meu no MESMO commit continua contando (o dedup do #
   assert.deepEqual(states, ['CHANGES_REQUESTED'], 'mesmo head, mesma rodada: não reposta');
 });
 
+test('parecer decisivo oposto publicado durante a sessão encerra qualquer nova escrita automática', async () => {
+  const casos = [
+    [envelopeApprove(), 'CHANGES_REQUESTED', { policyApprove: 'approve' }],
+    [envelopeReject(), 'APPROVED', { policyReject: 'request_changes' }],
+  ];
+  for (const [envelope, state, policy] of casos) {
+    const e = engineCom(envelope, { meusReviews: revisao(state, HEAD_NOVO), head: HEAD_NOVO, ...policy });
+    await e.runHeadlessReview({ ...PR });
+    assert.equal(e.postados.length, 0);
+    assert.equal(e.decisions.resolved[0].status, 'already_reviewed');
+  }
+});
+
+test('clique reconstitui autorização manual sem persistir privilégio no PR da pendência', async () => {
+  const e = engineCom(envelopeApprove(), { meusReviews: revisao('APPROVED', HEAD_NOVO), head: HEAD_NOVO });
+  e.destravados = { [PR.key]: { tipo: 'pedido', at: Date.now() } };
+  const item = e.recordDecision({ ...PR, manual: true }, { ...envelopeApprove(), headSha: HEAD_NOVO }, { status: 'pending' });
+  assert.equal(item.pr.manual, undefined);
+  const post = e.postReview;
+  e.postReview = async (pr, payload) => { assert.equal(pr.manual, true); return post(pr, payload); };
+  assert.equal((await e.decide(item.id, 'approve')).ok, true);
+  assert.equal(e.postados.length, 1);
+  assert.equal(item.pr.manual, undefined);
+});
+
 test('myReviewStates sem head conhecido degrada pro comportamento antigo (nunca perde o dedup por falha de rede)', async () => {
   const e = engineCom(envelopeReject(), { meusReviews: revisao('CHANGES_REQUESTED', HEAD_ANTIGO), head: '' });
   const states = await e.myReviewStates(PR, '');
