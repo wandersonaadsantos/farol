@@ -41,6 +41,16 @@ public class EngineFileTests
         Assert.Null(file.NextVersion);
     }
 
+    [Fact]
+    public void LoneSurrogateInVersionCountsAsAbsent()
+    {
+        var file = EngineFile.Parse(
+            """{ "porta": 1, "pid": 2, "versao": "2\ud83d", "codigoPareamento": "X", "iniciadoEm": 0 }""");
+
+        Assert.NotNull(file);
+        Assert.Equal("", file.Version);
+    }
+
     [Theory]
     [InlineData("{nope")]
     [InlineData("")]

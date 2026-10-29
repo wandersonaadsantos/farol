@@ -66,7 +66,7 @@ public sealed record EngineFile(
                 startedAt,
                 Json.String(root, "proximaVersao"));
         }
-        catch (Exception e) when (e is JsonException or ArgumentOutOfRangeException)
+        catch (Exception e) when (e is JsonException or ArgumentOutOfRangeException or InvalidOperationException)
         {
             return null;
         }

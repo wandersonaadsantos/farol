@@ -16,7 +16,8 @@ public abstract record ShellEvent
     /// <summary>Uma notificação pronta, montada pelo motor.</summary>
     /// <remarks>
     /// <see cref="Url"/> aceita endereço relativo para não perder o que o motor mandou;
-    /// quem abre o link só abre o absoluto.
+    /// quem abre o link precisa aceitar só http e https, porque no Unix um texto como
+    /// <c>/x</c> vira <c>file:///x</c> absoluto.
     /// </remarks>
     public sealed record Notice(string Title, string Body, Uri? Url, string? Pr, bool Silent) : ShellEvent;
 
@@ -49,7 +50,7 @@ public abstract record ShellEvent
             using var doc = JsonDocument.ParseValue(ref reader);
             return doc.RootElement.ValueKind == JsonValueKind.Object ? decode(doc.RootElement) : null;
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or InvalidOperationException)
         {
             return null;
         }

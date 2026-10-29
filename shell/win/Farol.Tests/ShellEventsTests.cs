@@ -39,6 +39,7 @@ public class ShellEventsTests
         }
     }
 
+    // O esperado é o corpo que o motor transmite: confere a paridade dos nomes de campo.
     [Theory]
     [MemberData(nameof(NoticeCases))]
     public void FixtureCaseDecodesToNotice(string name, string expectedJson)
@@ -54,6 +55,19 @@ public class ShellEventsTests
         Assert.Equal(root.GetProperty("url").GetString(), notice.Url?.OriginalString);
         Assert.Equal(root.GetProperty("pr").GetString(), notice.Pr);
         Assert.True(root.GetProperty("silencioso").GetBoolean() == notice.Silent, name);
+    }
+
+    [Fact]
+    public void LoneSurrogateInTitleDoesNotThrow()
+    {
+        // o JSON.stringify do Node emite isso para um título cortado no meio de um emoji
+        var decoded = ShellEvent.Decode("aviso-nativo", Bytes(
+            """{ "titulo": "x\ud83d", "corpo": "C", "url": null, "pr": "o/r#1", "silencioso": false }"""));
+
+        var notice = Assert.IsType<ShellEvent.Notice>(decoded);
+        Assert.Equal("", notice.Title);
+        Assert.Equal("C", notice.Body);
+        Assert.Equal("o/r#1", notice.Pr);
     }
 
     [Fact]
