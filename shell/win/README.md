@@ -75,3 +75,22 @@ O detalhe mora no índice; aqui só o que a casca precisa lembrar.
 - **Códigos de saída** do motor: `0` é fim; `75` é saída de propósito (update ou
   reinício), e a casca religa na hora; qualquer outro é falha, com recuo de 1 s, 2 s,
   4 s até o teto de 30 s, parando depois de 5 falhas seguidas.
+
+## Update do pacote
+
+O App Installer baixa e aplica o MSIX sozinho; a casca não baixa nada. O único
+papel dela é escolher a hora de reiniciar: de hora em hora o `UpdateWatcher`
+(`Farol.App`) pergunta ao App Installer se há versão nova
+(`Package.CheckUpdateAvailabilityAsync`) e, quando há, pede o reinício ao
+`UpdateGate` (`Farol.Contrato`, puro e testado). O gate só libera com o motor
+livre (`Busy` falso no último evento `casca`, que chega pela composição):
+pedido com o motor ocupado espera o primeiro retrato livre, e o reinício sai uma
+vez só. Antes de `AppInstance.Restart` o motor é encerrado pelo caminho ordenado;
+se o sistema recusar o reinício, o motor volta e a próxima checagem tenta de
+novo. Esse é o update do pacote da casca; o do motor (`casca-saida` e código 75)
+segue o contrato acima.
+
+## Medição de memória
+
+O método, o comando e a tabela estão em [`docs/medicao.md`](docs/medicao.md).
+A medição ainda não foi feita: a tabela espera uma máquina Windows.

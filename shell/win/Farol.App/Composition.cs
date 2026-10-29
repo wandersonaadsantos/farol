@@ -34,6 +34,7 @@ internal sealed class Composition
     private readonly TaskbarOverlay _overlay;
     private readonly Autostart _autostart;
     private readonly EngineProcess _engine;
+    private readonly UpdateWatcher _updates;
 
     private SidecarMachine _machine = new();
     private TrayIcon? _tray;
@@ -67,6 +68,7 @@ internal sealed class Composition
     private bool _engineRestarted;
     private bool _repairing;
     private bool _quitting;
+    private bool _updating;
 
     /// <param name="window">A janela principal, já criada e ainda não mostrada.</param>
     /// <param name="home">O home em uso (<see cref="FarolPaths.Home"/>).</param>
@@ -86,6 +88,7 @@ internal sealed class Composition
         _autostart = new Autostart(Log);
         var (nodeExe, serverJs) = EngineLocator.Bundled();
         _engine = new EngineProcess(nodeExe, serverJs, engineHome, shellVersion, Log);
+        _updates = new UpdateWatcher(_dispatcher, StopForUpdateAsync, ResumeAfterFailedUpdateAsync, Log);
     }
 
     /// <summary>
@@ -122,6 +125,7 @@ internal sealed class Composition
 
         _ = WatchExitsAsync();
         _ = BootAsync();
+        _updates.Start();
     }
 
     /// <summary>
@@ -168,7 +172,8 @@ internal sealed class Composition
     // Só na thread da interface, e nunca de dentro de um efeito: resultado de efeito volta por Post.
     private void Feed(SidecarInput input)
     {
-        if (_quitting)
+        // Na parada para o update, a saída do motor é pedida pela casca e não deve religá-lo.
+        if (_quitting || _updating)
         {
             return;
         }
@@ -669,6 +674,8 @@ internal sealed class Composition
             _autostartApplied = shell.Autostart;
             _ = ApplyAutostartAsync(shell.Autostart);
         }
+        // O gate de update ouve daqui: um reinício adiado sai no primeiro retrato livre.
+        _updates.OnShell(shell);
     }
 
     private async Task ApplyAutostartAsync(bool wanted)
@@ -833,6 +840,43 @@ internal sealed class Composition
         }
     }
 
+    // ---------- update do pacote ----------
+
+    // Antes do reinício pedido pelo gate (motor livre): fecha o SSE, encerra o motor pelo caminho
+    // ordenado e tira o ícone da bandeja, que senão ficaria órfão até alguém passar o mouse.
+    private async Task StopForUpdateAsync()
+    {
+        _updating = true;
+        _wait.Cancel();
+        AbandonProof();
+        StopStream();
+        try
+        {
+            await _engine.StopAsync();
+        }
+        catch (Exception e)
+        {
+            Log($"WARN encerrar o motor para o update falhou ({e.GetType().Name})");
+        }
+        _tray?.Dispose();
+        _tray = null;
+    }
+
+    // O sistema recusou o reinício: a bandeja e o motor voltam, pelo boot inteiro.
+    private async Task ResumeAfterFailedUpdateAsync()
+    {
+        _updating = false;
+        if (_quitting)
+        {
+            return;
+        }
+        if (_tray is null)
+        {
+            CreateTray();
+        }
+        await BootAsync();
+    }
+
     // ---------- bandeja ----------
 
     private void CreateTray()
@@ -892,6 +936,7 @@ internal sealed class Composition
             Log($"WARN encerrar o motor na saída falhou ({e.GetType().Name})");
         }
         _engine.Dispose();
+        _updates.Dispose();
         _tray?.Dispose();
         _tray = null;
         _overlay.Dispose();
