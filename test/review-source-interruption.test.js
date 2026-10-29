@@ -17,6 +17,16 @@ async function waitFor(file) {
   }
   throw new Error('Fixture process did not reach its synchronization point');
 }
+
+async function waitForExit(pid) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    try { process.kill(pid, 0); }
+    catch (error) { if (error.code === 'ESRCH') return; throw error; }
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  throw new Error('Fixture process did not exit; owned material was preserved');
+}
 async function setup(root) {
   const materialRoot = path.join(root, 'materials'); await fs.mkdir(materialRoot);
   const scope = { host: 'github.com', account: 'fixture', repo: 'org/repo', repositoryId: 1 };
@@ -34,8 +44,11 @@ test('descendente ainda escrevendo conserva reserva, lease e material antes de q
     await fs.writeFile(stop, 'stop');
     let started = false;
     try { await fs.access(ready); started = true; } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    if (started) await waitFor(stopped);
-    await fs.rm(root, { recursive: true, force: true });
+    if (started) {
+      await waitFor(stopped);
+      await waitForExit(Number(await fs.readFile(ready, 'utf8')));
+    }
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
   const { store, lease, materialRoot, scope } = await setup(root);
   const destination = criarMaterial(materialRoot, {}), written = path.join(destination, 'heartbeat');

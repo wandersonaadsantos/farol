@@ -23,6 +23,9 @@ childProcess.spawn = function mockableSpawn(...args) {
 };
 
 const { runClaudeStream, cancelSession, parseEnvelope } = await import('../lib/engine/session.js');
+const { prepareSelfIsolation } = await import('../lib/engine/self-isolation.js');
+const { IS_WIN } = await import('../lib/paths.js');
+const io = (await import('../lib/io.js')).default;
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -54,6 +57,95 @@ function engineFalso() {
     parseEnvelope(raw) { return parseEnvelope(this, raw); },
   };
 }
+
+test('modo restrito cancelado durante --help não inicia modelo nem fallback', async () => {
+  const root = path.join(FAROL_HOME, 'cli'); fs.mkdirSync(root);
+  const cli = path.join(root, IS_WIN ? 'claude.exe' : 'claude'); fs.writeFileSync(cli, 'fixture');
+  const source = { status: 'complete', manifest: { H: 'a'.repeat(40), files: [] },
+    reader: { tree: async () => ({ complete: true, entries: [] }) } };
+  const selfIsolation = await prepareSelfIsolation({ source }, { base: path.join(FAROL_HOME, 'isolated') });
+  const e = engineFalso();
+  e.activeReviews = new Map([['s-cancel', { mode: 'self', cancellable: true }]]);
+  e.resolveClaudeAuth = () => ({ kind: 'dir', dir: path.join(FAROL_HOME, 'profile') });
+  e.ghEnv = () => ({ PATH: root });
+  let release, started; const arrived = new Promise(resolve => { started = resolve; });
+  const original = io.run; let spawns = 0;
+  io.run = async (_command, args) => {
+    assert.deepEqual(args, ['--help']); started();
+    return new Promise(resolve => { release = () => resolve({ ok: true, stdout: '--restricted --permission-prompts --no-session-persistence' }); });
+  };
+  spawnImpl = () => { spawns++; throw new Error('Nenhum modelo pode iniciar.'); };
+  try {
+    const running = runClaudeStream(e, 'fixture', { id: 's-cancel', operationKind: 'self', selfIsolation, extraArgs: [] });
+    await arrived;
+    assert.equal(cancelSession(e, 's-cancel').ok, true); release();
+    await assert.rejects(running, /cancelada/); assert.equal(spawns, 0);
+  } finally { io.run = original; spawnImpl = null; }
+});
+
+test('Claude restrito exige init válido no stream real, preserva modelo e recusa mesmo se kill falhar', async () => {
+  const root = path.join(FAROL_HOME, 'cli-init'); fs.mkdirSync(root);
+  fs.writeFileSync(path.join(root, IS_WIN ? 'claude.exe' : 'claude'), 'fixture');
+  const source = { status: 'complete', manifest: { H: 'a'.repeat(40), files: [] },
+    reader: { tree: async () => ({ complete: true, entries: [] }) } };
+  const selfIsolation = await prepareSelfIsolation({ source }, { base: path.join(FAROL_HOME, 'init-snapshots') });
+  const original = io.run;
+  io.run = async () => ({ ok: true, stdout: '--restricted --permission-prompts --no-session-persistence' });
+  try {
+    for (const tools of [null, ['Read', 'Grep', 'Glob', 'Bash'], ['Read', 'Grep', 'Glob']]) {
+      const e = engineFalso(); e.config = { reviewModel: 'sonnet', reviewEffort: 'high' };
+      e.resolveClaudeAuth = () => ({ kind: 'dir', dir: path.join(FAROL_HOME, 'profile') });
+      e.ghEnv = () => ({ PATH: root });
+      e.killTree = () => { throw new Error('fixture de interrupção recusada'); };
+      spawnImpl = (_command, args) => {
+        assert.ok(args.includes('--restricted')); assert.ok(!args.includes('--dangerously-skip-permissions'));
+        assert.ok(args.includes('sonnet')); assert.ok(args.includes('high'));
+        const child = filhoStream();
+        setImmediate(() => {
+          if (tools) child.stdout.write(JSON.stringify({ type: 'system', subtype: 'init', tools }) + '\n');
+          child.stdout.write(JSON.stringify({ type: 'result', result: 'ok', total_cost_usd: 0 }) + '\n');
+          child.emit('close', 0);
+        });
+        return child;
+      };
+      const running = runClaudeStream(e, 'fixture', { id: 's-init', operationKind: 'self', selfIsolation, extraArgs: [] });
+      if (tools?.length === 3) assert.equal((await running).text, 'ok');
+      else await assert.rejects(running, /restrit/);
+    }
+  } finally { io.run = original; spawnImpl = null; }
+});
+
+test('Codex restrito rejeita comando e MCP inesperado no stream, sem engolir falha de protocolo', async () => {
+  const root = path.join(FAROL_HOME, 'cli-codex'); fs.mkdirSync(root);
+  fs.writeFileSync(path.join(root, IS_WIN ? 'codex.exe' : 'codex'), 'fixture');
+  const source = { status: 'complete', manifest: { H: 'a'.repeat(40), files: [] },
+    reader: { tree: async () => ({ complete: true, entries: [] }) } };
+  const selfIsolation = await prepareSelfIsolation({ source }, { base: path.join(FAROL_HOME, 'codex-snapshots') });
+  const original = io.run;
+  io.run = async () => ({ ok: true, stdout: '--ignore-user-config --ignore-rules --ephemeral --sandbox' });
+  try {
+    for (const item of [{ type: 'command_execution', command: 'forbidden' },
+      { type: 'mcp_tool_call', server: 'foreign', tool: 'post_message', status: 'in_progress' }]) {
+      const e = engineFalso(); e.resolveClaudeAuth = () => ({ kind: 'codex', id: 'configured-profile' });
+      e.ghEnv = () => ({ PATH: root });
+      e.killTree = () => { throw new Error('fixture de interrupção recusada'); };
+      spawnImpl = (_command, args) => {
+        const child = filhoStream();
+        setImmediate(() => {
+          if (args.includes('login')) child.stdout.write('Logged in using ChatGPT');
+          else {
+            assert.ok(args.includes('--ignore-user-config')); assert.ok(args.includes('default_permissions="farol_read"'));
+            child.stdout.write(JSON.stringify({ type: 'item.started', item }) + '\n');
+          }
+          child.emit('close', 0);
+        });
+        return child;
+      };
+      await assert.rejects(runClaudeStream(e, 'fixture', { id: 's-codex', operationKind: 'self', selfIsolation, extraArgs: [] }), /fora do contrato/);
+      assert.equal(e.running.size, 0);
+    }
+  } finally { io.run = original; spawnImpl = null; }
+});
 
 test('Claude com eventos úteis segue além de 30min; ruído e api_retry não sustentam sessão parada', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
