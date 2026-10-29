@@ -1,13 +1,8 @@
 namespace Farol.Tests;
 
-public class SkeletonTests
+// Prova que o atributo WindowsFact roda no Windows e pula fora dele.
+public class WindowsFactTests
 {
-    [Fact]
-    public void ArithmeticWorks()
-    {
-        Assert.Equal(2, 1 + 1);
-    }
-
     [WindowsFact]
     public void RunsOnlyOnWindows()
     {
