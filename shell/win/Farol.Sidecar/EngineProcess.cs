@@ -25,6 +25,8 @@ public sealed class EngineProcess : IDisposable
     private readonly ConcurrentQueue<string> _stderr = new();
     private readonly object _gate = new();
     private Process? _process;
+    private JobObject? _job;
+    private bool _jobFailed;
 
     public EngineProcess(string nodeExe, string serverJs, string? home, string shellVersion, Action<string>? log = null)
     {
@@ -114,7 +116,9 @@ public sealed class EngineProcess : IDisposable
             else
             {
                 // Sem home dado, o motor tem que usar o padrão, que é onde EngineFilePath aponta.
-                // Um FAROL_HOME herdado do ambiente da casca faria os dois discordarem.
+                // Um FAROL_HOME herdado do ambiente da casca (de quem abriu o Farol.exe num shell
+                // de teste, por exemplo) faria o motor gravar o casca.json em outra pasta e a casca
+                // esperar para sempre no caminho padrão; por isso ele sai do ambiente do filho.
                 info.Environment.Remove("FAROL_HOME");
             }
 
@@ -123,6 +127,10 @@ public sealed class EngineProcess : IDisposable
             process.ErrorDataReceived += (_, e) => KeepStderr(e.Data);
             process.Exited += (_, _) => _exitCodes.Writer.TryWrite(SafeExitCode(process));
             process.Start();
+            if (OperatingSystem.IsWindows())
+            {
+                AssignToJob(process);
+            }
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             _process = process;
@@ -149,13 +157,12 @@ public sealed class EngineProcess : IDisposable
 
         if (OperatingSystem.IsWindows())
         {
-            // taskkill /T leva a árvore toda (o motor abre gh, git e sessões de IA). Sem /F primeiro;
-            // se em 5 s o motor ainda vive, /F.
-            await RunTaskkillAsync($"/T /PID {pid}").ConfigureAwait(false);
-            if (!await WaitForExitAsync(process, StopWait).ConfigureAwait(false))
-            {
-                await RunTaskkillAsync($"/T /F /PID {pid}").ConfigureAwait(false);
-            }
+            // Direto com /F: um filho console com CreateNoWindow não tem janela para receber o
+            // WM_CLOSE do taskkill sem /F, e a tentativa graciosa só custaria 5 s. /T leva a árvore
+            // (o motor abre gh, git e sessões de IA); o killTree do próprio motor e o Job Object
+            // cobrem o resto. Sem a saída ordenada o casca.json fica para trás, o que é inofensivo:
+            // o StartAsync seguinte o apaga antes de subir.
+            await RunTaskkillAsync($"/T /F /PID {pid}").ConfigureAwait(false);
         }
         else
         {
@@ -178,12 +185,43 @@ public sealed class EngineProcess : IDisposable
         }
     }
 
+    /// <summary>
+    /// Solta o handle do filho. No Windows fecha também o Job Object, e com o
+    /// KILL_ON_JOB_CLOSE o motor que ainda estiver rodando morre junto.
+    /// </summary>
     public void Dispose()
     {
         lock (_gate)
         {
             _process?.Dispose();
             _process = null;
+            _job?.Dispose();
+            _job = null;
+        }
+    }
+
+    // Um job por EngineProcess, criado no primeiro spawn e reaproveitado nos seguintes. O handle
+    // é deste processo da casca: se a casca cai, o sistema o fecha e o motor morre com ela.
+    // Falhar ao criar ou ao atribuir é aviso, nunca impede o motor de subir.
+    private void AssignToJob(Process process)
+    {
+        if (_jobFailed)
+        {
+            return;
+        }
+        try
+        {
+            _job ??= JobObject.Create();
+            _job.Assign(process.SafeHandle);
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException
+            or PlatformNotSupportedException)
+        {
+            if (_job is null)
+            {
+                _jobFailed = true;
+            }
+            _log?.Invoke("WARN não consegui pôr o motor num Job Object: " + e.Message);
         }
     }
 

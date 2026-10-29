@@ -183,8 +183,8 @@ public sealed class EngineProcessTests : IDisposable
         var code = await NextExitCode(engine, TimeSpan.FromSeconds(6));
 
         Assert.False(engine.IsRunning);
-        // No Windows o taskkill sem /F espera 5 s antes do /F; fora dele o kill é imediato.
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(12));
+        // taskkill /F no Windows e Kill fora dele: os dois são imediatos, a folga é para máquina lenta.
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(6));
         Assert.NotEqual(0, code);
     }
 
