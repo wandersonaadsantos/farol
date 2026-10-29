@@ -53,6 +53,12 @@ public abstract record SidecarInput
 
     /// <summary>O processo do motor saiu com <see cref="Code"/>.</summary>
     public sealed record Exited(int Code) : SidecarInput;
+
+    /// <summary>
+    /// O motor lançado saiu porque outro Farol já ocupa a <see cref="Port"/> (o
+    /// <c>EADDRINUSE</c> do stderr, conferido pela sonda): no lugar da saída, a casca vira visor.
+    /// </summary>
+    public sealed record PortTaken(int Port) : SidecarInput;
 }
 
 /// <summary>O que a composição da casca precisa fazer.</summary>
@@ -109,6 +115,7 @@ public sealed class SidecarMachine
         (SidecarInput.Paired, SidecarPhase.Pairing) => OnPaired(resetFailures: true),
         (SidecarInput.PairFailed, SidecarPhase.Pairing) => OnPaired(resetFailures: false),
         (SidecarInput.Exited exited, not (SidecarPhase.Viewer or SidecarPhase.Stopped)) => OnExited(exited.Code),
+        (SidecarInput.PortTaken taken, SidecarPhase.WaitingForFile or SidecarPhase.Restarting) => OnPortTaken(taken.Port),
         _ => None,
     };
 
@@ -123,6 +130,14 @@ public sealed class SidecarMachine
         }
         Phase = new SidecarPhase.WaitingForFile();
         return [new SidecarEffect.Spawn(), new SidecarEffect.WaitFile()];
+    }
+
+    // Não é falha do motor: ele não tem onde abrir, e quem está na porta é outro Farol vivo.
+    private IReadOnlyList<SidecarEffect> OnPortTaken(int port)
+    {
+        _port = port;
+        Phase = new SidecarPhase.Viewer(port);
+        return [new SidecarEffect.OpenWindow(port, true), new SidecarEffect.ShowViewerNotice()];
     }
 
     private IReadOnlyList<SidecarEffect> OnFile(EngineFile file)

@@ -106,3 +106,23 @@ public class NoticeArgumentsTests
         Assert.Equal(new NoticeAction.FocusWindow(), NoticeArguments.FromPairs(pairs));
     }
 }
+
+public class NoticeArgumentsEmptyTests
+{
+    [Fact]
+    public void EmptyValuesNeverBecomeArguments()
+    {
+        var notice = new ShellEvent.Notice("T", "C", new Uri("", UriKind.Relative), "", false);
+
+        Assert.Equal([new KeyValuePair<string, string>("kind", NoticeArguments.Kind)], NoticeArguments.Pairs(notice));
+        Assert.Equal("kind=notice", NoticeArguments.Encode(notice));
+    }
+
+    [Fact]
+    public void WhitespacePrIsDropped()
+    {
+        var notice = new ShellEvent.Notice("T", "C", null, "   ", false);
+
+        Assert.Single(NoticeArguments.Pairs(notice));
+    }
+}

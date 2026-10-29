@@ -207,3 +207,88 @@ public class SidecarMachineTests
         Assert.Equal(new SidecarPhase.Stopped("encerrado"), stopped.Phase);
     }
 }
+
+public class SidecarMachinePortTakenTests
+{
+    private static EngineFile File(int port = 47170) =>
+        new(port, 12345, "2.79.0", "CODE", DateTimeOffset.UnixEpoch, null);
+
+    [Fact]
+    public void PortTakenWhileWaitingBecomesViewer()
+    {
+        var machine = new SidecarMachine();
+        machine.On(new SidecarInput.Boot(null, false));
+
+        var effects = machine.On(new SidecarInput.PortTaken(47170));
+
+        Assert.Equal([new SidecarEffect.OpenWindow(47170, true), new SidecarEffect.ShowViewerNotice()], effects);
+        Assert.Equal(new SidecarPhase.Viewer(47170), machine.Phase);
+        Assert.Equal(0, machine.ConsecutiveFailures);
+    }
+
+    [Fact]
+    public void PortTakenWhileRestartingBecomesViewerWithoutCountingAFailure()
+    {
+        var machine = new SidecarMachine();
+        machine.On(new SidecarInput.Boot(null, false));
+        machine.On(new SidecarInput.Exited(1));
+        Assert.Equal(1, machine.ConsecutiveFailures);
+
+        var effects = machine.On(new SidecarInput.PortTaken(47180));
+
+        Assert.Equal([new SidecarEffect.OpenWindow(47180, true), new SidecarEffect.ShowViewerNotice()], effects);
+        Assert.Equal(new SidecarPhase.Viewer(47180), machine.Phase);
+        Assert.Equal(1, machine.ConsecutiveFailures);
+    }
+
+    [Fact]
+    public void ViewerIgnoresLaterExits()
+    {
+        var machine = new SidecarMachine();
+        machine.On(new SidecarInput.Boot(null, false));
+        machine.On(new SidecarInput.PortTaken(47170));
+
+        Assert.Empty(machine.On(new SidecarInput.Exited(1)));
+        Assert.Equal(new SidecarPhase.Viewer(47170), machine.Phase);
+    }
+
+    [Fact]
+    public void PortTakenOutOfPlaceIsANoOp()
+    {
+        var starting = new SidecarMachine();
+        Assert.Empty(starting.On(new SidecarInput.PortTaken(47170)));
+        Assert.Equal(new SidecarPhase.Starting(), starting.Phase);
+
+        var pairing = new SidecarMachine();
+        pairing.On(new SidecarInput.Boot(null, false));
+        pairing.On(new SidecarInput.FileAppeared(File()));
+        Assert.Empty(pairing.On(new SidecarInput.PortTaken(47170)));
+        Assert.Equal(new SidecarPhase.Pairing(), pairing.Phase);
+
+        var ready = new SidecarMachine();
+        ready.On(new SidecarInput.Boot(null, false));
+        ready.On(new SidecarInput.FileAppeared(File()));
+        ready.On(new SidecarInput.Paired());
+        Assert.Empty(ready.On(new SidecarInput.PortTaken(47170)));
+        Assert.Equal(new SidecarPhase.Ready(47170), ready.Phase);
+
+        var viewer = new SidecarMachine();
+        viewer.On(new SidecarInput.Boot(File(47180), true));
+        Assert.Empty(viewer.On(new SidecarInput.PortTaken(47170)));
+        Assert.Equal(new SidecarPhase.Viewer(47180), viewer.Phase);
+    }
+
+    [Fact]
+    public void PortTakenAfterStoppedIsANoOp()
+    {
+        var machine = new SidecarMachine();
+        machine.On(new SidecarInput.Boot(null, false));
+        for (var i = 0; i < RestartPolicy.MaxConsecutiveFailures; i++)
+        {
+            machine.On(new SidecarInput.Exited(1));
+        }
+        Assert.IsType<SidecarPhase.Stopped>(machine.Phase);
+
+        Assert.Empty(machine.On(new SidecarInput.PortTaken(47170)));
+    }
+}

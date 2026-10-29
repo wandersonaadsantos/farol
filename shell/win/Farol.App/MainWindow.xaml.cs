@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Farol.Contrato;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
@@ -52,7 +53,7 @@ public sealed partial class MainWindow : Window
     /// depois da primeira, não faz nada; se a inicialização falha, o controle sai da janela e
     /// uma nova chamada pode tentar de novo.
     /// </summary>
-    internal async Task AttachEngineAsync(int port, string? token, string userDataFolder)
+    internal async Task AttachEngineAsync(int port, string? token, string userDataFolder, Action<string>? log = null)
     {
         if (_web is not null || _attaching)
         {
@@ -63,8 +64,9 @@ public sealed partial class MainWindow : Window
         try
         {
             ContentHost.Child = view;
-            var web = new WebHost(view, port, token, userDataFolder);
+            var web = new WebHost(view, port, token, userDataFolder, log);
             web.ColorsChanged += OnColorsChanged;
+            web.BrowserProcessExited += OnBrowserProcessExited;
             await web.InitializeAsync();
             _web = web;
             _view = view;
@@ -101,6 +103,50 @@ public sealed partial class MainWindow : Window
         }
         return _web.NavigateAsync(path);
     }
+
+    /// <summary>
+    /// O processo do navegador do WebView2 morreu e a janela largou o controle: quem compõe liga
+    /// um novo por <see cref="AttachEngineAsync"/>.
+    /// </summary>
+    internal event Action? EngineViewLost;
+
+    /// <summary>A janela está visível e é a janela à frente do sistema.</summary>
+    internal bool IsForeground => AppWindow.IsVisible && GetForegroundWindow() == Hwnd;
+
+    /// <summary>
+    /// Larga o WebView2 ligado ao motor (porta nova, ou navegador que morreu). Depois disso
+    /// <see cref="IsAttached"/> é falso e <see cref="AttachEngineAsync"/> liga outro, com a mesma
+    /// pasta de dados. Sem controle ligado, não faz nada.
+    /// </summary>
+    internal void DetachEngine()
+    {
+        if (_web is null)
+        {
+            return;
+        }
+        var view = _view;
+        _web.BrowserProcessExited -= OnBrowserProcessExited;
+        _web.ColorsChanged -= OnColorsChanged;
+        _web = null;
+        _view = null;
+        if (view is not null)
+        {
+            if (ReferenceEquals(ContentHost.Child, view))
+            {
+                ContentHost.Child = null;
+            }
+            view.Close();
+        }
+    }
+
+    private void OnBrowserProcessExited()
+    {
+        DetachEngine();
+        EngineViewLost?.Invoke();
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
     /// <summary>O WebView2 já foi ligado ao motor por <see cref="AttachEngineAsync"/>.</summary>
     internal bool IsAttached => _web is not null;

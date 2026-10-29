@@ -98,6 +98,9 @@ public sealed class EngineProcess : IDisposable
             _process = null;
 
             DeleteStaleEngineFile();
+            // O stderr guardado é deste filho: a porta ocupada que a casca procura nele não pode
+            // vir de um motor anterior.
+            _stderr.Clear();
 
             var info = new ProcessStartInfo(_nodeExe)
             {

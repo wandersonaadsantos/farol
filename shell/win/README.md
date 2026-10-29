@@ -83,17 +83,26 @@ papel dela é escolher a hora de reiniciar: de hora em hora o `UpdateWatcher`
 (`Farol.App`) pergunta ao App Installer se há versão nova
 (`Package.CheckUpdateAvailabilityAsync`) e, quando há, pede o reinício ao
 `UpdateGate` (`Farol.Contrato`, puro e testado). O gate só libera com o motor
-livre (`Busy` falso no último evento `casca`, que chega pela composição):
-pedido com o motor ocupado espera o primeiro retrato livre, e o reinício sai uma
-vez só. Antes de `AppInstance.Restart` o motor é encerrado como no Sair da
-bandeja; se o sistema recusar o reinício, o motor volta e a próxima checagem
-tenta de novo.
+livre (`Busy` falso no último evento `casca`, que chega pela composição) E com a
+janela do Farol visível e à frente: o sistema recusa o `AppInstance.Restart` de
+um app fora do primeiro plano (`NotInForeground`), e o motor seria encerrado à
+toa a cada hora. Pedido com o motor ocupado espera o primeiro retrato livre;
+pedido com o Farol só na bandeja espera a próxima vez que a janela vier à frente
+(ativação da janela, ou o retrato livre seguinte com ela à frente). A janela é
+conferida de novo no instante da tentativa, e só então o motor é encerrado
+(como no Sair da bandeja); se ela saiu da frente no meio do caminho, o pedido
+volta a esperar sem tocar no motor. O reinício sai uma vez só; se o sistema o
+recusar, o motor volta e a próxima checagem tenta de novo.
+
+Como o reinício só acontece com a janela na tela, a janela que volta depois dele
+é a mesma que o usuário estava olhando: não há reinício em segundo plano
+roubando o foco, e nenhum marcador de reabertura silenciosa é gravado para o
+update do pacote.
 
 A confirmar no Windows: se a reabertura aplica o pacote novo depende das opções
 do `.appinstaller` (`OnLaunch`, `UpdateBlocksActivation`), que ainda não existe
-em `shell/win`; e o `AppInstance.Restart` de um Farol só na bandeja pode ser
-recusado com `NotInForeground`. Esse é o update do pacote da casca; o do motor (`casca-saida` e código 75)
-segue o contrato acima.
+em `shell/win`. Esse é o update do pacote da casca; o do motor (`casca-saida` e
+código 75) segue o contrato acima.
 
 ## Medição de memória
 

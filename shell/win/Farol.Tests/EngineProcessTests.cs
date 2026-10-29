@@ -32,7 +32,7 @@ public sealed class EngineProcessTests : IDisposable
         }
     }
 
-    private enum Fake { WritesAndSleeps, OnlySleeps, ExitsWith3 }
+    private enum Fake { WritesAndSleeps, OnlySleeps, ExitsWith3, StderrOnceThenQuiet }
 
     private string WriteFake(Fake kind)
     {
@@ -41,6 +41,11 @@ public sealed class EngineProcessTests : IDisposable
             var body = kind switch
             {
                 Fake.ExitsWith3 => "exit /b 3\r\n",
+                Fake.StderrOnceThenQuiet =>
+                    "if exist \"%FAROL_HOME%\\ja-rodou\" exit /b 2\r\n"
+                    + "echo x > \"%FAROL_HOME%\\ja-rodou\"\r\n"
+                    + "echo listen EADDRINUSE: address already in use 127.0.0.1:47170 1>&2\r\n"
+                    + "exit /b 1\r\n",
                 Fake.OnlySleeps => "ping -n 31 127.0.0.1 > nul\r\n",
                 _ =>
                     "(\r\n"
@@ -61,6 +66,11 @@ public sealed class EngineProcessTests : IDisposable
         var sh = kind switch
         {
             Fake.ExitsWith3 => "exit 3\n",
+            Fake.StderrOnceThenQuiet =>
+                "if [ -f \"$FAROL_HOME/ja-rodou\" ]; then exit 2; fi\n"
+                + "touch \"$FAROL_HOME/ja-rodou\"\n"
+                + "echo 'listen EADDRINUSE: address already in use 127.0.0.1:47170' >&2\n"
+                + "exit 1\n",
             Fake.OnlySleeps => "exec sleep 30\n",
             _ =>
                 "printf 'FAROL_SHELL=%s\\nFAROL_SHELL_VERSION=%s\\nFAROL_HOME=%s\\n' \"$FAROL_SHELL\" \"$FAROL_SHELL_VERSION\" \"$FAROL_HOME\" > \"$FAROL_HOME/env.txt\"\n"
@@ -236,5 +246,25 @@ public sealed class EngineProcessTests : IDisposable
 
         Assert.False(engine.IsRunning);
         Assert.Null(engine.Pid);
+    }
+
+    [Fact]
+    public async Task StderrOfThePreviousRunIsForgottenOnStart()
+    {
+        // A casca lê o stderr para achar a porta ocupada; a linha de um motor anterior não pode
+        // ser atribuída ao seguinte.
+        using var engine = NewProcess(Fake.StderrOnceThenQuiet);
+        await engine.StartAsync();
+        Assert.Equal(1, await NextExitCode(engine, TimeSpan.FromSeconds(10)));
+        var watch = Stopwatch.StartNew();
+        while (engine.RecentStderr.Count == 0 && watch.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            await Task.Delay(20);
+        }
+        Assert.Contains(engine.RecentStderr, line => line.Contains("EADDRINUSE", StringComparison.Ordinal));
+
+        await engine.StartAsync();
+        Assert.Equal(2, await NextExitCode(engine, TimeSpan.FromSeconds(10)));
+        Assert.Empty(engine.RecentStderr);
     }
 }

@@ -94,7 +94,7 @@ internal sealed class Composition
         _autostart = new Autostart(Log);
         var (nodeExe, serverJs) = EngineLocator.Bundled();
         _engine = new EngineProcess(nodeExe, serverJs, engineHome, shellVersion, Log);
-        _updates = new UpdateWatcher(_dispatcher, StopForUpdateAsync, ResumeAfterFailedUpdateAsync, Log);
+        _updates = new UpdateWatcher(_dispatcher, () => _window.IsForeground, StopForUpdateAsync, ResumeAfterFailedUpdateAsync, Log);
     }
 
     /// <summary>
@@ -111,6 +111,7 @@ internal sealed class Composition
     {
         _notifier.Register();
         _window.Activated += OnWindowActivated;
+        _window.EngineViewLost += OnEngineViewLost;
         CreateTray();
         if (!EngineLocator.Found())
         {
@@ -163,11 +164,11 @@ internal sealed class Composition
         {
             _machine = new SidecarMachine();
             var existing = EngineFile.Read(_engineFile);
-            var alive = await EngineLiveness.IsAliveAsync(
+            // casca.json vivo, ou outro Farol (um Electron, que não grava casca.json) na porta padrão.
+            Feed(await EngineLiveness.BootAsync(
                 existing,
                 EngineProbe.IsProcessAlive,
-                port => EngineProbe.IsFarolAsync(port));
-            Feed(new SidecarInput.Boot(existing, alive));
+                port => EngineProbe.IsFarolAsync(port)));
         }
         catch (Exception e)
         {
@@ -280,13 +281,53 @@ internal sealed class Composition
                 {
                     return;
                 }
-                Post(new SidecarInput.Exited(code));
+                Post(await ClassifyExitAsync(code));
             }
         }
         catch (Exception e)
         {
             Log($"WARN leitura das saídas do motor parou ({e.GetType().Name})");
         }
+    }
+
+    // Uma falha do motor com EADDRINUSE no stderr, numa porta onde outro Farol responde, não é
+    // queda: é a casca que tem de virar visor (o Electron ou um node server.js numa porta que a
+    // casca não conhece, porque ela não lê a config do motor). A saída que a casca pediu passa
+    // direto, para o filtro do Feed reconhecê-la.
+    private async Task<SidecarInput> ClassifyExitAsync(int code)
+    {
+        if (code is 0 or RestartPolicy.IntentionalExit || _ownExit.Expecting || _updating)
+        {
+            return new SidecarInput.Exited(code);
+        }
+        try
+        {
+            var port = await BusyPortAsync();
+            if (port is { } taken && await EngineProbe.IsFarolAsync(taken))
+            {
+                Debug.WriteLine($"casca: outro Farol ocupa a porta {taken}; a casca vira visor");
+                return new SidecarInput.PortTaken(taken);
+            }
+        }
+        catch (Exception e)
+        {
+            Log($"WARN conferência da porta ocupada falhou ({e.GetType().Name})");
+        }
+        return new SidecarInput.Exited(code);
+    }
+
+    // O aviso de saída pode chegar antes das últimas linhas do stderr: espera um pouco por elas.
+    private async Task<int?> BusyPortAsync()
+    {
+        for (var i = 0; i < 5; i++)
+        {
+            if (BusyPort.FromStderr(_engine.RecentStderr) is { } port)
+            {
+                return port;
+            }
+            await Task.Delay(100);
+        }
+        return BusyPort.FromStderr(_engine.RecentStderr);
     }
 
     private async Task<bool> SpawnAsync()
@@ -714,11 +755,17 @@ internal sealed class Composition
         if (_window.IsAttached)
         {
             _window.RestoreEngineView();
-            if (port != _attachedPort)
+            if (port == _attachedPort)
             {
-                Log($"WARN o motor voltou noutra porta ({port}); a janela segue na {_attachedPort} até reabrir o Farol");
+                _ = RefreshWindowTokenAsync();
+                return;
             }
-            _ = RefreshWindowTokenAsync();
+            // O motor voltou noutra porta (porta 0 na config muda a cada saída 75): a WebHost é
+            // presa à porta, então o WebView2 sai e um novo nasce na porta nova, com o token atual
+            // e a mesma pasta de dados, abrindo a raiz.
+            _window.DetachEngine();
+            _attachPending = true;
+            EnsureAttached();
             return;
         }
         _attachPending = true;
@@ -748,7 +795,7 @@ internal sealed class Composition
     {
         try
         {
-            await _window.AttachEngineAsync(port, token, FarolPaths.WebViewDataFolder(_home));
+            await _window.AttachEngineAsync(port, token, FarolPaths.WebViewDataFolder(_home), Log);
             _attachedPort = port;
             _attachedToken = token;
             if (_lastShell is { } shell)
@@ -794,10 +841,21 @@ internal sealed class Composition
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
     {
-        if (args.WindowActivationState != WindowActivationState.Deactivated)
+        var active = args.WindowActivationState != WindowActivationState.Deactivated;
+        if (active)
         {
             MarkShown();
         }
+        // O reinício do update só sai com a janela à frente; ela vindo, o pedido adiado tenta.
+        _updates.OnForeground(active && _window.IsForeground);
+    }
+
+    // O processo do navegador do WebView2 morreu: a janela já largou o controle, e um novo nasce
+    // na mesma porta.
+    private void OnEngineViewLost()
+    {
+        _attachPending = true;
+        EnsureAttached();
     }
 
     // Toda volta da janela: o botão da barra de tarefas some com ela escondida e o evento casca
@@ -817,6 +875,9 @@ internal sealed class Composition
         Log($"WARN a casca desistiu do motor: {reason}");
         // A tela da falha não pode ser trocada por um WebView2 apontado para um motor morto.
         _attachPending = false;
+        // A máquina parou: o fluxo do motor morto não fica religando para sempre.
+        AbandonProof();
+        StopStream();
         _notifier.Post(ShellNotices.Failure(reason));
         _window.ShowFailure(ShellNotices.FailureText(reason), Retry);
         ShowWindow();

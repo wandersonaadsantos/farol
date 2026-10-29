@@ -33,11 +33,12 @@ public static class NoticeArguments
     {
         ArgumentNullException.ThrowIfNull(notice);
         var pairs = new List<KeyValuePair<string, string>>(3) { new("kind", Kind) };
-        if (notice.Url is not null)
+        // Valor vazio nunca vira argumento: o construtor do aviso do Windows não o aceita.
+        if (notice.Url is not null && !string.IsNullOrWhiteSpace(notice.Url.OriginalString))
         {
             pairs.Add(new("url", notice.Url.OriginalString));
         }
-        if (notice.Pr is not null)
+        if (!string.IsNullOrWhiteSpace(notice.Pr))
         {
             pairs.Add(new("pr", notice.Pr));
         }

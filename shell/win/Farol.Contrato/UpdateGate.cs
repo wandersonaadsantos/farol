@@ -4,7 +4,7 @@ namespace Farol.Contrato;
 /// O gate de update da casca. O App Installer baixa e aplica o MSIX sozinho; o único papel da
 /// casca é escolher a hora de reiniciar, e essa hora nunca é no meio de uma revisão
 /// (<see cref="ShellEvent.Shell.Busy"/>). Um pedido de reinício feito com o motor ocupado fica
-/// guardado e sai no primeiro retrato livre, uma vez só.
+/// guardado e sai no primeiro retrato livre com a janela à frente, uma vez só.
 /// </summary>
 /// <remarks>
 /// Puro e sem relógio: quem pede o reinício e quem entrega os retratos é o adaptador da casca, na
@@ -16,6 +16,7 @@ public sealed class UpdateGate
     private ShellEvent.Shell? _last;
     private bool _pending;
     private bool _released;
+    private bool _foreground;
 
     /// <summary>A casca pode reiniciar com este retrato: o motor não está ocupado.</summary>
     public static bool MayRestart(ShellEvent.Shell shell)
@@ -24,7 +25,15 @@ public sealed class UpdateGate
         return !shell.Busy;
     }
 
-    /// <summary>Há um pedido de reinício esperando o motor ficar livre.</summary>
+    /// <summary>
+    /// A hora de reiniciar: motor livre E a janela do Farol visível e à frente. O sistema recusa o
+    /// <c>AppInstance.Restart</c> de um app fora do primeiro plano (<c>NotInForeground</c>), e o
+    /// motor teria sido encerrado à toa; e como só reinicia com a janela à frente, a janela que
+    /// volta depois do reinício é a mesma que estava na tela (não rouba o foco de ninguém).
+    /// </summary>
+    public static bool MayRestartNow(ShellEvent.Shell shell, bool foreground) => MayRestart(shell) && foreground;
+
+    /// <summary>Há um pedido de reinício esperando o motor ficar livre ou a janela vir à frente.</summary>
     public bool Pending => _pending;
 
     /// <summary>
@@ -36,6 +45,32 @@ public sealed class UpdateGate
         ArgumentNullException.ThrowIfNull(shell);
         _last = shell;
         return TryRelease();
+    }
+
+    /// <summary>
+    /// A janela do Farol veio à frente (<c>true</c>) ou saiu dela. Devolve <c>true</c> quando é a
+    /// hora de reiniciar (havia pedido e o último retrato está livre).
+    /// </summary>
+    public bool OnForeground(bool foreground)
+    {
+        _foreground = foreground;
+        return TryRelease();
+    }
+
+    /// <summary>
+    /// O reinício liberado não chegou a ser tentado (a janela saiu da frente no meio do caminho):
+    /// o motor não foi tocado, e o pedido volta a esperar a próxima vez que a janela vier à frente.
+    /// Sem liberação em curso, não faz nada.
+    /// </summary>
+    public void Defer()
+    {
+        if (!_released)
+        {
+            return;
+        }
+        _released = false;
+        _pending = true;
+        _foreground = false;
     }
 
     /// <summary>
@@ -65,7 +100,7 @@ public sealed class UpdateGate
 
     private bool TryRelease()
     {
-        if (!_pending || _released || _last is null || !MayRestart(_last))
+        if (!_pending || _released || _last is null || !MayRestartNow(_last, _foreground))
         {
             return false;
         }

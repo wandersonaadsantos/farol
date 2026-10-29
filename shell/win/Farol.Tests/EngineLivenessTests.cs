@@ -56,3 +56,65 @@ public class EngineLivenessTests
         Assert.False(await EngineLiveness.IsAliveAsync(File, _ => true, _ => Task.FromException<bool>(new TimeoutException())));
     }
 }
+
+/// <summary>O Boot: casca.json vivo, ou outro Farol (um Electron) na porta padrão sem casca.json.</summary>
+public class EngineLivenessBootTests
+{
+    private static readonly EngineFile Live = new(47180, 4242, "2.79.0", "CODE", DateTimeOffset.UnixEpoch, null);
+
+    [Fact]
+    public async Task LiveFileWinsAndSkipsTheDefaultPort()
+    {
+        var probed = new List<int>();
+
+        var boot = await EngineLiveness.BootAsync(Live, _ => true, p => { probed.Add(p); return Task.FromResult(true); });
+
+        Assert.Equal(new SidecarInput.Boot(Live, true), boot);
+        Assert.Equal([47180], probed);
+    }
+
+    [Fact]
+    public async Task NoFileButFarolOnTheDefaultPortIsALiveEngineThere()
+    {
+        var boot = await EngineLiveness.BootAsync(null, _ => true, p => Task.FromResult(p == EngineDefaults.Port));
+
+        Assert.True(boot.EngineAlive);
+        Assert.Equal(EngineDefaults.Port, boot.Existing?.Port);
+    }
+
+    [Fact]
+    public async Task DeadFileButFarolOnTheDefaultPortIsALiveEngineThere()
+    {
+        var boot = await EngineLiveness.BootAsync(Live, _ => false, p => Task.FromResult(p == EngineDefaults.Port));
+
+        Assert.True(boot.EngineAlive);
+        Assert.Equal(EngineDefaults.Port, boot.Existing?.Port);
+    }
+
+    [Fact]
+    public async Task NothingAliveKeepsTheFileAndSpawns()
+    {
+        var boot = await EngineLiveness.BootAsync(Live, _ => false, _ => Task.FromResult(false));
+
+        Assert.Equal(new SidecarInput.Boot(Live, false), boot);
+    }
+
+    [Fact]
+    public async Task DefaultPortProbeThatThrowsIsNotAlive()
+    {
+        var boot = await EngineLiveness.BootAsync(null, _ => true, _ => throw new HttpRequestException());
+
+        Assert.Equal(new SidecarInput.Boot(null, false), boot);
+    }
+
+    [Fact]
+    public async Task ViewerMachineFromTheDefaultPortOpensThere()
+    {
+        var boot = await EngineLiveness.BootAsync(null, _ => true, _ => Task.FromResult(true));
+        var machine = new SidecarMachine();
+
+        var effects = machine.On(boot);
+
+        Assert.Equal([new SidecarEffect.OpenWindow(EngineDefaults.Port, true), new SidecarEffect.ShowViewerNotice()], effects);
+    }
+}

@@ -14,6 +14,7 @@ internal sealed class WebHost
     private readonly WebView2 _view;
     private readonly int _port;
     private readonly string _userDataFolder;
+    private readonly Action<string>? _log;
     private string? _token;
     private string? _scriptId;
 
@@ -21,13 +22,21 @@ internal sealed class WebHost
     /// A pasta de dados do WebView2 (<see cref="FarolPaths.WebViewDataFolder"/>): dentro de
     /// <c>~/.farol</c>, nunca em AppData. O localStorage com o token mora nela.
     /// </param>
-    public WebHost(WebView2 view, int port, string? token, string userDataFolder)
+    /// <param name="log">Uma linha de WARN por falha de processo do WebView2, sem segredo.</param>
+    public WebHost(WebView2 view, int port, string? token, string userDataFolder, Action<string>? log = null)
     {
+        _log = log;
         _view = view;
         _port = port;
         _token = token;
         _userDataFolder = userDataFolder;
     }
+
+    /// <summary>
+    /// O processo do navegador do WebView2 morreu: este controle não volta mais, e quem é dono da
+    /// janela tem de criar outro. Sai na thread da interface.
+    /// </summary>
+    public event Action? BrowserProcessExited;
 
     /// <summary>As cores do evento <c>casca</c> (fundo e símbolo, em <c>#rrggbb</c>).</summary>
     public event Action<string, string>? ColorsChanged;
@@ -58,6 +67,7 @@ internal sealed class WebHost
 
         core.NewWindowRequested += OnNewWindowRequested;
         core.NavigationStarting += OnNavigationStarting;
+        core.ProcessFailed += OnProcessFailed;
     }
 
     /// <summary>
@@ -110,6 +120,32 @@ internal sealed class WebHost
     public void Apply(ShellEvent.Shell state)
     {
         ColorsChanged?.Invoke(state.ColorBg, state.ColorSymbol);
+    }
+
+    // Sem isto a janela fica em branco para sempre depois de uma queda do renderizador (o Electron
+    // recarrega no render-process-gone pelo mesmo motivo). Renderizador que caiu ou travou:
+    // recarregar. Navegador que caiu: o controle morreu junto, e a janela cria outro.
+    private void OnProcessFailed(CoreWebView2 sender, CoreWebView2ProcessFailedEventArgs args)
+    {
+        try
+        {
+            switch (args.ProcessFailedKind)
+            {
+                case CoreWebView2ProcessFailedKind.RenderProcessExited:
+                case CoreWebView2ProcessFailedKind.RenderProcessUnresponsive:
+                    _log?.Invoke($"WARN janela: o processo da página falhou ({args.ProcessFailedKind}); recarregando");
+                    sender.Reload();
+                    break;
+                case CoreWebView2ProcessFailedKind.BrowserProcessExited:
+                    _log?.Invoke("WARN janela: o processo do navegador do WebView2 saiu; criando outro");
+                    BrowserProcessExited?.Invoke();
+                    break;
+            }
+        }
+        catch (Exception e)
+        {
+            _log?.Invoke($"WARN janela: recuperação da falha do WebView2 falhou ({e.GetType().Name})");
+        }
     }
 
     // Janela nova nunca é aberta pelo WebView2: endereço do motor navega aqui mesmo, o resto

@@ -28,4 +28,34 @@ public static class EngineLiveness
             return false;
         }
     }
+
+    /// <summary>
+    /// A entrada <see cref="SidecarInput.Boot"/>: o <c>casca.json</c> vivo vale primeiro; sem ele,
+    /// um Farol que responda na porta padrão (um Electron ou um <c>node server.js</c>, que não
+    /// gravam <c>casca.json</c>) conta como motor vivo ali, e a casca vira visor em vez de lançar
+    /// um motor que morreria com <c>EADDRINUSE</c>. A casca não lê a config do motor: outra porta
+    /// configurada cai no <see cref="BusyPort"/> depois da primeira saída.
+    /// </summary>
+    public static async Task<SidecarInput.Boot> BootAsync(EngineFile? existing, Func<int, bool> pidAlive, Func<int, Task<bool>> portIsFarol)
+    {
+        if (await IsAliveAsync(existing, pidAlive, portIsFarol).ConfigureAwait(false))
+        {
+            return new SidecarInput.Boot(existing, true);
+        }
+        bool other;
+        try
+        {
+            other = await portIsFarol(EngineDefaults.Port).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            other = false;
+        }
+        return other
+            ? new SidecarInput.Boot(PortOnly(EngineDefaults.Port), true)
+            : new SidecarInput.Boot(existing, false);
+    }
+
+    // Um motor que a casca só conhece pela porta: sem pid nem código (o visor não pareia).
+    private static EngineFile PortOnly(int port) => new(port, 0, "", "", DateTimeOffset.UnixEpoch, null);
 }
