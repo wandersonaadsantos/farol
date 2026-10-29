@@ -1153,6 +1153,14 @@ Somente `.env.example` e `.env.sample` regulares têm opt-in fechado: mostram ch
 convencionais, ocultando valores, comentários e continuações multilinha. Outros `.env*`
 continuam excluídos. Templates sem o esquema suportado são recusados.
 
+Na execução restrita, blobs novos não são persistidos no cache compartilhado; entradas
+já existentes podem ser lidas e verificadas. O reader conserva somente texto projetado,
+digest e metadados em cache efêmero por execução, com orçamento de 32 MiB de payload
+serializado (não é limite de RSS). A chave distingue blob e política efetiva de template;
+caminho, commit e modo vêm sempre da referência atual. O mapa de igualdade retém no
+máximo 4.096 valores e 8 MiB de texto oculto; ao atingir o limite, recusa novos valores sem
+apagar identidades anteriores. O fluxo normal e a contabilidade persistente não mudam.
+
 O índice sintático compartilhado não é reutilizado na projeção, para não misturar fatos de
 texto original e ocultado; isso não altera a configuração de contexto. A evidência do host
 distingue leitura integral da representação de leitura dos valores originais, e conserva
