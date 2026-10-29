@@ -66,6 +66,14 @@ test('launcher Codex é por execução, sem shell/config herdada, persistência,
     assert.ok(selected.args.includes('shell_tool')); assert.ok(selected.args.includes('unified_exec'));
     assert.ok(!selected.args.some(a => a.includes('bypass')));
     assert.equal(selected.env.CODEX_HOME, inherited.CODEX_HOME);
+    const budget = Number(selected.args.find(arg => arg.startsWith('tool_output_token_limit=')).split('=')[1]);
+    await fs.writeFile(path.join(snapshot.patches, 'unicode.js'), '漢'.repeat(2048));
+    const maximumPage = await dispatchSource(snapshot.root, { method: 'tools/call', params: {
+      name: 'read_source', arguments: { side: 'patches', path: 'unicode.js' } } });
+    assert.ok(Buffer.byteLength(JSON.stringify(maximumPage)) < budget,
+      'Mesmo um token por byte cabe no limite configurado, incluindo as duas representações e os metadados.');
+    await fs.writeFile(path.join(snapshot.patches, 'oversized-line.js'), 'x'.repeat(2049));
+    await assert.rejects(sourceRead(snapshot.root, { side: 'patches', path: 'oversized-line.js' }), /linha acima do limite/);
     for (const name of ['GH_TOKEN', 'OPENAI_API_KEY', 'NODE_OPTIONS']) assert.equal(selected.env[name], undefined);
     assert.equal(inherited.GH_TOKEN, 'fake');
     await assert.rejects(restrictedCodex({ ...opts, extraArgs: ['--resume', 'old'] }, { kind: 'codex' }, inherited));
