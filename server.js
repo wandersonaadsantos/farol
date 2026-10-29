@@ -32,11 +32,10 @@ import { gravarLinhaDeLog } from './lib/log-arquivo.js';
 import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
 import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
-  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, workspaceTrust,
-  applyClaudeAuthEnv, claudeAuthShellLines,
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, workspaceTrust, applyClaudeAuthEnv, claudeAuthShellLines,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
-  sanitizeParallelReviews, sanitizeGlobalParallelReviews
-} from './lib/parse.js';
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews, sanearBind } from './lib/parse.js';
+import { loopback } from './lib/http-guard.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs, priorizarNoPath } from './lib/io.js';
 import updateMod from './lib/engine/update.js';
 import chatMod from './lib/engine/chat.js';
@@ -149,10 +148,9 @@ const DEFAULTS = settingsDefaults(DEFAULT_PORT);
 // continua puro (sem importar meio mundo) e existe UM lugar só onde a lista de
 // parsers usada por preferência é montada.
 const PARSERS = {
-  parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
-  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
+  parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople, sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
-  sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites, parseSyncConfig,
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites, parseSyncConfig, sanearBind,
   normalizarCadeia: cadeiaMod.normalizarCadeia,
 };
 
@@ -182,6 +180,8 @@ class Engine extends EventEmitter {
     const warn = (m) => this.log('WARN', m); // corrupção de estado precisa aparecer no farol.log
     const configSalva = readJson(CONFIG_FILE, {}, warn);
     this.config = { ...DEFAULTS, ...configSalva };
+    // bind é só de arquivo e chega ao listen e à allowlist: saneia aqui, uma vez, para todo leitor
+    this.config.bind = sanear('bind', this.config.bind, this.config, PARSERS);
     delete this.config.autoOpenReview; // chave antiga (terminal); o modo autonomo tem semantica nova
     this.config.accounts = parseAccounts(this.config.accounts); // normaliza (array de {user,owners})
     // idem accounts/people acima: config.json pode estar malformado (editado à mão,
@@ -1543,6 +1543,7 @@ class Engine extends EventEmitter {
       config: this.config.sync || {},
       bloqueio: this.syncBloqueioCompartilhamento || '',
       grupoConfigurado: Object.keys((this.sync && this.sync.grupos) || {}).length > 0,
+      modoCasca: modoCasca(), bindForaDoLoopback: !loopback(this.config.bind),
     });
   }
   claudeTestarPerfil(dados) { return perfilMod.testarPerfil(this, dados); }

@@ -43,6 +43,11 @@ test('com a exigência ligada pelo arquivo, a autenticação sai da lista de ind
   assert.equal(capacidadesIndisponiveis(e).some((i) => i.id === 'autenticacao-local'), false);
 });
 
+test('no modo casca e com bind fora do loopback o retrato diz que a autenticação é exigida', () => {
+  assert.equal(estadoDasCapacidades({ ...DESKTOP, modoCasca: 'mac' }).autenticacaoLocal.exigida, true);
+  assert.equal(estadoDasCapacidades({ ...DESKTOP, bindForaDoLoopback: true }).autenticacaoLocal.exigida, true);
+});
+
 test('compartilhamento ligado na config e desligado pelo engine aparece como bloqueado, nunca como ligado', () => {
   const e = estadoDasCapacidades({
     ...DESKTOP, modoCelular: true,
