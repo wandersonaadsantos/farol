@@ -10,6 +10,11 @@ public enum MainMenu {
             submenu(
                 "Farol",
                 [
+                    // Vai pela cadeia de resposta até o AppDelegate, que segura o Updater.
+                    NSMenuItem(
+                        title: "Verificar atualizações…", action: Selector(("checkForUpdates:")),
+                        keyEquivalent: ""),
+                    .separator(),
                     NSMenuItem(
                         title: "Ocultar Farol", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"),
                     .separator(),

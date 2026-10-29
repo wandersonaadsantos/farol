@@ -26,5 +26,12 @@
 	<false/>
 	<key>NSUserNotificationAlertStyle</key>
 	<string>alert</string>
+	<!-- Atualização da casca pela Sparkle: o appcast viaja na release mais recente. -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/wandersonaadsantos/farol/releases/latest/download/appcast.xml</string>
+	<!-- Vazia de propósito: o plano 4 (release) preenche com a chave pública EdDSA gerada pelo
+	     generate_keys da Sparkle. Sem ela a Sparkle avisa no log e não instala nada. -->
+	<key>SUPublicEDKey</key>
+	<string></string>
 </dict>
 </plist>

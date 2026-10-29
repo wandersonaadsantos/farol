@@ -14,6 +14,7 @@ A reinstalação prepara o aplicativo e o bundle antes de encerrar a versão em 
 - [Pontos com branch de plataforma](#pontos-com-branch-de-plataforma)
 - [macOS: estado real e o que falta validar](#macos-estado-real-e-o-que-falta-validar)
 - [Linux (experimental, v2.45.0)](#linux-experimental-v2450)
+- [Casca nativa (shell/mac, 29/10/2026)](#casca-nativa-shellmac-29102026)
 
 <!-- indice:fim -->
 
@@ -239,3 +240,16 @@ O que existe:
 - **UI**: exemplos de caminho decidem por `ehWin()` (Linux vê `~/`); autostart aparece no Windows e no macOS, nunca no Linux (`setLoginItemSettings` é no-op lá).
 
 Validação real (WSL Ubuntu-24.04, 16/08/2026, bancada oficial do ramo): `npm test` VERDE no Linux (1110 pass, incluindo os posix reais: killTree de grupo, quoting em bash, prefixo de auth); `install-linux.sh` rodou de ponta a ponta a partir de clone limpo com `FAROL_INSTALL_ROOT` (npm pulou o postinstall do electron e o fallback pro `install.js` cobriu, ver comentário no script); o app instalado ABRIU no WSLg pelo lançador e o engine respondeu HTTP 200 na 47170. NÃO validados (limite do WSLg, não do código): tray, notificações, sessão de terminal com emulador real (o WSL não tem terminal gráfico instalado; o caminho do "nenhum terminal" avisa alto por construção).
+
+## Casca nativa (shell/mac, 29/10/2026)
+
+A casca nativa do macOS mora em `shell/mac/`: um app Swift 6 (AppKit, com WKWebView) que sobe o motor como sidecar e substitui o Electron quando o plano 4 a distribuir. Ela é cliente do motor: nunca escreve no GitHub e nunca decide; o único POST fora da autenticação é `/api/check` ("Checar agora" da bandeja). A pasta não viaja no pacote leve do motor nem nas quatro listas de distribuição.
+
+- **Peças**: o app (`shell/mac/Farol/`, só a composição no `AppDelegate`) e o pacote `FarolKit` (`shell/mac/Packages/FarolKit/`) em três alvos: `FarolContrato` (puro: o formato do `casca.json`, dos eventos e a política de religar), `FarolSidecar` (IO: processo do motor, pareamento, SSE, Keychain) e `FarolApp` (AppKit: janela, bandeja, Dock, notificações, abrir junto com o sistema e o updater Sparkle).
+- **Compilar e testar**: `shell/mac/scripts/build.sh` (gera o projeto com o xcodegen e compila em Debug sem assinatura), `shell/mac/scripts/test.sh` (`swift test` do pacote e depois o build do app) e `shell/mac/scripts/lint.sh` (swift-format estrito). Precisa do Xcode, e do `xcodegen` e do `swift-format` pelo Homebrew (`brew install xcodegen swift-format`). O projeto `.xcodeproj` é gerado e não é versionado; o `Package.resolved` do `FarolKit` é, e fixa a Sparkle.
+- **O contrato que ela consome** (o do modo casca, em [Modo casca e bind](CONFIGURATION.md#modo-casca-e-bind-28102026)): sobe `node server.js` com `FAROL_SHELL=mac` e `FAROL_SHELL_VERSION`, espera o `~/.farol/state/casca.json`, pareia com o código de uso único dele (`POST /api/auth/pair`, token só no Keychain, repareamento a cada subida do motor) e lê do SSE só os eventos `casca` (badge, ocupado, autostart, cores), `aviso-nativo` (notificação pronta) e `casca-saida` (o motor anuncia que vai sair por update). Saída 75 do motor é de propósito e religa na hora; 0 é fim; outro código é falha, com recuo de 1, 2, 4 e 8 s e parada depois de cinco falhas seguidas.
+- **Desenvolvimento**: `FAROL_NODE` (o binário do Node) e `FAROL_SERVER_JS` (o `server.js` do checkout), os dois juntos, fazem o app usar o motor do repositório em vez do que viria no bundle. Para não tocar os dados reais, suba com `FAROL_HOME` temporário, como no motor.
+- **Estado**: em `~/.farol`, como sempre (invariante 2). O app não grava em `~/Library/Application Support`; fora de `~/.farol` ficam só o token da A4 no Keychain e pequenas preferências nos defaults do sistema (posição da janela, o pedido de permissão de notificação e as marcas da Sparkle).
+- **Atualização**: a Sparkle 2.10.1 lê o appcast da release mais recente e só verifica com o motor parado (`ShellState.busy` falso); verificação agendada que cai durante uma revisão é refeita quando o motor fica livre. A chave pública EdDSA (`SUPublicEDKey`) está vazia até o plano 4, então hoje a Sparkle não inicia e isso vira só uma linha de log.
+- **Medição**: o consumo de memória parado, comparado com o Electron, está em `shell/mac/docs/medicao.md`.
+- **O que o plano 4 ainda faz**: assinatura com Developer ID e notarização, o appcast assinado e a chave da Sparkle, o motor e o Node dentro do `.app` (em `Contents/Resources/engine/`; hoje o bundle não os carrega, e sem `FAROL_NODE`/`FAROL_SERVER_JS` o app não acha o que subir) e a troca do Electron pela casca no instalador.

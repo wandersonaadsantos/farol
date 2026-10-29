@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, StatusItemActions, She
     private var notifier: Notifier?
     private var statusItem: StatusItemController?
     private var supervisor: SidecarSupervisor?
+    private var updater: Updater?
     private var lastState: ShellState?
     /// A primeira janela nasce escondida depois de um update (reabertura silenciosa).
     private var startHidden = false
@@ -32,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, StatusItemActions, She
         self.notifier = notifier
         notifier.requestPermissionOnce()
         statusItem = StatusItemController(actions: self)
+        updater = Updater(checker: SparkleUpdateChecker())
 
         if let version = SilentReopen.consume(stateDir: paths.workspaceState) {
             startHidden = true
@@ -79,6 +81,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, StatusItemActions, She
     }
 
     func quit() { NSApp.terminate(nil) }
+
+    /// "Verificar atualizações..." do menu Farol, pela cadeia de resposta.
+    @objc func checkForUpdates(_ sender: Any?) {
+        updater?.checkNow()
+    }
 
     // MARK: ShellUI
 
@@ -143,6 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, StatusItemActions, She
         presenter.mainWindow?.apply(state)
         statusItem?.apply(state)
         DockBadge.apply(state)
+        updater?.engineBusy = state.busy
     }
 
     func applyAutostart(_ wanted: Bool) {

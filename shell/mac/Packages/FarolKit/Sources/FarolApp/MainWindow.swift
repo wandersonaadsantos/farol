@@ -29,6 +29,8 @@ public final class MainWindow: NSObject, NSWindowDelegate {
         window.contentView = webViewController.webView
         window.delegate = self
         window.center()
+        // Guarda posição e tamanho entre aberturas: a janela volta para a tela onde ficou.
+        window.setFrameAutosaveName("FarolMain")
     }
 
     public var isVisible: Bool { window.isVisible }
