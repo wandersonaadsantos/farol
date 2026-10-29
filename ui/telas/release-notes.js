@@ -14,6 +14,11 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.15', [
+    'Erros de formato e evidências da avaliação técnica voltam à própria conversa para correção, com a versão exigida fornecida pelo avaliador.',
+    'Uma pendência nova permite uma segunda continuação na mesma sessão; erros repetidos encerram a tentativa. A aprovação continua bloqueada enquanto a análise for inconclusiva.',
+    'Pendências preservadas retomam automaticamente pelo agendador após a atualização, respeitando sessões ativas, pausas e limites da conta.',
+  ]],
   ['2.78.14', [
     'Análises e critérios incompletos ganham uma continuação dirigida na mesma conversa antes de outra rodada, com todos os gates de publicação preservados.',
     'O Codex recebe protocolo próprio para revisar sem depender do login do Claude; a avaliação técnica é executada pelo Farol com a configuração correta.',

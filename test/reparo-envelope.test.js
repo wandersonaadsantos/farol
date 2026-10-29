@@ -22,6 +22,7 @@ import fs from 'node:fs';
 const { Engine } = await import('../server.js');
 const { TEMPOS } = await import('../lib/constants.js');
 const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+const { technicalRuntime } = await import('../lib/technical-review/runtime.js');
 isolateTechnicalTool();
 
 const fanout = (await import('../lib/engine/fanout.js')).default;
@@ -291,6 +292,67 @@ test('análise incompleta pode concluir com reprovação própria, sem aprovar p
   assert.equal(sent.length, 1);
   assert.equal(sent[0].event, 'REQUEST_CHANGES');
   assert.equal(e.decisions.resolved[0].status, 'auto_rejected');
+});
+
+test('resultado passa pelo avaliador antes do reparo, e erro novo ganha retorno específico', async () => {
+  const original = technicalRuntime.finishTechnicalReview;
+  const broken = envelope(); delete broken.criteriaVersion;
+  broken.technicalAssessments = [{ ruleVersion: 1 }];
+  const duplicate = envelope();
+  const f = criteriaFixture('request_changes').findings[0];
+  duplicate.findings = [f, { ...f, title: 'Outro comportamento', criteria: { ...f.criteria } }];
+  duplicate.technicalAssessments = [{ ruleVersion: '0.1.0' }];
+  const complete = { ...envelope(), technicalAssessments: [{ ruleVersion: '0.1.0' }] };
+  const e = engineCom([{ texto: broken }, { texto: duplicate }, { texto: complete }]);
+  e.approvePolicyFor = () => 'approve';
+  let posts = 0, audits = 0;
+  e.postReview = async () => { posts++; return { ok: true }; };
+  technicalRuntime.finishTechnicalReview = async (context, assessments, debt, options) => {
+    audits++;
+    assert.equal(posts, 0, 'nenhum envio antes do fechamento das conferências');
+    assert.equal(options.retainMaterial, true, 'material continua disponível para a sessão concluir');
+    if (typeof assessments?.[0]?.ruleVersion !== 'string') return { verdict: 'not-run', failure: 'assessment',
+      assessmentIssues: ['technicalAssessments[0]: Expected string, received number em ruleVersion'] };
+    return original(context, assessments, debt);
+  };
+  try {
+    await e.runHeadlessReview({ ...PR, key: 'o/r#2210', number: 2210, url: 'https://github.com/o/r/pull/2210' });
+    assert.equal(e.chamadas.length, 3);
+    assert.match(e.chamadas[1].prompt, /Expected string.*ruleVersion/);
+    assert.match(e.chamadas[2].prompt, /identidade de comportamento duplicada/);
+    assert.deepEqual(e.chamadas[2].args.slice(-2), ['--resume', 's1']);
+    assert.equal(audits, 3);
+    assert.equal(posts, 1);
+    assert.equal(e.decisions.resolved[0].status, 'auto_approved');
+  } finally { technicalRuntime.finishTechnicalReview = original; }
+});
+
+test('três respostas diferentes mas inválidas esgotam o limite sem habilitar aprovação', async () => {
+  const broken = title => ({ ...envelope(), findings: [{ ...criteriaFixture('request_changes').findings[0], title, criteria: null }] });
+  const e = engineCom(['A', 'B', 'C'].map(title => ({ texto: broken(title) })));
+  e.approvePolicyFor = () => 'approve';
+  let posts = 0;
+  e.postReview = async () => { posts++; return { ok: true }; };
+  await e.runHeadlessReview({ ...PR, key: 'o/r#2211', number: 2211, url: 'https://github.com/o/r/pull/2211' });
+  assert.equal(e.chamadas.length, 3);
+  assert.equal(posts, 0);
+  assert.equal(e.decisions.pending[0].analysisStatus, 'incomplete');
+});
+
+test('comparação pendente volta à sessão mesmo com todas as regras individuais completas', async () => {
+  const original = technicalRuntime.finishTechnicalReview;
+  const e = engineCom([{ texto: envelope() }, { texto: { ...envelope(), technicalDebt: [{ state: 'unchanged' }] } }]);
+  e.approvePolicyFor = () => 'approve';
+  let posts = 0;
+  e.postReview = async () => { posts++; return { ok: true }; };
+  technicalRuntime.finishTechnicalReview = async (context, assessments, debt) => ({ ...await original(context),
+    ...(!debt?.length ? { verdict: 'not-run', error: 'comparação com a dívida anterior não comprovada' } : {}) });
+  try {
+    await e.runHeadlessReview({ ...PR, key: 'o/r#2212', number: 2212, url: 'https://github.com/o/r/pull/2212' });
+    assert.equal(e.chamadas.length, 2);
+    assert.match(e.chamadas[1].prompt, /comparação com a dívida anterior não comprovada/);
+    assert.equal(posts, 1);
+  } finally { technicalRuntime.finishTechnicalReview = original; }
 });
 
 test('reparo que morre não apaga a falha original: o PR estaciona pelo motivo certo', async () => {

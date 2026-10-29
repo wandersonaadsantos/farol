@@ -41,6 +41,20 @@ test('avaliação que falha remove a árvore e o pedido, preservando só a evid�
   assert.equal(fs.existsSync(root), true);
 });
 
+test('reparo retém o material até o finally da revisão, inclusive após falha do avaliador', async () => {
+  fs.mkdirSync(snapshots, { recursive: true });
+  const snapshot = criarMaterial(snapshots);
+  fs.writeFileSync(path.join(snapshot, 'evidence.js'), 'export const evidence = true;');
+  fs.writeFileSync(`${snapshot}-request.json`, '{}');
+  const context = { snapshot, toolHome: path.join(root, 'ausente') };
+  assert.equal((await finishTechnicalReview(context, [], [], { retainMaterial: true })).verdict, 'not-run');
+  assert.equal(fs.existsSync(path.join(snapshot, 'evidence.js')), true);
+  assert.equal(fs.existsSync(`${snapshot}-request.json`), true);
+  await cleanup(context);
+  assert.equal(fs.existsSync(snapshot), false);
+  assert.equal(fs.existsSync(`${snapshot}-request.json`), false);
+});
+
 test('intervenção da própria conta e achado de ferramenta invalidam o histórico', async () => {
   const original = io.run;
   let entries = [];

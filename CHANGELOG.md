@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.15
+
+Erros de fechamento voltam à própria sessão antes de reagendar uma revisão inteira.
+
+### Correções
+
+- O Farol confere a avaliação técnica antes de concluir a recuperação e devolve os campos inválidos à conversa, em vez de guardar somente uma falha genérica. As versões exigidas para cada avaliação são fornecidas pelo próprio avaliador.
+- Uma pendência nova descoberta após o primeiro reparo permite uma segunda continuação na mesma sessão. Erro idêntico interrompe a repetição; o material de leitura permanece disponível até o fechamento. Nenhum reparo dispensa evidências ou libera aprovação inconclusiva.
+- Pendências preservadas de versões anteriores retomam automaticamente pelo agendador, respeitando sessões ativas, pausas e limites da conta.
+
 ## v2.78.14
 
 Recuperação da revisão continua o trabalho na mesma sessão antes de abrir outra rodada.
