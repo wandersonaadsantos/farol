@@ -1301,17 +1301,17 @@ class Engine extends EventEmitter {
   // claude interativo exige. Spawnar cmd/start direto do Node herda handles
   // nulos (stdio ignore) e o console nasce sem stdin: pause/claude morrem na hora.
   // Sessão/stream (terminal + headless): colaborador lib/engine/session.js (Onda 2).
-  buildSessionScript(slash, account, reviewCap = '') { return sessionMod.buildSessionScript(this, slash, account, reviewCap); }
-  buildSessionScriptMac(slash, id, user, reviewCap = '') { return sessionMod.buildSessionScriptMac(this, slash, id, user, reviewCap); }
+  buildSessionScript(slash, account, reviewCap = '', segredo = '') { return sessionMod.buildSessionScript(this, slash, account, reviewCap, segredo); }
+  buildSessionScriptMac(slash, id, user, reviewCap = '', segredo = '') { return sessionMod.buildSessionScriptMac(this, slash, id, user, reviewCap, segredo); }
   spawnConsoleMac(slash, label, keys = [], account) { return sessionMod.spawnConsoleMac(this, slash, label, keys, account); }
   spawnConsoleLinux(slash, label, keys = [], account) { return sessionMod.spawnConsoleLinux(this, slash, label, keys, account); }
   sessionExit(id) { return sessionMod.sessionExit(this, id); }
   spawnConsole(slash, label, keys = [], account) { return sessionMod.spawnConsole(this, slash, label, keys, account); }
   handleSessionExit(opts) { return sessionMod.handleSessionExit(this, opts); }
   buildLoginScript(dir) { return sessionMod.buildLoginScript(this, dir); }
-  buildLoginScriptMac(dir, id) { return sessionMod.buildLoginScriptMac(this, dir, id); }
+  buildLoginScriptMac(dir, id, segredo = '') { return sessionMod.buildLoginScriptMac(this, dir, id, [], segredo); }
   buildCodexLoginScript() { return sessionMod.buildCodexLoginScript(this); }
-  buildCodexLoginScriptMac(id) { return sessionMod.buildCodexLoginScriptMac(this, id); }
+  buildCodexLoginScriptMac(id, segredo = '') { return sessionMod.buildCodexLoginScriptMac(this, id, segredo); }
   spawnLoginConsoleMac(dir) { return sessionMod.spawnLoginConsoleMac(this, dir); }
   spawnLoginConsoleLinux(dir) { return sessionMod.spawnLoginConsoleLinux(this, dir); }
   spawnLoginConsole(dir) { return sessionMod.spawnLoginConsole(this, dir); }
