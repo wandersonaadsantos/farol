@@ -926,7 +926,7 @@ O modo casca não substitui o `modoServidor`: sem Electron o motor continua send
   | evento | corpo | quando |
   |---|---|---|
   | `casca` | `{ badge: { contador, rotulo }, ocupado, autostart, cores: { bg, symbol } }` (`cascaDe`) | logo depois do `state` da conexão e a cada mudança; pode repetir, e as cascas comparam e ignoram igual |
-  | `aviso-nativo` | `{ titulo, corpo, url, pr, silencioso }` (`avisoDe`; `url` e `pr` podem ser `null`) | a cada `new-prs`, `auto-approved`, `auto-rejected`, `auto-commented`, `intervention` (só com `pr`), `meu-pr-base` e `tool-done` |
+  | `aviso-nativo` | `{ titulo, corpo, url, pr, silencioso }` (`avisoDe`; `url` e `pr` podem ser `null`) | a cada `new-prs`, `auto-approved`, `auto-rejected`, `auto-commented`, `intervention` (só com `pr`), `meu-pr-base` e `tool-done`, e só quando `avisoDe` devolve um aviso: um `new-prs` vazio ou uma intervenção que ele não reconhece não geram `aviso-nativo` |
   | `casca-saida` | `{ motivo, proximaVersao }` | antes de o motor sair de propósito, com o código 75 |
 
   Os textos de `lib/engine/avisos-nativos.js` são os mesmos do `main.js` até o Electron sair, e `test/fixtures/casca/eventos.json` é o contrato de paridade das duas cascas.
@@ -941,9 +941,9 @@ Para ver tudo isso sem casca: `FAROL_HOME=/tmp/farol-casca FAROL_SHELL=mac FAROL
 
 O endereço do `listen`. Padrão `127.0.0.1`, e só por arquivo (`config.json`, com reinício), como a porta: trocar em runtime derrubaria o servidor que respondeu o pedido. `sanearBind` (`lib/parse.js`) aceita IPv4, IPv6 entre colchetes (a forma do cabeçalho Host, ex. `[::1]`) ou nome de host, sempre em caixa baixa; qualquer outra coisa (porta junto, esquema, espaço, vazio) volta para `127.0.0.1`. O valor padrão não é gravado no arquivo.
 
-Com o bind fora do loopback (`loopback` em `lib/http-guard.js`: `127.0.0.1`, `localhost` e `[::1]` contam como loopback):
+Todo bind que não é `127.0.0.1` nem `localhost`, inclusive `[::1]`, entra na allowlist de Host como `<bind>:<porta>`, ao lado de `127.0.0.1:<porta>` e `localhost:<porta>`, com a origem `http://<bind>:<porta>` (`hostsPermitidos` em `lib/http-guard.js`). Com o bind fora do loopback (`loopback` em `lib/http-guard.js`: `127.0.0.1`, `localhost` e `[::1]` contam como loopback), além disso:
 
-- a allowlist de Host aceita `<bind>:<porta>` além de `127.0.0.1:<porta>` e `localhost:<porta>`, e as origens `http://<bind>:<porta>` e `https://<bind>` (o proxy com TLS fica na 443, sem porta na origem);
+- a origem `https://<bind>` também é aceita (o proxy com TLS fica na 443, sem porta na origem);
 - a autenticação local é exigida sempre (`bindForaDoLoopback` em `exigeAutenticacao`): ali a API chega a outras máquinas, e Host permitido não é autenticação.
 
 Na implantação web com proxy TLS (plano 5 do Farol nativo) o motor fica em loopback atrás do proxy, que reescreve o Host; o bind fora do loopback é para quem expõe o motor sem proxy na frente.
