@@ -208,7 +208,7 @@ test('cancelamento durante a continuação impede qualquer publicação', async 
   assert.equal(e.activeReviews.size, 0);
 });
 
-test('commit novo durante a continuação cancela cedo a análise antiga e encerra o vigia', async t => {
+test('continuação manual preserva parecer anterior, mas commit novo cancela cedo e encerra o vigia', async t => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   const broken = envelope();
   delete broken.criteriaVersion;
@@ -223,10 +223,14 @@ test('commit novo durante a continuação cancela cedo a análise antiga e encer
   const cancel = e.cancelSession.bind(e);
   e.cancelSession = id => { cancelled++; return cancel(id); };
   e.postReview = async () => { published++; return { ok: true }; };
-  const pr = { ...PR, key: 'o/r#2205', number: 2205, url: 'https://github.com/o/r/pull/2205' };
+  const pr = { ...PR, manual: true, key: 'o/r#2205', number: 2205, url: 'https://github.com/o/r/pull/2205' };
   const pending = e.runHeadlessReview(pr);
   const checked = assert.rejects(pending, /cancelada/);
   await entered.promise;
+  e.myReviewStates = async () => ['APPROVED'];
+  t.mock.timers.tick(TEMPOS.VIGIA_SESSAO_MS);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(cancelled, 0, 'clique para refazer não é cancelado pelo parecer anterior');
   e.headSha = async () => 'b'.repeat(40);
   t.mock.timers.tick(TEMPOS.VIGIA_SESSAO_MS);
   await new Promise(resolve => setImmediate(resolve));
@@ -237,6 +241,41 @@ test('commit novo durante a continuação cancela cedo a análise antiga e encer
   t.mock.timers.tick(TEMPOS.VIGIA_SESSAO_MS);
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(cancelled, 1, 'o vigia foi encerrado no finally');
+});
+
+test('falha real do provedor na continuação sobe intacta para login, cota e retry', async () => {
+  for (const message of ['OAuth session expired and could not be refreshed', 'rate limit reached', 'fetch failed']) {
+    const broken = envelope();
+    delete broken.criteriaVersion;
+    const failure = Object.assign(new Error(message), { perfilDaSessao: { kind: 'codex', id: 'perfil-usado' }, sessionId: 'conversa-que-falhou' });
+    const e = engineCom([{ texto: broken }]);
+    const run = e.runClaudeStream;
+    let count = 0, published = 0;
+    e.runClaudeStream = (prompt, opts) => ++count === 1 ? run(prompt, opts) : Promise.reject(failure);
+    e.postReview = async () => { published++; return { ok: true }; };
+    await assert.rejects(e.runHeadlessReview({ ...PR }), error => error === failure);
+    assert.equal(count, 2);
+    assert.equal(published, 0);
+    assert.equal(failure.perfilDaSessao.id, 'perfil-usado');
+  }
+});
+
+test('infra descrita no envelope da continuação conserva o perfil para a recuperação do login', async () => {
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }]);
+  const run = e.runClaudeStream;
+  let count = 0;
+  e.runClaudeStream = (prompt, opts) => ++count === 1 ? run(prompt, opts) : Promise.resolve({
+    text: saida({ ...envelope(), analysisStatus: 'incomplete', payloads: {}, reportMarkdown: 'OAuth session expired and could not be refreshed' }),
+    sessionId: 'conversa-real', sessionBinding: { kind: 'codex', id: 'perfil-real', dir: '', grupo: '' },
+  });
+  await assert.rejects(e.runHeadlessReview({ ...PR }), error => {
+    assert.match(error.message, /OAuth session expired/);
+    assert.equal(error.perfilDaSessao.id, 'perfil-real');
+    assert.equal(error.sessionId, 'conversa-real');
+    return true;
+  });
 });
 
 test('análise incompleta pode concluir com reprovação própria, sem aprovar por esgotamento', async () => {

@@ -22,6 +22,7 @@ Recuperação da revisão continua o trabalho na mesma sessão antes de abrir ou
 - Recuperações interrompem a sessão após cinco minutos sem eventos de progresso, preservando cancelamento e o teto absoluto. Revisões comuns mantêm sua janela atual. As pendências específicas do resultado são conservadas para a próxima rodada, em vez de reaparecerem somente como erro genérico de coerência.
 - Pendências de uma versão anterior da recuperação são retomadas uma vez com o fluxo atualizado, sem aguardar o intervalo antigo e sem interromper uma sessão que já esteja em andamento. Cancelamento, pausa da conta, orçamento e posse continuam sendo respeitados.
 - A continuação mantém o vigia de mudanças ativo: um commit novo ou um parecer próprio já publicado encerra cedo o trabalho que perdeu validade, sem aguardar o teto da sessão nem publicar sobre código antigo.
+- Falhas reais de login, cota ou rede durante a continuação seguem para a recuperação já existente com o perfil e a conversa usados. Uma resposta malformada conserva a análise anterior; falha de infraestrutura não fica escondida como simples falta de campos.
 - O card esclarece que análise incompleta ainda não é aprovação nem reprovação. O botão de aprovação continua desabilitado nesse estado. Falhas persistentes de acesso ou configuração continuam exigindo restabelecer o pré-requisito; a recuperação não fabrica provas nem garante a conclusão de uma ferramenta indisponível.
 
 ## v2.78.13
