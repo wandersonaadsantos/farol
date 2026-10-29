@@ -29,6 +29,7 @@ childProcess.spawn = function mockableSpawn(...args) {
 };
 
 const session = await import('../lib/engine/session.js');
+const { noopHandle } = await import('../lib/sync/coordinator.js');
 const { runClaudeStream, runProvedor, parseEnvelope, OPERACOES } = session;
 
 const stubAnterior = process.env.FAROL_HEADLESS_CMD;
@@ -141,6 +142,18 @@ test('perda da posse durante continuação conserva a classificação, mesmo com
     assert.equal(e.admissoes.length, 1);
     assert.equal(h.abortos, 0, 'o dono externo conclui a operação, não o turno de reparo');
   }
+});
+
+test('dispensa explícita de coordenação conserva o handle canônico da mesma operação', async () => {
+  const h = noopHandle();
+  assert.equal(h.done, true);
+  const e = motor({ ativa: true, admissao: { admitted: true, handle: h } });
+  spawnImpl = () => { const child = filho(); queueMicrotask(() => encerrar(child)); return child; };
+  const opts = { id: 'dispensa', account: 'eu', operationKind: 'review', coordination: { ...COORD, semCoordenacao: true } };
+  const first = await runClaudeStream(e, 'primeira', opts);
+  const result = await runClaudeStream(e, 'continuar', { ...opts, continuationHandle: first.coordination });
+  assert.equal(result.coordination, h);
+  assert.equal(e.admissoes.length, 1);
 });
 
 test('OPERACOES é a allowlist fechada: três tipos coordenam, chat e ferramenta passam por bypass', () => {
