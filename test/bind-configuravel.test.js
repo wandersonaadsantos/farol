@@ -27,6 +27,13 @@ test('sanearBind aceita IP e host e cai em loopback no resto', () => {
   assert.equal(sanearBind('Farol.Interno'), 'farol.interno', 'o navegador manda o Host em caixa baixa');
 });
 
+test('sanearBind recusa as formas malformadas que cairiam no erro do listen', () => {
+  for (const v of ['[:]', '[]', '-', '.', '.farol', 'farol.', '-farol', 'farol-', 'farol.-x', 'farol..x']) {
+    assert.equal(sanearBind(v), '127.0.0.1', v);
+  }
+  for (const v of ['[::]', '[::1]', '[fe80::1]', 'farol-1.interno', 'a', 'x1.y-2.z']) assert.equal(sanearBind(v), v, v);
+});
+
 test('bind [::1]: o Host do IPv6 entra na allowlist e o 127.0.0.1 segue valendo', () => {
   assert.equal(validarHostEOrigem({ host: '[::1]:47170', origin: 'http://[::1]:47170', porta: 47170, bind: '[::1]' }).ok, true);
   assert.equal(validarHostEOrigem({ host: '127.0.0.1:47170', porta: 47170, bind: '[::1]' }).ok, true);
