@@ -214,7 +214,7 @@ function esperaProvaCardMeta(d, execucao = {}) {
   const horario = marca.proximaEm > Date.now() ? new Date(marca.proximaEm).toLocaleString('pt-BR') : '';
   let texto = 'A análise ainda não produziu toda a evidência necessária. Nada foi publicado. ';
   if (horario) texto += `Próxima tentativa a partir de ${horario}. `;
-  texto += 'O Farol retoma sozinho; depois de duas tentativas neste commit, o que faltar e não for impeditivo vira ressalva e a política da conta decide. Você não precisa aprovar manualmente.';
+  texto += 'O Farol retoma sozinho para concluir o parecer. Depois de duas tentativas neste commit, somente lacunas não impeditivas podem virar ressalva conforme a política da conta. Análise incompleta não é aprovação nem reprovação; você não precisa pular este PR para a recuperação continuar.';
   const st = {
     tom: 'info', icone: 'hourglass',
     lead: 'Recuperação agendada.',

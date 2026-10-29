@@ -14,9 +14,14 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
-  ['2.78.14', [
+  ['2.78.15', [
     'A API local oferece autoanálise restrita por execução, sem reconfigurar a conta ou interromper outras sessões.',
     'Claude e Codex recebem fontes fixadas; cobertura e contraprovas de leitura ficam separadas de testes executados e aprovação humana.',
+  ]],
+  ['2.78.14', [
+    'Análises e critérios incompletos ganham uma continuação dirigida na mesma conversa antes de outra rodada, com todos os gates de publicação preservados.',
+    'O Codex recebe protocolo próprio para revisar sem depender do login do Claude; a avaliação técnica é executada pelo Farol com a configuração correta.',
+    'Recuperações detectam cinco minutos sem progresso e preservam as pendências específicas. Análise incompleta continua sem aprovação habilitada.',
   ]],
   ['2.78.13', [
     'A orientação de escrita pede motivo, evidência e condição de liberação para cada bloqueio, no corpo e nos comentários inline.',
