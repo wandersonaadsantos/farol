@@ -355,6 +355,17 @@ test('comparação pendente volta à sessão mesmo com todas as regras individua
   } finally { technicalRuntime.finishTechnicalReview = original; }
 });
 
+test('repositório sem declaração não ganha reparo de uma avaliação que não foi exigida', async () => {
+  const original = technicalRuntime.finishTechnicalReview;
+  const e = engineCom([{ texto: envelope() }]);
+  technicalRuntime.finishTechnicalReview = async () => ({ schema: 1, verdict: 'not-run',
+    error: 'declaração técnica do repositório ainda não cadastrada', semDeclaracao: true });
+  try {
+    await e.runHeadlessReview({ ...PR, key: 'o/r#2213', number: 2213, url: 'https://github.com/o/r/pull/2213' });
+    assert.equal(e.chamadas.length, 1);
+  } finally { technicalRuntime.finishTechnicalReview = original; }
+});
+
 test('reparo que morre não apaga a falha original: o PR estaciona pelo motivo certo', async () => {
   const e = engineCom([{ texto: PROSA, sid: 's1' }, { erro: 'sessão retornou erro: API Error: 529 Overloaded' }]);
   await e.runOneHeadless(PR, 'trabalho');
