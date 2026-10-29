@@ -1108,6 +1108,37 @@ vira ação**, e poda errada não pode custar sessão paga.
 
 ## Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)
 
+**Execução restrita, opt-in por requisição.** Use `POST /api/self-review/restricted`
+com a URL do PR. A resposta confirma `isolation: "restricted-read"`; versões antigas
+recusam essa rota, sem iniciar uma sessão irrestrita por ignorar um campo novo.
+O endpoint original também aceita `isolation`, mas clientes que exigem isolamento
+devem usar a rota específica, sem fallback. O modo fica no item da fila, não na configuração
+da conta. Suporta Claude de assinatura com `--restricted` e Codex autenticado
+pelo plano ChatGPT; provedor incompatível ou fontes incompletas recusam a execução,
+sem fallback. A sessão recebe material exclusivo de head, base e merge-base fixados, patches por arquivo e
+manifesto de exclusões. Credenciais, links e conteúdo sensível não são copiados;
+patch sensível ou indisponível impede iniciar. Os materiais são preservados para
+diagnóstico, sem limpeza de diretórios compartilhados ou retomada de sessão.
+
+O filho inicia diretamente, sem shell do sistema ou tokens GitHub herdados.
+Temporários pertencem à execução; associação de conta, perfil e provedor não muda.
+Claude usa Read/Grep/Glob, MCP vazio e confere as ferramentas no evento inicial.
+Codex usa sessão efêmera, ignora configuração e regras do usuário, desliga hooks,
+shell, apps, navegador, plugins, subagentes e imagens. Seu sandbox é read-only;
+o único MCP configurado é um servidor local de leitura/listagem do snapshot.
+Eventos de comando ou MCP fora desse contrato recusam a sessão. O host de ferramentas
+do Codex permanece ligado porque também transporta o MCP; isso não habilita shell.
+As páginas de leitura têm até 60 linhas e 2.048 caracteres de conteúdo; o limite
+explícito de saída é 32.768 tokens, acima da resposta serializada máxima. O manifesto
+e suas exclusões entram no prompt. Cobertura exige conferir conteúdo e intervalos
+de cada resposta com o patch local, mesmo quando o observador global é o antigo.
+Ela comprova conteúdo disponibilizado, não compreensão ou persistência após compactação.
+Checkpoints de leitura usam `FAROL_CHECKPOINT` em texto principal, com `method:
+"read"`, depois da entrega do patch; o registro explicita que não houve execução
+de teste. Entradas de outra sessão ou head não contam e ausência fica desconhecida.
+Testes locais, CI, aprovação humana e QA continuam provas separadas. Esse modo
+não concede capacidade de publicar no GitHub nem permissão de integrar.
+
 **O defeito de origem, e ele era de AUTORIDADE, não de qualidade da análise.** Até a
 v2.54.7 o único gate de qualidade de todo o caminho do `mergeSelfPR` era
 `analysis.approvable !== true`, um booleano produzido pela sessão de IA, e o MESMO gate

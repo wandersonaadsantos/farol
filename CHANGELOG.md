@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.14
+
+Autoanálise com execução restrita por solicitação, preservando as demais sessões.
+
+### Correções
+
+- A API local oferece uma rota específica para autoanálise restrita, que versões antigas recusam em vez de iniciar uma sessão sem isolamento. O modo fica na execução e não altera as preferências da conta.
+- Claude e Codex recebem fontes fixadas em diretório exclusivo, sem tokens GitHub herdados, comandos shell ou acesso livre por MCP. Codex usa sandbox somente leitura e um servidor de fontes limitado ao snapshot; Claude limita as ferramentas a Read, Grep e Glob.
+- Cobertura exige conferir o conteúdo retornado. Contraprovas de leitura não são apresentadas como testes executados, e evidência ausente, head alterado ou ferramenta fora do contrato impedem concluir a análise como comprovada.
+
+O novo modo é solicitado pela API; as sessões existentes e o comportamento padrão não são reconfigurados. CI, aprovação humana e validação do produto continuam provas independentes.
+
 ## v2.78.13
 
 Revisões orientadas a comunicar com clareza por que um ponto impede o merge.

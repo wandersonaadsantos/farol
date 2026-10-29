@@ -9,6 +9,8 @@ process.env.FAROL_HOME = home;
 const { Engine } = await import('../server.js');
 const { sourceRuntime } = await import('../lib/engine/analysis-source.js');
 const { PROFILE_FILE } = await import('../lib/technical-review/profiles.js');
+const { observeReadEvent } = await import('../lib/engine/read-evidence.js');
+const { qualityOf } = await import('../lib/engine/selfpr.js');
 const io = (await import('../lib/io.js')).default;
 const original = { ...sourceRuntime }, runOriginal = io.run;
 afterEach(() => { Object.assign(sourceRuntime, original); io.run = runOriginal; });
@@ -38,6 +40,8 @@ function setup(kind = 'dir') {
   e.fetchMergeState = async () => null;
   io.run = async (_command, args) => {
     if (args.includes('headRefOid')) return { ok: true, stdout: H };
+    if (args.includes('--json')) return { ok: true, stdout: JSON.stringify({ headRefOid: H, baseRefOid: B, statusCheckRollup: [] }) };
+    if (args.includes('--paginate')) return { ok: true, stdout: '[[]]' };
     return { ok: false, code: 1, stdout: '', stderr: 'Operação externa bloqueada pela fixture.' };
   };
   return e;
@@ -61,6 +65,62 @@ function assertPrepared(prompt, session) {
   assert.equal(fs.readFileSync(path.join(session.scopeRoot, 'src/a.js'), 'utf8'), files[0].patch);
   assert.equal(session.totalArquivos, 1);
 }
+
+test('requisição normal e restrita atravessam fila, fonte fixada e observação sem aprovar verificações ausentes', async () => {
+  for (const isolation of [undefined, 'restricted-read']) {
+    const e = setup(); e.tokenFor = () => 'fixture-token';
+    const handle = source(); handle.manifest.files = files.map(f => ({ ...f, patchStatus: 'available' }));
+    handle.reader = { tree: async () => ({ complete: true, entries: [{ path: 'src/a.js', readable: true }] }),
+      read: async () => ({ status: 'available', text: 'source' }) };
+    sourceRuntime.prepareSources = async () => handle;
+    const launched = await e.launchSelfAnalysis(pr.url, isolation);
+    assert.equal(launched.ok, true);
+    assert.equal(e.headlessQueue[0].isolation, isolation);
+    e.runClaudeStream = async (prompt, opts) => {
+      const session = e.activeReviews.get(opts.id);
+      if (isolation) {
+        assert.match(prompt, /Execução restrita/); assert.deepEqual(opts.extraArgs, []);
+        const filePath = path.join(session.scopeRoot, 'src/a.js');
+        const call = { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'r1', name: 'Read', input: { file_path: filePath } }] } };
+        observeReadEvent(e, opts, call); assert.equal(session.filesRead.size, 0);
+        const content = files[0].patch;
+        observeReadEvent(e, opts, { type: 'user', tool_use_result: { type: 'text', file: {
+          filePath, content, startLine: 1, numLines: 3 } }, message: { content: [{ type: 'tool_result',
+          tool_use_id: 'r1', content: content.split('\n').map((line, i) => `${i + 1}→${line}`).join('\n') }] } });
+        assert.equal(session.filesRead.size, 1);
+      } else assertPrepared(prompt, session);
+      return { text: JSON.stringify(selfResult()) };
+    };
+    await e.runSelfAnalysis(e.headlessQueue.shift());
+    assert.equal(e.activeReviews.size, 0);
+    assert.equal(handle.releases(), 1);
+    if (isolation) {
+      assert.equal(e.selfAnalyses[pr.key].observed.verification.status, 'unknown');
+      assert.equal(qualityOf(e.selfAnalyses[pr.key]).status, 'inconclusive');
+    }
+  }
+});
+
+test('autoanálise restrita descarta mudança de head e não registra resultado quando head final não é confirmado', async () => {
+  for (const finalHead of ['d'.repeat(40), '']) {
+    const e = setup(); e.tokenFor = () => 'fixture-token';
+    const handle = source(); handle.manifest.files = files.map(f => ({ ...f, patchStatus: 'available' }));
+    handle.reader = { tree: async () => ({ complete: true, entries: [] }) };
+    sourceRuntime.prepareSources = async () => handle;
+    let calls = 0;
+    io.run = async (_command, args) => {
+      if (args.includes('headRefOid')) return { ok: true, stdout: calls++ === 0 ? H : finalHead };
+      if (args.includes('--json')) return { ok: true, stdout: JSON.stringify({ headRefOid: H, baseRefOid: B }) };
+      return { ok: true, stdout: '[[]]' };
+    };
+    e.runClaudeStream = async () => ({ text: JSON.stringify(selfResult()) });
+    if (finalHead) await e.runSelfAnalysis({ ...pr, isolation: 'restricted-read' });
+    else await assert.rejects(e.runSelfAnalysis({ ...pr, isolation: 'restricted-read' }), /Head final não confirmado/);
+    assert.equal(e.selfAnalyses[pr.key], undefined);
+    assert.equal(e.activeReviews.size, 0);
+    assert.equal(handle.releases(), 1);
+  }
+});
 test('Engine review usa fonte comum sem perfil técnico e persiste diagnóstico que o modelo não pode forjar', async () => {
   const e = setup(), handle = source();
   assert.equal(fs.existsSync(PROFILE_FILE), false);

@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.14', [
+    'A API local oferece autoanálise restrita por execução, sem reconfigurar a conta ou interromper outras sessões.',
+    'Claude e Codex recebem fontes fixadas; cobertura e contraprovas de leitura ficam separadas de testes executados e aprovação humana.',
+  ]],
   ['2.78.13', [
     'A orientação de escrita pede motivo, evidência e condição de liberação para cada bloqueio, no corpo e nos comentários inline.',
     'Sugestões são apresentadas como opcionais, preservando a classificação técnica e sem reescrever revisões já publicadas.',

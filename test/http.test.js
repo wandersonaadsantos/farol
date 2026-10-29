@@ -19,6 +19,25 @@ const { reviewCaps } = await import('../lib/engine/decision.js');
 
 let server, base, engine;
 
+test('rota restrita exige o gate HTTP e fixa o modo, sem aceitar downgrade no corpo', async () => {
+  const saved = { myPRs: engine.myPRs, headlessQueue: engine.headlessQueue, accountForPr: engine.accountForPr,
+    tokenFor: engine.tokenFor, processHeadless: engine.processHeadless, pushState: engine.pushState };
+  const url = 'https://github.com/fixture/repo/pull/937';
+  engine.myPRs = [{ url, key: 'fixture/repo#937', repo: 'fixture/repo', number: 937 }];
+  engine.headlessQueue = []; engine.accountForPr = () => 'fixture'; engine.tokenFor = () => 'fixture-token';
+  engine.processHeadless = engine.pushState = () => {};
+  try {
+    assert.equal((await postSemHeader('/api/self-review/restricted', { url })).status, 403);
+    assert.equal(engine.headlessQueue.length, 0);
+    const result = await post('/api/self-review/restricted', { url, isolation: 'unrestricted' });
+    assert.deepEqual(JSON.parse(result.body), { ok: true, isolation: 'restricted-read' });
+    assert.equal(engine.headlessQueue[0].isolation, 'restricted-read');
+    engine.headlessQueue = [];
+    assert.equal(JSON.parse((await post('/api/self-review', { url, isolation: 'unknown-mode' })).body).ok, false);
+    assert.equal(engine.headlessQueue.length, 0);
+  } finally { Object.assign(engine, saved); }
+});
+
 before(async () => {
   engine = new Engine();
   engine.config.port = 0; // porta efêmera: evita conflito com o Farol real ou outro teste
