@@ -126,15 +126,15 @@ async function revisado(e, extra) {
 test('atualização retoma uma pendência antiga uma vez, sem interromper rodada ativa ou esperar o recuo velho', async () => {
   const e = motor();
   const d = await revisado(e, { analysisStatus: 'incomplete', decision: 'needs_decision' });
-  delete d.esperaProva.recuperacao;
+  d.esperaProva.recuperacao = 1;
   d.esperaProva.proximaEm = Date.now() + intervaloDaProva(5);
   const attempts = d.esperaProva.tentativas;
   e.activeReviews.set('ativa', { keys: [PR.key] });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
-  assert.equal(d.esperaProva.recuperacao, undefined);
+  assert.equal(d.esperaProva.recuperacao, 1);
   e.activeReviews.delete('ativa');
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  assert.equal(d.esperaProva.recuperacao, 1);
+  assert.equal(d.esperaProva.recuperacao, 2);
   assert.equal(d.esperaProva.tentativas, attempts);
   assert.equal(d.blockedKind, 'stale_head');
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);

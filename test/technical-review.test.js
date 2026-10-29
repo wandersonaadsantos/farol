@@ -251,6 +251,12 @@ test('ferramenta real acusa supressão e exige julgamento sem tocar o consumidor
   const changed = git(['rev-parse', 'HEAD']).trim();
   const profile = { declaration: { scopes: ['core', 'frontend', 'backend'], componentDirs: ['src/design-system'], sourceDirs: ['src'], deliveryMayRepeat: true, isolationScope: 'tenant' } };
   const output = await audit({ toolHome, snapshot: repo, repo: 'org/consumer', base, head: changed, profile });
+  assert.equal(typeof output.rules.find(r => r.type === 'judgment').ruleVersion, 'string');
+  await assert.rejects(audit({ toolHome, snapshot: repo, repo: 'org/consumer', base, head: changed, profile }, [{ ruleVersion: 1 }]), error => {
+    assert.ok(error.assessmentIssues.length);
+    assert.match(error.assessmentIssues[0], /technicalAssessments\[0\]/);
+    return true;
+  });
   assert.equal(output.verdict, 'fail');
   assert.equal(output.rules.find(r => r.rule === 'core.suppression.declared').verdict, 'fail');
   assert.equal(output.rules.find(r => r.rule === 'core.file.single-responsibility').verdict, 'not-run');
