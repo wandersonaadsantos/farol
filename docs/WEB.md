@@ -87,10 +87,13 @@ máquina ou baixe os tetos. Nenhum motor enxerga o vizinho, então quem garante 
 80 é do ACME e do redirecionamento para HTTPS. As portas dos motores (47170 em diante) escutam só
 em `127.0.0.1` e não precisam de regra.
 
-**Não instale emulador de terminal** (`xterm`, `gnome-terminal`) na VPS: sem nenhum, o botão
-"Abrir sessão de login" abre o login pela própria tela (ver [Pessoa: logins do Claude e do
-GitHub](#pessoa-logins-do-claude-e-do-github)); com um, o motor tentaria abrir a janela dele numa
-máquina sem tela.
+**Não instale emulador de terminal** (`xterm`, `gnome-terminal`) na VPS. O login do Claude não
+depende disso: no modo servidor o motor nunca procura terminal para ele (`spawnLoginConsoleLinux`,
+`lib/engine/session.js`) e o botão "Abrir sessão de login" abre sempre o painel na própria tela
+(ver [Pessoa: logins do Claude e do GitHub](#pessoa-logins-do-claude-e-do-github)). O motivo são
+os outros caminhos que ainda escolhem um emulador quando acham um, como o login do Codex e a
+sessão interativa de revisão no terminal: numa VPS sem tela, a janela não aparece para ninguém, e
+sem emulador nenhum esses caminhos avisam alto em vez de abrir o vazio.
 
 ## Operador: provisionar uma pessoa
 
@@ -149,6 +152,21 @@ plantado ali só alcança o que ela já alcança.
 
 No fim, o script imprime a porta e os próximos passos: `gh auth login` como a pessoa, o comando do
 código de pareamento e o proxy.
+
+**Instale o `claude` da pessoa** logo depois do provisionamento (o script não instala, e a pessoa
+não tem shell na VPS para fazer isso ela mesma). O login do Claude pela tela roda
+`claude auth login` como o usuário dela, e sem o binário o painel não abre. Com o instalador
+oficial, rodado COMO a pessoa:
+
+```bash
+sudo -iu ana bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
+sudo -iu ana bash -c '~/.local/bin/claude --version'
+```
+
+Ele precisa cair no `~/.local/bin` desse usuário: é a pasta que o `server.js` põe na FRENTE do
+PATH do motor (e que o login pela tela também usa), então nenhum outro `claude` da máquina ganha
+dele. Um `claude` instalado só para o root, ou em outra pasta fora do PATH mínimo do systemd de
+usuário, não é visto pelo motor da pessoa.
 
 **Pacote ou clone.** O padrão é o pacote leve da release, que se atualiza sozinho (ver
 [Update](#update)). `--clone` é para quem opera o servidor a partir do código: o motor roda do
@@ -246,9 +264,21 @@ invalidam. O painel diz para rodar o comando "no terminal deste aparelho": no Fa
 quem tem o terminal é o operador (ver as [pendências](#pendências-para-o-motor)).
 
 **Quanto dura.** A sessão de um navegador vence com 30 dias sem uso ou 90 dias depois do
-pareamento, e aí o painel volta. Os navegadores pareados aparecem em Sistema > Aparelhos, onde dá
-para revogar um a um. Navegador perdido sem acesso à tela: o operador roda o mesmo comando com
-`--revogar-todas` (revoga todas as sessões e códigos dessa instância).
+pareamento, e aí o painel volta.
+
+**Revogar.** A lista de navegadores pareados, com a revogação um a um, fica em Sistema >
+Aparelhos, mas só aparece com a sincronização entre dispositivos LIGADA (sem ela, a seção mostra
+só "A sincronização entre dispositivos está desligada"). Numa instância hospedada a sincronização
+fica desligada enquanto ninguém configura o Firebase, então o caminho do hospedado é o operador
+rodar, como a pessoa e com o `FAROL_HOME` dela:
+
+```bash
+sudo -u ana FAROL_HOME=/home/ana/.farol /usr/bin/node /home/ana/.farol/app/tools/farol-parear.js --revogar-todas
+```
+
+Isso revoga TODAS as sessões e códigos daquela instância, inclusive os navegadores que a pessoa
+ainda usa: cada um volta ao painel e pareia de novo com um código novo. É o que fazer com um
+navegador perdido, roubado ou de uma máquina que a pessoa deixou de usar.
 
 ## Pessoa: logins do Claude e do GitHub
 
@@ -256,8 +286,8 @@ Nesta ordem, depois do pareamento: primeiro o Claude, que paga as revisões, e d
 que é o que faz a conta aparecer e a fila começar a andar. Na ordem inversa, as primeiras revisões
 automáticas morreriam sem login do Claude.
 
-**Claude (pela tela).** O `claude` é instalado por pessoa (o instalador oficial, rodado como
-ela, põe em `~/.local/bin`). O login é pela própria tela, sem terminal (`lib/engine/login-web.js`,
+**Claude (pela tela).** O `claude` é instalado por pessoa, pelo operador, no passo
+"Instale o `claude` da pessoa" de [Operador: provisionar uma pessoa](#operador-provisionar-uma-pessoa). O login é pela própria tela, sem terminal (`lib/engine/login-web.js`,
 20/10/2026):
 
 1. Sistema > Plano e chaves, cartão "Login padrão desta máquina": liste o login padrão como
@@ -294,7 +324,11 @@ ressalvas e reprova sozinha; ver "Uma decisão, uma configuração" no `docs/CON
 caminhos: a pessoa troca os seletores da conta logo depois do login, ou, ANTES do `gh auth login`,
 o operador acrescenta `"autoReview": false` ao `~/.farol/config.json` da pessoa (editando como
 ela, com `sudo -u ana`, e reiniciando o serviço dela, porque o motor lê o arquivo no boot), e a
-conta detectada nasce só pondo os PRs na fila.
+conta detectada nasce sem revisar sozinha: os PRs só entram na fila. A chave só cobre ISSO. As
+outras três decisões da conta nascem no padrão (`onClean: approve`, `lib/engine/contas-migracao.js`),
+então um clique manual em Revisar num PR limpo ainda posta um APPROVE no GitHub. Para nada sair
+sem a pessoa decidir, ela põe também "espera você" nos seletores de aprovar e reprovar da conta,
+em Sistema > Contas, antes da primeira revisão.
 
 Com Antigravity ou Codex na cadeia, os logins deles seguem o mesmo princípio (por pessoa); o do
 Antigravity também entra pela tela.
@@ -344,6 +378,7 @@ Com o serviço parado, para o estado não mudar no meio:
 
 ```bash
 U=ana; R=/run/user/$(id -u $U)
+sudo install -d -m 700 /root/backup
 sudo -u $U XDG_RUNTIME_DIR=$R systemctl --user stop farol
 sudo tar -C /home/$U --exclude=.farol/app -czpf /root/backup/farol-$U-$(date +%F).tar.gz \
   .farol .config/gh .claude .claude.json
@@ -356,7 +391,10 @@ acrescente as pastas dos perfis com pasta própria. O arquivo leva tokens e cred
 
 **Restaurar** (outra VPS, ou a mesma depois de um desastre): provisione a pessoa **na mesma
 porta** de antes (`provisionar-pessoa.sh ana 47170`), porque o `config.json` do backup substitui
-o que o provisionamento gravou e traz a porta antiga. Pare o serviço, extraia
+o que o provisionamento gravou e traz a porta antiga. Se você também restaurou o
+`/etc/farol/portas` do backup, a pessoa já está na tabela e o provisionamento recusa
+("ja tem porta em /etc/farol/portas"): rode com `--forcar`, que reaproveita a porta gravada (e,
+na mesma máquina, aceita o usuário Linux que já existe). Pare o serviço, extraia
 COMO a pessoa (o arquivo precisa ser legível por ela, por exemplo copiado para uma pasta dela) e
 suba de novo:
 
@@ -415,8 +453,10 @@ O token vem de `FAROL_SMOKE_TOKEN`; sem ele, o smoke gera um código como a pess
 unidade dela), pareia com o rótulo "smoke" e revoga essa sessão no fim, inclusive se parar no meio.
 Código e token nunca vão para URL, linha de comando, log ou tela. `--resolve <ip>` fala com o IP
 sem depender do DNS, com o certificado ainda conferido. Termina em "Smoke verde" (saída 0) ou
-"Smoke vermelho: N falha(s)" (saída 1). Se a revogação falhar, revogue a sessão "smoke" em
-Sistema > Aparelhos.
+"Smoke vermelho: N falha(s)" (saída 1). Se a revogação falhar, a sessão "smoke" fica viva: sem
+a sincronização ligada não há revogação de uma sessão só pela tela (ver
+[Revogar](#pessoa-primeiro-acesso-e-pareamento)), e o caminho é o `--revogar-todas`, que derruba
+também os navegadores da pessoa.
 
 **Quando algo não sobe:**
 
@@ -553,16 +593,26 @@ nas ferramentas.
    aberta para quem chega pelo proxy, sem aviso. O smoke pega (`GET /api/state` daria 200), mas só
    quando roda. A config da pendência 1 poderia ligar a exigência sozinha, como o `bind` fora do
    loopback já liga.
+4. **Navegadores pareados só com a sincronização ligada.** A lista e a revogação de um navegador
+   moram na seção Aparelhos, que com a sincronização desligada mostra só o aviso de desligada
+   (`aparelhosSecaoHtml`, `ui/pure/aparelhos.js`). No hospedado, onde ela costuma ficar desligada,
+   a única revogação é o `--revogar-todas` no servidor, que derruba todos os navegadores da
+   pessoa. A lista deveria aparecer com a sincronização ligada ou não: a A4 não depende dela.
 
 ### Nas ferramentas de `tools/web/`
 
-4. **A política da conta nova.** O provisionamento não escreve `"autoReview": false`, então a
-   conta detectada no `gh auth login` nasce revisando e aprovando sozinha. Escrever a chave no
-   `config.json` novo deixaria a primeira decisão de postar no GitHub com a pessoa.
-5. **`config.json` não é conferido contra `/etc/farol/portas`.** Uma porta editada à mão de um
+5. **A política da conta nova.** O provisionamento não escreve `"autoReview": false`, então a
+   conta detectada no `gh auth login` nasce revisando, aprovando e reprovando sozinha. E a chave
+   sozinha não basta: ela desliga só o revisar sozinho, e o clique manual num PR limpo continua
+   aprovando (`onClean` nasce `approve`). Para a primeira decisão de postar no GitHub ficar com a
+   pessoa, o provisionamento teria de escrever a conta com os quatro campos (ou a migração aceitar
+   o equivalente das três decisões de postar), o que pede o login da conta antes do `gh auth login`.
+6. **`config.json` não é conferido contra `/etc/farol/portas`.** Uma porta editada à mão de um
    lado só deixa o serviço em laço (porta ocupada) ou o proxy apontando para o lugar errado.
-6. **Login com `_`.** O provisionamento aceita (regra do `useradd`) e só o gerador do Caddyfile
+7. **Login com `_`.** O provisionamento aceita (regra do `useradd`) e só o gerador do Caddyfile
    recusa, com o usuário já criado. Recusar no provisionamento, pela regra de rótulo de DNS, fecha
    isso.
-7. **A mensagem de revogação do smoke** manda revogar a sessão "smoke" em "Sistema > Seguranca",
-   mas os navegadores pareados ficam em Sistema > Aparelhos.
+8. **A mensagem de revogação do smoke** manda revogar a sessão "smoke" em "Sistema > Seguranca",
+   seção que não existe. A lista de navegadores fica em Sistema > Aparelhos e, no hospedado com a
+   sincronização desligada, nem aparece (pendência 4): o caminho que a mensagem deveria dar é o
+   `--revogar-todas` como a pessoa, avisando que ele derruba também os navegadores dela.
