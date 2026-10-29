@@ -3,8 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { PassThrough } from 'node:stream';
 import { prepareSelfIsolation } from '../lib/engine/self-isolation.js';
-import { sourceRead, dispatchSource } from '../lib/engine/restricted-source.js';
+import { sourceRead, dispatchSource, serveSource } from '../lib/engine/restricted-source.js';
 import { observeRestrictedCodex, restrictedCodex } from '../lib/engine/restricted-codex.js';
 import io from '../lib/io.js';
 import { IS_WIN } from '../lib/paths.js';
@@ -16,6 +17,18 @@ const source = { status: 'complete', manifest: { H: 'a'.repeat(40), files: [
   { path: 'a.js', patch: '+one\n+two', patchStatus: 'available' }] },
   reader: { tree: async () => ({ complete: true, entries: [] }) } };
 const snapshot = await prepareSelfIsolation({ source }, { base });
+
+test('protocolo RPC recusa identificador fora do orçamento antes de produzir resposta', async () => {
+  const input = new PassThrough(), output = new PassThrough();
+  serveSource(snapshot.root, input, output);
+  const first = new Promise(resolve => output.once('data', chunk => resolve(JSON.parse(String(chunk)))));
+  for (const id of ['x'.repeat(65), {}, true]) input.write(JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/list' }) + '\n');
+  input.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) + '\n');
+  const result = await first;
+  assert.equal(result.id, 1, 'O primeiro retorno pertence ao único identificador aceito.');
+  assert.equal(result.result.tools.length, 2);
+  input.end(); output.end();
+});
 
 test('MCP só expõe leitura/listagem fixadas e recusa escapes, operações e intervalos inválidos', async () => {
   const listed = await dispatchSource(snapshot.root, { method: 'tools/list' });
