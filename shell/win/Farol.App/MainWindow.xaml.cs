@@ -1,5 +1,6 @@
 using Farol.Contrato;
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -13,13 +14,21 @@ namespace Farol.App;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
+    private readonly DispatcherQueue _dispatcher;
     private WebHost? _web;
+    private bool _attaching;
 
     public MainWindow()
     {
         InitializeComponent();
+        _dispatcher = DispatcherQueue;
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(DragRegion);
+        if (AppWindowTitleBar.IsCustomizationSupported())
+        {
+            // Botões do sistema na altura da linha de 44 px da barra própria.
+            AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        }
         AppWindow.Closing += OnClosing;
     }
 
@@ -32,20 +41,42 @@ public sealed partial class MainWindow : Window
     /// <summary>A interface web; existe depois de <see cref="AttachEngineAsync"/>.</summary>
     internal WebHost Web => _web ?? throw new InvalidOperationException("O motor ainda não foi ligado à janela.");
 
-    /// <summary>Cria o WebView2, injeta o token e abre a raiz do motor na porta dada.</summary>
-    internal async Task AttachEngineAsync(int port, string? token)
+    /// <summary>
+    /// Cria o WebView2 com a pasta de dados dada (<see cref="FarolPaths.WebViewDataFolder"/>),
+    /// injeta o token e abre a raiz do motor na porta dada. Uma segunda chamada, durante ou
+    /// depois da primeira, não faz nada; se a inicialização falha, o controle sai da janela e
+    /// uma nova chamada pode tentar de novo.
+    /// </summary>
+    internal async Task AttachEngineAsync(int port, string? token, string userDataFolder)
     {
-        if (_web is not null)
+        if (_web is not null || _attaching)
         {
             return;
         }
+        _attaching = true;
         var view = new WebView2();
-        ContentHost.Child = view;
-        var web = new WebHost(view, port, token);
-        web.ColorsChanged += OnColorsChanged;
-        await web.InitializeAsync();
-        _web = web;
-        await web.NavigateAsync("/");
+        try
+        {
+            ContentHost.Child = view;
+            var web = new WebHost(view, port, token, userDataFolder);
+            web.ColorsChanged += OnColorsChanged;
+            await web.InitializeAsync();
+            _web = web;
+            await web.NavigateAsync("/");
+        }
+        catch
+        {
+            if (_web is null)
+            {
+                ContentHost.Child = null;
+                view.Close();
+            }
+            throw;
+        }
+        finally
+        {
+            _attaching = false;
+        }
     }
 
     /// <summary>Sem WebView2 Runtime: aviso nativo com o link, e nenhum WebView criado.</summary>
@@ -107,12 +138,12 @@ public sealed partial class MainWindow : Window
     // O evento pode chegar fora da thread da interface (o cliente SSE roda em segundo plano).
     private void OnColorsChanged(string bg, string symbol)
     {
-        if (DispatcherQueue.HasThreadAccess)
+        if (_dispatcher.HasThreadAccess)
         {
             ApplyColors(bg, symbol);
             return;
         }
-        DispatcherQueue.TryEnqueue(() => ApplyColors(bg, symbol));
+        _dispatcher.TryEnqueue(() => ApplyColors(bg, symbol));
     }
 
     private void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)

@@ -21,7 +21,7 @@ public class TokenInjectionTests
     public void ScriptSetsTheTokenInLocalStorage()
     {
         var token = "abcDEF0123456789_-abcDEF0123456789_-abcdefg";
-        var script = TokenInjection.Script(token);
+        var script = TokenInjection.Script(token, 47170);
 
         Assert.Contains("localStorage.setItem('farol-auth-token'", script);
         Assert.Contains(token, script);
@@ -37,7 +37,7 @@ public class TokenInjectionTests
     [Fact]
     public void ScriptIsWrappedInTryCatch()
     {
-        var script = TokenInjection.Script("x");
+        var script = TokenInjection.Script("x", 47170);
         Assert.StartsWith("try {", script);
         Assert.EndsWith("} catch (e) {}", script);
     }
@@ -45,15 +45,15 @@ public class TokenInjectionTests
     [Fact]
     public void ScriptOnlyWritesInTheEngineDocument()
     {
-        var script = TokenInjection.Script("x");
-        Assert.StartsWith("try { if (location.protocol === 'http:' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost')) { localStorage.setItem(", script);
+        var script = TokenInjection.Script("x", 47170);
+        Assert.StartsWith("try { if (location.protocol === 'http:' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost') && location.port === '47170') { localStorage.setItem(", script);
     }
 
     [Fact]
     public void HostileTokenRoundTripsAndNeverBreaksOutOfTheLiteral()
     {
         var token = "a'b\"c\\d</script>e\u2028f\u2029g\nh\ri ção";
-        var script = TokenInjection.Script(token);
+        var script = TokenInjection.Script(token, 47170);
 
         var literal = Literal(script);
         Assert.Equal(token, JsonSerializer.Deserialize<string>(literal));
@@ -73,6 +73,6 @@ public class TokenInjectionTests
     [InlineData("")]
     public void EmptyTokenInjectsNothing(string? token)
     {
-        Assert.Equal("", TokenInjection.Script(token));
+        Assert.Equal("", TokenInjection.Script(token, 47170));
     }
 }

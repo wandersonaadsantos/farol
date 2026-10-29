@@ -17,9 +17,6 @@ public static class TokenInjection
     /// <summary>A chave em que a interface procura o token.</summary>
     public const string StorageKey = "farol-auth-token";
 
-    /// <summary>A condição JavaScript de documento do motor.</summary>
-    public const string LocalDocument =
-        "location.protocol === 'http:' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost')";
 
     /// <summary>
     /// O script para <c>AddScriptToExecuteOnDocumentCreatedAsync</c>; token vazio devolve
@@ -27,16 +24,22 @@ public static class TokenInjection
     /// </summary>
     /// <remarks>
     /// O WebView2 roda esse script também nos quadros filhos, de qualquer origem; por isso o
-    /// token só é gravado quando o documento é http em <c>127.0.0.1</c> ou <c>localhost</c>.
+    /// token só é gravado quando o documento é http em <c>127.0.0.1</c> ou <c>localhost</c>, na
+    /// porta do motor.
     /// </remarks>
-    public static string Script(string? token)
+    public static string Script(string? token, int port)
     {
         if (string.IsNullOrEmpty(token))
         {
             return "";
         }
-        return "try { if (" + LocalDocument + ") { "
+        return "try { if (" + LocalDocument(port) + ") { "
             + $"localStorage.setItem('{StorageKey}', {JsonSerializer.Serialize(token)});"
             + " } } catch (e) {}";
     }
+
+    /// <summary>A condição JavaScript de documento do motor na porta dada.</summary>
+    public static string LocalDocument(int port) =>
+        "location.protocol === 'http:' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost')"
+        + $" && location.port === '{port.ToString(System.Globalization.CultureInfo.InvariantCulture)}'";
 }

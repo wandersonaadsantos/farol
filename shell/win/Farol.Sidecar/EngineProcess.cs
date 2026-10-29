@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Threading.Channels;
+using Farol.Contrato;
 
 namespace Farol.Sidecar;
 
@@ -35,7 +36,7 @@ public sealed class EngineProcess : IDisposable
         _home = home;
         _shellVersion = shellVersion;
         _log = log;
-        EngineFilePath = Path.Combine(home ?? DefaultHome(), "state", "casca.json");
+        EngineFilePath = Path.Combine(home ?? FarolPaths.DefaultHome(), "state", "casca.json");
     }
 
     /// <summary>
@@ -337,18 +338,5 @@ public sealed class EngineProcess : IDisposable
         {
             return -1;
         }
-    }
-
-    private static string DefaultHome()
-    {
-        // O mesmo home do motor (os.homedir() mais .farol): %USERPROFILE% no Windows, $HOME fora.
-        var profile = OperatingSystem.IsWindows()
-            ? Environment.GetEnvironmentVariable("USERPROFILE")
-            : Environment.GetEnvironmentVariable("HOME");
-        if (string.IsNullOrEmpty(profile))
-        {
-            profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        }
-        return Path.Combine(profile, ".farol");
     }
 }

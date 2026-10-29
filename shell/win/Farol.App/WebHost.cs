@@ -13,13 +13,20 @@ internal sealed class WebHost
 {
     private readonly WebView2 _view;
     private readonly int _port;
-    private readonly string? _token;
+    private readonly string _userDataFolder;
+    private string? _token;
+    private string? _scriptId;
 
-    public WebHost(WebView2 view, int port, string? token)
+    /// <param name="userDataFolder">
+    /// A pasta de dados do WebView2 (<see cref="FarolPaths.WebViewDataFolder"/>): dentro de
+    /// <c>~/.farol</c>, nunca em AppData. O localStorage com o token mora nela.
+    /// </param>
+    public WebHost(WebView2 view, int port, string? token, string userDataFolder)
     {
         _view = view;
         _port = port;
         _token = token;
+        _userDataFolder = userDataFolder;
     }
 
     /// <summary>As cores do evento <c>casca</c> (fundo e símbolo, em <c>#rrggbb</c>).</summary>
@@ -27,16 +34,17 @@ internal sealed class WebHost
 
     public async Task InitializeAsync()
     {
-        await _view.EnsureCoreWebView2Async();
+        Directory.CreateDirectory(_userDataFolder);
+        // Na projeção WinRT do WebView2 a pasta de dados só entra pelo CreateWithOptionsAsync;
+        // texto vazio no executável é o runtime Evergreen instalado.
+        var environment = await CoreWebView2Environment.CreateWithOptionsAsync(
+            "", _userDataFolder, new CoreWebView2EnvironmentOptions());
+        await _view.EnsureCoreWebView2Async(environment);
         var core = _view.CoreWebView2;
 
         // O script entra antes da primeira navegação, para a interface já achar o token no
         // primeiro carregamento. O token nunca vai para log.
-        var script = TokenInjection.Script(_token);
-        if (script.Length > 0)
-        {
-            await core.AddScriptToExecuteOnDocumentCreatedAsync(script);
-        }
+        await InstallTokenScriptAsync(core);
 
         // O menu de contexto fica (copiar e colar texto); as ferramentas de desenvolvedor só
         // na compilação de depuração.
@@ -52,11 +60,44 @@ internal sealed class WebHost
         core.NavigationStarting += OnNavigationStarting;
     }
 
-    /// <summary>Abre um caminho do motor, como <c>/</c> ou <c>/?pr=owner%2Frepo%23N</c>.</summary>
+    /// <summary>
+    /// Troca o token injetado (pareamento novo): tira o script anterior pelo id e põe o novo.
+    /// Vale a partir do próximo documento; quem chama recarrega a página se precisar.
+    /// </summary>
+    public async Task UpdateTokenAsync(string? token)
+    {
+        _token = token;
+        var core = _view.CoreWebView2;
+        if (core is null)
+        {
+            // Ainda não inicializado: o InitializeAsync instala o token novo.
+            return;
+        }
+        await InstallTokenScriptAsync(core);
+    }
+
+    /// <summary>
+    /// Abre um caminho do motor, como <c>/</c> ou <c>/?pr=owner%2Frepo%23N</c>. Caminho que
+    /// poderia sair do motor é recusado por <see cref="LocalUrl.For"/>.
+    /// </summary>
     public Task NavigateAsync(string path)
     {
-        _view.Source = new Uri($"http://127.0.0.1:{_port}{path}");
+        _view.Source = LocalUrl.For(_port, path);
         return Task.CompletedTask;
+    }
+
+    private async Task InstallTokenScriptAsync(CoreWebView2 core)
+    {
+        if (_scriptId is not null)
+        {
+            core.RemoveScriptToExecuteOnDocumentCreated(_scriptId);
+            _scriptId = null;
+        }
+        var script = TokenInjection.Script(_token, _port);
+        if (script.Length > 0)
+        {
+            _scriptId = await core.AddScriptToExecuteOnDocumentCreatedAsync(script);
+        }
     }
 
     /// <summary>Repassa as cores do retrato da casca para quem desenha a barra de título.</summary>
