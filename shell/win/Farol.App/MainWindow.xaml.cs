@@ -16,6 +16,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly DispatcherQueue _dispatcher;
     private WebHost? _web;
+    private WebView2? _view;
     private bool _attaching;
     private string? _pendingPath;
 
@@ -66,6 +67,7 @@ public sealed partial class MainWindow : Window
             web.ColorsChanged += OnColorsChanged;
             await web.InitializeAsync();
             _web = web;
+            _view = view;
             var path = _pendingPath ?? "/";
             _pendingPath = null;
             await web.NavigateAsync(path);
@@ -98,6 +100,67 @@ public sealed partial class MainWindow : Window
             return Task.CompletedTask;
         }
         return _web.NavigateAsync(path);
+    }
+
+    /// <summary>O WebView2 já foi ligado ao motor por <see cref="AttachEngineAsync"/>.</summary>
+    internal bool IsAttached => _web is not null;
+
+    /// <summary>Texto simples enquanto o motor sobe, no lugar onde a interface vai aparecer.</summary>
+    internal void ShowStarting()
+    {
+        if (_web is not null)
+        {
+            return;
+        }
+        ContentHost.Child = CenteredPanel(new TextBlock
+        {
+            Text = "Ligando o motor do Farol...",
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 480,
+        });
+    }
+
+    /// <summary>
+    /// A casca desistiu de religar o motor: a mensagem e o botão "Tentar de novo", que chama
+    /// <paramref name="retry"/>. O WebView2, se existia, fica guardado e volta por
+    /// <see cref="RestoreEngineView"/>.
+    /// </summary>
+    internal void ShowFailure(string message, Action retry)
+    {
+        var button = new Button { Content = "Tentar de novo" };
+        button.Click += (_, _) =>
+        {
+            button.IsEnabled = false;
+            retry();
+        };
+        ContentHost.Child = CenteredPanel(
+            new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, MaxWidth = 480 },
+            button);
+    }
+
+    /// <summary>Põe de volta o WebView2 ligado ao motor (depois de <see cref="ShowFailure"/>).</summary>
+    internal void RestoreEngineView()
+    {
+        if (_view is not null && !ReferenceEquals(ContentHost.Child, _view))
+        {
+            ContentHost.Child = _view;
+        }
+    }
+
+    private static StackPanel CenteredPanel(params UIElement[] children)
+    {
+        var panel = new StackPanel
+        {
+            Spacing = 12,
+            Margin = new Thickness(32),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        foreach (var child in children)
+        {
+            panel.Children.Add(child);
+        }
+        return panel;
     }
 
     /// <summary>Sem WebView2 Runtime: aviso nativo com o link, e nenhum WebView criado.</summary>

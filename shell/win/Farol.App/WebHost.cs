@@ -86,6 +86,12 @@ internal sealed class WebHost
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Recarrega a página: depois de <see cref="UpdateTokenAsync"/>, é o que faz a interface ler o
+    /// token novo. Antes de inicializado não faz nada.
+    /// </summary>
+    public void Reload() => _view.CoreWebView2?.Reload();
+
     private async Task InstallTokenScriptAsync(CoreWebView2 core)
     {
         if (_scriptId is not null)
