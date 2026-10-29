@@ -10,6 +10,7 @@ import { verificacaoObservada } from '../lib/engine/selfpr.js';
 import { checkpointPath, readCheckpoint } from '../lib/engine/verification-checkpoint.js';
 import { assertRestrictedTools } from '../lib/engine/restricted-launch.js';
 import { observeReadEvent, observarLeitura } from '../lib/engine/read-evidence.js';
+import { IS_WIN } from '../lib/paths.js';
 
 const base = await fs.mkdtemp(path.join(os.tmpdir(), 'farol-isolation-test-'));
 after(() => fs.rm(base, { recursive: true, force: true }));
@@ -48,6 +49,11 @@ test('fonte incompleta, patch ausente, traversal, segredo e cancelamento recusam
   await assert.rejects(prepareSelfIsolation(prepared(), { base, signal: controller.signal }), { name: 'AbortError' });
   assert.equal(isolationMode('restricted-read'), 'restricted-read');
   assert.throws(() => isolationMode('bypass'), /não suportado/);
+  if (IS_WIN) {
+    for (const path of ['.. /outside.txt', 'NUL', 'con .txt', 'COM¹.js', 'trailing./x.js', 'safe/x.']) {
+      await assert.rejects(prepareSelfIsolation(prepared([{ path, patch: '+safe', patchStatus: 'available' }]), { base }), /Windows/);
+    }
+  }
 });
 
 test('ambiente do filho não herda tokens GitHub, API, opções Node ou diretórios temporários compartilhados', () => {

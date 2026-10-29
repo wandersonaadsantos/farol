@@ -24,6 +24,7 @@ childProcess.spawn = function mockableSpawn(...args) {
 
 const { runClaudeStream, cancelSession, parseEnvelope } = await import('../lib/engine/session.js');
 const { prepareSelfIsolation } = await import('../lib/engine/self-isolation.js');
+const { IS_WIN } = await import('../lib/paths.js');
 const io = (await import('../lib/io.js')).default;
 
 after(() => {
@@ -59,7 +60,7 @@ function engineFalso() {
 
 test('modo restrito cancelado durante --help não inicia modelo nem fallback', async () => {
   const root = path.join(FAROL_HOME, 'cli'); fs.mkdirSync(root);
-  const cli = path.join(root, process.platform === 'win32' ? 'claude.exe' : 'claude'); fs.writeFileSync(cli, 'fixture');
+  const cli = path.join(root, IS_WIN ? 'claude.exe' : 'claude'); fs.writeFileSync(cli, 'fixture');
   const source = { status: 'complete', manifest: { H: 'a'.repeat(40), files: [] },
     reader: { tree: async () => ({ complete: true, entries: [] }) } };
   const selfIsolation = await prepareSelfIsolation({ source }, { base: path.join(FAROL_HOME, 'isolated') });
@@ -84,7 +85,7 @@ test('modo restrito cancelado durante --help não inicia modelo nem fallback', a
 
 test('Claude restrito exige init válido no stream real, preserva modelo e recusa mesmo se kill falhar', async () => {
   const root = path.join(FAROL_HOME, 'cli-init'); fs.mkdirSync(root);
-  fs.writeFileSync(path.join(root, process.platform === 'win32' ? 'claude.exe' : 'claude'), 'fixture');
+  fs.writeFileSync(path.join(root, IS_WIN ? 'claude.exe' : 'claude'), 'fixture');
   const source = { status: 'complete', manifest: { H: 'a'.repeat(40), files: [] },
     reader: { tree: async () => ({ complete: true, entries: [] }) } };
   const selfIsolation = await prepareSelfIsolation({ source }, { base: path.join(FAROL_HOME, 'init-snapshots') });
@@ -116,7 +117,7 @@ test('Claude restrito exige init válido no stream real, preserva modelo e recus
 
 test('Codex restrito rejeita comando e MCP inesperado no stream, sem engolir falha de protocolo', async () => {
   const root = path.join(FAROL_HOME, 'cli-codex'); fs.mkdirSync(root);
-  fs.writeFileSync(path.join(root, process.platform === 'win32' ? 'codex.exe' : 'codex'), 'fixture');
+  fs.writeFileSync(path.join(root, IS_WIN ? 'codex.exe' : 'codex'), 'fixture');
   const source = { status: 'complete', manifest: { H: 'a'.repeat(40), files: [] },
     reader: { tree: async () => ({ complete: true, entries: [] }) } };
   const selfIsolation = await prepareSelfIsolation({ source }, { base: path.join(FAROL_HOME, 'codex-snapshots') });
