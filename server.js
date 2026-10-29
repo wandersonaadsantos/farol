@@ -1536,12 +1536,13 @@ class Engine extends EventEmitter {
   // capacidade implementada que ainda não está valendo (adendo, item 5): os sinais reais
   // do aparelho, para a tela nunca anunciar proteção que o engine não está aplicando
   estadoDasCapacidades() {
+    // a seção sync, mais o localAuth do TOPO da config, que é de onde o porteiro o lê
+    const config = { ...this.config.sync, localAuth: this.config.localAuth };
     return capacidadesMod.estadoDasCapacidades({
       modoCelular: detectarModoCelular(sinaisDoModoCelular()),
       ativacaoA4: ATIVACAO_AUTOMATICA_A4,
       ativacaoTetoGrupo: ATIVACAO_TETO_GRUPO_C4B,
-      // a seção sync, mais o localAuth do TOPO da config, que é de onde o porteiro o lê
-      config: { ...(this.config.sync || {}), localAuth: this.config.localAuth },
+      config,
       bloqueio: this.syncBloqueioCompartilhamento || '',
       grupoConfigurado: Object.keys((this.sync && this.sync.grupos) || {}).length > 0,
       modoCasca: modoCasca(), bindForaDoLoopback: !loopback(this.config.bind),
