@@ -160,6 +160,68 @@ test('a falha de JSON inválido aponta para a sessão que a produziu', async () 
   });
 });
 
+test('critérios ausentes são concluídos na mesma sessão e a aprovação sai sem intervenção', async () => {
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }, {}]);
+  e.approvePolicyFor = () => 'approve';
+  let published = 0;
+  e.postReview = async () => { published++; return { ok: true }; };
+  await e.runHeadlessReview({ ...PR, key: 'o/r#2201', number: 2201, url: 'https://github.com/o/r/pull/2201' });
+  assert.equal(e.chamadas.length, 2);
+  assert.ok(e.chamadas[1].args.includes('--resume'));
+  assert.equal(published, 1);
+  assert.equal(e.decisions.resolved[0].status, 'auto_approved');
+  assert.equal(e.decisions.pending.some(d => d.key === 'o/r#2201'), false);
+});
+
+test('continuação que também omite critérios não aprova e conserva a pendência específica', async () => {
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }, { texto: broken }]);
+  e.approvePolicyFor = () => 'approve';
+  let published = 0;
+  e.postReview = async () => { published++; return { ok: true }; };
+  await e.runHeadlessReview({ ...PR, key: 'o/r#2202', number: 2202, url: 'https://github.com/o/r/pull/2202' });
+  assert.equal(e.chamadas.length, 2, 'continuação limitada a uma, não vira laço');
+  assert.equal(published, 0);
+  const pending = e.decisions.pending[0];
+  assert.equal(pending.analysisStatus, 'incomplete');
+  assert.match(pending.esperaProva.pendenciasResultado.join(), /contrato de critérios/);
+});
+
+test('cancelamento durante a continuação impede qualquer publicação', async () => {
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }, {}]);
+  const run = e.runClaudeStream;
+  let calls = 0, published = 0;
+  e.runClaudeStream = async (prompt, opts) => {
+    if (++calls === 2) e.activeReviews.get(opts.id).cancelled = true;
+    return run(prompt, opts);
+  };
+  e.approvePolicyFor = () => 'approve';
+  e.postReview = async () => { published++; return { ok: true }; };
+  await assert.rejects(e.runHeadlessReview({ ...PR, key: 'o/r#2204', number: 2204, url: 'https://github.com/o/r/pull/2204' }), /cancelada/);
+  assert.equal(published, 0);
+  assert.equal(e.activeReviews.size, 0);
+});
+
+test('análise incompleta pode concluir com reprovação própria, sem aprovar por esgotamento', async () => {
+  const pending = { ...envelope(), analysisStatus: 'incomplete', decision: 'needs_decision' };
+  const rejected = { ...envelope(), ...criteriaFixture('request_changes'), verdict: 'request_changes', decision: 'needs_decision',
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'A gravação antecede a validação. Corrija antes do merge.' } } };
+  const e = engineCom([{ texto: pending }, { texto: rejected }]);
+  e.rejectPolicyFor = () => 'request_changes';
+  const sent = [];
+  e.postReview = async (_pr, payload) => { sent.push(payload); return { ok: true }; };
+  await e.runHeadlessReview({ ...PR, key: 'o/r#2203', number: 2203, url: 'https://github.com/o/r/pull/2203' });
+  assert.equal(e.chamadas.length, 2);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].event, 'REQUEST_CHANGES');
+  assert.equal(e.decisions.resolved[0].status, 'auto_rejected');
+});
+
 test('reparo que morre não apaga a falha original: o PR estaciona pelo motivo certo', async () => {
   const e = engineCom([{ texto: PROSA, sid: 's1' }, { erro: 'sessão retornou erro: API Error: 529 Overloaded' }]);
   await e.runOneHeadless(PR, 'trabalho');

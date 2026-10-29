@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.14
+
+Recuperação da revisão continua o trabalho na mesma sessão antes de abrir outra rodada.
+
+### Correções
+
+- Respostas com critérios incompletos ou análise declarada incompleta ganham uma continuação dirigida na mesma conversa, limitada a uma por rodada. O resultado passa novamente pelos critérios, avaliação técnica, conferência do commit e gates de publicação. Pode concluir pela aprovação ou pelo pedido de mudanças conforme as evidências e a política da conta; não exige pular o PR para retomar.
+- O Codex recebe instruções específicas para executar a revisão com suas próprias ferramentas, sem recorrer ao Claude ou depender do login de outro provedor. O protocolo conserva leitura, critérios e evidências, registrando quando a sessão principal fez o trabalho.
+- Checkpoints emitidos pelo Codex passam a ser gravados no diário pelo engine, com o PR, commit e escopo da sessão, antes da leitura do resultado final. Continuações reutilizam a posse válida da mesma operação, sem disputar um novo lease, e recusam enviar a conversa anterior a outro perfil ou modelo.
+- A instrução técnica esclarece que a cópia privada contém código, e que o Farol aplica a declaração e executa a avaliação. A sessão devolve as avaliações estruturadas, sem tentar executar uma auditoria sem configuração na cópia do PR.
+- Recuperações interrompem a sessão após cinco minutos sem eventos de progresso, preservando cancelamento e o teto absoluto. Revisões comuns mantêm sua janela atual. As pendências específicas do resultado são conservadas para a próxima rodada, em vez de reaparecerem somente como erro genérico de coerência.
+- Pendências de uma versão anterior da recuperação são retomadas uma vez com o fluxo atualizado, sem aguardar o intervalo antigo e sem interromper uma sessão que já esteja em andamento. Cancelamento, pausa da conta, orçamento e posse continuam sendo respeitados.
+- O card esclarece que análise incompleta ainda não é aprovação nem reprovação. O botão de aprovação continua desabilitado nesse estado. Falhas persistentes de acesso ou configuração continuam exigindo restabelecer o pré-requisito; a recuperação não fabrica provas nem garante a conclusão de uma ferramenta indisponível.
+
 ## v2.78.13
 
 Revisões orientadas a comunicar com clareza por que um ponto impede o merge.

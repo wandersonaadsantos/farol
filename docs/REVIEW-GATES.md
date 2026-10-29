@@ -6,6 +6,14 @@
 > voltaram a ser ressalva, e só a parte do card que cabe a ESTE PR bloqueia (ver
 > "Card só na parte deste PR e dependência aberta voltam a ser ressalva", abaixo).
 > Recuperação vigente (PR #253, 18/10/2026): a falta de evidência é responsabilidade do Farol.
+> Antes de reagendar por resultado incompleto, o Farol tenta uma continuação dirigida na mesma
+> conversa quando há sessionId, sem nova admissão e sem publicação direta. O resultado volta
+> a todos os gates. A recuperação usa cinco minutos de inatividade, sem reduzir o teto com
+> progresso; critérios pendentes específicos acompanham a próxima rodada. O Codex recebe
+> protocolo próprio e não precisa chamar outro provedor para cumprir o passo pr-reviewer.
+> Seus checkpoints são capturados pelo stream e gravados pelo engine. Uma continuação
+> reutiliza a posse viva da mesma operação e confere conta, alvo, perfil e modelo antes
+> de enviar o sessionId. Não readmite nem publica uma revisão por conta própria.
 > Duas revisões complementares são imediatas; as seguintes têm intervalo crescente, de 15
 > minutos até seis horas. Uma execução interrompida é reagendada e não vira uma decisão humana.
 > **Decisão do dono de 19/10/2026, que supera a regra do PR #250 (v2.72.8) e o "todas as provas
