@@ -47,11 +47,12 @@ Cada um é reversível na revisão do plano; trocar um deles muda só o plano ci
 Gravado pelo motor assim que o socket abre; apagado na saída limpa.
 
 ```json
-{ "porta": 47170, "pid": 12345, "versao": "2.79.0", "codigoPareamento": "ABCD-EFGH-IJ",
+{ "porta": 47170, "pid": 12345, "versao": "2.79.0", "codigoPareamento": "K7QMZP2XWD",
   "iniciadoEm": 1761600000000, "proximaVersao": null }
 ```
 
-`codigoPareamento` é de uso único (classe `casca`), válido por
+`codigoPareamento` tem 10 caracteres do alfabeto base32 do pareamento, sem hífen
+(`LOCAL_AUTH.CODIGO_TAMANHO`), é de uso único (classe `casca`) e válido por
 `TEMPOS.PAREAMENTO_VALIDADE_MS`; `proximaVersao` só é preenchido antes de uma
 saída por update.
 
