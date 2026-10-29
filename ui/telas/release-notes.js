@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.13', [
+    'A orientação de escrita pede motivo, evidência e condição de liberação para cada bloqueio, no corpo e nos comentários inline.',
+    'Sugestões são apresentadas como opcionais, preservando a classificação técnica e sem reescrever revisões já publicadas.',
+  ]],
   ['2.78.12', [
     'Critérios publicados mantêm identidade, fonte e escopo entre rodadas e PRs do mesmo card confirmado; mudar classificação exige nova evidência e justificativa.',
     'Recomendações distinguem hipótese de solução validada, com prova da correção e de um comportamento preservado no commit atual.',
