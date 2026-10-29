@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.16', [
+    'A API local oferece autoanálise restrita por execução, sem reconfigurar a conta ou interromper outras sessões.',
+    'Claude e Codex recebem fontes fixadas; cobertura e contraprovas de leitura ficam separadas de testes executados e aprovação humana.',
+  ]],
   ['2.78.15', [
     'Erros de formato e evidências da avaliação técnica voltam à própria conversa para correção, com a versão exigida fornecida pelo avaliador.',
     'Uma pendência nova permite uma segunda continuação na mesma sessão; erros repetidos encerram a tentativa. A aprovação continua bloqueada enquanto a análise for inconclusiva.',
