@@ -1132,8 +1132,9 @@ O filho inicia diretamente, sem shell do sistema ou tokens GitHub herdados.
 Temporários pertencem à execução; associação de conta, perfil e provedor não muda.
 Claude usa Read/Grep/Glob, MCP vazio e confere as ferramentas no evento inicial.
 Codex usa sessão efêmera, ignora configuração e regras do usuário, desliga hooks,
-shell, apps, navegador, plugins, subagentes e imagens. Seu sandbox é read-only;
-o único MCP configurado é um servidor local de leitura/listagem do snapshot.
+shell, apps, navegador, plugins, subagentes, imagens e memórias. Seu sandbox é read-only;
+com leitura dos diretórios mínimos da plataforma e do snapshot, sem escrita nem
+rede para ferramentas. O único MCP configurado é um servidor local de leitura/listagem do snapshot.
 Eventos de comando ou MCP fora desse contrato recusam a sessão. O host de ferramentas
 do Codex permanece ligado porque também transporta o MCP; isso não habilita shell.
 As páginas de leitura têm até 60 linhas e 2.048 caracteres de conteúdo; o limite

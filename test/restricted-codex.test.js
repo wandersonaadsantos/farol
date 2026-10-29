@@ -62,7 +62,10 @@ test('launcher Codex é por execução, sem shell/config herdada, persistência,
     const opts = { operationKind: 'self', selfIsolation: snapshot, extraArgs: [] };
     const selected = await restrictedCodex(opts, { kind: 'codex' }, inherited, { model: 'configured-model', effort: 'high' });
     assert.equal(selected.cwd, snapshot.root); assert.equal((await fs.stat(selected.command)).ino, (await fs.stat(command)).ino);
-    for (const flag of ['--no-daemon', '--ignore-user-config', '--ignore-rules', '--ephemeral', 'read-only']) assert.ok(selected.args.includes(flag));
+    for (const flag of ['--no-daemon', '--ignore-user-config', '--ignore-rules', '--ephemeral']) assert.ok(selected.args.includes(flag));
+    assert.ok(selected.args.includes('default_permissions="farol_read"'));
+    assert.ok(selected.args.some(arg => arg.startsWith('permissions.farol_read.filesystem=') && arg.includes('":workspace_roots"="read"')));
+    assert.ok(selected.args.includes('permissions.farol_read.network.enabled=false'));
     assert.ok(selected.args.includes('shell_tool')); assert.ok(selected.args.includes('unified_exec'));
     assert.ok(!selected.args.some(a => a.includes('bypass')));
     assert.equal(selected.env.CODEX_HOME, inherited.CODEX_HOME);

@@ -133,7 +133,7 @@ test('Codex restrito rejeita comando e MCP inesperado no stream, sem engolir fal
         setImmediate(() => {
           if (args.includes('login')) child.stdout.write('Logged in using ChatGPT');
           else {
-            assert.ok(args.includes('--ignore-user-config')); assert.ok(args.includes('read-only'));
+            assert.ok(args.includes('--ignore-user-config')); assert.ok(args.includes('default_permissions="farol_read"'));
             child.stdout.write(JSON.stringify({ type: 'item.started', item }) + '\n');
           }
           child.emit('close', 0);
