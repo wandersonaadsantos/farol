@@ -50,7 +50,7 @@ footprint.
 
 - **Contra o Electron**: 179,5 MB contra 398 MB, menos da metade (55% a menos).
 - **Contra o critério de 150 MB**: não passa pelo RSS de 10 min, que estoura em 29,5 MB; pelo
-  footprint fica no limite (150,5 MB). No início, ainda na primeira checagem, a soma foi de 269 MB.
+  footprint fica 0,5 MB acima (150,5 MB). No início, ainda na primeira checagem, a soma foi de 269 MB.
 - **Onde está o peso**: o app (75,6 MB de RSS, só 31 MB próprios: o resto são páginas de AppKit,
   WebKit e da Sparkle compartilhadas com o sistema, mais o `Farol.debug.dylib` do build Debug) e o
   motor (63,8 MB de RSS, 44 MB próprios). O WebKit somado ficou em 40,2 MB de RSS (contra ~90 MB na

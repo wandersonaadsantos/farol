@@ -1,6 +1,6 @@
 # Farol para macOS (casca nativa)
 
-Casca nativa do Farol em Swift (SwiftUI e AppKit) para macOS 14 ou mais novo, arm64 e x64. Ela sobe o
+Casca nativa do Farol em Swift 6 (AppKit) para macOS 14 ou mais novo, arm64 e x64. Ela sobe o
 motor em Node (`server.js`) como sidecar e é só cliente dele: nunca escreve no GitHub e nunca decide.
 
 O desenho mora em
@@ -30,8 +30,7 @@ brew install xcodegen swift-format
 ## Compilar
 
 ```sh
-xcodegen generate     # gera o Farol.xcodeproj a partir do project.yml
-scripts/build.sh      # regenera o projeto e compila o app em Debug, sem assinatura
+scripts/build.sh      # gera o Farol.xcodeproj com o xcodegen e compila o app em Debug, sem assinatura
 ```
 
 O app compilado fica em `DerivedData/Build/Products/Debug/Farol.app`.
