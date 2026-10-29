@@ -195,6 +195,18 @@ test('podarMotores apaga só o que está abaixo das duas', () => {
   assert.deepEqual(mod.podarMotores({ pastaEngine: path.join(TMP, 'nao-existe'), manter: ['2.80.0'] }), []);
 });
 
+test('podarMotores apaga toda sobra X.Y.Z.tmp de update interrompido, e nada parecido', () => {
+  const pastaEngine = pastaNova();
+  motor(pastaEngine, '2.80.0', { version: '2.80.0' });
+  for (const nome of ['2.81.0.tmp', '2.70.0.tmp', '9.9.9.tmp']) fs.mkdirSync(path.join(pastaEngine, nome, 'lib'), { recursive: true });
+  fs.mkdirSync(path.join(pastaEngine, 'x.tmp'));
+  fs.mkdirSync(path.join(pastaEngine, '2.81.0.tmp.bak'));
+  fs.writeFileSync(path.join(pastaEngine, '3.0.0.tmp'), 'arquivo solto, não pasta');
+  const removidas = mod.podarMotores({ pastaEngine, manter: ['2.80.0'] });
+  assert.deepEqual(removidas.sort(), ['2.70.0.tmp', '2.81.0.tmp', '9.9.9.tmp']);
+  assert.deepEqual(fs.readdirSync(pastaEngine).sort(), ['2.80.0', '2.81.0.tmp.bak', '3.0.0.tmp', 'x.tmp']);
+});
+
 test('bootstrap em modo casca poda e reexecuta a escolhida', () => {
   const pastaEngine = pastaNova();
   const r280 = motor(pastaEngine, '2.80.0', { version: '2.80.0', engines: COMPATIVEL });
@@ -250,3 +262,4 @@ test('reexecutar: filho morto por sinal vira código 1', () => {
   const r = spawnSync(process.execPath, [scriptQueReexecuta(raiz)], { encoding: 'utf8' });
   assert.equal(r.status, 1, r.stderr);
 });
+
