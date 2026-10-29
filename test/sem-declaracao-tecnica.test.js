@@ -21,6 +21,7 @@ const { technicalSummary } = await import('../lib/technical-review/verdict.js');
 const { approvalRefusal } = await import('../lib/technical-review/publication.js');
 const { attentionPoints } = await import('../lib/engine/ressalvas.js');
 const { shouldAutoApprove } = await import('../lib/engine/approval-policy.js');
+const { recuperarResultado } = await import('../lib/engine/recuperacao-resultado.js');
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const head = 'a'.repeat(40);
@@ -86,11 +87,15 @@ test('a tela diz que não há declaração, sem o rótulo de verificação pende
   assert.equal(technicalSummary(SEM_DECLARACAO, ['análise incompleta']).state, 'pending', 'outra lacuna continua pendente');
 });
 
-test('o envelope não escreve a marca: a única atribuição de technicalReview vem do runtime', () => {
-  const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'review.js'), 'utf8');
-  const atribuicoes = fonte.match(/result\.technicalReview\s*=[^=]/g) || [];
-  assert.equal(atribuicoes.length, 1);
-  assert.match(fonte, /result\.technicalReview = await technicalRuntime\.finishTechnicalReview\(technicalContext,/);
+test('o envelope não escreve a marca: o fechamento usa o contexto medido pelo runtime', async () => {
+  const claimed = { ...result(), findings: [], productDecisions: [], criteriaVersion: 1 };
+  const failed = await recuperarResultado({}, claimed, {}, 'id', {}, {}, {}, head, null,
+    { error: 'ferramenta indisponível', failure: 'tool' });
+  assert.equal(failed.technicalReview.semDeclaracao, undefined, 'alegação do modelo não dispensa avaliação configurada');
+  assert.equal(failed.technicalReview.failure, 'tool');
+  const measured = await recuperarResultado({}, { ...claimed, technicalReview: { verdict: 'pass' } }, {}, 'id', {}, {}, {}, head, null,
+    { semDeclaracao: true, error: SEM_DECLARACAO.error });
+  assert.deepEqual(measured.technicalReview, SEM_DECLARACAO);
 });
 
 function motorDaPublicacao(checks) {
