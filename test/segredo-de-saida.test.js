@@ -23,10 +23,11 @@ test('confereSegredoDeSaida: só o segredo da própria sessão confere', () => {
 
 test('linhasDeAvisoDeSaida: o trap manda o segredo por cabeçalho, nunca por argumento', () => {
   const linhas = linhasDeAvisoDeSaida('t7', 47170, 'abc').join('\n');
-  assert.match(linhas, /export FAROL_SESSION_SECRET='abc'/);
+  assert.match(linhas, /^FAROL_SESSION_SECRET='abc'$/m);
+  assert.equal(linhas.includes('export FAROL_SESSION_SECRET'), false, 'variável de shell: o claude não herda o segredo');
   assert.match(linhas, /-H "x-farol-session: \$FAROL_SESSION_SECRET"/);
   assert.match(linhas, /\{"id":"t7"\}/);
   assert.match(linhas, /http:\/\/127\.0\.0\.1:47170\/api\/session-exit/);
   assert.match(linhas, /trap notify EXIT/);
-  assert.ok(linhas.indexOf('export FAROL_SESSION_SECRET') < linhas.indexOf('trap notify EXIT'), 'o segredo existe antes de o trap poder disparar');
+  assert.ok(linhas.indexOf('FAROL_SESSION_SECRET=') < linhas.indexOf('trap notify EXIT'), 'o segredo existe antes de o trap poder disparar');
 });
