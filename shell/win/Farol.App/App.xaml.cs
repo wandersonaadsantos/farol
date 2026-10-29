@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Farol.Contrato;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 
@@ -34,6 +35,13 @@ public partial class App : Application
             return;
         }
 
+        // Assinado logo depois de virar a principal: uma segunda abertura durante a checagem do
+        // WebView2 ou a montagem da composição não cai no vazio. O evento chega numa thread do
+        // sistema e é passado para a da interface, que só o atende depois deste OnLaunched (o
+        // caminho da principal não tem await), com a janela e a composição já prontas.
+        var ui = DispatcherQueue.GetForCurrentThread();
+        main.Activated += (_, redirected) => ui.TryEnqueue(() => OnRedirected(redirected));
+
         _window = new MainWindow();
         switch (WebView2Policy.Decide(new WebView2Check()))
         {
@@ -45,12 +53,33 @@ public partial class App : Application
                 _window.Activate();
                 return;
             case WebView2Decision.Proceed:
-                Compose(main, activation);
+                Compose(activation);
                 return;
         }
     }
 
-    private void Compose(AppInstance main, AppActivationArguments activation)
+    // Com a composição, o caminho único das ativações; sem ela (o aviso de WebView2 ausente), ao
+    // menos a janela que existe vem para a frente.
+    private void OnRedirected(AppActivationArguments args)
+    {
+        try
+        {
+            if (_composition is { } composition)
+            {
+                composition.HandleActivation(args, redirected: true);
+            }
+            else
+            {
+                _window?.ShowAndActivate();
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.WriteLine($"WARN ativação redirecionada não foi atendida ({e.GetType().Name})");
+        }
+    }
+
+    private void Compose(AppActivationArguments activation)
     {
         // O Farol vive na bandeja: fechar ou esconder a janela nunca encerra o processo, só o
         // Sair da bandeja (Exit).
@@ -68,9 +97,6 @@ public partial class App : Application
             ReadShellVersion());
         _composition = composition;
 
-        // Assinado antes do Start: uma segunda abertura logo no boot não pode cair no vazio. O
-        // evento chega numa thread do sistema; a composição passa para a da interface.
-        main.Activated += (_, redirected) => composition.HandleActivation(redirected, redirected: true);
         composition.Start(silentVersion);
         // Aberto pelo clique num aviso com o Farol fechado: o mesmo caminho de quando ele roda.
         composition.HandleActivation(activation, redirected: false);

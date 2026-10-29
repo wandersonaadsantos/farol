@@ -41,9 +41,17 @@ internal sealed class Composition
     private DateTimeOffset _spawnedAt;
 
     private EventStream? _stream;
-    private int _streamPort;
-    private string? _streamToken;
     private string? _token;
+
+    // A prova do pareamento em curso: o token só conta como aceito quando o fluxo novo entrega o
+    // primeiro retrato casca. A geração muda a cada Pair e a cada saída do motor, e resultado de
+    // geração velha nunca chega à máquina.
+    private PairingProof? _proof;
+    private EventStream? _proofStream;
+    private string _proofCode = "";
+    private int _proofPort;
+    private CancellationTokenSource? _proofTimer;
+    private int _pairGeneration;
     private int _port;
     private bool _viewer;
 
@@ -56,7 +64,7 @@ internal sealed class Composition
 
     private ShellEvent.Shell? _lastShell;
     private bool? _autostartApplied;
-    private bool _updatePending;
+    private bool _engineRestarted;
     private bool _repairing;
     private bool _quitting;
 
@@ -164,14 +172,38 @@ internal sealed class Composition
         {
             return;
         }
-        if (input is SidecarInput.Exited)
+        if (input is SidecarInput.Exited exited)
         {
-            // O motor que saiu não vai gravar o arquivo: a espera dele acaba aqui.
+            // O motor que saiu não vai gravar o arquivo nem provar token: as esperas acabam aqui.
             _wait.Cancel();
+            AbandonProof();
+            _engineRestarted = true;
+            if (exited.Code == 0)
+            {
+                Log("WARN o motor saiu com 0 sem a casca pedir; ele não é religado");
+            }
         }
-        foreach (var effect in _machine.On(input))
+        IReadOnlyList<SidecarEffect> effects;
+        try
         {
-            Run(effect);
+            effects = _machine.On(input);
+        }
+        catch (Exception e)
+        {
+            Log($"WARN a máquina recusou {input.GetType().Name} ({e.GetType().Name})");
+            return;
+        }
+        foreach (var effect in effects)
+        {
+            try
+            {
+                Run(effect);
+            }
+            catch (Exception e)
+            {
+                // Um efeito que lança não pode levar os seguintes nem o processo junto.
+                Log($"WARN efeito {effect.GetType().Name} falhou ({e.GetType().Name})");
+            }
         }
     }
 
@@ -331,34 +363,168 @@ internal sealed class Composition
     // ---------- pareamento e eventos ----------
 
     // Token guardado vale primeiro; o código do casca.json só é gasto sem token, ou quando o
-    // motor recusa o guardado (o 401 do SSE, em RepairAsync).
+    // motor recusa o guardado. Paired só sai quando o motor responde (BeginProof).
     private async Task PairAsync(string code, int port)
     {
+        AbandonProof();
+        var generation = _pairGeneration;
         try
         {
             _port = port;
-            var token = LoadToken();
+            var stored = LoadToken();
+            var token = stored;
             if (token is null)
             {
                 token = await TryPairAsync(port, code);
+                if (generation != _pairGeneration)
+                {
+                    return;
+                }
                 if (token is not null)
                 {
                     SaveToken(token);
                 }
             }
-            _token = token;
             if (token is null)
             {
-                Post(new SidecarInput.PairFailed());
+                _token = null;
+                StopStream();
+                PostPairing(new SidecarInput.PairFailed(), generation);
                 return;
             }
-            StartStream(port, token);
-            Post(new SidecarInput.Paired());
+            _token = token;
+            BeginProof(new PairingProof(tokenFromStore: stored is not null), code, port, token, generation);
         }
         catch (Exception e)
         {
             Log($"WARN pareamento falhou ({e.GetType().Name})");
-            Post(new SidecarInput.PairFailed());
+            PostPairing(new SidecarInput.PairFailed(), generation);
+        }
+    }
+
+    // Um fluxo NOVO para cada prova: conexão fresca, sem o recuo de um fluxo antigo.
+    private void BeginProof(PairingProof proof, string code, int port, string token, int generation)
+    {
+        _proof = proof;
+        _proofCode = code;
+        _proofPort = port;
+        _proofStream = StartStream(port, token);
+        ArmProofTimer(proof, generation);
+    }
+
+    private void ArmProofTimer(PairingProof proof, int generation)
+    {
+        _proofTimer?.Cancel();
+        _proofTimer = new CancellationTokenSource();
+        _ = ProofTimeoutAsync(proof, generation, _proofTimer.Token);
+    }
+
+    private async Task ProofTimeoutAsync(PairingProof proof, int generation, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(PairingProof.Timeout, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        if (generation != _pairGeneration || !ReferenceEquals(proof, _proof))
+        {
+            return;
+        }
+        if (proof.OnTimeout() == ProofStep.Failed)
+        {
+            // Sem resposta não é recusa: o token e o fluxo ficam, e se o motor responder depois
+            // a janela já está com ele.
+            Log($"WARN o motor não respondeu ao pareamento em {PairingProof.Timeout.TotalSeconds:0} s");
+            PostPairing(new SidecarInput.PairFailed(), generation);
+        }
+    }
+
+    private bool IsProving(EventStream stream) =>
+        _proof is { Settled: false } && ReferenceEquals(stream, _proofStream);
+
+    private void OnProofShell()
+    {
+        if (_proof?.OnShell() == ProofStep.Proven)
+        {
+            _proofTimer?.Cancel();
+            PostPairing(new SidecarInput.Paired(), _pairGeneration);
+        }
+    }
+
+    private async Task OnProofRefusedAsync()
+    {
+        var proof = _proof;
+        var generation = _pairGeneration;
+        if (proof is null)
+        {
+            return;
+        }
+        try
+        {
+            var step = proof.OnUnauthorized();
+            if (step == ProofStep.None)
+            {
+                return;
+            }
+            StopStream();
+            _token = null;
+            DeleteToken();
+            if (step == ProofStep.Failed)
+            {
+                _proofTimer?.Cancel();
+                PostPairing(new SidecarInput.PairFailed(), generation);
+                return;
+            }
+            var token = await TryPairAsync(_proofPort, _proofCode);
+            if (generation != _pairGeneration || !ReferenceEquals(proof, _proof))
+            {
+                return;
+            }
+            if (token is null)
+            {
+                proof.Abandon();
+                _proofTimer?.Cancel();
+                PostPairing(new SidecarInput.PairFailed(), generation);
+                return;
+            }
+            SaveToken(token);
+            _token = token;
+            proof.OnPairedWithCode();
+            _proofStream = StartStream(_proofPort, token);
+            ArmProofTimer(proof, generation);
+        }
+        catch (Exception e)
+        {
+            Log($"WARN novo pareamento falhou ({e.GetType().Name})");
+            PostPairing(new SidecarInput.PairFailed(), generation);
+        }
+    }
+
+    private void AbandonProof()
+    {
+        _pairGeneration++;
+        _proof?.Abandon();
+        _proof = null;
+        _proofStream = null;
+        _proofTimer?.Cancel();
+        _proofTimer = null;
+    }
+
+    // Paired e PairFailed só valem para o pareamento em que nasceram.
+    private void PostPairing(SidecarInput input, int generation)
+    {
+        if (!_dispatcher.TryEnqueue(() =>
+        {
+            if (generation == _pairGeneration)
+            {
+                Feed(input);
+            }
+        }))
+        {
+            Log($"WARN casca encerrando: {input.GetType().Name} descartado");
         }
     }
 
@@ -383,26 +549,20 @@ internal sealed class Composition
         return null;
     }
 
-    private void StartStream(int port, string token)
+    private EventStream StartStream(int port, string token)
     {
-        if (_stream is not null && _streamPort == port && _streamToken == token)
-        {
-            return;
-        }
         _stream?.Stop();
         var stream = new EventStream(port, token, Log);
         _stream = stream;
-        _streamPort = port;
-        _streamToken = token;
         stream.Start();
         _ = ReadEventsAsync(stream);
+        return stream;
     }
 
     private void StopStream()
     {
         _stream?.Stop();
         _stream = null;
-        _streamToken = null;
     }
 
     private async Task ReadEventsAsync(EventStream stream)
@@ -426,28 +586,38 @@ internal sealed class Composition
         {
             return;
         }
-        switch (e)
+        try
         {
-            case ShellEvent.Shell shell:
-                ApplyShell(shell);
-                break;
-            case ShellEvent.Notice notice:
-                _notifier.Post(notice);
-                break;
-            case ShellEvent.Exit exit:
-                // O motor vai sair com 75 e a máquina religa na hora pelo Exited(75). Depois de
-                // um update, a volta dele consome o marcador e avisa "Farol atualizado".
-                _updatePending |= exit.Reason == "update";
-                Debug.WriteLine($"casca: o motor vai sair ({exit.Reason}, próxima versão {exit.NextVersion ?? "nenhuma"})");
-                break;
-            case ShellEvent.Unauthorized:
-                _ = RepairAsync(stream);
-                break;
+            switch (e)
+            {
+                case ShellEvent.Shell shell:
+                    // O primeiro retrato do fluxo novo é a prova de que o motor aceitou o token.
+                    if (IsProving(stream))
+                    {
+                        OnProofShell();
+                    }
+                    ApplyShell(shell);
+                    break;
+                case ShellEvent.Notice notice:
+                    _notifier.Post(notice);
+                    break;
+                case ShellEvent.Exit exit:
+                    // O motor vai sair com 75 e a máquina religa na hora pelo Exited(75).
+                    Debug.WriteLine($"casca: o motor vai sair ({exit.Reason}, próxima versão {exit.NextVersion ?? "nenhuma"})");
+                    break;
+                case ShellEvent.Unauthorized:
+                    _ = IsProving(stream) ? OnProofRefusedAsync() : RepairAsync(stream);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"WARN evento {e.GetType().Name} não foi aplicado ({ex.GetType().Name})");
         }
     }
 
-    // O motor recusou o token guardado: ele sai do cofre e a casca pareia de novo com o código
-    // do casca.json. Sem código (ou recusado), a janela fica sem token e a interface mostra o
+    // O motor recusou, depois da prova, um token que já tinha aceitado (sessões revogadas, por
+    // exemplo): ele sai do cofre e a casca pareia de novo com o código do casca.json. Sem código (ou recusado), a janela fica sem token e a interface mostra o
     // painel de pareamento.
     private async Task RepairAsync(EventStream stream)
     {
@@ -521,7 +691,7 @@ internal sealed class Composition
     {
         _port = port;
         _viewer = viewer;
-        NotifyUpdateIfPending();
+        NotifyUpdateIfRestarted();
         if (_window.IsAttached)
         {
             _window.RestoreEngineView();
@@ -647,15 +817,16 @@ internal sealed class Composition
         _ = BootAsync();
     }
 
-    private void NotifyUpdateIfPending()
+    // Toda volta do motor depois de uma saída: o update no modo casca grava o marcador e sai com
+    // 75, e a casca não reinicia. O marcador sai do disco aqui, senão a próxima abertura manual
+    // dentro de 10 min subiria escondida na bandeja. O primeiro boot já o consumiu no App.
+    private void NotifyUpdateIfRestarted()
     {
-        if (!_updatePending)
+        if (!_engineRestarted)
         {
             return;
         }
-        _updatePending = false;
-        // O marcador sai do disco aqui, senão a próxima abertura manual dentro de 10 min subiria
-        // escondida na bandeja.
+        _engineRestarted = false;
         if (SilentReopen.Consume(FarolPaths.EngineStateDir(_home)) is { } version)
         {
             _notifier.Post(ShellNotices.Updated(version));
@@ -710,6 +881,7 @@ internal sealed class Composition
         }
         _quitting = true;
         _wait.Cancel();
+        AbandonProof();
         try
         {
             StopStream();
