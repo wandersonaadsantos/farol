@@ -1540,7 +1540,8 @@ class Engine extends EventEmitter {
       modoCelular: detectarModoCelular(sinaisDoModoCelular()),
       ativacaoA4: ATIVACAO_AUTOMATICA_A4,
       ativacaoTetoGrupo: ATIVACAO_TETO_GRUPO_C4B,
-      config: this.config.sync || {},
+      // a seção sync, mais o localAuth do TOPO da config, que é de onde o porteiro o lê
+      config: { ...(this.config.sync || {}), localAuth: this.config.localAuth },
       bloqueio: this.syncBloqueioCompartilhamento || '',
       grupoConfigurado: Object.keys((this.sync && this.sync.grupos) || {}).length > 0,
       modoCasca: modoCasca(), bindForaDoLoopback: !loopback(this.config.bind),

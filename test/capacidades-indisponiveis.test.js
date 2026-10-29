@@ -113,6 +113,18 @@ test('o snapshot do engine leva o estado das capacidades, com as ativações rea
   assert.equal(s.capacidades.autenticacaoLocal.modoCelular, false, 'esta máquina não é celular');
 });
 
+test('localAuth exigir no topo da config: o retrato do engine diz exigida, como o porteiro', () => {
+  const e = new Engine();
+  e.log = () => { };
+  e.pushState = () => { };
+  e.config.localAuth = 'exigir';
+  try {
+    assert.equal(e.estadoDasCapacidades().autenticacaoLocal.exigida, true, 'o porteiro lê o topo da config, e o retrato também');
+    assert.equal(e.snapshot().capacidades.autenticacaoLocal.exigida, true);
+  } finally { delete e.config.localAuth; }
+  assert.equal(e.estadoDasCapacidades().autenticacaoLocal.exigida, false, 'sem a chave, no desktop, não é exigida');
+});
+
 test('a proteção só é anunciada como ativa quando o engine está mesmo aplicando', () => {
   const e = estadoDasCapacidades({ ...DESKTOP, modoCelular: true, config: { localAuth: 'exigir', enabled: true, shared: { enabled: true } }, bloqueio: '' });
   assert.equal(e.autenticacaoLocal.exigida, true);
