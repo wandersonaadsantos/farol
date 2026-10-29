@@ -123,7 +123,7 @@ test('runHeadlessReview manda operationKind review e o contexto da coordenação
     // C8: o contexto passou a carregar o pedido de tomada forçada, que nasce falso e só
     // vira verdade com pedido explícito e confirmado
     semCoordenacao: true, ignorarRecibo: false, tomar: false, confirmado: false,
-    pr: { key: 'o/r#1', url: pr.url, repo: 'o/r', number: 1, author: 'dev', account: 'eu' },
+    pr: { key: 'o/r#1', url: pr.url, repo: 'o/r', number: 1, author: 'dev', account: 'eu', manual: true },
   });
 });
 
