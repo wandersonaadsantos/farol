@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.19', [
+    'Preparação restrita evita varreduras de quota por blob e mantém somente textos já ocultados em cache temporário limitado por execução.',
+    'Reutilização preserva versão, caminho e política de template. Cancelamento e limites continuam impedindo resultados sem prova.',
+  ]],
   ['2.78.18', [
     'Autoanálises restritas recebem representações com valores ocultos e deixam claro o que não foi lido, sem mudar o perfil ou abrir fontes sensíveis no fluxo normal.',
     'Patches ausentes usam versões verificadas. Templates públicos expõem somente chaves; contraprovas em arquivos com valores ocultos continuam inconclusivas.',

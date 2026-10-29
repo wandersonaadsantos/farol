@@ -9,6 +9,9 @@ process.env.FAROL_HOME = home;
 const io = (await import('../lib/io.js')).default;
 const { prepareSources } = await import('../lib/review-source/index.js');
 const { blobHash } = await import('../lib/review-source/contract.js');
+const { SourceStore } = await import('../lib/review-source/store.js');
+const { StorageBudget } = await import('../lib/review-source/storage-budget.js');
+const { projectedTextCache } = await import('../lib/review-source/projected-text-cache.js');
 const { createSourceProjection } = await import('../lib/review-source/projection.js');
 const { prepareSelfIsolation } = await import('../lib/engine/self-isolation.js');
 const { restrictedCheckpoint, recordProjection } = await import('../lib/engine/self-read-proof.js');
@@ -44,9 +47,11 @@ async function fixture(t, options = {}) {
       const sha = endpoint.split('/').at(-1); data = { sha, tree: sha === H ? TH : TM };
     } else if (endpoint.includes('/git/trees/')) {
       const head = endpoint.includes(TH), absent = head ? status === 'removed' : status === 'added';
-      data = { sha: head ? TH : TM, truncated: options.truncated === true, tree: absent ? [] : [{
-        path: head ? filename : previous, sha: head ? newBlob : oldBlob, mode: options.mode || '100644',
-        type: 'blob', size: (head ? after : before).length }] };
+      const entry = { path: head ? filename : previous, sha: head ? newBlob : oldBlob,
+        mode: (head ? options.afterMode : options.beforeMode) || options.mode || '100644',
+        type: 'blob', size: (head ? after : before).length };
+      data = { sha: head ? TH : TM, truncated: options.truncated === true, tree: absent ? [] : [entry,
+        ...(options.aliasPath ? [{ ...entry, path: options.aliasPath }] : [])] };
     } else if (endpoint.includes('/git/blobs/')) {
       const bytes = endpoint.endsWith(newBlob) ? after : before;
       data = { sha: blobHash(bytes), encoding: 'base64', size: bytes.length, content: bytes.toString('base64') };
@@ -58,9 +63,9 @@ async function fixture(t, options = {}) {
     io.run = original;
     await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
-  async function prepare(projected) {
+  async function prepare(projected, signal) {
     const source = await prepareSources(engine, PR, { root: path.join(root, 'cache'), expectedHead: H,
-      projection: projected ? createSourceProjection() : undefined, limits: { reserveBytes: 1 } });
+      projection: projected ? createSourceProjection() : undefined, signal, limits: { reserveBytes: 1 } });
     handles.push(source); assert.equal(source.status, 'complete'); return source;
   }
   async function noOriginalPersisted() {
@@ -229,4 +234,88 @@ test('caminho contendo valor reconhecido é recusado antes de cache, snapshot ou
   assert.equal(JSON.stringify(source).includes(secret), false);
   await assert.rejects(prepareSelfIsolation({ source }, { base: path.join(f.root, 'snapshots') }));
   await f.noOriginalPersisted();
+});
+
+test('projeção evita gravações de blob e reaproveita texto sem trocar caminho, modo ou commit', async t => {
+  const f = await fixture(t, { status: 'renamed', previousPath: 'old/plain.js', beforeMode: '100644', afterMode: '100755',
+    beforeText: 'export const safe = 1;\n', afterText: 'export const safe = 1;\n' });
+  const original = SourceStore.prototype.put, writes = [];
+  const scan = StorageBudget.prototype.scan; let scans = 0;
+  SourceStore.prototype.put = async function(key, ...args) { writes.push(key); return original.call(this, key, ...args); };
+  StorageBudget.prototype.scan = function(...args) { scans++; return scan.apply(this, args); };
+  t.after(() => { SourceStore.prototype.put = original; StorageBudget.prototype.scan = scan; });
+  const source = await f.prepare(true), controller = new AbortController();
+  const preparedScans = scans;
+  const head = await source.reader.read('src/header.js', 'head');
+  const before = await source.reader.read('old/plain.js', 'mergeBase');
+  assert.equal(scans, preparedScans, 'leitura projetada não varre quota por blob');
+  const base = await source.reader.read('old/plain.js', 'base');
+  assert.deepEqual([head.commit, before.commit, base.commit], [H, M, B]);
+  assert.deepEqual([head.path, before.path], ['src/header.js', 'old/plain.js']);
+  assert.deepEqual([head.mode, before.mode], ['100755', '100644']);
+  assert.equal(f.calls.filter(value => value.includes('/git/blobs/')).length, 1);
+  assert.equal(writes.filter(key => key.startsWith('blob:')).length, 0);
+  assert.ok(writes.some(key => key.startsWith('tree:')), 'árvores mantêm o orçamento persistente');
+  await f.noOriginalPersisted();
+  const normal = await f.prepare(false);
+  const normalScans = scans;
+  await normal.reader.read('src/header.js', 'head');
+  assert.equal(writes.filter(key => key.startsWith('blob:')).length, 1, 'fluxo normal continua cacheando blob limpo');
+  assert.ok(scans > normalScans, 'persistência normal continua passando pela quota');
+  const other = await f.prepare(true, controller.signal);
+  await other.reader.read('src/header.js', 'head');
+  const pending = other.reader.read('src/header.js', 'head');
+  controller.abort();
+  assert.notEqual((await pending).status, 'available', 'cancelamento durante a leitura também recusa o hit');
+  assert.notEqual((await other.reader.read('src/header.js', 'head')).status, 'available', 'hit em memória não ignora cancelamento');
+});
+
+test('mesmo blob não mistura texto comum e template, nem marcadores entre execuções', async t => {
+  const text = 'GH_TOKEN=fixture-common-token\nFLAG=false\n';
+  const f = await fixture(t, { path: '.env.example', aliasPath: 'src/plain.txt', beforeText: text, afterText: text });
+  const source = await f.prepare(true);
+  const template = await source.reader.read('.env.example', 'head');
+  const plain = await source.reader.read('src/plain.txt', 'head');
+  assert.equal(template.text.includes('FLAG=false'), false);
+  assert.equal(plain.text.includes('FLAG=false'), true);
+  assert.equal(plain.text.includes('fixture-common-token'), false);
+  const second = await f.prepare(true);
+  assert.notEqual((await second.reader.read('.env.example', 'head')).text, template.text);
+  await f.noOriginalPersisted();
+});
+
+test('template renomeado conserva política de chaves mesmo com extensão comum', async t => {
+  const text = 'GH_TOKEN=fixture-common-token\nFLAG=false\n';
+  const f = await fixture(t, { status: 'renamed', path: 'src/config.txt', previousPath: '.env.example', beforeText: text, afterText: text });
+  const source = await f.prepare(true);
+  for (const [name, side] of [['src/config.txt', 'head'], ['.env.example', 'mergeBase']]) {
+    const value = await source.reader.read(name, side);
+    assert.equal(value.status, 'available'); assert.equal(value.representation.kind, 'template-keys');
+    assert.equal(value.text.includes('FLAG=false'), false);
+  }
+  await f.noOriginalPersisted();
+});
+
+test('cache projetado limita payload, não guarda campos brutos e não expõe seu objeto interno', () => {
+  const record = { size: 10, text: 'projected', representation: { digest: 'fixture' }, content: 'RAW_BASE64', commit: H };
+  const bytes = Buffer.byteLength(JSON.stringify({ size: record.size, text: record.text, representation: record.representation })) + 1;
+  const cache = projectedTextCache(bytes * 2);
+  cache.put('a', record); cache.put('b', record);
+  const first = cache.get('a'); first.representation.digest = 'modified';
+  cache.put('c', record);
+  assert.equal(cache.get('b'), undefined, 'menos recente é removido dentro do limite');
+  assert.equal(cache.get('a').representation.digest, 'fixture');
+  assert.equal(cache.get('a').content, undefined); assert.equal(cache.get('a').commit, undefined);
+  assert.equal(cache.put('d', { ...record, text: 'x'.repeat(bytes * 3) }), false);
+  assert.equal(cache.get('d'), undefined);
+});
+
+test('mapa de igualdade recusa crescimento excessivo sem descartar identidades anteriores', () => {
+  const p = createSourceProjection(), first = p.project('Bearer value00000000').text;
+  for (let i = 1; i < 4096; i++) p.project('Bearer value' + String(i).padStart(8, '0'));
+  assert.throws(() => p.project('Bearer next00000000'), /Limite de valores ocultos/);
+  assert.equal(p.project('Bearer value00000000').text, first);
+  const large = createSourceProjection();
+  for (let i = 0; i < 256; i++) large.project('Bearer ' + String(i).padStart(4, '0') + 'x'.repeat(32764));
+  assert.throws(() => large.project('Bearer overbudget'), /Limite de valores ocultos/);
 });

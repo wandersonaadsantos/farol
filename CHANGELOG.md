@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.19
+
+Preparação das fontes restritas evita varreduras de quota por blob.
+
+### Correções
+
+- Autoanálises restritas reutilizam blobs já existentes, mas não gravam novos blobs no cache compartilhado. Textos já projetados ficam em um cache temporário de até 32 MiB por execução, sem conteúdo bruto ou base64.
+- Caminho, commit, modo e política de template permanecem separados ao reutilizar conteúdo. Cancelamento também recusa leituras atendidas em memória.
+- O mapa de igualdade dos valores ocultos tem limites próprios e recusa crescimento excessivo sem descartar identidades anteriores. Quotas persistentes, concorrência, prazos e gates de aprovação permanecem os mesmos.
+
 ## v2.78.18
 
 Autoanálises restritas recebem representações verificáveis com valores ocultos.
