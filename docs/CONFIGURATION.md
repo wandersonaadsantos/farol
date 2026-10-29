@@ -30,6 +30,7 @@ e a orientação para atualizar estão na seção Runtime suportado do `README.m
 - [Reserva de cota e recursos](#reserva-de-cota-e-recursos)
 - [Interface, retomada e preferências portáveis](#interface-retomada-e-preferências-portáveis)
 - [Fontes versionadas e contexto controlado](#fontes-versionadas-e-contexto-controlado)
+- [Modo casca e bind (28/10/2026)](#modo-casca-e-bind-28102026)
 
 <!-- indice:fim -->
 
@@ -892,3 +893,56 @@ todas. Evidências idênticas podem usar referências, mantendo conclusões e pr
 Para rollback da seleção, volte `reviewContextMode` para `off` na próxima configuração
 autorizada. Rollback do aplicativo deve aguardar consumidores terminarem e voltar à
 versão anterior sem apagar estado, checkpoints, resultados ou diretórios novos desconhecidos.
+
+## Modo casca e bind (28/10/2026)
+
+O desenho do Farol nativo (`docs/superpowers/specs/2026-10-27-farol-nativo-swiftui-winui-design.md`) troca o Electron por duas cascas nativas (SwiftUI no macOS, WinUI 3 no Windows) que sobem o motor como sidecar: `node server.js` num processo separado, com a `ui/` servida pelo próprio motor num WebView. O contrato entre as cascas e o motor está fixado no índice dos planos (`docs/superpowers/plans/2026-10-28-farol-nativo-indice.md`); aqui fica o que o motor faz de diferente e como configurar. A mesma entrega trouxe o `config.bind`, que é da implantação web e não depende da casca.
+
+### As variáveis que a casca passa
+
+| variável | valor | quem lê |
+|---|---|---|
+| `FAROL_SHELL` | `mac` ou `win` (caixa e espaço tolerados; qualquer outro valor é "sem casca") | `modoCasca()` em `lib/paths.js` |
+| `FAROL_SHELL_VERSION` | versão da casca, só `X.Y.Z` (fora do formato é vazio, nunca um palpite) | `versaoDaCasca()` em `lib/paths.js`, pelo bootstrap de versão |
+| `FAROL_HOME` | opcional, como sempre | `lib/paths.js` |
+
+O modo casca não substitui o `modoServidor`: sem Electron o motor continua sendo servidor, e a casca só acrescenta o que está abaixo. Duas variáveis são internas do bootstrap e a casca nunca as passa: `FAROL_BOOTSTRAP_FEITO=1` (`bootstrapFeito`) e `FAROL_PAI_PID` (`pidDoPai`), postas por `ambienteDoBootstrap` no motor reexecutado.
+
+### O que muda com `FAROL_SHELL`
+
+- **A autenticação local é exigida sempre.** `exigeAutenticacao` (`lib/local-auth/modo.js`) devolve verdadeiro com `modoCasca` `mac` ou `win`, como no celular, e nenhuma config desliga. `GET /api/state` sem `Authorization: Bearer` devolve `401 { error: 'nao_autenticado' }`.
+- **`state/casca.json`** (`CASCA_FILE`, em `~/.farol/workspace/state/`), gravado por `publicarCasca` (`lib/engine/casca-arquivo.js`) com modo 0600, só depois de o socket escutar e com a porta EFETIVA:
+
+  ```json
+  { "porta": 47170, "pid": 12345, "versao": "2.79.0", "codigoPareamento": "K7QMZP2XWD",
+    "iniciadoEm": 1761600000000, "proximaVersao": null }
+  ```
+
+  O `pid` é o do processo que escuta, mesmo depois do reexec do bootstrap, e é por ele que a casca encerra o motor. Com a porta ocupada nada é gravado: a casca reconhece o Farol vivo pelo `GET /api/auth/status`. A saída ordenada (`registrarSaidaOrdenada` no `server.js`, SIGTERM e SIGINT) apaga o arquivo com `apagarCasca`.
+- **A sessão `casca`.** O `codigoPareamento` é um código de uso único da classe `casca` (`criarCodigo(agora, { classe: 'casca' })`), válido por `TEMPOS.PAREAMENTO_VALIDADE_MS` (10 minutos). A casca o troca em `POST /api/auth/pair` com `{ codigo, rotulo }` e recebe `{ ok: true, token }`; `tentarCodigo` devolve a classe e `emitirSessao` a grava na sessão. A sessão `casca` não tem o limite absoluto (`TEMPOS.SESSAO_LOCAL_ABSOLUTA_MS`), porque a casca não tem como pedir código novo sozinha, e continua vencendo com 30 dias sem uso (`TEMPOS.SESSAO_LOCAL_OCIOSA_MS`). A lista de sessões (`POST /api/auth/sessions`) mostra a `classe`.
+- **Os eventos da casca no SSE** (`GET /api/events`, com o Bearer e `x-farol: 1`). A casca lê só três, e nunca `state` nem `state-patch`:
+
+  | evento | corpo | quando |
+  |---|---|---|
+  | `casca` | `{ badge: { contador, rotulo }, ocupado, autostart, cores: { bg, symbol } }` (`cascaDe`) | logo depois do `state` da conexão e a cada mudança; pode repetir, e as cascas comparam e ignoram igual |
+  | `aviso-nativo` | `{ titulo, corpo, url, pr, silencioso }` (`avisoDe`; `url` e `pr` podem ser `null`) | a cada `new-prs`, `auto-approved`, `auto-rejected`, `auto-commented`, `intervention` (só com `pr`), `meu-pr-base` e `tool-done` |
+  | `casca-saida` | `{ motivo, proximaVersao }` | antes de o motor sair de propósito, com o código 75 |
+
+  Os textos de `lib/engine/avisos-nativos.js` são os mesmos do `main.js` até o Electron sair, e `test/fixtures/casca/eventos.json` é o contrato de paridade das duas cascas.
+- **Bootstrap de versão** (`bootstrapDaCasca`, `lib/engine/casca-bootstrap.js`). A casca sempre executa o motor semeado no próprio bundle. Antes de o engine existir, ele procura em `~/.farol/engine/<X.Y.Z>/` (`ENGINE_DIR`) a maior versão acima da sua cujo `package.json` tem `engines.farolShell` aceitando `FAROL_SHELL_VERSION` (faixa `>=X.Y.Z <N`, a mesma forma de `engines.node`; o motor de hoje declara `>=3.0.0 <4`), poda as versões abaixo da escolhida e da semeada e se reexecuta de lá, repassando sinais e devolvendo o código de saída do filho. Sem prova (casca sem versão, manifesto ilegível, sem `farolShell`) fica na semeada; manifesto inválido vira WARN no `farol.log`. O filho vigia o pid do pai a cada `TEMPOS.VIGIA_DO_PAI_MS` (2 s) e sai pelo caminho do SIGTERM quando ele some, então um pai morto por SIGKILL, ou pelo `TerminateProcess` da casca no Windows, não deixa um órfão segurando a porta.
+- **Update** (`aplicarNaCasca`, `lib/engine/update-casca.js`). O bundle da casca é só leitura e assinado, então o update não troca nada no lugar: o pacote leve vai para `~/.farol/engine/<versão>` (cópia em `<versão>.tmp` e rename, a pasta final só aparece inteira), o `casca.json` ganha a `proximaVersao`, o motor marca a reabertura silenciosa, emite `casca-saida { motivo: 'update', proximaVersao }` e sai depois de `TEMPOS.SAIDA_DEPOIS_DO_UPDATE_MS` com `CASCA.CODIGO_SAIDA_DE_PROPOSITO` (75). A casca religa na hora, sem recuo; quem religa é sempre a casca. Rodando de um checkout git, recusa com o mesmo texto do modo servidor. O desvio no `applyUpdateInner` vem antes do modo servidor.
+
+Códigos de saída do sidecar: `0` é saída pedida (SIGTERM ou Ctrl+C), `75` é saída de propósito (religar sem contar como falha), qualquer outro é falha.
+
+Para ver tudo isso sem casca: `FAROL_HOME=/tmp/farol-casca FAROL_SHELL=mac FAROL_SHELL_VERSION=3.0.0 node server.js`, e então ler o `casca.json`, parear com o código dele e abrir o SSE com o token (o passo a passo está em "Como rodar" no `CLAUDE.md`).
+
+### `config.bind`: onde o servidor escuta
+
+O endereço do `listen`. Padrão `127.0.0.1`, e só por arquivo (`config.json`, com reinício), como a porta: trocar em runtime derrubaria o servidor que respondeu o pedido. `sanearBind` (`lib/parse.js`) aceita IPv4, IPv6 entre colchetes (a forma do cabeçalho Host, ex. `[::1]`) ou nome de host, sempre em caixa baixa; qualquer outra coisa (porta junto, esquema, espaço, vazio) volta para `127.0.0.1`. O valor padrão não é gravado no arquivo.
+
+Com o bind fora do loopback (`loopback` em `lib/http-guard.js`: `127.0.0.1`, `localhost` e `[::1]` contam como loopback):
+
+- a allowlist de Host aceita `<bind>:<porta>` além de `127.0.0.1:<porta>` e `localhost:<porta>`, e as origens `http://<bind>:<porta>` e `https://<bind>` (o proxy com TLS fica na 443, sem porta na origem);
+- a autenticação local é exigida sempre (`bindForaDoLoopback` em `exigeAutenticacao`): ali a API chega a outras máquinas, e Host permitido não é autenticação.
+
+Na implantação web com proxy TLS (plano 5 do Farol nativo) o motor fica em loopback atrás do proxy, que reescreve o Host; o bind fora do loopback é para quem expõe o motor sem proxy na frente.

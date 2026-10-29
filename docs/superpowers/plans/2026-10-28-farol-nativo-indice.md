@@ -55,6 +55,12 @@ Gravado pelo motor assim que o socket abre; apagado na saída limpa.
 `TEMPOS.PAREAMENTO_VALIDADE_MS`; `proximaVersao` só é preenchido antes de uma
 saída por update.
 
+Nota de contrato (plano 1 entregue, 28/10/2026): a casca encerra o motor pelo `pid`
+gravado aqui, que é o do processo que escuta, mesmo depois do reexec do bootstrap. No
+Windows a casca mantém o motor num Job Object com `KILL_ON_JOB_CLOSE`. O motor
+reexecutado vigia o pai (`TEMPOS.VIGIA_DO_PAI_MS`) e sai sozinho quando ele morre, em
+até cerca de 2 s.
+
 ### Rotas que a casca usa
 
 - `GET /api/auth/status` (pública): reconhece um Farol vivo na porta.
@@ -76,12 +82,19 @@ Toda chamada leva `Host: 127.0.0.1:<porta>` (allowlist de `lib/http-guard.js`).
 
 A casca NÃO lê `state` nem `state-patch`.
 
+Nota de contrato (plano 1 entregue): `casca` pode repetir o mesmo corpo, e as cascas
+comparam e ignoram o igual. `casca-saida { motivo, proximaVersao }` antecede a saída com
+código 75.
+
 ### Códigos de saída do sidecar
 
 - `0`: saída pedida pela casca (SIGTERM) ou Ctrl+C.
 - `75`: saída de propósito (update ou reinício); a casca religa na hora, sem
   recuo e sem contar como falha.
 - qualquer outro: falha; a casca religa com recuo 1 s, 2 s, 4 s, teto 30 s.
+
+Nota de contrato (plano 1 entregue): o 75 é `CASCA.CODIGO_SAIDA_DE_PROPOSITO`, em
+`lib/constants.js`.
 
 ### Layout do bundle (o que o plano 4 empacota e o que o 1 pressupõe)
 
