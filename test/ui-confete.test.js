@@ -25,6 +25,23 @@ test('a festa entra na tela, desenha e sai sozinha no fim', async () => {
   assert.equal(filhos('confete').length, 0, 'o canvas sai do DOM quando a festa termina');
 });
 
+// O navegador entrega ao requestAnimationFrame o relógio da página (performance.now(),
+// milissegundos desde que ela abriu), não a hora do sistema. Comparar um com o outro deixou a
+// festa no ar para sempre no app real (29/10/2026), enquanto o stub, que não passa argumento,
+// deixava o teste de cima verde.
+test('a festa termina com o relógio de verdade do requestAnimationFrame', async () => {
+  const antes = globalThis.requestAnimationFrame;
+  const abriu = Date.now() - 5000;
+  globalThis.requestAnimationFrame = (fn) => setTimeout(() => fn(Date.now() - abriu), 0);
+  try {
+    festejar({ duracaoMs: 60 });
+    await esperar(150);
+    assert.equal(filhos('confete').length, 0, 'o canvas sai do DOM mesmo com o relógio da página');
+  } finally {
+    globalThis.requestAnimationFrame = antes;
+  }
+});
+
 test('a festa não segura o texto: o aviso diz o que aconteceu e também sai', async () => {
   festejar({ duracaoMs: 60, texto: 'Análise impecável: nada a ajustar.' });
   const aviso = filhos('confete-aviso')[0];
