@@ -7,6 +7,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-update-casca-'));
 process.env.FAROL_HOME = HOME;
+// a casca que roda: a faixa engines.farolShell do pacote é conferida contra esta versão
+process.env.FAROL_SHELL_VERSION = '3.0.0';
 
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,6 +25,7 @@ process.exit = (codigo) => { exitDeVerdade += 1; throw new Error(`process.exit($
 after(() => {
   process.exit = exitReal;
   delete process.env.FAROL_SHELL;
+  delete process.env.FAROL_SHELL_VERSION;
   fs.rmSync(HOME, { recursive: true, force: true });
 });
 
@@ -38,10 +41,11 @@ function escrever(raiz, rel, conteudo) {
   fs.mkdirSync(path.dirname(alvo), { recursive: true });
   fs.writeFileSync(alvo, conteudo);
 }
-function pacote(versao = '2.80.0') {
+function pacote(versao = '2.80.0', farolShell = '>=3.0.0 <4') {
   const origem = pasta('pacote');
   escrever(origem, 'server.js', 'novo');
-  escrever(origem, 'package.json', JSON.stringify({ name: 'farol', version: versao, engines: { node: '>=24.22.1 <25', farolShell: '>=3.0.0 <4' } }));
+  const engines = { node: '>=24.22.1 <25', ...(farolShell ? { farolShell } : {}) };
+  escrever(origem, 'package.json', JSON.stringify({ name: 'farol', version: versao, engines }));
   escrever(origem, 'lib/algo.js', 'novo');
   for (const inst of ['install-linux.sh', 'install.sh', 'install.ps1']) escrever(origem, `installer/${inst}`, '#');
   return origem;
@@ -168,6 +172,49 @@ test('no modo casca o applyUpdate desvia para a pasta de versões, nunca para a 
     d.relogio.agendados[0].fn();
     assert.deepEqual(d.saidas, [75]);
   } finally { delete process.env.FAROL_SHELL; }
+});
+
+test('pacote cujo engines.farolShell não aceita a casca que roda é recusado sem tocar o disco', () => {
+  const d = deps();
+  const engine = motorFalso(pacote('2.80.0', '>=4.0.0 <5'));
+  const r = aplicarNaCasca(engine, d);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /casca/);
+  assert.match(r.error, /3\.0\.0/);
+  assert.equal(fs.existsSync(d.pastaEngine), false, 'nada gravado em ENGINE_DIR');
+  assert.equal(lerCasca().proximaVersao, null);
+  assert.deepEqual(d.relogio.agendados, []);
+  assert.ok(!engine.eventos.some(([n]) => n === 'casca-saida'));
+});
+
+test('pacote sem engines.farolShell é recusado sem tocar o disco', () => {
+  const d = deps();
+  const r = aplicarNaCasca(motorFalso(pacote('2.80.0', '')), d);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /farolShell/);
+  assert.equal(fs.existsSync(d.pastaEngine), false);
+  assert.deepEqual(d.relogio.agendados, []);
+});
+
+test('casca sem versão conhecida não instala nada', () => {
+  const antes = process.env.FAROL_SHELL_VERSION;
+  delete process.env.FAROL_SHELL_VERSION;
+  try {
+    const d = deps();
+    const r = aplicarNaCasca(motorFalso(pacote()), d);
+    assert.equal(r.ok, false);
+    assert.equal(fs.existsSync(d.pastaEngine), false);
+  } finally { process.env.FAROL_SHELL_VERSION = antes; }
+});
+
+test('a versão que já roda nunca apaga a própria pasta', () => {
+  const d = deps();
+  escrever(path.join(d.pastaEngine, APP_VERSION), 'server.js', 'o motor em uso');
+  const r = aplicarNaCasca(motorFalso(pacote(APP_VERSION), APP_VERSION), d);
+  assert.equal(r.ok, false);
+  assert.match(r.error, new RegExp(APP_VERSION.replace(/\./g, '\\.')));
+  assert.equal(fs.readFileSync(path.join(d.pastaEngine, APP_VERSION, 'server.js'), 'utf8'), 'o motor em uso');
+  assert.deepEqual(d.relogio.agendados, []);
 });
 
 test('o process.exit de verdade nunca foi chamado', () => { assert.equal(exitDeVerdade, 0); });
