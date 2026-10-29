@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 const { sanearBind } = await import('../lib/parse.js');
 const { validarHostEOrigem, loopback } = await import('../lib/http-guard.js');
 const { exigeAutenticacao } = await import('../lib/local-auth/modo.js');
-const { sanear } = await import('../lib/settings.js');
+const { sanear, paraGravar } = await import('../lib/settings.js');
 const { Engine } = await import('../server.js');
 const { startServer } = await import('../lib/http-server.js');
 
@@ -24,6 +24,18 @@ after(() => fs.rmSync(HOME, { recursive: true, force: true }));
 test('sanearBind aceita IP e host e cai em loopback no resto', () => {
   assert.equal(sanearBind('0.0.0.0'), '0.0.0.0'); assert.equal(sanearBind('farol.interno'), 'farol.interno'); assert.equal(sanearBind('[::1]'), '[::1]');
   for (const v of ['0.0.0.0:80', 'http://x', '', undefined, 'a b']) assert.equal(sanearBind(v), '127.0.0.1');
+  assert.equal(sanearBind('Farol.Interno'), 'farol.interno', 'o navegador manda o Host em caixa baixa');
+});
+
+test('bind [::1]: o Host do IPv6 entra na allowlist e o 127.0.0.1 segue valendo', () => {
+  assert.equal(validarHostEOrigem({ host: '[::1]:47170', origin: 'http://[::1]:47170', porta: 47170, bind: '[::1]' }).ok, true);
+  assert.equal(validarHostEOrigem({ host: '127.0.0.1:47170', porta: 47170, bind: '[::1]' }).ok, true);
+  assert.equal(validarHostEOrigem({ host: '[::1]:47170', porta: 47170 }).ok, false, 'sem bind, [::1] segue fora');
+});
+
+test('bind no padrão não é gravado no config.json', () => {
+  assert.equal('bind' in paraGravar({ bind: '127.0.0.1', port: 47170 }), false);
+  assert.equal(paraGravar({ bind: 'farol.interno' }).bind, 'farol.interno');
 });
 
 test('a tabela de preferências saneia bind com sanearBind', () => {
