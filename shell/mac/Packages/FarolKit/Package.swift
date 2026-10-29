@@ -12,7 +12,12 @@ let package = Package(
     targets: [
         .target(name: "FarolContrato"),
         .target(name: "FarolSidecar", dependencies: ["FarolContrato"]),
-        .target(name: "FarolApp", dependencies: ["FarolContrato", "FarolSidecar"]),
+        // O ícone da bandeja viaja como recurso do pacote, junto do código que o usa.
+        .target(
+            name: "FarolApp",
+            dependencies: ["FarolContrato", "FarolSidecar"],
+            resources: [.copy("Resources/tray.png")]
+        ),
         .testTarget(name: "FarolContratoTests", dependencies: ["FarolContrato"]),
         .testTarget(name: "FarolSidecarTests", dependencies: ["FarolSidecar"]),
         .testTarget(name: "FarolAppTests", dependencies: ["FarolApp"]),
