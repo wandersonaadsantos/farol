@@ -14,6 +14,10 @@ indent_size = 2
 [*.ps1]
 indent_size = 4
 
+# Visual Studio e o PowerShell tratam .sln e .ps1 com o fim de linha que já tiverem: não forçar.
+[*.{sln,ps1}]
+end_of_line = unset
+
 [*.md]
 trim_trailing_whitespace = false
 

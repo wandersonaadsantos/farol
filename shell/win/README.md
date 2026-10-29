@@ -27,7 +27,8 @@ Contrato, Sidecar e Tests, que compilam em qualquer sistema.
 
 ## Compilar e testar no Windows
 
-Requer o SDK do .NET 8 (ou mais novo) e as cargas de trabalho do Windows App SDK.
+Requer o SDK do .NET 8 (ou mais novo) e as cargas de trabalho do Windows App SDK. A solução é
+escrita em C# 12 (`LangVersion` fixada no `Directory.Build.props`), então o SDK do .NET 8 basta.
 
 ```powershell
 .\scripts\build.ps1            # compila a solução inteira (Debug; -Configuration Release)
@@ -52,8 +53,8 @@ dotnet test shell/win/Farol.Portable.slnf
 dotnet format shell/win/Farol.Portable.slnf --verify-no-changes
 ```
 
-Com PowerShell instalado, `scripts/test.ps1 -Portable` e `scripts/lint.ps1 -Portable`
-fazem o mesmo.
+Com PowerShell instalado, `scripts/build.ps1 -Portable`, `scripts/test.ps1 -Portable` e
+`scripts/lint.ps1 -Portable` fazem o mesmo.
 
 ## O contrato com o motor (resumo)
 

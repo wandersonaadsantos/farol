@@ -1,5 +1,7 @@
 # Compila a solução inteira da casca Windows (inclui o Farol.App, que só compila no Windows).
+# -Portable usa o filtro Farol.Portable.slnf (Contrato, Sidecar e Tests), que compila fora do Windows.
 param(
+    [switch]$Portable,
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug'
 )
@@ -9,7 +11,7 @@ $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $env:DOTNET_NOLOGO = '1'
 
 $raiz = Split-Path -Parent $PSScriptRoot
-$solucao = Join-Path $raiz 'Farol.sln'
+$alvo = if ($Portable) { Join-Path $raiz 'Farol.Portable.slnf' } else { Join-Path $raiz 'Farol.sln' }
 
-dotnet build $solucao -c $Configuration
+dotnet build $alvo -c $Configuration
 exit $LASTEXITCODE
