@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.18
+
+Autoanálises restritas recebem representações verificáveis com valores ocultos.
+
+### Correções
+
+- Tokens sintéticos reconhecidos nas fixtures deixam de exigir a recusa do arquivo inteiro: o modo restrito oculta os valores antes de entregá-los ou persistir a representação, sem abrir o fluxo normal de fontes sensíveis.
+- A falta de um patch completo permite comparar projeções das versões verificadas M/H, com origem e limitações explícitas. Links, binários, caminhos protegidos e versões não comprovadas continuam recusados.
+- Templates públicos mostram somente chaves; valores e comentários permanecem ocultos. Contraprovas em arquivos com partes ocultas ficam inconclusivas por decisão do aplicativo, e o relatório distingue leitura da representação de leitura dos valores originais.
+- O índice sintático compartilhado não é reutilizado nessas execuções. A configuração do perfil, os checks e as aprovações exigidas continuam preservados.
+
 ## v2.78.17
 
 Parecer publicado encerra a revisão automática daquele commit.

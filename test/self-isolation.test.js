@@ -16,7 +16,7 @@ const base = await fs.mkdtemp(path.join(os.tmpdir(), 'farol-isolation-test-'));
 after(() => fs.rm(base, { recursive: true, force: true }));
 function prepared(files = [{ path: 'src/a.js', patch: '+safe', patchStatus: 'available' }]) {
   return { source: { status: 'complete', manifest: { H: 'a'.repeat(40), B: 'b'.repeat(40), M: 'c'.repeat(40), files },
-    reader: { tree: async () => ({ complete: true, entries: [{ path: 'src/a.js', readable: true },
+    reader: { tree: async () => ({ complete: true, entries: [{ path: 'src/a.js', readable: true, mode: '100644' },
       { path: '.env', readable: false }, { path: 'link', readable: false }] }),
     read: async () => ({ status: 'available', text: 'export const n = 1;' }) } } };
 }
@@ -101,18 +101,24 @@ test('verificação restrita só usa leitura entregue da sessão e do head; aus�
   assert.doesNotThrow(() => assertRestrictedTools({ tools: ['Read', 'Grep', 'Glob'] }));
 });
 
-test('conteúdo sensível opcional é excluído com registro; patch ou fonte alterada sensível recusam', async () => {
+test('conteúdo sensível opcional é excluído; fonte alterada só entrega projeção com ressalva', async () => {
   const secret = 'Authorization: Bearer fake-test-token-123456789';
   const fixture = prepared();
-  fixture.source.reader.tree = async () => ({ complete: true, entries: [{ path: 'test/auth.js', readable: true }] });
+  fixture.source.reader.tree = async () => ({ complete: true, entries: [
+    { path: 'src/a.js', readable: true, mode: '100644' },
+    { path: 'test/auth.js', readable: true, mode: '100644' }] });
   fixture.source.reader.read = async () => ({ status: 'available', text: secret });
   const value = await prepareSelfIsolation(fixture, { base });
   assert.ok(value.limitations.some(e => e.path === 'test/auth.js' && e.status === 'sensitive'));
   await assert.rejects(fs.access(path.join(value.root, 'head/test/auth.js')));
   fixture.source.manifest.files = [{ path: 'test/auth.js', patchStatus: 'available', patch: '+safe' }];
-  await assert.rejects(prepareSelfIsolation(fixture, { base }), /alterada sensível/);
+  const projected = await prepareSelfIsolation(fixture, { base });
+  assert.equal((await fs.readFile(path.join(projected.root, 'head/test/auth.js'), 'utf8')).includes(secret), false);
+  assert.ok(projected.limitations.some(e => e.status === 'redacted-values-not-read'));
   fixture.source.manifest.files[0].patch = '+' + secret;
-  await assert.rejects(prepareSelfIsolation(fixture, { base }), /sensível/);
+  const patch = await prepareSelfIsolation(fixture, { base });
+  assert.equal((await fs.readFile(path.join(patch.patches, 'test/auth.js'), 'utf8')).includes(secret), false);
+  assert.ok(patch.manifest.representations.some(e => e.path === 'patches/test/auth.js' && e.redactions.length));
 });
 
 test('Read negado, truncado ou sem conteúdo conferido não vira cobertura no modo restrito', async () => {

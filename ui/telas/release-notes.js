@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.18', [
+    'Autoanálises restritas recebem representações com valores ocultos e deixam claro o que não foi lido, sem mudar o perfil ou abrir fontes sensíveis no fluxo normal.',
+    'Patches ausentes usam versões verificadas. Templates públicos expõem somente chaves; contraprovas em arquivos com valores ocultos continuam inconclusivas.',
+  ]],
   ['2.78.17', [
     'Depois de uma aprovação ou reprovação publicada, o mesmo commit não é revisado automaticamente de novo, mesmo quando alguém pede review outra vez. Outro commit libera nova análise.',
     'A leitura percorre o histórico paginado e a conferência final respeita qualquer parecer decisivo anterior da conta naquele commit.',

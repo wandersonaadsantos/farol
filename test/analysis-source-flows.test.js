@@ -70,7 +70,7 @@ test('requisição normal e restrita atravessam fila, fonte fixada e observaçã
   for (const isolation of [undefined, 'restricted-read']) {
     const e = setup(); e.tokenFor = () => 'fixture-token';
     const handle = source(); handle.manifest.files = files.map(f => ({ ...f, patchStatus: 'available' }));
-    handle.reader = { tree: async () => ({ complete: true, entries: [{ path: 'src/a.js', readable: true }] }),
+    handle.reader = { tree: async () => ({ complete: true, entries: [{ path: 'src/a.js', readable: true, mode: '100644' }] }),
       read: async () => ({ status: 'available', text: 'source' }) };
     sourceRuntime.prepareSources = async () => handle;
     const launched = await e.launchSelfAnalysis(pr.url, isolation);
@@ -105,7 +105,7 @@ test('autoanálise restrita descarta mudança de head e não registra resultado 
   for (const finalHead of ['d'.repeat(40), '']) {
     const e = setup(); e.tokenFor = () => 'fixture-token';
     const handle = source(); handle.manifest.files = files.map(f => ({ ...f, patchStatus: 'available' }));
-    handle.reader = { tree: async () => ({ complete: true, entries: [] }) };
+    handle.reader = { tree: async () => ({ complete: true, entries: [{ path: 'src/a.js', readable: false, mode: '100644' }] }) };
     sourceRuntime.prepareSources = async () => handle;
     let calls = 0;
     io.run = async (_command, args) => {
