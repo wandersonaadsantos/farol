@@ -42,7 +42,7 @@ Cada um é reversível na revisão do plano; trocar um deles muda só o plano ci
 | `FAROL_SHELL_VERSION` | versão semântica da casca, ex. `3.0.0` | bootstrap de versão (`engines.farolShell`) |
 | `FAROL_HOME` | opcional, como hoje | `lib/paths.js` |
 
-### Arquivo `~/.farol/workspace/state/casca.json` (0600; `STATE_DIR` de `lib/paths.js`)
+### Arquivo `~/.farol/state/casca.json` (0600; `CASCA_DIR` de `lib/paths.js`, fora do workspace)
 
 Gravado pelo motor assim que o socket abre; apagado na saída limpa.
 

@@ -536,7 +536,7 @@ Run:
 ```bash
 FAROL_HOME=/tmp/farol-casca FAROL_SHELL=mac FAROL_SHELL_VERSION=3.0.0 node server.js
 ```
-Expected: sobe; `cat /tmp/farol-casca/workspace/state/casca.json` mostra porta, pid e código; `curl -H 'Host: 127.0.0.1:<porta>' http://127.0.0.1:<porta>/api/state` devolve 401 (A4 exigida); `curl -X POST -H 'Host: ...' -H 'content-type: application/json' -d '{"codigo":"<código>","rotulo":"teste"}' http://127.0.0.1:<porta>/api/auth/pair` devolve `{ ok: true, token }`; `curl -N -H 'Authorization: Bearer <token>' -H 'x-farol: 1' .../api/events` mostra `event: state` e depois `event: casca`. Ctrl+C apaga o `casca.json`.
+Expected: sobe; `cat /tmp/farol-casca/state/casca.json` mostra porta, pid e código; `curl -H 'Host: 127.0.0.1:<porta>' http://127.0.0.1:<porta>/api/state` devolve 401 (A4 exigida); `curl -X POST -H 'Host: ...' -H 'content-type: application/json' -d '{"codigo":"<código>","rotulo":"teste"}' http://127.0.0.1:<porta>/api/auth/pair` devolve `{ ok: true, token }`; `curl -N -H 'Authorization: Bearer <token>' -H 'x-farol: 1' .../api/events` mostra `event: state` e depois `event: casca`. Ctrl+C apaga o `casca.json`.
 
 - [ ] **Step 4: Commit**
 

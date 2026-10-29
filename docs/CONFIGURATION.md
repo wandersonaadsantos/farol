@@ -911,7 +911,7 @@ O modo casca não substitui o `modoServidor`: sem Electron o motor continua send
 ### O que muda com `FAROL_SHELL`
 
 - **A autenticação local é exigida sempre.** `exigeAutenticacao` (`lib/local-auth/modo.js`) devolve verdadeiro com `modoCasca` `mac` ou `win`, como no celular, e nenhuma config desliga. `GET /api/state` sem `Authorization: Bearer` devolve `401 { error: 'nao_autenticado' }`.
-- **`state/casca.json`** (`CASCA_FILE`, em `~/.farol/workspace/state/`), gravado por `publicarCasca` (`lib/engine/casca-arquivo.js`) com modo 0600, só depois de o socket escutar e com a porta EFETIVA:
+- **`state/casca.json`** (`CASCA_FILE`, em `~/.farol/state/`, FORA do workspace: o workspace é o cwd de toda sessão de IA, e o arquivo leva o código de pareamento em claro por até 10 minutos), gravado por `publicarCasca` (`lib/engine/casca-arquivo.js`) com modo 0600, só depois de o socket escutar e com a porta EFETIVA:
 
   ```json
   { "porta": 47170, "pid": 12345, "versao": "2.79.0", "codigoPareamento": "K7QMZP2XWD",
