@@ -9,7 +9,7 @@ public class ShellEventsTests
     private const string FixtureRelativePath = "test/fixtures/casca/eventos.json";
 
     // Sobe a partir da pasta do assembly (bin/Debug/<tfm>/) até achar a raiz do repositório.
-    private static string FixturePath()
+    internal static string FixturePath()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)

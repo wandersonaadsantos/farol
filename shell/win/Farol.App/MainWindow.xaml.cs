@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherQueue _dispatcher;
     private WebHost? _web;
     private bool _attaching;
+    private string? _pendingPath;
 
     public MainWindow()
     {
@@ -65,7 +66,9 @@ public sealed partial class MainWindow : Window
             web.ColorsChanged += OnColorsChanged;
             await web.InitializeAsync();
             _web = web;
-            await web.NavigateAsync("/");
+            var path = _pendingPath ?? "/";
+            _pendingPath = null;
+            await web.NavigateAsync(path);
         }
         catch
         {
@@ -80,6 +83,21 @@ public sealed partial class MainWindow : Window
         {
             _attaching = false;
         }
+    }
+
+    /// <summary>
+    /// Abre um caminho da interface (o PR de um aviso clicado). Antes de
+    /// <see cref="AttachEngineAsync"/> o caminho fica guardado e é o primeiro a abrir no lugar
+    /// da raiz; um pedido novo substitui o guardado.
+    /// </summary>
+    internal Task NavigateWhenReadyAsync(string path)
+    {
+        if (_web is null)
+        {
+            _pendingPath = path;
+            return Task.CompletedTask;
+        }
+        return _web.NavigateAsync(path);
     }
 
     /// <summary>Sem WebView2 Runtime: aviso nativo com o link, e nenhum WebView criado.</summary>

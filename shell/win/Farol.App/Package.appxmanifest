@@ -3,8 +3,10 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap5 rescap">
+  IgnorableNamespaces="uap uap5 com desktop rescap">
 
   <!-- Publisher provisório: o certificado definitivo chega no plano 4 (assinatura). -->
   <Identity
@@ -52,6 +54,19 @@
             Enabled="false"
             DisplayName="Farol" />
         </uap5:Extension>
+
+        <!-- Clique nos avisos: o Windows App SDK lê daqui o ativador COM do Farol empacotado.
+             O CLSID é o mesmo nas duas entradas e não muda entre versões. -->
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="3AB916C5-7163-467D-A61E-F4645E7D8F95" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="Farol.exe" DisplayName="Farol" Arguments="----AppNotificationActivated:">
+              <com:Class Id="3AB916C5-7163-467D-A61E-F4645E7D8F95" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
       </Extensions>
     </Application>
   </Applications>
