@@ -14,6 +14,8 @@ import { criteriaFixture } from './helpers/criteria-fixture.js';
 //     diff, checkpointGap lê o checkpoint que só o engine escreve, e o auto-approve
 //     ainda exige requested + approve + payload APPROVE. Envelope "completo" sem
 //     leitura nenhuma não passa.
+// Resultado ainda incompleto pode ganhar uma continuação dirigida após o reparo
+// de sintaxe/formato. Os gates continuam impedindo publicação sem análise completa.
 // Os casos de JSON malformado, falta de sessionId, auth, rede e cancelamento seguem
 // intactos abaixo: nenhum deles ganha reparo.
 import os from 'node:os';
@@ -69,7 +71,7 @@ function engineCom(res, resReparo) {
   e.postReview = async (pr, payload) => { e.postados.push(payload); return { ok: true }; };
   e.runClaudeStream = async (prompt, opts) => {
     e.chamadas.push({ prompt, opts });
-    assert.ok(e.chamadas.length <= 2, 'no máximo UM reparo: nunca vira laço nem reinicia do zero');
+    assert.ok(e.chamadas.length <= 3, 'no máximo um reparo de formato e uma continuação de resultado, sem laço');
     const r = e.chamadas.length === 1 ? res : (resReparo || res);
     if (r instanceof Error) throw r;
     return r;
@@ -115,7 +117,7 @@ test('envelope REPARADO passa pelos mesmos gates: incompleto não vira aprovaç�
   const e = engineCom(resposta(PROGRESSO), resposta(JSON.stringify({ ...ENVELOPE,
     analysisStatus: 'incomplete', payloads: { approve: { event: 'APPROVE', body: 'ok' } } })));
   await e.runHeadlessReview({ ...PR });
-  assert.equal(e.chamadas.length, 2);
+  assert.equal(e.chamadas.length, 3, 'formato reparado e uma continuação ainda incompleta');
   assert.equal(e.postados.length, 0, 'reparo não é atalho: análise incompleta não posta');
   assert.equal(e.decisions.pending.length, 1, 'vira pendência de verdade em vez de sessão perdida');
   assert.equal(e.decisions.pending[0].analysisStatus, 'incomplete');
@@ -166,7 +168,7 @@ test('JSON incompleto válido continua no gate e nunca publica aprovação', asy
   const e = engineCom(resposta(JSON.stringify({ ...ENVELOPE, analysisStatus: 'incomplete',
     payloads: { approve: { event: 'APPROVE', body: 'O tratamento da entrada está consistente.' } } })));
   await e.runHeadlessReview({ ...PR });
-  assert.equal(e.chamadas.length, 1);
+  assert.equal(e.chamadas.length, 2, 'uma continuação sem prova não libera publicação');
   assert.equal(e.postados.length, 0);
   assert.equal(e.decisions.pending[0].analysisStatus, 'incomplete');
 });

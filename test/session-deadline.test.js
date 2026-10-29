@@ -3,6 +3,21 @@ import assert from 'node:assert/strict';
 import { sessionDeadline } from '../lib/session-deadline.js';
 import { TEMPOS } from '../lib/constants.js';
 
+test('recuperação detecta silêncio em cinco minutos, mas progresso e cancelamento são preservados', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const errors = [];
+  const active = sessionDeadline(e => errors.push(e), () => false, { recovery: true });
+  sessionDeadline(e => errors.push(e), () => true, { recovery: true });
+  t.mock.timers.tick(TEMPOS.RECUPERACAO_SEM_PROGRESSO_MS - 1);
+  assert.equal(errors.length, 0);
+  active.progress();
+  t.mock.timers.tick(TEMPOS.RECUPERACAO_SEM_PROGRESSO_MS - 1);
+  assert.equal(errors.length, 0);
+  t.mock.timers.tick(1);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /5min sem progresso/);
+});
+
 test('progresso estende a sessão além de 30min, mas nunca além do teto absoluto', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const errors = [];

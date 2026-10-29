@@ -14,6 +14,11 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.14', [
+    'Análises e critérios incompletos ganham uma continuação dirigida na mesma conversa antes de outra rodada, com todos os gates de publicação preservados.',
+    'O Codex recebe protocolo próprio para revisar sem depender do login do Claude; a avaliação técnica é executada pelo Farol com a configuração correta.',
+    'Recuperações detectam cinco minutos sem progresso e preservam as pendências específicas. Análise incompleta continua sem aprovação habilitada.',
+  ]],
   ['2.78.13', [
     'A orientação de escrita pede motivo, evidência e condição de liberação para cada bloqueio, no corpo e nos comentários inline.',
     'Sugestões são apresentadas como opcionais, preservando a classificação técnica e sem reescrever revisões já publicadas.',

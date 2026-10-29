@@ -29,6 +29,7 @@ childProcess.spawn = function mockableSpawn(...args) {
 };
 
 const session = await import('../lib/engine/session.js');
+const { noopHandle } = await import('../lib/sync/coordinator.js');
 const { runClaudeStream, runProvedor, parseEnvelope, OPERACOES } = session;
 
 const stubAnterior = process.env.FAROL_HEADLESS_CMD;
@@ -85,6 +86,75 @@ function handleFalso() {
 }
 
 const COORD = { prKey: 'o/r#1', account: 'eu', materialVersion: 'abc123', headSha: 'abc123', contaRodada: false, manual: false, semCoordenacao: false, ignorarRecibo: false, pr: { key: 'o/r#1' } };
+
+test('continuação reutiliza somente a posse viva da mesma operação, sem nova admissão', async () => {
+  const h = handleFalso();
+  h.valido = () => !h.lost;
+  const e = motor({ ativa: true, admissao: { admitted: true, handle: h } });
+  const opts = { id: 'continua', account: 'eu', operationKind: 'review', coordination: COORD };
+  spawnImpl = () => { const child = filho(); queueMicrotask(() => encerrar(child)); return child; };
+  const first = await runClaudeStream(e, 'primeira', opts);
+  const next = { ...opts, continuationHandle: first.coordination, sessionBinding: first.sessionBinding, extraArgs: ['--resume', first.sessionId] };
+  const result = await runClaudeStream(e, 'continuação', next);
+  assert.equal(result.coordination, h);
+  assert.equal(e.admissoes.length, 1);
+  assert.equal(h.abortos, 0);
+  assert.equal(h.completos, 0);
+  const before = spawns;
+  for (const altered of [{ ...next, account: 'outro' }, { ...next, coordination: { ...COORD, materialVersion: 'novo' } },
+    { ...next, continuationHandle: { ...h } }]) {
+    await assert.rejects(async () => runClaudeStream(e, 'não executar', altered), /posse inválida/);
+  }
+  h.lost = true;
+  await assert.rejects(async () => runClaudeStream(e, 'não executar', next), /posse inválida/);
+  assert.equal(spawns, before);
+});
+
+test('mudança de perfil ou modelo não envia o sid antigo a outra sessão', async () => {
+  const e = motor({ ativa: false, auth: { kind: 'dir', id: 'perfil-a' } });
+  spawnImpl = () => { const child = filho(); queueMicrotask(() => encerrar(child)); return child; };
+  const first = await runClaudeStream(e, 'primeira', { id: 'perfil', account: 'eu' });
+  const before = spawns;
+  e.resolveClaudeAuth = () => ({ kind: 'codex', id: 'perfil-b' });
+  const opts = { id: 'perfil', account: 'eu', sessionBinding: first.sessionBinding, extraArgs: ['--resume', first.sessionId] };
+  await assert.rejects(async () => runClaudeStream(e, 'não executar', opts), /perfil ou modelo mudou/);
+  e.resolveClaudeAuth = () => ({ kind: 'dir', id: 'perfil-a' });
+  e.config.reviewModel = 'sonnet';
+  await assert.rejects(async () => runClaudeStream(e, 'não executar', opts), /perfil ou modelo mudou/);
+  assert.equal(spawns, before);
+});
+
+test('perda da posse durante continuação conserva a classificação, mesmo com cancelamento', async () => {
+  for (const success of [true, false]) {
+    const h = handleFalso();
+    h.valido = () => !h.lost;
+    const e = motor({ ativa: true, admissao: { admitted: true, handle: h } });
+    const opts = { id: 'perda-em-curso', account: 'eu', operationKind: 'review', coordination: COORD };
+    spawnImpl = () => { const child = filho(); queueMicrotask(() => encerrar(child)); return child; };
+    const first = await runClaudeStream(e, 'primeira', opts);
+    spawnImpl = () => {
+      const child = filho();
+      queueMicrotask(() => { h.lost = true; encerrar(child, { ok: success }); });
+      return child;
+    };
+    await assert.rejects(async () => runClaudeStream(e, 'continuar', { ...opts, continuationHandle: first.coordination }),
+      error => error.coordenacao === 'perdido');
+    assert.equal(e.admissoes.length, 1);
+    assert.equal(h.abortos, 0, 'o dono externo conclui a operação, não o turno de reparo');
+  }
+});
+
+test('dispensa explícita de coordenação conserva o handle canônico da mesma operação', async () => {
+  const h = noopHandle();
+  assert.equal(h.done, true);
+  const e = motor({ ativa: true, admissao: { admitted: true, handle: h } });
+  spawnImpl = () => { const child = filho(); queueMicrotask(() => encerrar(child)); return child; };
+  const opts = { id: 'dispensa', account: 'eu', operationKind: 'review', coordination: { ...COORD, semCoordenacao: true } };
+  const first = await runClaudeStream(e, 'primeira', opts);
+  const result = await runClaudeStream(e, 'continuar', { ...opts, continuationHandle: first.coordination });
+  assert.equal(result.coordination, h);
+  assert.equal(e.admissoes.length, 1);
+});
 
 test('OPERACOES é a allowlist fechada: três tipos coordenam, chat e ferramenta passam por bypass', () => {
   assert.deepEqual({ ...OPERACOES }, { review: 'coordena', self: 'coordena', pushback: 'coordena', chat: 'bypass', tool: 'bypass' });

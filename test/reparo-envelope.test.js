@@ -20,6 +20,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { TEMPOS } = await import('../lib/constants.js');
 const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
 isolateTechnicalTool();
 
@@ -158,6 +159,138 @@ test('a falha de JSON inválido aponta para a sessão que a produziu', async () 
     assert.match(err.message, /JSON da sessão inválido/);
     return true;
   });
+});
+
+test('critérios ausentes são concluídos na mesma sessão e a aprovação sai sem intervenção', async () => {
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }, {}]);
+  e.approvePolicyFor = () => 'approve';
+  let published = 0;
+  e.postReview = async () => { published++; return { ok: true }; };
+  await e.runHeadlessReview({ ...PR, key: 'o/r#2201', number: 2201, url: 'https://github.com/o/r/pull/2201' });
+  assert.equal(e.chamadas.length, 2);
+  assert.ok(e.chamadas[1].args.includes('--resume'));
+  assert.equal(published, 1);
+  assert.equal(e.decisions.resolved[0].status, 'auto_approved');
+  assert.equal(e.decisions.pending.some(d => d.key === 'o/r#2201'), false);
+});
+
+test('continuação que também omite critérios não aprova e conserva a pendência específica', async () => {
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }, { texto: broken }]);
+  e.approvePolicyFor = () => 'approve';
+  let published = 0;
+  e.postReview = async () => { published++; return { ok: true }; };
+  await e.runHeadlessReview({ ...PR, key: 'o/r#2202', number: 2202, url: 'https://github.com/o/r/pull/2202' });
+  assert.equal(e.chamadas.length, 2, 'continuação limitada a uma, não vira laço');
+  assert.equal(published, 0);
+  const pending = e.decisions.pending[0];
+  assert.equal(pending.analysisStatus, 'incomplete');
+  assert.match(pending.esperaProva.pendenciasResultado.join(), /contrato de critérios/);
+});
+
+test('cancelamento durante a continuação impede qualquer publicação', async () => {
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }, {}]);
+  const run = e.runClaudeStream;
+  let calls = 0, published = 0;
+  e.runClaudeStream = async (prompt, opts) => {
+    if (++calls === 2) e.activeReviews.get(opts.id).cancelled = true;
+    return run(prompt, opts);
+  };
+  e.approvePolicyFor = () => 'approve';
+  e.postReview = async () => { published++; return { ok: true }; };
+  await assert.rejects(e.runHeadlessReview({ ...PR, key: 'o/r#2204', number: 2204, url: 'https://github.com/o/r/pull/2204' }), /cancelada/);
+  assert.equal(published, 0);
+  assert.equal(e.activeReviews.size, 0);
+});
+
+test('continuação manual preserva parecer anterior, mas commit novo cancela cedo e encerra o vigia', async t => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }, {}]);
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  const run = e.runClaudeStream;
+  let calls = 0, published = 0, cancelled = 0;
+  e.runClaudeStream = async (prompt, opts) => {
+    if (++calls === 2) { entered.resolve(opts.id); await release.promise; }
+    return run(prompt, opts);
+  };
+  const cancel = e.cancelSession.bind(e);
+  e.cancelSession = id => { cancelled++; return cancel(id); };
+  e.postReview = async () => { published++; return { ok: true }; };
+  const pr = { ...PR, manual: true, key: 'o/r#2205', number: 2205, url: 'https://github.com/o/r/pull/2205' };
+  const pending = e.runHeadlessReview(pr);
+  const checked = assert.rejects(pending, /cancelada/);
+  await entered.promise;
+  e.myReviewStates = async () => ['APPROVED'];
+  t.mock.timers.tick(TEMPOS.VIGIA_SESSAO_MS);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(cancelled, 0, 'clique para refazer não é cancelado pelo parecer anterior');
+  e.headSha = async () => 'b'.repeat(40);
+  t.mock.timers.tick(TEMPOS.VIGIA_SESSAO_MS);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(cancelled, 1);
+  release.resolve();
+  await checked;
+  assert.equal(published, 0);
+  t.mock.timers.tick(TEMPOS.VIGIA_SESSAO_MS);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(cancelled, 1, 'o vigia foi encerrado no finally');
+});
+
+test('falha real do provedor na continuação sobe intacta para login, cota e retry', async () => {
+  for (const message of ['OAuth session expired and could not be refreshed', 'rate limit reached', 'fetch failed']) {
+    const broken = envelope();
+    delete broken.criteriaVersion;
+    const failure = Object.assign(new Error(message), { perfilDaSessao: { kind: 'codex', id: 'perfil-usado' }, sessionId: 'conversa-que-falhou' });
+    const e = engineCom([{ texto: broken }]);
+    const run = e.runClaudeStream;
+    let count = 0, published = 0;
+    e.runClaudeStream = (prompt, opts) => ++count === 1 ? run(prompt, opts) : Promise.reject(failure);
+    e.postReview = async () => { published++; return { ok: true }; };
+    await assert.rejects(e.runHeadlessReview({ ...PR }), error => error === failure);
+    assert.equal(count, 2);
+    assert.equal(published, 0);
+    assert.equal(failure.perfilDaSessao.id, 'perfil-usado');
+  }
+});
+
+test('infra descrita no envelope da continuação conserva o perfil para a recuperação do login', async () => {
+  const broken = envelope();
+  delete broken.criteriaVersion;
+  const e = engineCom([{ texto: broken }]);
+  const run = e.runClaudeStream;
+  let count = 0;
+  e.runClaudeStream = (prompt, opts) => ++count === 1 ? run(prompt, opts) : Promise.resolve({
+    text: saida({ ...envelope(), analysisStatus: 'incomplete', payloads: {}, reportMarkdown: 'OAuth session expired and could not be refreshed' }),
+    sessionId: 'conversa-real', sessionBinding: { kind: 'codex', id: 'perfil-real', dir: '', grupo: '' },
+  });
+  await assert.rejects(e.runHeadlessReview({ ...PR }), error => {
+    assert.match(error.message, /OAuth session expired/);
+    assert.equal(error.perfilDaSessao.id, 'perfil-real');
+    assert.equal(error.sessionId, 'conversa-real');
+    return true;
+  });
+});
+
+test('análise incompleta pode concluir com reprovação própria, sem aprovar por esgotamento', async () => {
+  const pending = { ...envelope(), analysisStatus: 'incomplete', decision: 'needs_decision' };
+  const rejected = { ...envelope(), ...criteriaFixture('request_changes'), verdict: 'request_changes', decision: 'needs_decision',
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'A gravação antecede a validação. Corrija antes do merge.' } } };
+  const e = engineCom([{ texto: pending }, { texto: rejected }]);
+  e.rejectPolicyFor = () => 'request_changes';
+  const sent = [];
+  e.postReview = async (_pr, payload) => { sent.push(payload); return { ok: true }; };
+  await e.runHeadlessReview({ ...PR, key: 'o/r#2203', number: 2203, url: 'https://github.com/o/r/pull/2203' });
+  assert.equal(e.chamadas.length, 2);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].event, 'REQUEST_CHANGES');
+  assert.equal(e.decisions.resolved[0].status, 'auto_rejected');
 });
 
 test('reparo que morre não apaga a falha original: o PR estaciona pelo motivo certo', async () => {
