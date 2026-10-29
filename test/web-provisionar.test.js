@@ -3,13 +3,19 @@
 // `<login> <porta>` por pessoa, na ordem de inserção, sem comentário. As funções são
 // PURAS; a CLI fina que o provisionar-pessoa.sh chama é coberta com um diretório
 // temporário. O script de shell em si (useradd, systemd) só roda numa VM Linux.
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DEFAULT_PORT } from '../lib/constants.js';
-import { lerPortas, serializarPortas, proximaPortaLivre, alocarPorta, executar } from '../tools/web/portas.js';
+
+// portas.js importa lib/paths.js (executadoDireto); com FAROL_HOME definido antes da
+// carga, nada cai no diretório provisório de teste nem emite o aviso dele
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-web-provisionar-'));
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+const { DEFAULT_PORT } = await import('../lib/constants.js');
+const { lerPortas, serializarPortas, proximaPortaLivre, alocarPorta, executar } = await import('../tools/web/portas.js');
 
 function coletor() {
   let texto = '';
