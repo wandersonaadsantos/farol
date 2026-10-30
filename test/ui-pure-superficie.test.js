@@ -382,6 +382,9 @@ const CONGELADA = [
   "contasGhHtml",
   "contasGhVazio",
   "secoesDaFrota",
+  "SYS_INDEX", // o índice da busca do Sistema
+  "buscarNoSistema", // itens do índice que casam com a consulta
+  "secoesOcultasDoSistema", // seções do Sistema que somem com a sincronização desligada
 ];
 
 test('o ui/pure.js exporta exatamente a superficie congelada', async () => {

@@ -39,7 +39,7 @@ function cmdStatic() { return [
   ...[...document.querySelectorAll('.nav-item:not(.cmd-open)')].filter(b => !b.hidden).map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => _switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
   // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.
-  ...[...document.querySelectorAll('.sys-nav-item')].map(b => ({
+  ...[...document.querySelectorAll('.sys-nav-item')].filter(b => !b.hidden).map(b => ({
     kind: 'section', label: `Sistema: ${b.textContent.trim()}`, hint: 'sistema',
     run: () => { _switchTab('sistema'); switchSistemaSection(b.dataset.section); }
   })),
