@@ -1,0 +1,317 @@
+name: Release nativo
+
+# A tag vX.Y.Z constrói tudo e publica. O workflow_dispatch constrói os mesmos artefatos
+# (para conferir assinatura, notarização e MSIX sem release) e NUNCA publica: o job
+# publicar só roda em ref de tag. Push em branch não dispara nada aqui; o gate de cada
+# commit é o ci.yml.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# Só leitura por padrão. Quem escreve no repositório (a release) é o job publicar, e só ele
+# recebe permissão de escrita.
+permissions:
+  contents: read
+
+# Uma rodada por ref. Na tag nunca cancela: release cortada no meio deixaria anexo faltando.
+# No workflow_dispatch a rodada nova substitui a velha, porque o minuto do macOS conta 10x.
+concurrency:
+  group: release-nativo-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  motor:
+    name: motor
+    runs-on: ubuntu-latest
+    # o gate roda em segundos e o empacotador em menos de um minuto; o teto existe porque o
+    # padrão do GitHub é de seis horas
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+
+      # a tag tem de ser a versão do package.json: o job publicar cria a release
+      # v<package.json>, e tag que diverge publicaria o código de uma versão com o nome de outra
+      - name: Conferir a tag contra o package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          versao=$(node -p 'require("./package.json").version')
+          if [ "$GITHUB_REF_NAME" != "v$versao" ]; then
+            echo "tag $GITHUB_REF_NAME diverge do package.json (v$versao)"
+            exit 1
+          fi
+
+      # Sem npm install, como no ci.yml: o parser é artefato distribuído e a suíte usa o
+      # runner nativo. Release só sai de código que passa no mesmo gate de todo commit.
+      - name: Gate do motor
+        run: npm run check && npm run lint && npm test
+
+      # o pacote leve, com a auditoria anti-vazamento (porta POSIX do make-package.ps1); é a
+      # semente das duas cascas e o update do motor em todo modo
+      - name: Pacote leve
+        run: bash tools/make-package.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: motor
+          path: dist/farol-v*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  mac:
+    name: mac
+    needs: [motor]
+    runs-on: macos-14
+    # xcodebuild universal, notarização do app e do dmg (cada uma espera a Apple): 45 minutos
+    # cobrem a espera da fila do notarytool sem deixar job preso queimar minuto de macOS
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: motor
+          path: dist
+
+      # O FarolKit declara swift-tools-version 6.0, que pede Xcode 16 ou mais novo. A imagem
+      # macos-14 traz mais de um Xcode e o padrão dela pode ser o 15: escolho o 16 mais novo
+      # instalado e falho com o motivo se não houver nenhum.
+      - name: Selecionar o Xcode 16
+        run: |
+          xcode=$(ls -d /Applications/Xcode_16*.app 2> /dev/null | sort -V | tail -n 1)
+          if [ -z "$xcode" ]; then
+            echo 'nenhum Xcode 16 na imagem macos-14'
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+
+      - name: Instalar o xcodegen
+        run: brew install xcodegen
+
+      # O p12 vira um chaveiro TEMPORÁRIO, com senha aleatória desta rodada, na lista de
+      # busca do codesign. O arquivo decodificado sai logo depois do import; o chaveiro sai
+      # no último passo, mesmo com falha.
+      - name: Importar o certificado Developer ID
+        env:
+          MAC_SIGNING_CERT_P12: ${{ secrets.MAC_SIGNING_CERT_P12 }}
+          MAC_SIGNING_CERT_PASSWORD: ${{ secrets.MAC_SIGNING_CERT_PASSWORD }}
+        run: |
+          chaveiro="$RUNNER_TEMP/farol-assinatura.keychain-db"
+          senha=$(openssl rand -hex 24)
+          echo "::add-mask::$senha"
+          security create-keychain -p "$senha" "$chaveiro"
+          security set-keychain-settings -lut 21600 "$chaveiro"
+          security unlock-keychain -p "$senha" "$chaveiro"
+          p12="$RUNNER_TEMP/farol-assinatura.p12"
+          printf '%s' "$MAC_SIGNING_CERT_P12" | base64 --decode > "$p12"
+          security import "$p12" -k "$chaveiro" -P "$MAC_SIGNING_CERT_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$senha" "$chaveiro" > /dev/null
+          # o temporário entra na frente dos que já estavam na lista, sem tirar nenhum
+          lista=("$chaveiro")
+          while IFS= read -r linha; do
+            linha="${linha#"${linha%%[![:space:]]*}"}"
+            linha="${linha//\"/}"
+            [ -n "$linha" ] && lista+=("$linha")
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "${lista[@]}"
+
+      # A semente é o pacote leve do job motor (o mesmo zip que vai à release), não um
+      # empacotamento novo. O montar-mac.sh compila o app universal, baixa e confere o Node e,
+      # com --identidade, deixa o bundle sem assinatura para o assinar-mac.sh.
+      - name: Montar o Farol.app
+        env:
+          MAC_SIGNING_IDENTITY: ${{ secrets.MAC_SIGNING_IDENTITY }}
+          SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
+        run: |
+          zip=$(ls dist/farol-v*.zip)
+          bash tools/release/semente-do-motor.sh --zip "$zip" --destino dist/mac/semente > /dev/null
+          bash tools/release/montar-mac.sh --semente dist/mac/semente \
+            --identidade "$MAC_SIGNING_IDENTITY" --chave-publica "$SPARKLE_PUBLIC_ED_KEY" \
+            --saida dist/mac > /dev/null
+
+      - name: Assinar e notarizar o app
+        env:
+          MAC_SIGNING_IDENTITY: ${{ secrets.MAC_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: bash tools/release/assinar-mac.sh --app dist/mac/Farol.app
+
+      - name: Gerar, assinar e notarizar o dmg
+        env:
+          MAC_SIGNING_IDENTITY: ${{ secrets.MAC_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: bash tools/release/dmg-mac.sh --app dist/mac/Farol.app
+
+      # O generate_appcast vem da MESMA distribuição da Sparkle que o xcodebuild do
+      # montar-mac.sh resolveu pelo SwiftPM (exact 2.10.1 no Package.swift do FarolKit, com o
+      # checksum do binário conferido pelo próprio SwiftPM): nada de segundo download nem de
+      # hash mantido à mão, e a versão da ferramenta nunca diverge da do framework embutido.
+      #
+      # O appcast publicado é estendido, não substituído: a primeira release não tem um
+      # (404 em releases/latest), e qualquer outra falha do download para o job, porque
+      # seguir sem ele apagaria o histórico do feed e a checagem de versão que sobe.
+      - name: Gerar o appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          export SPARKLE_BIN="$PWD/shell/mac/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin"
+          anterior="$RUNNER_TEMP/appcast-publicado.xml"
+          codigo=$(curl -sSL -o "$anterior" -w '%{http_code}' \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/appcast.xml")
+          argumentos=()
+          case "$codigo" in
+            200) argumentos=(--appcast-anterior "$anterior") ;;
+            404) echo 'nenhum appcast publicado: primeira release com a casca nativa' ;;
+            *) echo "download do appcast publicado falhou (HTTP $codigo)"; exit 1 ;;
+          esac
+          dmg=$(ls dist/mac/Farol-*.dmg)
+          bash tools/release/appcast-mac.sh --dmg "$dmg" --saida "$RUNNER_TEMP/appcast" "${argumentos[@]}"
+          cp "$RUNNER_TEMP/appcast/appcast.xml" dist/mac/appcast.xml
+
+      # dmg e appcast na raiz do artefato: o publicar os baixa em dist/mac/, onde o
+      # anexos-da-release.js procura
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mac
+          path: |
+            dist/mac/Farol-*.dmg
+            dist/mac/appcast.xml
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Apagar o chaveiro temporário
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/farol-assinatura.keychain-db" || true
+
+  win:
+    name: win
+    needs: [motor]
+    runs-on: windows-latest
+    # dotnet publish do WinUI 3 com o MSIX e a assinatura: 45 minutos com folga
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: motor
+          path: dist
+
+      # O pfx do secret vira um arquivo temporário, e o caminho vai ao ambiente dos passos
+      # seguintes como WIN_SIGNING_CERT_PFX (o que o assinar-win.ps1 lê). Sai no último passo,
+      # mesmo com falha.
+      - name: Materializar o certificado de assinatura
+        env:
+          WIN_SIGNING_CERT_PFX_BASE64: ${{ secrets.WIN_SIGNING_CERT_PFX_BASE64 }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'farol-assinatura.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WIN_SIGNING_CERT_PFX_BASE64))
+          "WIN_SIGNING_CERT_PFX=$pfx" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # a mesma semente do macOS (o zip do job motor) e o Node win-x64 conferido contra o
+      # SHASUMS256.txt; o montar-win.ps1 gera o MSIX sem assinatura
+      - name: Montar o MSIX
+        run: |
+          $zip = (Get-ChildItem -Path dist -Filter 'farol-v*.zip' | Select-Object -First 1).FullName
+          if (-not $zip) { throw 'pacote leve ausente em dist' }
+          & tools/release/semente-do-motor.ps1 --zip $zip --destino dist/win/semente | Out-Null
+          & tools/release/baixar-node.ps1 --plataforma win-x64 --destino dist/win/node
+          & tools/release/montar-win.ps1 --semente dist/win/semente --node dist/win/node/node.exe --saida dist/win
+          if (-not (Get-ChildItem -Path dist/win -Filter 'Farol-*.msix')) { throw 'montar-win.ps1 nao gerou o msix' }
+
+      - name: Assinar o MSIX
+        env:
+          WIN_SIGNING_CERT_PASSWORD: ${{ secrets.WIN_SIGNING_CERT_PASSWORD }}
+        run: |
+          $msix = (Get-ChildItem -Path dist/win -Filter 'Farol-*.msix' | Select-Object -First 1).FullName
+          & tools/release/assinar-win.ps1 --msix $msix
+          if ($LASTEXITCODE -ne 0) { throw "assinar-win.ps1 falhou (codigo $LASTEXITCODE)" }
+
+      # a versão do App Installer é a Version de 4 partes do Identity do manifesto, a mesma
+      # que o MSIX leva
+      - name: Gerar o App Installer
+        run: |
+          $manifesto = Get-Content -LiteralPath shell/win/Farol.App/Package.appxmanifest -Raw
+          $identidade = [regex]::Match($manifesto, '<Identity\b[^>]*>').Value
+          $versao = [regex]::Match($identidade, '\bVersion="(\d+\.\d+\.\d+\.\d+)"').Groups[1].Value
+          if (-not $versao) { throw 'Version de 4 partes ausente no Identity do manifesto' }
+          $msix = (Get-ChildItem -Path dist/win -Filter 'Farol-*.msix' | Select-Object -First 1).FullName
+          & tools/release/appinstaller-win.ps1 --msix $msix --saida dist/win/Farol.appinstaller --versao $versao --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { throw "appinstaller-win.ps1 falhou (codigo $LASTEXITCODE)" }
+
+      # msix e appinstaller na raiz do artefato, para o publicar baixar em dist/win/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: win
+          path: |
+            dist/win/Farol-*.msix
+            dist/win/Farol.appinstaller
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Apagar o certificado temporário
+        if: always()
+        run: if ($env:WIN_SIGNING_CERT_PFX) { Remove-Item -LiteralPath $env:WIN_SIGNING_CERT_PFX -Force -ErrorAction SilentlyContinue }
+
+  publicar:
+    name: publicar
+    needs: [motor, mac, win]
+    # só a tag publica; o workflow_dispatch para nos artefatos dos outros três jobs
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # o único job que escreve: cria a release e sobe os anexos
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+
+      # cada artefato na pasta em que o tools/release/anexos-da-release.js procura: o pacote
+      # leve na raiz do dist, os da casca do macOS em dist/mac e os do Windows em dist/win
+      - uses: actions/download-artifact@v7
+        with:
+          name: motor
+          path: dist
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: mac
+          path: dist/mac
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: win
+          path: dist/win
+
+      # FAROL_SO_ANEXAR=1: o script não constrói nada, confere o número contra a última
+      # release publicada, monta a nota do CHANGELOG e anexa o que achou no dist
+      - name: Publicar a release
+        env:
+          FAROL_SO_ANEXAR: '1'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pwsh -File tools/publish-release.ps1
