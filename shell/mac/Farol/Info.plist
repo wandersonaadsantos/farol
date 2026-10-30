@@ -33,5 +33,8 @@
 	     generate_keys da Sparkle. Sem ela a Sparkle avisa no log e não instala nada. -->
 	<key>SUPublicEDKey</key>
 	<string></string>
+	<!-- A casca já adia a checagem enquanto o motor está ocupado; update silencioso é o comportamento do Farol hoje. -->
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 </dict>
 </plist>

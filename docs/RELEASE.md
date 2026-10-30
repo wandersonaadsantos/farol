@@ -11,6 +11,7 @@ invariantes continuam lá.
 - [Release (checklist obrigatório)](#release-checklist-obrigatório)
 - [Governança do repositório público (17/08/2026)](#governança-do-repositório-público-17082026)
 - [Reabertura silenciosa pós-update (v2.51.0)](#reabertura-silenciosa-pós-update-v2510)
+- [Sparkle: chaves e verificação automática](#sparkle-chaves-e-verificação-automática)
 
 <!-- indice:fim -->
 
@@ -238,3 +239,33 @@ argumentos vêm do `.lnk`. Ele é gravado antes de disparar o installer e consum
 (e apagado) pelo `main.js` no boot, uma vez só. **Tem prazo de 10 minutos de
 propósito**: update que falha no meio deixaria o marcador no disco e a próxima
 abertura MANUAL sairia sem janela, o que pareceria app quebrado.
+
+## Sparkle: chaves e verificação automática
+
+A casca do macOS se atualiza pela Sparkle, lendo o `appcast.xml` da release mais recente
+(`SUFeedURL` no `shell/mac/Farol/Info.plist`). Desde o plano 4 do Farol nativo
+(30/10/2026), `SUEnableAutomaticChecks` vem ligado no `Info.plist`: a casca já adia a
+checagem enquanto o motor está ocupado, e update silencioso é o comportamento do Farol hoje.
+
+A `SUPublicEDKey` fica **vazia** no `Info.plist` versionado, de propósito. Quem a preenche
+é a pipeline, no bundle montado: `tools/release/montar-mac.sh --chave-publica <chave>`, com
+o valor do secret `SPARKLE_PUBLIC_ED_KEY`. Sem a chave a Sparkle fica desligada na prática:
+avisa no log e não instala nada, então um bundle montado sem ela nunca se atualiza sozinho.
+
+O lado privado só existe no secret `SPARKLE_PRIVATE_KEY` e só é lido pelo
+`tools/release/appcast-mac.sh`, que assina o appcast com o `generate_appcast`. A chave vai
+num arquivo temporário criado com `umask 077` e apagado na saída, passado por
+`--ed-key-file`, nunca na linha de comando. O mesmo script recusa publicar versão que não
+seja MAIOR que a última do appcast publicado (`tools/release/versao-maior.js`, a mesma
+comparação do update do motor).
+
+O par de chaves é gerado **uma vez**, pelo dono, numa máquina dele:
+
+1. baixar a distribuição da Sparkle (a mesma versão fixada em `shell/mac/Packages/FarolKit/Package.swift`, hoje 2.10.1) e rodar
+   `bin/generate_keys`; ele guarda a privada no chaveiro do login e imprime a pública;
+2. `bin/generate_keys -x sparkle-privada.txt` exporta a privada; o conteúdo vira o secret
+   `SPARKLE_PRIVATE_KEY` do repositório e o arquivo é apagado em seguida;
+3. a pública impressa vira o secret `SPARKLE_PUBLIC_ED_KEY`.
+
+Perder a privada ou trocar o par quebra a atualização de quem já instalou: a casca instalada
+só aceita update assinado pela chave pública que veio dentro dela.
