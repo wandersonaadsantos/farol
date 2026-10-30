@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.24', [
+    'PR com defeito confirmado é reprovado pela política da conta mesmo quando outra avaliação ficou inconclusiva, em vez de parar em "Precisa de você". Aprovar continua exigindo a análise completa.',
+    'Em Sistema > Visão geral, configuração e retomada, tags de revisão e preferências entre instalações vão para o fim da página.',
+  ]],
   ['2.78.23', [
     'Revisões que marcavam o PR como em revisão sem estar revisando, e seguravam a atualização, deixam de ficar presas: a consulta às fontes encerra sozinha e a sessão fecha mesmo com um processo filho segurando a saída.',
     'A reconferência de critérios não cai mais enquanto o modelo escreve um resultado longo: a escrita conta como progresso para o prazo de cinco minutos sem atividade.',

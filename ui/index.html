@@ -439,6 +439,9 @@
           </div>
           <p class="section-desc">Saúde do ambiente, versão instalada e onde ficam os teus dados.</p>
           <div class="sys-stack lg">
+            <div id="updateBox" class="card update-box">…</div>
+            <div id="doctor" class="doctor-grid"></div>
+            <!-- ferramentas de manutenção no fim (pedido do dono, 30/10/2026): o topo fica com versão e saúde -->
             <details class="card set-list review-tools setup" id="setupManager" aria-labelledby="setupTitle">
               <summary><span><b class="set-title" id="setupTitle">Configuração e retomada</b><span class="set-desc">Retome o roteiro quando precisar. Os indicadores usam o estado atual e o último diagnóstico; nenhum passo ativa automação ou dispensa os gates.</span></span><span class="chev" aria-hidden="true"></span></summary>
               <ol class="steps" id="setupSteps"></ol>
@@ -459,8 +462,6 @@
               <div id="preferencesPreview"></div>
               <div class="set-block"><div class="set-actions"><button class="btn primary sm" type="button" id="preferencesApply" disabled>Aplicar diferenças selecionadas</button></div><p class="set-msg" id="preferencesMessage" role="status" aria-live="polite"></p></div>
             </section>
-            <div id="updateBox" class="card update-box">…</div>
-            <div id="doctor" class="doctor-grid"></div>
           </div>
           <div class="about" id="about"></div>
         </div>

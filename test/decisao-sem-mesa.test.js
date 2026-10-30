@@ -479,6 +479,38 @@ test('aprovação em branco (sem texto) também é resultado incompleto: segue n
   semMesa(e);
 });
 
+// biblioteca-cnbb-api#143 (30/10/2026): violação confirmada e uma regra inconclusiva. Defeito
+// não arma recuperação e incompleto não reprovava: o PR parava na mesa com a conta reprovando sozinha.
+test('análise incompleta com violação confirmada: a conta reprova sozinha, sem mesa', async () => {
+  const e = motor();
+  technicalRuntime.finishTechnicalReview = violacao();
+  await revisar(e, 44, { extra: { analysisStatus: 'incomplete', verdict: 'request_changes', decision: 'needs_decision' } });
+  assert.deepEqual(envios.map(p => p.event), ['REQUEST_CHANGES'], 'o defeito confirmado basta para pedir mudanças');
+  assert.equal(envios[0].commit_id, HEAD);
+  semMesa(e);
+});
+
+// Revisão do PR #326: incompleta para em analise_incompleta antes da checagem de coerência do
+// approve, então o caminho do defeito confere a coerência direto. No fluxo completo a recuperação
+// desvia antes do desfecho; aqui é a porta do desfecho (o que o concluirRevisao consulta).
+test('caminho do defeito recusa resultado incompleto incoerente, mesmo com motivo analise_incompleta', async () => {
+  const { caminhoNovo } = await import('../lib/engine/desfecho-da-revisao.js');
+  const motorMinimo = { config: {}, accountForPr: () => 'eu', rejectPolicyFor: () => 'request_changes' };
+  const base = { verdict: 'approve', analysisStatus: 'incomplete', headSha: HEAD, approvalEvidence: ['violação técnica confirmada'],
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Antes do merge, revise a duplicação da regra.' } } };
+  const autoDec = { ok: false, motivo: 'analise_incompleta' };
+  assert.equal(caminhoNovo(motorMinimo, PR(46, { manual: true }), { ...base, criteriaEvidence: { ok: false } }, autoDec, false), null,
+    'evidência incoerente vai para a recuperação, não para o pedido de mudanças');
+  assert.equal(caminhoNovo(motorMinimo, PR(47, { manual: true }), base, autoDec, false)?.tipo, 'defeito',
+    'coerente, o defeito confirmado segue reprovando');
+});
+
+test('análise incompleta sem defeito confirmado continua sem reprovar sozinha', async () => {
+  const e = motor();
+  await revisar(e, 45, { marcas: { manual: true }, extra: { analysisStatus: 'incomplete', verdict: 'request_changes' } });
+  assert.deepEqual(envios, [], 'sem defeito, o pedido de mudanças de uma análise incompleta não sai');
+});
+
 test('origem desconhecida com resultado incompleto não ganha recuperação com publicação', async () => {
   const e = motor();
   await revisar(e, 42, { marcas: {}, extra: { analysisStatus: 'incomplete' } });
