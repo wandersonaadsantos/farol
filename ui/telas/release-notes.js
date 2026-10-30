@@ -14,6 +14,11 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.22', [
+    'Escolher um modelo no Claude ou no Codex atualiza seu equivalente no outro provedor. A equivalência é por perfil de uso; Sol volta para Opus para priorizar qualidade.',
+    'O Auto usa Opus ou GPT-6.1 Sol nas revisões, sem modo rápido, e sobe para xhigh quando o contexto pede. A seleção acompanha o executor mesmo após troca na cadeia.',
+    'Catálogo atualizado com Astra, Sol, Terra e Luna atuais. Escolhas explícitas, inclusive Terra, sobrevivem ao reinício.',
+  ]],
   ['2.78.21', [
     'Autoanálise restrita pode selecionar explicitamente um perfil Codex só para a execução, sem mudar a associação global nem iniciar fallback.',
     'Codex recusa resultado com saída de processo malsucedida e preserva o consumo; diagnóstico restrito usa somente contagens e sinais fechados.',

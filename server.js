@@ -58,6 +58,7 @@ import versaoClaude from './lib/engine/versao-claude.js';
 import codexAuth from './lib/codex/auth.js';
 import agyDoctor from './lib/agy/doctor.js';
 import { catalogoParaTela as catalogoDeModelos } from './lib/modelos.js';
+import { sincronizarModelos } from './lib/model-selection.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import meusPrsBase from './lib/engine/meus-prs-base.js';
@@ -191,8 +192,8 @@ class Engine extends EventEmitter {
     this.config.claudeProfileId = normalizeClaudeProfileId(this.config.claudeProfileId);
     cadeiaMod.reconciliar(this.config); // cadeia de perfis: nasce do perfil padrão (migração)
     this.config.claudeConfigDir = sanitizeClaudeDir(this.config.claudeConfigDir);
-    // A configuracao nasceu compartilhada entre os CLIs. Agora cada provedor tem o
-    // proprio par: um alias Claude nunca pode rotular uma sessao Codex, e vice-versa.
+    // Cada CLI mantém seus IDs e esforços próprios. Depois do saneamento, a política
+    // de equivalência concilia os modelos sem mandar um alias ao executor errado.
     // Config antiga com GPT migra pro Codex; o effort compartilhado vira o ponto de
     // partida dos dois provedores. Invalidos caem no padrao (nao passa flag).
     const modeloCodexLegado = sanitizeCodexModel(this.config.reviewModel) || '';
@@ -205,6 +206,8 @@ class Engine extends EventEmitter {
       ? (sanitizeCodexEffort(this.config.codexReviewEffort) || '') : esforcoCodexLegado;
     this.config.reviewModel = sanitizeClaudeModel(this.config.reviewModel) || '';
     this.config.reviewEffort = sanitizeClaudeEffort(this.config.reviewEffort) || '';
+    const modelosMigrados = sincronizarModelos(this.config);
+    if (modelosMigrados?.semEquivalente) warn('Modelo personalizado sem equivalência conhecida; seleções preservadas.');
     // sincronização entre dispositivos: opt-in que segura revisão quando ligado, então
     // config.json editado à mão passa pelo mesmo saneador do caminho HTTP antes de
     // qualquer coisa ler `enabled`. Base nos defaults: no boot não há valor anterior.
@@ -1775,6 +1778,8 @@ class Engine extends EventEmitter {
       if (k === 'ghUser') userChanged = userChanged || v !== this.config.ghUser;
       this.config[k] = v;
     }
+    const modelosSincronizados = sincronizarModelos(this.config, patch || {});
+    if (modelosSincronizados?.semEquivalente) this.log('WARN', 'Modelo personalizado sem equivalência conhecida; seleções preservadas.');
     contasConfig.normalizarDepoisDeAplicar(this, patch);
     cadeiaMod.reconciliar(this.config, patch); // perfil removido sai da cadeia, padrão derivado
     // a guarda do celular depende de localAuth, que pode ter mudado no mesmo patch

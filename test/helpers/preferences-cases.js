@@ -1,7 +1,7 @@
 // Domínios e exemplos concretos das preferências para os testes de transferência.
 import { SETTINGS, defaults } from '../../lib/settings.js';
 import { MODEL_ALIASES, EFFORT_LEVELS, CODEX_EFFORT_LEVELS, AGY_EFFORT_LEVELS } from '../../lib/parse.js';
-import { catalogoParaTela } from '../../lib/modelos.js';
+import { catalogoParaTela, modeloEquivalente } from '../../lib/modelos.js';
 import { PAPEL_LEVELS, DOMAINS, DOMAIN_LEVELS } from '../../lib/taxonomy.js';
 const account = { user: 'dev', owners: ['acme'], autoReview: false, onClean: 'wait', onCaveats: 'wait', onReject: 'wait' };
 const profiles = [
@@ -74,4 +74,16 @@ function fieldCases() {
   });
   return result;
 }
-export { account, profiles, sync, baseConfig, configForField, fieldCases };
+function valuesForField(key, value) {
+  const result = { [key]: value };
+  if (key === 'reviewModel') {
+    const par = modeloEquivalente(value, 'codex');
+    if (par !== null) result.codexReviewModel = par;
+  }
+  if (key === 'codexReviewModel') {
+    const par = modeloEquivalente(value, 'claude');
+    if (par !== null) result.reviewModel = par;
+  }
+  return result;
+}
+export { account, profiles, sync, baseConfig, configForField, fieldCases, valuesForField };
