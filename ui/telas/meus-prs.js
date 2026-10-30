@@ -224,7 +224,7 @@ function renderMyPRs() {
         </div>
         <div class="pr-actions">
           <button class="btn primary sm act-self" data-url="${esc(pr.url)}" ${running || queued ? 'disabled' : ''}>${btnLabel}</button>
-          <button class="btn sm ghost act-set-reviewers" data-url="${esc(pr.url)}" title="Atribui você e pede review dos reviewers configurados deste repo (aba Sistema). Aplica na hora, sem confirmação.">👥 Reviewers</button>
+          <button class="btn sm ghost act-set-reviewers" data-url="${esc(pr.url)}" title="Atribui você e pede review dos reviewers configurados deste repo (aba Sistema). Aplica na hora, sem confirmação.">👥 Pedir reviewers no GitHub</button>
           ${mergeBtns}
           ${a ? `<button class="btn sm ghost act-self-visibility" data-key="${esc(pr.key)}" data-hidden="${vis.alvo ? '1' : '0'}" title="${esc(vis.title)}">${esc(vis.label)}</button>` : ''}
           ${escondido
@@ -462,7 +462,7 @@ function onMyPRsReviewersClick(e) {
   rev.disabled = true; rev.textContent = 'Setando…';
   api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
     if (!r?.ok) toast('error', r?.error || 'não consegui setar os reviewers');
-    rev.disabled = false; rev.textContent = '👥 Reviewers';
+    rev.disabled = false; rev.textContent = '👥 Pedir reviewers no GitHub';
   });
 }
 

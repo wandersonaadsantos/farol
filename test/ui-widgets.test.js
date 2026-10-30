@@ -561,3 +561,13 @@ test('Visão geral abre pelos checks de saúde e o aplicar só realça com difer
   const atualizacao = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'telas', 'sistema-atualizacao.js'), 'utf8');
   assert.doesNotMatch(atualizacao, /O botão abaixo/);
 });
+
+test('atalhos A/M/C passam pela confirmação e o botão de reviewers diz o que faz', () => {
+  const raiz = path.join(import.meta.dirname, '..');
+  const atalhos = fs.readFileSync(path.join(raiz, 'ui/telas/atalhos.js'), 'utf8');
+  assert.match(atalhos, /sempre: true/);
+  assert.match(atalhos, /decideComConfirmacao/);
+  assert.deepEqual(atalhos.match(/.*\.click\(\).*/g), ["  if (btn.dataset.action === 'skip') { btn.click(); return; }"], 'só o pular clica no botão');
+  const meus = fs.readFileSync(path.join(raiz, 'ui/telas/meus-prs.js'), 'utf8');
+  assert.match(meus, /Pedir reviewers no GitHub/);
+});

@@ -5,6 +5,7 @@
 
 import { ehMac } from './estado.js';
 import { $ } from './infra.js';
+import { decideComConfirmacao } from './acoes.js';
 
 /* ---------- atalhos de teclado ---------- */
 // J/K navegam nas decisões pendentes; A aprova, M pede mudanças, C comenta, P pula;
@@ -24,6 +25,15 @@ function kbdMove(delta, switchTab) {
   cards.forEach(c => c.classList.remove('kbd-sel'));
   cards[i].classList.add('kbd-sel');
   cards[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+// pular não posta nada e segue como clique; aprovar, pedir mudanças e comentar escrevem no
+// GitHub, então passam pela confirmação (a mesma do clique, mais a de aprovar e comentar)
+function agirNoCard(btn, card) {
+  if (btn.dataset.action === 'skip') { btn.click(); return; }
+  const ref = (card.querySelector('.dec-ref')?.textContent || 'este PR').trim();
+  btn.disabled = true;
+  decideComConfirmacao(card.dataset.id, btn.dataset.action, ref, { sempre: true })
+    .then((r) => { if (!r?.ok) btn.disabled = false; });
 }
 function kbdHelp() {
   const ov = document.createElement('div');
@@ -78,7 +88,7 @@ function initAtalhos(switchTab) {
     if (KBD_ACTIONS[low]) {
       const card = kbdSelected();
       const btn = card && card.querySelector(`.dec-act[data-action="${KBD_ACTIONS[low]}"]`);
-      if (btn) { btn.click(); e.preventDefault(); }
+      if (btn) { agirNoCard(btn, card); e.preventDefault(); }
     }
   });
 }

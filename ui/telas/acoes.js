@@ -29,7 +29,22 @@ function decide(id, action) {
    o parágrafo do bloqueio e outra sem, apesar do comentário dizer "a MESMA
    confirmação"). Usado pelo card (#decisions, abaixo) e pela paleta
    (telas/paleta.js). */
-async function decideComConfirmacao(id, action, ref) {
+const CONFIRMA_NO_TECLADO = {
+  approve: { titulo: (ref) => `Aprovar ${ref}?`, confirma: 'Aprovar', o: 'uma aprovação' },
+  comment: { titulo: (ref) => `Comentar em ${ref}?`, confirma: 'Comentar', o: 'um comentário' },
+};
+async function decideComConfirmacao(id, action, ref, { sempre = false } = {}) {
+  const alvo = ref || 'este PR';
+  // o teclado passa sempre: true, porque uma tecla errada postaria aprovação ou comentário
+  // sem o clique deliberado; o clique no botão segue como era
+  const pergunta = sempre ? CONFIRMA_NO_TECLADO[action] : null;
+  if (pergunta) {
+    const ok = await confirmModal({
+      title: pergunta.titulo(alvo), confirmLabel: pergunta.confirma, cancelLabel: 'Voltar',
+      body: `<p>Isso <b>posta ${pergunta.o} no GitHub</b>, visível pra todo mundo do PR.</p>`,
+    });
+    if (!ok) return { ok: false };
+  }
   if (action === 'request_changes') {
     const ok = await confirmModal({
       title: `Pedir mudanças em ${ref || 'este PR'}?`, danger: true, confirmLabel: 'Pedir mudanças', cancelLabel: 'Cancelar',
