@@ -1,6 +1,6 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { baseConfig, fieldCases, configForField } from './helpers/preferences-cases.js';
+import { baseConfig, fieldCases, configForField, valuesForField } from './helpers/preferences-cases.js';
 import { PREFERENCE_LABELS } from '../ui/pure/preferences.js';
 import { instalarDom } from './helpers/dom-stub.js';
 import fs from 'node:fs';
@@ -96,21 +96,22 @@ test('todos os 45 campos passam pelo seletor e aplicação do módulo da tela', 
   for (const [key, candidates] of Object.entries(fieldCases())) {
     engine.config = configForField(key);
     if (key === 'accounts') engine.config.ghUser = '';
-    let document;
+    let document, changes;
     for (const value of candidates) {
-      const candidate = { type: 'farol-preferences', schema: 2, values: { [key]: value } };
+      const candidate = { type: 'farol-preferences', schema: 2, values: valuesForField(key, value) };
       const result = await command(engine, { action: 'preview', document: candidate });
-      if (result.ok && result.changes.length && !result.changes[0].blocked) { document = candidate; break; }
+      if (result.ok && result.changes.length && !result.changes[0].blocked) { document = candidate; changes = result.changes; break; }
     }
     assert.ok(document, `sem diferença para ${key}`);
     await inspect(document);
     assert.match(preview.innerHTML, new RegExp(`data-preference-key="${key}"`), key);
     assert.ok(preview.innerHTML.includes(PREFERENCE_LABELS[key]), key);
     assert.doesNotMatch(preview.innerHTML, /undefined|\[object Object\]/, key);
-    selected = [{ dataset: { preferenceKey: key } }];
+    selected = changes.map(change => ({ dataset: { preferenceKey: change.key } }));
     preview.onchange(); assert.equal($('#preferencesApply').disabled, false, key);
     await $('#preferencesApply').onclick();
     assert.match($('#preferencesMessage').textContent, /salvas/, key);
+    for (const change of changes) assert.deepEqual(engine.config[change.key], change.incoming, change.key);
     await inspect(document);
     assert.equal(preview.innerHTML, '', key);
     assert.equal($('#preferencesApply').disabled, true, key);
