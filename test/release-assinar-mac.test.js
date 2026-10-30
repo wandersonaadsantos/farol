@@ -32,7 +32,7 @@ after(() => fs.rmSync(TMP, { recursive: true, force: true }));
 
 // um Farol.app mínimo com o leiaute do montar-mac.sh; nada aqui precisa ser Mach-O,
 // porque o dry-run não roda o codesign e o hdiutil empacota qualquer pasta
-function appFalso(nome, versao = '3.1.4') {
+function appFalso(nome, versao = '3.1.4', chavePublica = 'Y2hhdmUtcHVibGljYQ==') {
   const app = path.join(TMP, nome, 'Farol.app');
   fs.mkdirSync(path.join(app, 'Contents', 'MacOS'), { recursive: true });
   fs.mkdirSync(path.join(app, 'Contents', 'Resources', 'engine', 'node', 'bin'), { recursive: true });
@@ -46,6 +46,7 @@ function appFalso(nome, versao = '3.1.4') {
   <key>CFBundleIdentifier</key><string>com.biud.farol.teste</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${versao}</string>
+  <key>SUPublicEDKey</key><string>${chavePublica}</string>
 </dict>
 </plist>
 `);
@@ -119,6 +120,14 @@ for (const variavel of ['MAC_SIGNING_IDENTITY', 'APPLE_ID', 'APPLE_TEAM_ID', 'AP
     semSegredo(r);
   });
 }
+
+test('assinar-mac.sh recusa app com a SUPublicEDKey vazia, antes de assinar', { skip: PULAR }, () => {
+  const app = appFalso('sem-chave-publica', '3.1.4', '');
+  const r = rodar(ASSINAR, ['--app', app, '--dry-run'], ENV_OK);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /montado sem a chave publica da Sparkle/);
+  assert.doesNotMatch(r.stdout, /codesign/, 'assinou um app sem a SUPublicEDKey');
+});
 
 test('assinar-mac.sh recusa app sem o node embutido', { skip: PULAR }, () => {
   const app = appFalso('sem-node');

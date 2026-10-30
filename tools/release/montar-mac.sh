@@ -13,7 +13,9 @@
 # Sem --semente: tools/release/semente-do-motor.sh em <saida>/semente.
 # Sem --node-*: tools/release/baixar-node.sh em <saida>/node-<arch> (hash conferido).
 # Sem --identidade: assina AD HOC (abre nesta maquina, nunca e artefato de release).
-# Com --identidade: NAO assina; quem assina com o Developer ID e o assinar-mac.sh.
+# Com --identidade: NAO assina; quem assina com o Developer ID e o assinar-mac.sh. E build
+# de distribuicao, entao exige --chave-publica nao vazia: sem a SUPublicEDKey a Sparkle
+# fica desligada e o app notarizado nunca mais recebe update.
 # --saida: padrao dist/mac. O bundle sai em <saida>/Farol.app.
 set -euo pipefail
 
@@ -51,6 +53,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ -n "$identidade" ] && [ -z "$chave" ]; then
+  falhar 'com --identidade (build de distribuicao) a --chave-publica e obrigatoria e nao pode ser vazia: sem a SUPublicEDKey o app sai sem update da Sparkle (confira o secret SPARKLE_PUBLIC_ED_KEY).'
+fi
 [ "$(uname -s)" = Darwin ] || falhar 'o bundle do macOS so se monta no macOS.'
 for ferramenta in ditto lipo codesign plutil; do
   command -v "$ferramenta" > /dev/null 2>&1 || falhar "ferramenta ausente: $ferramenta"
@@ -109,6 +114,9 @@ destino="$montando/Farol.app"
 ditto "$app" "$destino"
 
 engine="$destino/Contents/Resources/engine"
+# o --app pode ser um bundle ja montado: o engine dele sai inteiro antes, senao a semente
+# nova se mesclaria com arquivos da anterior
+rm -rf "$engine"
 mkdir -p "$engine/node/bin"
 ditto "$semente/engine/app" "$engine/app"
 lipo -create "$node_arm64" "$node_x64" -output "$engine/node/bin/node"

@@ -341,6 +341,10 @@ A `SUPublicEDKey` fica **vazia** no `Info.plist` versionado, de propósito. Quem
 é a pipeline, no bundle montado: `tools/release/montar-mac.sh --chave-publica <chave>`, com
 o valor do secret `SPARKLE_PUBLIC_ED_KEY`. Sem a chave a Sparkle fica desligada na prática:
 avisa no log e não instala nada, então um bundle montado sem ela nunca se atualiza sozinho.
+Por isso a montagem assinada exige a chave: com `--identidade` o `montar-mac.sh` aborta se a
+`--chave-publica` faltar ou vier vazia (secret `SPARKLE_PUBLIC_ED_KEY` não cadastrado), e o
+`assinar-mac.sh` recusa assinar um app cuja `SUPublicEDKey` esteja vazia. Só a montagem ad
+hoc, de desenvolvimento local, sai sem ela.
 
 O lado privado só existe no secret `SPARKLE_PRIVATE_KEY` e só é lido pelo
 `tools/release/appcast-mac.sh`, que assina o appcast com o `generate_appcast`. A chave vai

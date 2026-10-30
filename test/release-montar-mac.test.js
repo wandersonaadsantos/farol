@@ -107,10 +107,37 @@ test('sem identidade: leiaute do índice, node universal e assinatura ad hoc', S
 });
 
 test('com identidade: o bundle sai montado e SEM assinatura (quem assina é o assinar-mac.sh)', SO_MAC, () => {
-  const { r, app } = montar('identidade', ['--identidade', 'Developer ID Application: Teste (XXXXXXXXXX)']);
+  const { r, app } = montar('identidade', ['--identidade', 'Developer ID Application: Teste (XXXXXXXXXX)', '--chave-publica', CHAVE]);
   assert.equal(r.status, 0, `montar-mac.sh falhou: ${r.stderr}`);
   assert.ok(fs.existsSync(path.join(engineDe(app), 'node', 'bin', 'node')));
   assert.notEqual(assinado(path.join(engineDe(app), 'node', 'bin', 'node')).status, 0, 'node não deveria estar assinado');
+});
+
+for (const [caso, extras] of [['ausente', []], ['vazia', ['--chave-publica', '']]]) {
+  test(`com identidade e chave publica ${caso}: aborta sem montar nada`, SO_MAC, () => {
+    const { r, app } = montar(`identidade-chave-${caso}`, ['--identidade', 'Developer ID Application: Teste (XXXXXXXXXX)', ...extras]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /chave-publica/);
+    assert.ok(!fs.existsSync(app), 'bundle sem a SUPublicEDKey ficou na saida');
+  });
+}
+
+test('remontar sobre um bundle ja montado nao mescla a semente anterior', SO_MAC, () => {
+  const primeira = montar('remontar-1');
+  assert.equal(primeira.r.status, 0, primeira.r.stderr);
+  fs.writeFileSync(path.join(engineDe(primeira.app), 'app', 'sobra-da-anterior.js'), '// velho\n');
+  const base = path.join(TMP, 'remontar-2');
+  fs.mkdirSync(base, { recursive: true });
+  const nodeArm = path.join(base, 'node-arm64');
+  const nodeX64 = path.join(base, 'node-x64');
+  compilar('arm64', nodeArm);
+  compilar('x86_64', nodeX64);
+  const saida = path.join(base, 'saida');
+  const r = spawnSync('bash', [SH, '--app', primeira.app, '--semente', sementeFalsa(path.join(base, 'semente')),
+    '--node-arm64', nodeArm, '--node-x64', nodeX64, '--saida', saida], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(!fs.existsSync(path.join(saida, 'Farol.app', 'Contents', 'Resources', 'engine', 'app', 'sobra-da-anterior.js')),
+    'arquivo da semente anterior sobreviveu a remontagem');
 });
 
 test('--chave-publica grava a SUPublicEDKey no Info.plist do bundle montado', SO_MAC, () => {

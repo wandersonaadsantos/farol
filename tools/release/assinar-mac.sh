@@ -9,6 +9,8 @@
 # credenciais do notarytool (ver notarizar-mac.sh). Tudo e conferido ANTES de assinar.
 #
 # Ordem (cada passo depende do anterior):
+# Antes de tudo confere que o Info.plist tem a SUPublicEDKey: app de distribuicao sem ela
+# nunca recebe update da Sparkle.
 #   1. o node embutido, com os entitlements DELE (Node.entitlements: allow-jit e o resto
 #      que o V8 precisa sob o runtime endurecido); o --deep do passo 2 nao desce em
 #      Contents/Resources, entao a assinatura do node sobrevive e e selada como recurso;
@@ -49,6 +51,9 @@ exigir_var MAC_SIGNING_IDENTITY
 exigir_credenciais_notary
 app="${app%/}"
 [ -f "$app/Contents/Info.plist" ] || falhar "app sem Contents/Info.plist: $app"
+chave_publica="$(plutil -extract SUPublicEDKey raw -o - "$app/Contents/Info.plist" 2> /dev/null || true)"
+[ -n "$chave_publica" ] \
+  || falhar "o app foi montado sem a chave publica da Sparkle (SUPublicEDKey vazia em $app/Contents/Info.plist): monte de novo com o montar-mac.sh --chave-publica."
 node="$app/Contents/Resources/engine/node/bin/node"
 [ -f "$node" ] || falhar "app sem o node embutido: $node (monte com o montar-mac.sh)"
 if [ "$SECO" = 0 ]; then
