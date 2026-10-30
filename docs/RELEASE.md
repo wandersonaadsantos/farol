@@ -257,7 +257,10 @@ O lado privado só existe no secret `SPARKLE_PRIVATE_KEY` e só é lido pelo
 num arquivo temporário criado com `umask 077` e apagado na saída, passado por
 `--ed-key-file`, nunca na linha de comando. O mesmo script recusa publicar versão que não
 seja MAIOR que a última do appcast publicado (`tools/release/versao-maior.js`, a mesma
-comparação do update do motor).
+comparação do update do motor), e isso vale para as DUAS versões: a curta
+(`CFBundleShortVersionString`) e o build (`CFBundleVersion`, o `sparkle:version`), porque a
+Sparkle ordena os updates pelo build. As duas moram juntas no `shell/mac/project.yml`
+(`MARKETING_VERSION` e `CURRENT_PROJECT_VERSION`) e sobem juntas a cada release.
 
 O par de chaves é gerado **uma vez**, pelo dono, numa máquina dele:
 

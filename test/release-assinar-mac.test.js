@@ -4,7 +4,7 @@
 // rodaria, sem rodar nada que precise de credencial): o node assinado ANTES do app, o
 // runtime endurecido e os dois arquivos de entitlements, e nenhum segredo na saída. O
 // `.dmg` SEM assinatura é criado de verdade com o `hdiutil` e montado só para leitura.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -28,6 +28,7 @@ const ENV_OK = {
 };
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-assinar-mac-'));
+after(() => fs.rmSync(TMP, { recursive: true, force: true }));
 
 // um Farol.app mínimo com o leiaute do montar-mac.sh; nada aqui precisa ser Mach-O,
 // porque o dry-run não roda o codesign e o hdiutil empacota qualquer pasta

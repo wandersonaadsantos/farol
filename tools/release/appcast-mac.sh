@@ -2,11 +2,16 @@
 # Farol: gera o appcast.xml da Sparkle para o dmg da release, assinado com a chave EdDSA.
 #
 #   tools/release/appcast-mac.sh --dmg <Farol-X.Y.Z.dmg> --saida <dir>
-#                                [--appcast-anterior <appcast.xml publicado>] [--dry-run]
+#                                [--appcast-anterior <appcast.xml publicado>]
+#                                [--versao-build <CFBundleVersion>] [--dry-run]
 #
-# Recusa quando X.Y.Z nao e MAIOR que a ultima versao do appcast publicado (regra unica em
-# tools/release/versao-maior.js, a mesma comparacao do update do motor). Sem
-# --appcast-anterior (primeira release) qualquer versao bem formada passa.
+# Duas versoes sobem a cada release (regra unica em tools/release/versao-maior.js, a mesma
+# comparacao do update do motor): a curta X.Y.Z, do nome do dmg, e o build (CFBundleVersion,
+# o sparkle:version pelo qual a Sparkle ORDENA os updates). O build sai do Farol.app dentro
+# do dmg, montado so para leitura (`hdiutil attach -readonly -nobrowse`), que tambem confere
+# a versao curta do app contra o nome; --versao-build dispensa a montagem. Recusa quando a
+# curta nao e maior que a do appcast publicado, ou quando o build nao e maior que o build
+# publicado (se o appcast tiver um). Sem --appcast-anterior (primeira release) passa.
 # Copia o dmg e o appcast anterior para <dir> (o generate_appcast estende o appcast.xml que
 # acha na pasta, entao o historico se mantem) e roda o generate_appcast de SPARKLE_BIN ou do
 # PATH com a URL de download da release v<X.Y.Z>. Sai <dir>/appcast.xml.
@@ -27,11 +32,13 @@ REPO_DE_RELEASE='https://github.com/wandersonaadsantos/farol/releases/download'
 dmg=""
 saida=""
 anterior=""
+build=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --dmg | --saida | --appcast-anterior)
+    --dmg | --saida | --appcast-anterior | --versao-build)
       [ $# -ge 2 ] || falhar "falta o valor de $1"
       case "$1" in
+        --versao-build) build="$2" ;;
         --dmg) dmg="$2" ;;
         --saida) saida="$2" ;;
         --appcast-anterior) anterior="$2" ;;
@@ -57,8 +64,23 @@ if [ -n "$anterior" ]; then
   [ -f "$anterior" ] || falhar "appcast anterior ausente: $anterior"
 fi
 
+if [ -z "$build" ]; then
+  [ "$(uname -s)" = Darwin ] || falhar 'sem --versao-build preciso montar o dmg, o que so roda no macOS.'
+  montagem="$(mktemp -d "${TMPDIR:-/tmp}/farol-appcast-dmg.XXXXXX")"
+  hdiutil attach -readonly -nobrowse -noautoopen -quiet -mountpoint "$montagem" "$dmg" \
+    || { rmdir "$montagem"; falhar "nao consegui montar o dmg para ler o build: $dmg (ou passe --versao-build)"; }
+  plist="$montagem/Farol.app/Contents/Info.plist"
+  curta_do_app="$(plutil -extract CFBundleShortVersionString raw -o - "$plist" 2> /dev/null || true)"
+  build="$(plutil -extract CFBundleVersion raw -o - "$plist" 2> /dev/null || true)"
+  hdiutil detach -quiet "$montagem" || hdiutil detach -quiet -force "$montagem" || true
+  rmdir "$montagem" 2> /dev/null || true
+  [ -n "$build" ] || falhar "o Farol.app do dmg nao tem CFBundleVersion: $dmg"
+  [ "$curta_do_app" = "$versao" ] \
+    || falhar "o Farol.app do dmg e a versao ${curta_do_app:-desconhecida}, mas o nome diz $versao"
+fi
+
 command -v node > /dev/null 2>&1 || falhar 'ferramenta ausente: node'
-regra=(node "$RAIZ/tools/release/versao-maior.js" "$versao")
+regra=(node "$RAIZ/tools/release/versao-maior.js" "$versao" "$build")
 [ -z "$anterior" ] || regra+=("$anterior")
 motivo="$("${regra[@]}" 2>&1)" || falhar "$motivo"
 
@@ -94,5 +116,5 @@ printf '%s' "$SPARKLE_PRIVATE_KEY" > "$chave"
 rm -f "$chave"
 
 [ -f "$saida/appcast.xml" ] || falhar "o generate_appcast nao gerou $saida/appcast.xml"
-aviso "appcast pronto para v$versao: $saida/appcast.xml"
+aviso "appcast pronto para v$versao (build $build): $saida/appcast.xml"
 echo "$saida/appcast.xml"
