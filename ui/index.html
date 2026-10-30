@@ -291,7 +291,14 @@
     <!-- "Todos os aparelhos" é uma SEGUNDA visão, nunca uma reescrita da primeira:
          "Este aparelho" volta ao painel de sempre, sem nenhuma diferença. -->
     <div id="usageActivity"></div>
-    <details class="disc" id="usageAdvanced"><summary>Orçamento, matriz e histórico técnico · totais gerais, sem os filtros acima</summary><div class="disc-body">
+    <div id="usageBudgetTop" class="card usage-chart-card">
+      <div class="usage-chart-head">
+        <h3>Orçamento por perfil</h3>
+        <span class="usage-caption is-goto" data-goto="sys:plans:#claudeProfilesManager" role="button" tabindex="0" title="Abrir Sistema → Plano e chaves">Sistema → Plano e chaves</span>
+      </div>
+      <div id="usageBudget" class="usage-budget"></div>
+    </div>
+    <details class="disc" id="usageAdvanced"><summary>Matriz e histórico técnico · totais gerais, sem os filtros acima</summary><div class="disc-body">
     <div id="usageConsolidado" hidden></div>
     <div id="usageLocal">
     <div id="usageKpis" class="usage-kpis"></div>
@@ -310,13 +317,13 @@
 
     <div class="card usage-chart-card">
       <div class="usage-chart-head">
-        <h3>Linha do tempo</h3>
+        <h3>Linha do tempo geral (sem filtros)</h3>
         <div class="usage-controls">
           <div class="seg" id="usageMetric" role="group" aria-label="Métrica">
             <button class="seg-btn" data-metric="custo" aria-pressed="false">Custo</button>
             <button class="seg-btn active" data-metric="total" aria-pressed="true">Tokens</button>
-            <button class="seg-btn" data-metric="input" aria-pressed="false">Input</button>
-            <button class="seg-btn" data-metric="output" aria-pressed="false">Output</button>
+            <button class="seg-btn" data-metric="input" aria-pressed="false">Entrada</button>
+            <button class="seg-btn" data-metric="output" aria-pressed="false">Saída</button>
             <button class="seg-btn" data-metric="cache" aria-pressed="false">Cache</button>
           </div>
           <div class="seg" id="usageStack" role="group" aria-label="Empilhar por">
@@ -339,19 +346,12 @@
         <div id="usageMatrix" class="usage-matrix-wrap"></div>
       </div>
 
-      <div class="card usage-chart-card">
-        <div class="usage-chart-head">
-          <h3>Orçamento por perfil</h3>
-          <span class="usage-caption is-goto" data-goto="sys:plans:#claudeProfilesManager" role="button" tabindex="0" title="Abrir Sistema → Plano e chaves">Sistema → Plano e chaves</span>
-        </div>
-        <div id="usageBudget" class="usage-budget"></div>
-      </div>
     </div>
 
     <div class="card usage-chart-card">
       <div class="usage-chart-head">
-        <h3>Sessões recentes</h3>
-        <span class="usage-caption">Sessões com erro também contam no gasto</span>
+        <h3>Execuções recentes</h3>
+        <span class="usage-caption">Execuções com erro também contam no gasto</span>
       </div>
       <div id="usageSessions" class="usage-sessions-wrap"></div>
     </div>

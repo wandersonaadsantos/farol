@@ -128,8 +128,15 @@ function renderFilaJusta() {
   card.hidden = !html;
 }
 
+/* O orçamento mora fora do details: pinta ao entrar na aba, em qualquer escopo. */
+function renderOrcamento() {
+  const budget = $('#usageBudget');
+  if (budget) budget.innerHTML = usageBudgetHtml((estado() && estado().usage) || {});
+}
+
 function renderUsage() {
   renderFilaJusta();
+  renderOrcamento();
   renderUsageDeviceSeg();
   renderActivity({ window: usageState.window, scope: usageDeviceState.escopo === 'todos' ? 'all' : 'local' });
   const consolidado = usageDeviceState.escopo === 'todos';
@@ -141,8 +148,8 @@ function renderUsage() {
   const u = estado() && estado().usage;
   const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
   const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
-  const budget = $('#usageBudget'), sessions = $('#usageSessions');
-  if (!kpisEl || !tl || !legend || !matrix || !matrixCap || !budget || !sessions) return;
+  const sessions = $('#usageSessions');
+  if (!kpisEl || !tl || !legend || !matrix || !matrixCap || !sessions) return;
   // cada painel decide a PROPRIA vaziez, lendo a PROPRIA fonte: u.totals vem de
   // usage.json, mas a matriz/sessões leem usage-sessions.json e daysByKindModel
   // (arquivos diferentes). Gatear a aba inteira num campo agregado só deixava a
@@ -156,7 +163,6 @@ function renderUsage() {
   drawUsageTimeline(tl, legend, u || {}, usageState.metric, usageState.window, usageState.dim);
   const mtx = usageMatrixHtml(u || {}, usageState.metric, usageState.window);
   matrix.innerHTML = mtx.html; matrixCap.textContent = mtx.caption;
-  budget.innerHTML = usageBudgetHtml(u || {});
   sessions.innerHTML = usageSessionsHtml(u || {});
 }
 
