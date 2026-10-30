@@ -41,9 +41,14 @@ test('os quatro jobs existem, e só eles', () => {
   assert.deepEqual(Object.keys(blocosDosJobs(ler())).sort(), [...JOBS].sort());
 });
 
-test('gatilhos: tag v* publica, workflow_dispatch só constrói', () => {
+// Enquanto o Electron existe, as releases 2.x saem do publish-release.ps1 local; só a major 3
+// em diante dispara a pipeline nativa (cada rodada custa ~45 minutos de macOS cobrados 10x)
+test('gatilhos: só tag de major 3 ou mais, nunca v* puro; workflow_dispatch só constrói', () => {
   const t = topo(ler());
-  assert.match(t, /^ {2}push:\n {4}tags:\s*\[\s*'v\*'\s*\]/m);
+  const tags = t.match(/^ {2}push:\n(?: {4}#.*\n)* {4}tags:\s*\[(.*)\]\s*$/m);
+  assert.ok(tags, 'push sem tags: [...]');
+  assert.deepEqual(tags[1].split(',').map((p) => p.trim()), ["'v[3-9].*'", "'v[1-9][0-9].*'"]);
+  assert.doesNotMatch(t, /'v\*'/);
   assert.match(t, /^ {2}workflow_dispatch:/m);
   assert.doesNotMatch(t, /^ {4}branches:/m, 'push em branch não dispara release');
 });
@@ -53,7 +58,8 @@ test('publicar depende dos três e só roda na tag', () => {
   const needs = b.match(/^ {4}needs:\s*\[([^\]]*)\]/m);
   assert.ok(needs, 'publicar sem needs: [...]');
   assert.deepEqual(needs[1].split(',').map((s) => s.trim()).sort(), ['mac', 'motor', 'win']);
-  assert.match(b, /^ {4}if:\s*startsWith\(github\.ref, 'refs\/tags\/v'\)\s*$/m);
+  // workflow_dispatch disparado de uma ref de tag também tem github.ref de tag: só o push publica
+  assert.match(b, /^ {4}if:\s*github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)\s*$/m);
 });
 
 test('publish-release.ps1 só aparece no job publicar', () => {
@@ -130,6 +136,13 @@ test('o chaveiro e o pfx temporários saem mesmo com falha', () => {
   const blocos = blocosDosJobs(ler());
   assert.match(blocos.mac, /if: always\(\)[\s\S]*?security delete-keychain/);
   assert.match(blocos.win, /if: always\(\)[\s\S]*?Remove-Item[^\n]*WIN_SIGNING_CERT_PFX/);
+});
+
+test('o win acha o signtool e o entrega ao assinar-win.ps1 por WIN_SIGNTOOL', () => {
+  const b = blocosDosJobs(ler()).win;
+  assert.match(b, /Windows Kits\\10\\bin/);
+  assert.match(b, /"WIN_SIGNTOOL=\$[^"]+"\s*\|\s*Out-File -FilePath \$env:GITHUB_ENV/);
+  assert.ok(b.indexOf('WIN_SIGNTOOL=') < b.indexOf('& tools/release/assinar-win.ps1'), 'WIN_SIGNTOOL antes de assinar');
 });
 
 test('o publicar baixa cada artefato na pasta que o anexos-da-release.js lê', () => {

@@ -1,12 +1,16 @@
 name: Release nativo
 
-# A tag vX.Y.Z constrói tudo e publica. O workflow_dispatch constrói os mesmos artefatos
-# (para conferir assinatura, notarização e MSIX sem release) e NUNCA publica: o job
-# publicar só roda em ref de tag. Push em branch não dispara nada aqui; o gate de cada
-# commit é o ci.yml.
+# A tag vX.Y.Z (major 3 ou mais) constrói tudo e publica. O workflow_dispatch constrói os
+# mesmos artefatos (para conferir assinatura, notarização e MSIX sem release) e NUNCA
+# publica, nem quando disparado de uma ref de tag: o job publicar só roda em push de tag.
+# Push em branch não dispara nada aqui; o gate de cada commit é o ci.yml.
 on:
   push:
-    tags: ['v*']
+    # Só major 3 em diante. Enquanto o Electron existe, as releases 2.x seguem saindo do
+    # caminho manual local, e com o filtro aberto cada uma dispararia esta pipeline (uns 45
+    # minutos de macOS cobrados 10x, terminando vermelha). Depois da Task 8 do plano 4
+    # (Electron retirado) o filtro pode voltar a ser o de toda tag v.
+    tags: ['v[3-9].*', 'v[1-9][0-9].*']
   workflow_dispatch:
 
 # Só leitura por padrão. Quem escreve no repositório (a release) é o job publicar, e só ele
@@ -240,6 +244,22 @@ jobs:
           & tools/release/montar-win.ps1 --semente dist/win/semente --node dist/win/node/node.exe --saida dist/win
           if (-not (Get-ChildItem -Path dist/win -Filter 'Farol-*.msix')) { throw 'montar-win.ps1 nao gerou o msix' }
 
+      # O signtool não está no PATH das imagens Windows do GitHub; ele vem no Windows SDK, em
+      # Windows Kits\10\bin\<versão>\x64. Pego o da versão mais nova e o entrego ao
+      # assinar-win.ps1 por WIN_SIGNTOOL.
+      - name: Localizar o signtool
+        run: |
+          $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $signtool = Get-ChildItem -LiteralPath $kits -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^\d+(\.\d+){3}$' } |
+            Sort-Object { [version]$_.Name } -Descending |
+            ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+            Select-Object -First 1
+          if (-not $signtool) { throw "signtool.exe x64 nao encontrado em $kits\<versao>\x64 (Windows SDK ausente na imagem)" }
+          Write-Host "signtool: $signtool"
+          "WIN_SIGNTOOL=$signtool" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Assinar o MSIX
         env:
           WIN_SIGNING_CERT_PASSWORD: ${{ secrets.WIN_SIGNING_CERT_PASSWORD }}
@@ -277,8 +297,9 @@ jobs:
   publicar:
     name: publicar
     needs: [motor, mac, win]
-    # só a tag publica; o workflow_dispatch para nos artefatos dos outros três jobs
-    if: startsWith(github.ref, 'refs/tags/v')
+    # só o push de tag publica. O workflow_dispatch para nos artefatos dos outros três jobs,
+    # mesmo disparado de uma ref de tag (aí o github.ref também é refs/tags/...)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # o único job que escreve: cria a release e sobe os anexos

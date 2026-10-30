@@ -157,7 +157,10 @@ instalador nem spawn, o gate local já responde.
 dispara o `.github/workflows/release-nativo.yml`, que constrói o motor (pacote leve), a casca
 do macOS (montada, assinada, notarizada, em dmg, com o appcast) e a do Windows (MSIX assinado
 e o App Installer), e o job `publicar` chama o `tools/publish-release.ps1` com
-`FAROL_SO_ANEXAR=1` depois de baixar os artefatos dos outros jobs.
+`FAROL_SO_ANEXAR=1` depois de baixar os artefatos dos outros jobs. Só tags de major 3 ou mais
+disparam a pipeline: tags `v2.x` nunca a iniciam, porque a release 2.x segue pelo caminho
+manual local enquanto o Electron existir. O `workflow_dispatch` constrói os mesmos artefatos e
+nunca publica, nem quando disparado de uma tag.
 
 ```
 git tag vX.Y.Z && git push origin vX.Y.Z
