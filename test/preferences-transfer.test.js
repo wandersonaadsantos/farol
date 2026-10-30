@@ -75,6 +75,46 @@ test('cada preferência exportada é comparada, selecionada e gravada pelo fluxo
   }
 });
 
+test('importar modelo exige selecionar o par quando a sincronização mudaria um campo não selecionado', async () => {
+  const engine = fixture();
+  const document = doc({ reviewModel: 'opus', codexReviewModel: 'gpt-6.1-sol' });
+  const preview = await command(engine, { action: 'preview', document });
+  assert.match(preview.changes[0].note, /duas diferenças/);
+  const rejected = await command(engine, { action: 'apply', document, token: preview.token, keys: ['reviewModel'] });
+  assert.equal(rejected.ok, false);
+  assert.match(rejected.error, /duas diferenças/);
+  assert.equal(engine.config.reviewModel, '');
+  assert.equal(engine.config.codexReviewModel, '');
+  const applied = await command(engine, { action: 'apply', document, token: preview.token, keys: ['reviewModel', 'codexReviewModel'] });
+  assert.equal(applied.ok, true, applied.error);
+  assert.equal(engine.config.reviewModel, 'opus');
+  assert.equal(engine.config.codexReviewModel, 'gpt-6.1-sol');
+});
+
+test('importação preserva Terra já selecionado ao restaurar somente seu equivalente Claude', async () => {
+  const engine = fixture();
+  engine.config.codexReviewModel = 'gpt-6.1-terra';
+  const document = doc({ reviewModel: 'sonnet', codexReviewModel: 'gpt-6.1-terra' });
+  const preview = await command(engine, { action: 'preview', document });
+  assert.deepEqual(preview.changes.map(change => change.key), ['reviewModel']);
+  const applied = await command(engine, { action: 'apply', document, token: preview.token, keys: ['reviewModel'] });
+  assert.equal(applied.ok, true, applied.error);
+  assert.equal(engine.config.reviewModel, 'sonnet');
+  assert.equal(engine.config.codexReviewModel, 'gpt-6.1-terra');
+  assert.equal(new Engine().config.codexReviewModel, 'gpt-6.1-terra');
+});
+
+test('importação recusa par incompatível sem reescrever valores prometidos na prévia', async () => {
+  const engine = fixture();
+  const document = doc({ reviewModel: 'haiku', codexReviewModel: 'gpt-6-astra' });
+  const preview = await command(engine, { action: 'preview', document });
+  const result = await command(engine, { action: 'apply', document, token: preview.token, keys: ['reviewModel', 'codexReviewModel'] });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /par equivalente/);
+  assert.equal(engine.config.reviewModel, '');
+  assert.equal(engine.config.codexReviewModel, '');
+});
+
 test('objetos iguais com chaves em ordem diferente não criam diferenças', async () => {
   const engine = fixture(); engine.config.defaultReviewers = { acme: ['alex'], other: ['bia'] };
   assert.deepEqual((await command(engine, { action: 'preview', document: doc({ defaultReviewers: { other: ['bia'], acme: ['alex'] } }) })).changes, []);

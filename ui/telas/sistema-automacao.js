@@ -71,15 +71,19 @@ function renderAutomationSettings(c) {
   const selecao = (modelos.claude || []).find(s => s.valor === claudeModel) || null;
   const semEsforco = !selecaoAceitaEsforco(modelos.claude, claudeModel);
   $('#setReviewEffort').classList.toggle('disabled', semEsforco);
+  const codexAuto = !!(modelos.codex || []).find(s => s.valor === codexModel && s.auto);
+  $('#setCodexReviewEffort').classList.toggle('disabled', codexAuto);
   if (agy) {
     $('#reviewModelHint').textContent = 'Modelo usado pelo Antigravity nas revisões. O recomendado é o Gemini Flash High: na medição, foi o único que repetiu o veredito certo, sem o subagente. Claude e GPT pela cota do Google usam outro balde e custam bem mais por revisão.';
     $('#effortHint').textContent = 'No Gemini o nível de raciocínio já está no nome do modelo, e o Farol não passa a flag. O esforço daqui só vale para Claude e GPT.';
   } else if (codex) {
-    $('#reviewModelHint').textContent = 'Modelo usado pelo Codex nas revisões, pushback, autoanálise e ferramentas. O padrão acompanha a seleção do CLI e costuma ser a opção mais compatível com o teu plano.';
-    $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
+    $('#reviewModelHint').textContent = 'Escolher um modelo atualiza o equivalente no Claude. O Auto mantém a faixa de qualidade da revisão nos dois provedores e eleva o raciocínio em repositório crítico, caminho sensível ou PR muito grande. Equivalência é por perfil de uso, não desempenho idêntico. Modelos personalizados sem par conhecido permanecem fixos.';
+    $('#effortHint').textContent = codexAuto
+      ? 'No Auto, o esforço fixo e o modo rápido não entram: a revisão usa o raciocínio padrão do modelo e sobe para xhigh quando o contexto pede.'
+      : 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
   } else {
     // sem nome de modelo escrito aqui: cada opção já diz o que é, e o Auto diz quais usa
-    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; o Auto revisa todo PR com o Opus e só sobe o raciocínio para xhigh em repositório crítico, caminho sensível ou PR muito grande, só na revisão headless. Cada opção aponta sempre para a versão mais nova daquela família que o teu Claude Code conhece.';
+    $('#reviewModelHint').textContent = 'Escolher um modelo atualiza o equivalente no Codex. O Auto revisa todo PR na faixa de qualidade do Opus e sobe o raciocínio para xhigh em repositório crítico, caminho sensível ou PR muito grande, só na revisão headless. Equivalência é por perfil de uso, não desempenho idêntico. Modelos personalizados sem par conhecido permanecem fixos.';
     let effortHint = 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
     if (selecao && selecao.auto) {
       effortHint = 'No modo Auto a revisão usa o Opus no raciocínio padrão dele e sobe para xhigh quando o contexto do PR pede; o nível fixo desta seção e o modo rápido não entram.';

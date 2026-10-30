@@ -30,7 +30,7 @@ test('updateSettings grava os níveis de esforço suportados', () => {
   }
 });
 
-test('updateSettings grava modelo e esforço do Codex sem alterar o Claude', () => {
+test('updateSettings sincroniza modelos e preserva os esforços próprios', () => {
   const engine = new Engine();
   engine.updateSettings({
     reviewModel: 'sonnet', reviewEffort: 'low',
@@ -80,7 +80,7 @@ test('updateSettings rejeita modelo do provedor errado e esforço fora do Codex 
   engine.updateSettings({ reviewModel: 'sonnet', codexReviewModel: 'gpt-5.6-luna', codexReviewEffort: 'high' });
   engine.updateSettings({ reviewModel: 'gpt-5.5', codexReviewModel: 'opus', codexReviewEffort: 'max' });
   assert.equal(engine.config.reviewModel, 'sonnet');
-  assert.equal(engine.config.codexReviewModel, 'gpt-5.6-luna');
+  assert.equal(engine.config.codexReviewModel, 'gpt-6.1-sol');
   assert.equal(engine.config.codexReviewEffort, 'high');
 });
 

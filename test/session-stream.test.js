@@ -23,6 +23,7 @@ childProcess.spawn = function mockableSpawn(...args) {
 };
 
 const { runClaudeStream, cancelSession, parseEnvelope } = await import('../lib/engine/session.js');
+const { escolheModelo } = await import('../lib/engine/model-router.js');
 const { prepareSelfIsolation } = await import('../lib/engine/self-isolation.js');
 const { IS_WIN } = await import('../lib/paths.js');
 const io = (await import('../lib/io.js')).default;
@@ -108,7 +109,8 @@ test('Claude restrito exige init válido no stream real, preserva modelo e recus
         });
         return child;
       };
-      const running = runClaudeStream(e, 'fixture', { id: 's-init', operationKind: 'self', selfIsolation, extraArgs: [] });
+      const running = runClaudeStream(e, 'fixture', { id: 's-init', operationKind: 'self', selfIsolation, extraArgs: [],
+        model: 'gpt-6.1-sol', modelRoutes: { claude: { model: 'sonnet', effort: 'high', fast: false } } });
       if (tools?.length === 3) assert.equal((await running).text, 'ok');
       else await assert.rejects(running, /restrit/);
     }
@@ -127,6 +129,7 @@ test('Codex restrito rejeita comando e MCP inesperado no stream, sem engolir fal
     for (const item of [{ type: 'command_execution', command: 'forbidden' },
       { type: 'mcp_tool_call', server: 'foreign', tool: 'post_message', status: 'in_progress' }]) {
       const e = engineFalso(); e.resolveClaudeAuth = () => ({ kind: 'codex', id: 'configured-profile' });
+      e.config = { codexReviewModel: 'auto', codexReviewEffort: 'low' };
       e.ghEnv = () => ({ PATH: root });
       e.killTree = () => { throw new Error('fixture de interrupção recusada'); };
       spawnImpl = (_command, args) => {
@@ -135,13 +138,16 @@ test('Codex restrito rejeita comando e MCP inesperado no stream, sem engolir fal
           if (args.includes('login')) child.stdout.write('Logged in using ChatGPT');
           else {
             assert.ok(args.includes('--ignore-user-config')); assert.ok(args.includes('default_permissions="farol_read"'));
+            assert.equal(args[args.indexOf('--model') + 1], 'gpt-6.1-sol');
+            assert.ok(args.includes('model_reasoning_effort="xhigh"'));
             child.stdout.write(JSON.stringify({ type: 'item.started', item }) + '\n');
           }
           child.emit('close', 0);
         });
         return child;
       };
-      await assert.rejects(runClaudeStream(e, 'fixture', { id: 's-codex', operationKind: 'self', selfIsolation, extraArgs: [] }), /fora do contrato/);
+      await assert.rejects(runClaudeStream(e, 'fixture', { id: 's-codex', operationKind: 'self', selfIsolation, extraArgs: [],
+        model: 'opus', modelRoutes: { codex: { model: 'gpt-6.1-sol', effort: 'xhigh', fast: false } } }), /fora do contrato/);
       assert.equal(e.running.size, 0);
     }
   } finally { io.run = original; spawnImpl = null; }
@@ -398,6 +404,45 @@ test('runClaudeStream: perfil Codex confirma ChatGPT, limpa API key e registra t
   assert.equal(chamadasUso[0].model, 'gpt-5.6-terra', 'Consumo registra o modelo enviado ao Codex, nunca o alias Claude');
   assert.equal(chamadasUso[0].resultEvent.usage.input_tokens, 12);
   assert.equal(chamadasUso[0].resultEvent.total_cost_usd, 0);
+});
+
+test('runClaudeStream: rota Auto do Codex chega ao processo e ao consumo com modelo e xhigh', async () => {
+  const chamadas = [];
+  const filhos = [];
+  spawnImpl = (cmd, args) => {
+    const child = filhoStream();
+    chamadas.push({ cmd, args });
+    filhos.push(child);
+    return child;
+  };
+  const engine = engineFalso();
+  engine.config = { reviewModel: 'auto', codexReviewModel: 'auto', codexReviewEffort: 'low', reviewFast: true };
+  engine.resolveClaudeAuth = () => ({ kind: 'codex', id: 'codex-auto' });
+  const usos = [];
+  engine.recordUsage = (...args) => usos.push(args);
+  const metrics = { lines: 5, changedFiles: 1, files: [{ path: 'src/auth/token.js' }] };
+  const modelRoutes = { claude: escolheModelo(metrics, engine.config), codex: escolheModelo(metrics, engine.config, { provedor: 'codex' }) };
+  // A preparação viu Claude; a sessão passou ao Codex antes do spawn.
+  const p = runClaudeStream(engine, 'revisar', { ...modelRoutes.claude, modelRoutes, id: 'codex-auto', account: 'trabalho' });
+  try {
+    await new Promise(r => setImmediate(r));
+    filhos[0].stdout.write('Logged in using ChatGPT\n');
+    filhos[0].stdout.end();
+    filhos[0].emit('close', 0);
+    await new Promise(r => setImmediate(r));
+    filhos[1].stdout.write(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
+    filhos[1].stdout.end();
+    filhos[1].emit('close', 0);
+    await p;
+    const args = chamadas[1].args;
+    assert.equal(args[args.indexOf('--model') + 1], 'gpt-6.1-sol');
+    assert.ok(args.includes('model_reasoning_effort="xhigh"'));
+    assert.equal(args.includes('auto'), false);
+    assert.equal(args.includes('opus'), false);
+    assert.equal(usos[0][3], 'gpt-6.1-sol');
+  } finally {
+    spawnImpl = null;
+  }
 });
 
 test('runClaudeStream: perfil Codex recusa login por API key antes do prompt', async () => {

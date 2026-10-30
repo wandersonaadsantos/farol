@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.22
+
+Claude e Codex passam a respeitar a mesma escolha de modelo por perfil de uso.
+
+### Correções
+
+- Escolher um modelo em um provedor sincroniza seu equivalente no outro. Sol volta para Opus para priorizar qualidade; a escolha explícita de Terra é preservada ao reiniciar.
+- O Auto revisa com Opus no Claude e GPT-6.1 Sol no Codex, sem modo rápido, e eleva ambos para `xhigh` em repositórios críticos, caminhos sensíveis ou PRs muito grandes.
+- A seleção acompanha o executor efetivo, inclusive quando a cadeia troca de provedor depois da preparação da revisão.
+
+### Melhorias
+
+- Catálogo atualizado com GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra e GPT-6 Luna. A equivalência é aproximada por perfil de uso; modelos anteriores continuam disponíveis para compatibilidade.
+
 ## v2.78.21
 
 Seleção de Codex por autoanálise restrita, sem trocar a associação da conta.
