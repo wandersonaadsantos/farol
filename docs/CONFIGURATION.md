@@ -947,3 +947,5 @@ Todo bind que não é `127.0.0.1` nem `localhost`, inclusive `[::1]`, entra na a
 - a autenticação local é exigida sempre (`bindForaDoLoopback` em `exigeAutenticacao`): ali a API chega a outras máquinas, e Host permitido não é autenticação.
 
 Na implantação web com proxy TLS (plano 5 do Farol nativo) o motor fica em loopback atrás do proxy, que reescreve o Host; o bind fora do loopback é para quem expõe o motor sem proxy na frente.
+
+A implantação hospedada (29/10/2026) é exatamente essa: um motor por pessoa em `127.0.0.1`, cada um na sua porta, o Caddy expondo `<pessoa>.farol.<dominio>` com TLS automático, e a A4 ligada por `localAuth: "exigir"` no `config.json` que o provisionamento grava (em loopback, o `bind` não liga a exigência). O passo a passo do operador e da pessoa, o porquê de o proxy reescrever o Host e retirar o Origin, e o que falta validar numa VM estão no `docs/WEB.md`, que não viaja com o app.
