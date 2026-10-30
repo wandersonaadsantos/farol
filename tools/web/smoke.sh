@@ -49,7 +49,9 @@ echo '  ========================================'
 # --- pre-condicoes ----------------------------------------------------------------
 [ "$(id -u)" -eq 0 ] || die 'Rode como root (sudo bash tools/web/smoke.sh <login>).'
 command -v curl >/dev/null 2>&1 || die 'curl ausente.'
-[[ "$LOGIN" =~ ^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$ ]] || die "Login invalido como subdominio: $LOGIN"
+command -v node >/dev/null 2>&1 || die 'node ausente no PATH do root.'
+# a regra de login que serve de subdominio mora so no tools/web/portas.js
+node "$(dirname "${BASH_SOURCE[0]}")/portas.js" conferir "$LOGIN" || die "Login invalido como subdominio: $LOGIN"
 if [ -z "$DOMINIO" ]; then
   [ -f "$DOMINIO_ARQ" ] || die "Sem --dominio e sem $DOMINIO_ARQ (rode o gerar-caddyfile.sh antes)."
   DOMINIO="$(head -n 1 "$DOMINIO_ARQ")"

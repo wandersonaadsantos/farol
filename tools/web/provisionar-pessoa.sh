@@ -79,10 +79,6 @@ for cmd in useradd loginctl systemctl getent sed flock stat readlink; do
   command -v "$cmd" >/dev/null 2>&1 || die "Comando ausente: $cmd"
 done
 [ -f "$PORTAS_JS" ] && [ -f "$TEMPLATE" ] || die "Rode a partir do clone do repositorio (faltou $PORTAS_JS ou $TEMPLATE)."
-# o login vira subdominio: regra de rotulo de DNS (a mesma do smoke, comecando por letra),
-# um subconjunto da regra do tools/web/portas.js. Conferir aqui evita criar usuario que o
-# gerar-caddyfile.sh recusaria depois, quebrando o Caddyfile de TODAS as pessoas
-[[ "$LOGIN" =~ ^[a-z]([a-z0-9-]{0,30}[a-z0-9])?$ ]] || die "Login invalido: $LOGIN (vira subdominio: comeca por letra, minusculas, digitos e -, sem - na ponta, sem _, ate 32)."
 if [ -n "$PACOTE" ]; then [ -e "$PACOTE" ] || die "Pacote nao encontrado: $PACOTE"; fi
 if [ -n "$CLONE" ]; then
   [ -d "$CLONE/.git" ] && [ -f "$CLONE/server.js" ] || die "--clone precisa de um clone git do Farol: $CLONE"
@@ -103,6 +99,10 @@ NODE_ROOT="$(command -v node || true)"
 NODE_ROOT="$(readlink -f "$NODE_ROOT")"
 [ "$(stat -c %u "$NODE_ROOT")" = 0 ] || die "O node do root ($NODE_ROOT) nao pertence ao root; use um node do sistema."
 case "$(stat -c %A "$NODE_ROOT")" in ?????w????|????????w?) die "O node do root ($NODE_ROOT) aceita escrita de grupo ou outros." ;; esac
+# o login vira subdominio: a regra mora so no tools/web/portas.js (a mesma do Caddyfile e do
+# smoke). Conferir antes de criar o usuario evita um login que o gerar-caddyfile.sh recusaria
+# depois, quebrando o Caddyfile de TODAS as pessoas
+"$NODE_ROOT" "$PORTAS_JS" conferir "$LOGIN" || die "Login invalido: $LOGIN (veja o motivo acima)."
 
 USUARIO_EXISTE=0
 id "$LOGIN" >/dev/null 2>&1 && USUARIO_EXISTE=1

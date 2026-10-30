@@ -126,11 +126,12 @@ sudo bash /opt/farol/tools/web/provisionar-pessoa.sh ana
 | `FAROL_NODE=/caminho/absoluto/node` | o node que a unidade usa; sem ele, o que o usuário criado enxerga (com o nvm dele, se houver) |
 
 **O login vira subdomínio.** Comece por letra e use minúsculas, dígitos e hífen, sem hífen na
-ponta e sem `_`: `ana`, `joao-silva`. O provisionamento recusa o resto pela regra de rótulo de DNS
-(a mesma do smoke), porque não sai certificado para um nome de host com `_` e um login assim faria
-o `gerar-caddyfile.sh` recusar o Caddyfile de TODAS as pessoas. O `tools/web/portas.js` ainda
-aceita `_` (a regra do `useradd`), para o arquivo editado à mão, e o `caddyfile.js` continua
-conferindo.
+ponta e sem `_`, até 32 caracteres: `ana`, `joao-silva`. A regra mora num lugar só,
+`tools/web/portas.js`: o provisionamento e o smoke perguntam por `node tools/web/portas.js
+conferir <login>`, o `caddyfile.js` herda pela leitura do arquivo de portas, e o arquivo editado à
+mão com um login fora dela é recusado na próxima leitura. O motivo é o certificado: não sai para um
+nome de host com `_`, e um login assim faria o `gerar-caddyfile.sh` recusar o Caddyfile de TODAS as
+pessoas.
 
 **Nunca uma conta privilegiada.** As revisões headless rodam `claude --dangerously-skip-permissions`:
 numa conta com sudo, uma injeção de prompt num PR viraria root numa máquina com os tokens de todo

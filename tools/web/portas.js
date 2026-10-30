@@ -5,8 +5,11 @@
 //
 // Formato: texto simples, uma linha `<login> <porta>` por pessoa (um espaço só entre
 // os dois), sem comentário e sem linha vazia no meio, na ordem de inserção, com quebra
-// de linha no fim. O login segue a regra de nome de usuário do Linux que o useradd
-// aceita sem aviso; a porta é inteira, de 1024 a 65535.
+// de linha no fim. O login é a ÚNICA regra de "login que vira subdomínio" da web hospedada
+// (começa por letra, só minúsculas, dígitos e hífen, sem hífen na ponta, até 32, que é o
+// que o useradd aceita sem aviso E o que serve de rótulo de DNS para o certificado): o
+// caddyfile.js herda pela leitura, e o provisionar-pessoa.sh e o smoke.sh perguntam pelo
+// subcomando `conferir`. A porta é inteira, de 1024 a 65535.
 //
 // Linha fora do formato, login repetido ou porta repetida LANÇAM com a mensagem dizendo
 // o que e onde: o arquivo é editado à mão em caso de emergência, e alocar em cima de um
@@ -15,16 +18,19 @@
 // Tudo aqui é PURO, exceto `executar`, a CLI fina que o provisionar-pessoa.sh chama:
 //   node tools/web/portas.js alocar <arquivo> <login> [porta]   imprime a porta e regrava
 //   node tools/web/portas.js listar <arquivo>                   imprime `login porta`
+//   node tools/web/portas.js conferir <login>                   0 se o login serve, 1 com o motivo
 import fs from 'node:fs';
 import { executadoDireto } from '../../lib/paths.js';
 import { DEFAULT_PORT } from '../../lib/constants.js';
 
-const LOGIN = /^[a-z_][a-z0-9_-]{0,31}$/;
+const LOGIN = /^[a-z]([a-z0-9-]{0,30}[a-z0-9])?$/;
+const MOTIVO_DO_LOGIN = 'vira subdomínio: começa por letra, só minúsculas, dígitos e hífen, sem hífen na ponta, até 32';
 const PORTA = /^\d{1,5}$/;
 const PORTA_MIN = 1024;
 const PORTA_MAX = 65535;
 const USO = 'Uso: node tools/web/portas.js alocar <arquivo> <login> [porta]\n'
-  + '     node tools/web/portas.js listar <arquivo>\n';
+  + '     node tools/web/portas.js listar <arquivo>\n'
+  + '     node tools/web/portas.js conferir <login>\n';
 
 function loginValido(login) {
   return typeof login === 'string' && LOGIN.test(login);
@@ -56,6 +62,9 @@ function lerPortas(texto) {
   const registros = linhas.map((linha, i) => {
     const partes = linha.split(' ');
     const porta = partes.length === 2 ? portaValida(partes[1]) : null;
+    if (partes.length === 2 && !loginValido(partes[0])) {
+      throw new Error(`linha ${i + 1}: login inválido: ${partes[0]} (${MOTIVO_DO_LOGIN})`);
+    }
     if (!loginValido(partes[0]) || porta === null) {
       throw new Error(`linha ${i + 1} fora do formato "<login> <porta>": ${linha}`);
     }
@@ -80,7 +89,7 @@ function proximaPortaLivre(registros, aPartirDe = DEFAULT_PORT) {
 // Devolve o texto novo do arquivo (com a pessoa no fim) e a porta dela. Sem porta
 // pedida, a próxima livre a partir da padrão do Farol.
 function alocarPorta(texto, login, portaPedida) {
-  if (!loginValido(login)) throw new Error(`login inválido: ${login}`);
+  if (!loginValido(login)) throw new Error(`login inválido: ${login} (${MOTIVO_DO_LOGIN})`);
   const registros = lerPortas(texto);
   let porta = proximaPortaLivre(registros);
   if (portaPedida !== undefined) {
@@ -100,9 +109,15 @@ function executar(args, saida, erro) {
   const [comando, arquivo, login, porta] = args;
   const alocar = comando === 'alocar' && (args.length === 3 || args.length === 4);
   const listar = comando === 'listar' && args.length === 2;
-  if (!alocar && !listar) {
+  const conferir = comando === 'conferir' && args.length === 2;
+  if (!alocar && !listar && !conferir) {
     erro.write(USO);
     return 2;
+  }
+  if (conferir) {
+    if (loginValido(arquivo)) return 0;
+    erro.write(`login inválido: ${arquivo} (${MOTIVO_DO_LOGIN})\n`);
+    return 1;
   }
   try {
     if (listar) {
@@ -124,5 +139,5 @@ function executar(args, saida, erro) {
 
 if (executadoDireto(import.meta.url)) process.exitCode = executar(process.argv.slice(2), process.stdout, process.stderr);
 
-export default { lerPortas, serializarPortas, proximaPortaLivre, alocarPorta, executar };
-export { lerPortas, serializarPortas, proximaPortaLivre, alocarPorta, executar };
+export default { loginValido, lerPortas, serializarPortas, proximaPortaLivre, alocarPorta, executar };
+export { loginValido, lerPortas, serializarPortas, proximaPortaLivre, alocarPorta, executar };

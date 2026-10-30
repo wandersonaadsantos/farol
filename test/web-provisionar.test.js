@@ -103,6 +103,10 @@ test('alocarPorta recusa login repetido e porta repetida', () => {
 
 test('alocarPorta recusa login e porta fora do formato', () => {
   assert.throws(() => alocarPorta('', 'Ana'), /login inválido/);
+  // a regra de login que vira subdomínio mora aqui, e só aqui: sem _, sem começar por dígito, sem hífen na ponta
+  for (const login of ['_ana', 'ana_b', '1ana', 'ana-', 'a'.repeat(33)]) assert.throws(() => alocarPorta('', login), /subdomínio/, login);
+  assert.throws(() => lerPortas(`ana_b ${DEFAULT_PORT}\n`), /linha 1: login inválido.*subdomínio/);
+  assert.equal(alocarPorta('', 'ana-2').porta, DEFAULT_PORT);
   assert.throws(() => alocarPorta('', 'ana beto'), /login inválido/);
   assert.throws(() => alocarPorta('', ''), /login inválido/);
   for (const porta of ['80', '70000', 'abc', `${DEFAULT_PORT}x`, 1.5]) {
@@ -141,6 +145,11 @@ test('CLI recusa repetição sem tocar o arquivo e devolve código de erro', () 
     const uso = coletor();
     assert.equal(executar(['outra-coisa'], coletor(), uso), 2);
     assert.match(uso.texto, /Uso:/);
+    // `conferir` é o que o provisionar-pessoa.sh e o smoke.sh perguntam antes de agir
+    assert.equal(executar(['conferir', 'ana-2'], coletor(), coletor()), 0);
+    const motivo = coletor();
+    assert.equal(executar(['conferir', 'ana_b'], coletor(), motivo), 1);
+    assert.match(motivo.texto, /subdomínio/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

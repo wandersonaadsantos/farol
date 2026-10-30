@@ -3,10 +3,9 @@
 // (nunca prefixo de caminho: a tela carrega /app.js e /app.css da raiz e as rotas moram
 // no caminho), encaminhando para o motor dela em 127.0.0.1:<porta>.
 //
-// O formato de /etc/farol/portas continua sendo do portas.js: aqui os registros passam
-// pelas mesmas regras dele (formato, login e porta sem repetição) e, a mais, pela regra de
-// rótulo de DNS, porque o login vira subdomínio e o certificado não sai para nome com `_`
-// ou com hífen na ponta.
+// O formato de /etc/farol/portas é do portas.js, inclusive a regra de login que serve de
+// subdomínio: aqui os registros só passam de novo pela leitura dele (formato, login e porta
+// sem repetição). O que se valida aqui é só o domínio, rótulo a rótulo.
 //
 // `gerarCaddyfile` é PURA; `executar` é a CLI fina que o gerar-caddyfile.sh chama:
 //   node tools/web/caddyfile.js <arquivo-de-portas> <dominio>   imprime o Caddyfile
@@ -37,9 +36,6 @@ function gerarCaddyfile({ dominio, pessoas } = {}) {
   if (!dominioValido(dominio)) throw new Error(`domínio inválido: ${dominio}`);
   // ida e volta pelo formato do portas.js: mesma regra de login, porta e repetição
   const registros = lerPortas(serializarPortas(pessoas || []));
-  for (const { login } of registros) {
-    if (!ROTULO.test(login)) throw new Error(`o login ${login} não serve de subdomínio (sem _ e sem hífen na ponta)`);
-  }
   return [CABECALHO, ...registros.map(r => bloco(dominio, r))].join('\n');
 }
 

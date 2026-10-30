@@ -103,7 +103,7 @@ test('recusa login que não serve de subdomínio e repetições, pela regra do p
   }
   assert.throws(() => gerarCaddyfile({ dominio: DOMINIO, pessoas: [ANA, { login: 'ana', porta: DEFAULT_PORT + 2 }] }), /login repetido/);
   assert.throws(() => gerarCaddyfile({ dominio: DOMINIO, pessoas: [ANA, { login: 'caio', porta: ANA.porta }] }), /porta repetida/);
-  assert.throws(() => gerarCaddyfile({ dominio: DOMINIO, pessoas: [{ login: 'Ana', porta: DEFAULT_PORT }] }), /fora do formato/);
+  assert.throws(() => gerarCaddyfile({ dominio: DOMINIO, pessoas: [{ login: 'Ana', porta: DEFAULT_PORT }] }), /subdomínio/);
 });
 
 test('o template guarda os três marcadores, e o gerador nunca copia o cabeçalho dele', () => {
