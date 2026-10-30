@@ -75,7 +75,7 @@ $('#btnLogClear').onclick = async () => {
 async function loadLog() {
   const [lines, grupos] = await Promise.all([get('/api/log'), get('/api/log/triage')]);
   const linhas = lines || [];
-  $('#logBox').textContent = linhas.length ? linhas.join('\n') : 'Nenhuma falha registrada. Bom sinal.';
+  $('#logBox').textContent = linhas.length ? linhas.join('\n') : 'Log vazio.';
   // resumo agrupado ANTES do despejo: contagem crua não distingue "1 problema repetido
   // 70 vezes" de "70 problemas". Fica num parágrafo próprio de propósito, e não dentro
   // da .section-head: aquela linha é flex e quebra cedo (ver o CSS da aba).
