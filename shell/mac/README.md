@@ -55,7 +55,8 @@ partir de qualquer pasta.
 ## Limites conhecidos
 
 - **Sair com o motor travado**: o Sair espera o motor parar por até 8 s e então deixa o app sair
-  assim mesmo. Nesse caso o motor segue rodando até perceber o fim da entrada padrão (o pipe que a
-  casca segura fecha quando o app sai); essa detecção é trabalho do lado do motor e ainda não
-  existe, então hoje ele fica de pé até ser parado à mão (a próxima abertura do app o encontra
-  vivo e abre como visor).
+  assim mesmo. Nesse caso o motor percebe o fim da entrada padrão (o pipe que a casca segura
+  fecha quando o app sai) e sai sozinho pelo caminho ordenado, apagando o `casca.json`
+  (`lib/engine/casca-stdin.js`, desde 30/10/2026); o mesmo vale para crash, `kill -9` e logout
+  do app. Até a saída do motor concluir, uma reabertura imediata pode encontrá-lo vivo e abrir
+  como visor.

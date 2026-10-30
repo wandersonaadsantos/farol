@@ -97,6 +97,14 @@ código 75.
 Nota de contrato (plano 1 entregue): o 75 é `CASCA.CODIGO_SAIDA_DE_PROPOSITO`, em
 `lib/constants.js`.
 
+Nota de contrato (30/10/2026, depois dos planos 2 e 3): **a casca entrega um pipe como
+stdin do motor e o segura aberto pela vida do processo**, sem escrever nele. Em modo casca
+o motor lê o fim do stdin como "a casca morreu" (crash, `kill -9`, logout, sem sinal) e
+sai com 0 pelo caminho ordenado, apagando o `casca.json`; o pai do bootstrap herda o
+mesmo pipe e repassa SIGTERM ao filho. É o que impede o motor órfão do launchd no Mac.
+No Windows a casca redireciona o stdin (`RedirectStandardInput`) além do Job Object;
+um stdin fechado na largada faria o motor sair na hora, e a casca não religa esse caso.
+
 ### Layout do bundle (o que o plano 4 empacota e o que o 1 pressupõe)
 
 ```
