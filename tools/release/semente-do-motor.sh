@@ -20,8 +20,11 @@ destino=""
 zip=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --destino) destino="${2:-}"; shift 2 ;;
-    --zip) zip="${2:-}"; shift 2 ;;
+    --destino | --zip)
+      [ $# -ge 2 ] || falhar "falta o valor de $1"
+      if [ "$1" = --destino ]; then destino="$2"; else zip="$2"; fi
+      shift 2
+      ;;
     *) falhar "argumento desconhecido: $1" ;;
   esac
 done

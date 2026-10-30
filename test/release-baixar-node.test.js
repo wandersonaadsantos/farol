@@ -12,18 +12,29 @@ import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { execFile, spawnSync } from 'node:child_process';
+import { zipDe, tarGzDe } from './helpers/arquivos-compactados.js';
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const SH = path.join(RAIZ, 'tools', 'release', 'baixar-node.sh');
 const PS1 = path.join(RAIZ, 'tools', 'release', 'baixar-node.ps1');
 const VERSAO_NVMRC = fs.readFileSync(path.join(RAIZ, '.nvmrc'), 'utf8').trim().replace(/^v/, '');
+const existe = (cmd, args) => { const r = spawnSync(cmd, args); return !r.error && r.status === 0; };
 const PWSH = ['/opt/homebrew/bin/pwsh', '/usr/local/bin/pwsh', '/usr/bin/pwsh'].find((p) => fs.existsSync(p))
-  || (spawnSync('pwsh', ['-v']).status === 0 ? 'pwsh' : null);
+  || (existe('pwsh', ['-v']) ? 'pwsh' : null);
+// o .sh precisa de bash, curl, tar, unzip e de um sha256; o CI do Windows não tem `zip` nem
+// leva este script a sério (a casca do Windows usa o .ps1), então lá ele pula com motivo
+function motivoParaPularSh() {
+  if (process.platform === 'win32') return 'baixar-node.sh é do macOS e do Linux; no Windows vale o .ps1';
+  const faltando = ['curl', 'tar', 'unzip'].filter((c) => !existe('sh', ['-c', `command -v ${c}`]));
+  if (!existe('sh', ['-c', 'command -v shasum || command -v sha256sum'])) faltando.push('shasum/sha256sum');
+  return faltando.length ? `ferramenta ausente: ${faltando.join(', ')}` : false;
+}
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-baixar-node-'));
 const SITE = path.join(TMP, 'site');
 const VERSAO_ERRADA = '9.9.9';
 const VERSAO_SEM_SHASUMS = '8.8.8';
+const VERSAO_SEM_LINHA = '7.7.7';
 
 const sha256 = (arquivo) => crypto.createHash('sha256').update(fs.readFileSync(arquivo)).digest('hex');
 
@@ -33,33 +44,30 @@ function binarioFalso(versao) {
 }
 
 // monta node-v<v>-<plat>.tar.gz e node-v<v>-win-x64.zip com o leiaute oficial e mais
-// um arquivo que NÃO pode sair do pacote
-function fabricarVersao(versao, { shasums = 'certo' } = {}) {
+// um arquivo que NÃO pode sair do pacote. Em Node puro: o fixture não pode depender de
+// `zip`/`tar` na máquina, senão o arquivo inteiro cai no carregamento onde eles faltam.
+function fabricarVersao(versao, { shasums = 'certo', semLinha = false } = {}) {
   const dir = path.join(SITE, `v${versao}`);
   fs.mkdirSync(dir, { recursive: true });
-  const obra = fs.mkdtempSync(path.join(TMP, 'obra-'));
   const nomes = [];
   for (const plat of ['darwin-arm64', 'darwin-x64']) {
     const raiz = `node-v${versao}-${plat}`;
-    fs.mkdirSync(path.join(obra, raiz, 'bin'), { recursive: true });
-    fs.mkdirSync(path.join(obra, raiz, 'include'), { recursive: true });
-    fs.writeFileSync(path.join(obra, raiz, 'bin', 'node'), binarioFalso(versao), { mode: 0o755 });
-    fs.writeFileSync(path.join(obra, raiz, 'include', 'node.h'), '// cabecalho\n');
     const nome = `${raiz}.tar.gz`;
-    const r = spawnSync('tar', ['-czf', path.join(dir, nome), raiz], { cwd: obra });
-    assert.equal(r.status, 0, String(r.stderr));
+    fs.writeFileSync(path.join(dir, nome), tarGzDe([
+      { nome: `${raiz}/bin/node`, conteudo: binarioFalso(versao), modo: 0o755 },
+      { nome: `${raiz}/include/node.h`, conteudo: '// cabecalho\n' },
+    ]));
     nomes.push(nome);
   }
   const raizWin = `node-v${versao}-win-x64`;
-  fs.mkdirSync(path.join(obra, raizWin), { recursive: true });
-  fs.writeFileSync(path.join(obra, raizWin, 'node.exe'), `MZ falso v${versao}\n`);
-  fs.writeFileSync(path.join(obra, raizWin, 'npm.cmd'), '@echo off\n');
   const nomeWin = `${raizWin}.zip`;
-  const z = spawnSync('zip', ['-q', '-r', path.join(dir, nomeWin), raizWin], { cwd: obra });
-  assert.equal(z.status, 0, String(z.stderr));
+  fs.writeFileSync(path.join(dir, nomeWin), zipDe([
+    { nome: `${raizWin}/node.exe`, conteudo: `MZ falso v${versao}\n` },
+    { nome: `${raizWin}/npm.cmd`, conteudo: '@echo off\n' },
+  ]));
   nomes.push(nomeWin);
   if (shasums === 'ausente') return;
-  const linhas = nomes.map((n) => {
+  const linhas = (semLinha ? [] : nomes).map((n) => {
     const hash = shasums === 'errado' ? 'f'.repeat(64) : sha256(path.join(dir, n));
     return `${hash}  ${n}`;
   });
@@ -70,6 +78,7 @@ function fabricarVersao(versao, { shasums = 'certo' } = {}) {
 fabricarVersao(VERSAO_NVMRC);
 fabricarVersao(VERSAO_ERRADA, { shasums: 'errado' });
 fabricarVersao(VERSAO_SEM_SHASUMS, { shasums: 'ausente' });
+fabricarVersao(VERSAO_SEM_LINHA, { semLinha: true });
 
 let servidor;
 let origem;
@@ -115,7 +124,7 @@ function listarTudo(dir, base = dir) {
 
 for (const script of [SH, PS1]) {
   const nome = path.basename(script);
-  const pular = script === PS1 && !PWSH ? 'pwsh ausente nesta máquina' : false;
+  const pular = script === PS1 ? (PWSH ? false : 'pwsh ausente nesta máquina') : motivoParaPularSh();
 
   test(`${nome}: hash certo, darwin-arm64, versão do .nvmrc por padrão: só bin/node sai do pacote`, { skip: pular }, async () => {
     const destino = destinoNovo();
@@ -123,7 +132,8 @@ for (const script of [SH, PS1]) {
     assert.equal(r.code, 0, r.stderr + r.stdout);
     assert.deepEqual(listarTudo(destino), ['bin/node']);
     assert.equal(fs.readFileSync(path.join(destino, 'bin', 'node'), 'utf8'), binarioFalso(VERSAO_NVMRC));
-    assert.ok(fs.statSync(path.join(destino, 'bin', 'node')).mode & 0o100, 'bin/node tem que sair executável');
+    // NTFS não guarda o bit de execução
+    if (process.platform !== 'win32') assert.ok(fs.statSync(path.join(destino, 'bin', 'node')).mode & 0o100, 'bin/node tem que sair executável');
   });
 
   test(`${nome}: hash certo, win-x64: só node.exe sai do zip`, { skip: pular }, async () => {
@@ -162,5 +172,21 @@ for (const script of [SH, PS1]) {
     assert.notEqual(r.code, 0);
     assert.match(r.stderr + r.stdout, /SHASUMS256\.txt/);
     assert.deepEqual(listarTudo(destino), []);
+  });
+
+  test(`${nome}: arquivo fora do SHASUMS256.txt falha sem extrair`, { skip: pular }, async () => {
+    const destino = destinoNovo();
+    const r = await rodar(script, ['--versao', VERSAO_SEM_LINHA, '--plataforma', 'win-x64', '--destino', destino, '--origem', origem]);
+    assert.notEqual(r.code, 0);
+    const saida = r.stderr + r.stdout;
+    assert.ok(saida.includes(`node-v${VERSAO_SEM_LINHA}-win-x64.zip`), saida);
+    assert.match(saida, /SHASUMS256\.txt/);
+    assert.deepEqual(listarTudo(destino), []);
+  });
+
+  test(`${nome}: opção no fim sem valor falha dizendo qual`, { skip: pular }, async () => {
+    const r = await rodar(script, ['--plataforma', 'darwin-arm64', '--origem', origem, '--destino']);
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr + r.stdout, /falta o valor de --destino/);
   });
 }

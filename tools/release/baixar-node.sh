@@ -23,10 +23,16 @@ destino=""
 origem="https://nodejs.org/dist"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --versao) versao="${2:-}"; shift 2 ;;
-    --plataforma) plataforma="${2:-}"; shift 2 ;;
-    --destino) destino="${2:-}"; shift 2 ;;
-    --origem) origem="${2:-}"; shift 2 ;;
+    --versao | --plataforma | --destino | --origem)
+      [ $# -ge 2 ] || falhar "falta o valor de $1"
+      case "$1" in
+        --versao) versao="$2" ;;
+        --plataforma) plataforma="$2" ;;
+        --destino) destino="$2" ;;
+        --origem) origem="$2" ;;
+      esac
+      shift 2
+      ;;
     *) falhar "argumento desconhecido: $1" ;;
   esac
 done
@@ -77,11 +83,12 @@ if [ "$esperado" != "$obtido" ]; then
 fi
 
 mkdir -p "$tmp/x"
+# a falha da ferramenta (membro ausente, pacote truncado) vira a mensagem do Farol
 case "$arquivo" in
-  *.tar.gz) tar -xzf "$tmp/$arquivo" -C "$tmp/x" "$membro" ;;
-  *.zip) unzip -q "$tmp/$arquivo" "$membro" -d "$tmp/x" ;;
+  *.tar.gz) tar -xzf "$tmp/$arquivo" -C "$tmp/x" "$membro" 2> /dev/null || true ;;
+  *.zip) unzip -q "$tmp/$arquivo" "$membro" -d "$tmp/x" 2> /dev/null || true ;;
 esac
-[ -f "$tmp/x/$membro" ] || falhar "Node v$versao: $membro ausente dentro de $arquivo"
+[ -f "$tmp/x/$membro" ] || falhar "Node v$versao: $membro ausente dentro de $arquivo (ou pacote ilegivel)"
 
 mkdir -p "$(dirname "$destino/$saida")"
 cp "$tmp/x/$membro" "$destino/$saida"

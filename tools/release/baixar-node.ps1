@@ -21,13 +21,16 @@ $plataforma = ''
 $destino = ''
 $origem = 'https://nodejs.org/dist'
 for ($i = 0; $i -lt $args.Count; $i += 2) {
-  $valor = if ($i + 1 -lt $args.Count) { [string]$args[$i + 1] } else { '' }
-  switch ([string]$args[$i]) {
+  $opcao = [string]$args[$i]
+  if ($opcao -notmatch '^--') { Falhar "argumento desconhecido: $opcao" }
+  if ($i + 1 -ge $args.Count) { Falhar "falta o valor de $opcao" }
+  $valor = [string]$args[$i + 1]
+  switch ($opcao) {
     '--versao' { $versao = $valor }
     '--plataforma' { $plataforma = $valor }
     '--destino' { $destino = $valor }
     '--origem' { $origem = $valor }
-    default { Falhar "argumento desconhecido: $($args[$i])" }
+    default { Falhar "argumento desconhecido: $opcao" }
   }
 }
 

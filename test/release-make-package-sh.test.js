@@ -10,14 +10,24 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { listaPowershell, arquivosQueViajam } from './helpers/listas-do-pacote.js';
+import { zipDe } from './helpers/arquivos-compactados.js';
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
 const PS1 = ler('tools/make-package.ps1');
 const SH = ler('tools/make-package.sh');
 const VERSAO = JSON.parse(ler('package.json')).version;
+const existe = (cmd, args) => { const r = spawnSync(cmd, args); return !r.error && r.status === 0; };
 const PWSH = ['/opt/homebrew/bin/pwsh', '/usr/local/bin/pwsh', '/usr/bin/pwsh'].find((p) => fs.existsSync(p))
-  || (spawnSync('pwsh', ['-v']).status === 0 ? 'pwsh' : null);
+  || (existe('pwsh', ['-v']) ? 'pwsh' : null);
+// os .sh precisam de bash, zip (`zip -@`), unzip e git; o CI do Windows não tem `zip`, e lá
+// o pacote sai do make-package.ps1, então esses casos pulam com motivo
+function motivoParaPularSh() {
+  if (process.platform === 'win32') return 'make-package.sh e semente-do-motor.sh são do macOS e do Linux; no Windows vale o .ps1';
+  const faltando = ['zip', 'unzip', 'git'].filter((c) => !existe('sh', ['-c', `command -v ${c}`]));
+  return faltando.length ? `ferramenta ausente: ${faltando.join(', ')}` : false;
+}
+const SO_POSIX = { skip: motivoParaPularSh() };
 
 // mesma leitura do `listaBash` de test/distribuicao-listas.test.js
 const NOME_SIMPLES = /^[A-Za-z][\w.-]*$/;
@@ -65,7 +75,7 @@ test('make-package.sh audita com os mesmos padrões do make-package.ps1', () => 
   assert.match(SH, /grep -[a-zA-Z]*i[a-zA-Z]*E/);
 });
 
-test('make-package.sh gera o zip com exatamente os arquivos que viajam', () => {
+test('make-package.sh gera o zip com exatamente os arquivos que viajam', SO_POSIX, () => {
   const r = spawnSync('bash', [path.join(RAIZ, 'tools', 'make-package.sh')], { env: AMBIENTE, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.ok(fs.existsSync(ZIP), `zip ausente em ${ZIP}`);
@@ -73,7 +83,7 @@ test('make-package.sh gera o zip com exatamente os arquivos que viajam', () => {
   assert.deepEqual(entradas, ESPERADO);
 });
 
-test('semente-do-motor.sh com --zip extrai o pacote em <destino>/engine/app e imprime a versão', () => {
+test('semente-do-motor.sh com --zip extrai o pacote em <destino>/engine/app e imprime a versão', SO_POSIX, () => {
   assert.ok(fs.existsSync(ZIP), 'depende do zip gerado no teste anterior');
   const destino = path.join(TMP, 'semente-zip');
   const r = spawnSync('bash', [path.join(RAIZ, 'tools', 'release', 'semente-do-motor.sh'), '--zip', ZIP, '--destino', destino],
@@ -83,7 +93,7 @@ test('semente-do-motor.sh com --zip extrai o pacote em <destino>/engine/app e im
   assert.deepEqual(listarTudo(path.join(destino, 'engine', 'app')).sort(), ESPERADO);
 });
 
-test('semente-do-motor.sh sem --zip gera o pacote pelo make-package.sh', () => {
+test('semente-do-motor.sh sem --zip gera o pacote pelo make-package.sh', SO_POSIX, () => {
   const destino = path.join(TMP, 'semente-build');
   const r = spawnSync('bash', [path.join(RAIZ, 'tools', 'release', 'semente-do-motor.sh'), '--destino', destino],
     { env: AMBIENTE, encoding: 'utf8' });
@@ -93,18 +103,21 @@ test('semente-do-motor.sh sem --zip gera o pacote pelo make-package.sh', () => {
   assert.deepEqual(listarTudo(path.join(destino, 'engine', 'app')).sort(), ESPERADO);
 });
 
-test('semente-do-motor.sh sem --destino falha', () => {
+test('semente-do-motor.sh sem --destino falha', SO_POSIX, () => {
   const r = spawnSync('bash', [path.join(RAIZ, 'tools', 'release', 'semente-do-motor.sh'), '--zip', ZIP],
     { env: AMBIENTE, encoding: 'utf8' });
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /--destino/);
 });
 
+// o zip deste caso é montado em Node a partir de `arquivosQueViajam`, então ele roda também
+// no Windows, onde não há `zip` nem make-package.sh
 test('semente-do-motor.ps1 com --zip extrai o mesmo pacote', { skip: PWSH ? false : 'pwsh ausente nesta máquina' }, () => {
-  assert.ok(fs.existsSync(ZIP), 'depende do zip gerado pelo make-package.sh');
+  const zipPs1 = path.join(TMP, 'pacote-ps1.zip');
+  fs.writeFileSync(zipPs1, zipDe(ESPERADO.map((rel) => ({ nome: rel, conteudo: fs.readFileSync(path.join(RAIZ, rel)) }))));
   const destino = path.join(TMP, 'semente-ps1');
   const r = spawnSync(PWSH, ['-NoProfile', '-NonInteractive', '-File', path.join(RAIZ, 'tools', 'release', 'semente-do-motor.ps1'),
-    '--zip', ZIP, '--destino', destino], { env: AMBIENTE, encoding: 'utf8' });
+    '--zip', zipPs1, '--destino', destino], { env: AMBIENTE, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(r.stdout.trim(), VERSAO);
   assert.deepEqual(listarTudo(path.join(destino, 'engine', 'app')).sort(), ESPERADO);

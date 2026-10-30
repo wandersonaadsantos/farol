@@ -18,11 +18,14 @@ $Raiz = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $destino = ''
 $zip = ''
 for ($i = 0; $i -lt $args.Count; $i += 2) {
-  $valor = if ($i + 1 -lt $args.Count) { [string]$args[$i + 1] } else { '' }
-  switch ([string]$args[$i]) {
+  $opcao = [string]$args[$i]
+  if ($opcao -notmatch '^--') { Falhar "argumento desconhecido: $opcao" }
+  if ($i + 1 -ge $args.Count) { Falhar "falta o valor de $opcao" }
+  $valor = [string]$args[$i + 1]
+  switch ($opcao) {
     '--destino' { $destino = $valor }
     '--zip' { $zip = $valor }
-    default { Falhar "argumento desconhecido: $($args[$i])" }
+    default { Falhar "argumento desconhecido: $opcao" }
   }
 }
 if (-not $destino) { Falhar 'falta --destino <dir>' }
