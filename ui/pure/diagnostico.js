@@ -103,7 +103,7 @@ function falhasSecaoHtml(dados = {}) {
   const aviso = dados.estado === 'erro'
     ? `<div class="banner" role="status">Não deu para ler as falhas agora.${daLeitura}</div>`
     : '';
-  if (!lista.length) return aviso || '<p class="sys-note">Nenhuma falha registrada. Bom sinal.</p>';
+  if (!lista.length) return aviso || '<p class="sys-note">Nenhuma falha de sessão de IA registrada.</p>';
   return `${aviso}<div class="cards">${lista.map(falhaCartaoHtml).join('')}</div>`;
 }
 

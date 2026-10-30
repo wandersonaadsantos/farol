@@ -345,6 +345,15 @@ export function pontePainelHtml(u, plataforma) {
 // A linha do status do update que diz por que o Farol ainda não aplicou a versão nova: o
 // que está segurando e desde quando (lib/engine/update.js, marcarAdiado). Sem ela, um
 // update detectado e não aplicado parecia defeito (25/09/2026).
+// Instalação que não se atualiza sozinha: diz o motivo em vez de oferecer um botão que
+// falharia (engine.update.indisponivel, lib/engine/update.js).
+export function updateIndisponivelHtml(u) {
+  const motivo = u && u.indisponivel;
+  if (motivo === 'checkout-git') return '<span class="up-note">Atualização automática indisponível nesta instalação: ela roda de um checkout git. Atualize com git pull.</span>';
+  if (motivo === 'externo') return '<span class="up-note">Atualização administrada por fora desta instalação.</span>';
+  return '';
+}
+
 export function updateAdiadoHtml(u) {
   const a = u && u.adiado;
   if (!a || !a.motivo) return '';

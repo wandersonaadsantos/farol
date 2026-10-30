@@ -80,7 +80,8 @@ async function loadLog() {
   // 70 vezes" de "70 problemas". Fica num parágrafo próprio de propósito, e não dentro
   // da .section-head: aquela linha é flex e quebra cedo (ver o CSS da aba).
   const resumo = $('#logResumo');
-  const texto = logSummaryShort(grupos || [], 3);
+  const sumario = logSummaryShort(grupos || [], 3);
+  const texto = sumario ? `No log: ${sumario}` : '';
   resumo.textContent = texto;
   resumo.hidden = !texto;
   const box = $('#logBox');

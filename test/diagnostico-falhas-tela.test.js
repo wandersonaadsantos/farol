@@ -102,7 +102,7 @@ test('o cartão de falha diz o que é, o que fazer, e mostra o texto inerte', ()
 
 test('os estados do painel são distintos: carregando, vazio, falha de leitura', () => {
   assert.match(falhasSecaoHtml({ estado: 'carregando' }), /lendo as falhas/i);
-  assert.match(falhasSecaoHtml({ estado: 'pronto', falhas: [] }), /Nenhuma falha registrada/);
+  assert.match(falhasSecaoHtml({ estado: 'pronto', falhas: [] }), /Nenhuma falha de sessão de IA registrada/);
   const erro = falhasSecaoHtml({ estado: 'erro', falhas: [], lidoEm: 0 });
   assert.match(erro, /não deu para ler/i);
   assert.doesNotMatch(erro, /Nenhuma falha registrada/, 'falha não se disfarça de vazio');

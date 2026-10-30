@@ -360,6 +360,7 @@ const CONGELADA = [
   "transferenciaConfirmacao",
   "transferenciaDialogo",
   "updateAdiadoHtml",
+  "updateIndisponivelHtml",
   "usageBudgetHtml",
   "usageColorsFor",
   "usageConsolidadoEnvelopeHtml",

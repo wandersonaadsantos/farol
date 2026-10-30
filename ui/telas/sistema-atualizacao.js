@@ -1,6 +1,6 @@
 /* Farol · UI: versão e atualização (Sistema > Visão geral). */
 
-import { esc, fmtClock, updateAdiadoHtml, pontePainelHtml } from '../pure.js';
+import { esc, fmtClock, updateAdiadoHtml, updateIndisponivelHtml, pontePainelHtml } from '../pure.js';
 import { estado, ehMac, ehWin } from './estado.js';
 import { $, api, toast, confirmModal, origemLocal } from './infra.js';
 
@@ -49,6 +49,9 @@ function renderUpdate() {
   if (u.ponte) {
     // a 3.x é o Farol nativo: nada a aplicar aqui, só o instalador a baixar
     box.innerHTML = pontePainelHtml(u, plataformaDaPonte());
+  } else if (u.available && u.indisponivel) {
+    // sem botão: ele falharia nesta instalação (checkout ou update administrado por fora)
+    box.innerHTML = `<span class="up-ver">v${esc(u.current)} → v${esc(u.sourceVersion)}</span>${updateIndisponivelHtml(u)}`;
   } else if (u.available) {
     const autoOn = remote && estado().config?.autoUpdate !== false;
     const noteAuto = autoOn
