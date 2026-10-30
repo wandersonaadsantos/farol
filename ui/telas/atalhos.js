@@ -29,6 +29,8 @@ function kbdMove(delta, switchTab) {
 // pular não posta nada e segue como clique; aprovar, pedir mudanças e comentar escrevem no
 // GitHub, então passam pela confirmação (a mesma do clique, mais a de aprovar e comentar)
 function agirNoCard(btn, card) {
+  // botão desligado (decisão já em curso, ação indisponível) vale para a tecla também
+  if (!btn || btn.disabled) return;
   if (btn.dataset.action === 'skip') { btn.click(); return; }
   const ref = (card.querySelector('.dec-ref')?.textContent || 'este PR').trim();
   btn.disabled = true;
