@@ -28,6 +28,7 @@ targets:
         excludes:
           - Info.plist
           - Farol.entitlements
+          - Node.entitlements
     dependencies:
       - package: FarolKit
         product: FarolApp
