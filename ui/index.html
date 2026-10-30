@@ -529,7 +529,7 @@
             </label>
             <label class="set-row" id="sys-row-pushback">
               <span class="set-txt">
-                <span class="set-title">Reconhecer quando o autor contesta a revisão (usa 1 sessão de IA por PR contestado)</span>
+                <span class="set-title">Reconhecer quando o autor contesta a revisão (usa 1 sessão de IA por PR em que o autor respondeu)</span>
                 <span class="set-desc">Para cada PR em que o autor respondeu depois do seu pedido de mudanças ou aprovação com ressalva, usa 1 sessão do provedor de IA associado à conta pra classificar se foi contestação e como terminou (no máximo 2 por ciclo; com confiança baixa, fica pra você confirmar). Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</span>
               </span>
               <span class="set-ctl"><input id="setAutoPushback" type="checkbox"><span class="switch"></span></span>
@@ -851,7 +851,7 @@
               <div class="form-grid">
               <div class="field"><label for="auditAccounts">Contas autorizadas, separadas por vírgula</label><input id="auditAccounts" type="text" autocomplete="off"></div>
               <div class="field"><label for="auditLimit">Máximo de auditorias automáticas por dia (0–10)</label><input id="auditLimit" type="number" min="0" max="10" step="1" value="0"></div>
-              <div class="field"><label for="auditBudget">Orçamento diário do controle de cota em US$</label><input id="auditBudget" type="number" min="0" max="1000" step="0.01" value="0"></div>
+              <div class="field"><label for="auditBudget">Orçamento diário das auditorias automáticas em US$</label><input id="auditBudget" type="number" min="0" max="1000" step="0.01" value="0"></div>
               <div class="field"><label for="auditReserve">Reserva estimada para cada auditoria (duas sessões) em US$</label><input id="auditReserve" type="number" min="0" max="1000" step="0.01" value="0"></div>
               </div><p>A reserva controla novas sessões, não é teto rígido do provedor. Um trabalho pode ultrapassá-la. Custo indisponível suspende novas amostras no dia. As revisões em andamento têm prioridade. Quantidade e orçamento são locais, não compartilhados entre aparelhos.</p>
               <div class="set-actions"><button type="button" class="btn" id="auditSavePolicy">Salvar amostragem</button></div></div>

@@ -24,8 +24,8 @@ const MOTIVO_DESTINO = {
   'sem-ia': 'sem IA pronta',
   'sem-vaga': 'sem vaga',
   'sem-credencial': 'sem credencial desta conta',
-  'memoria-desconhecida': 'sem medida de memória livre, e o controle de cota não aceita assim',
-  'memoria-baixa': 'com memória livre abaixo do piso do controle de cota',
+  'memoria-desconhecida': 'sem medida de memória livre, e o piso de memória não libera a vaga assim',
+  'memoria-baixa': 'com memória livre abaixo do piso de memória, que não libera a vaga',
   'nao-publicou': 'não publicou este candidato, e só quem publicou consegue executá-lo',
 };
 
@@ -106,7 +106,7 @@ export function inicioDialogo(resposta, candidato) {
   return {
     pode: true,
     titulo: `Começar ${rotuloDoCandidato(candidato)} agora`,
-    corpo: `<p>O comando vai ao aparelho escolhido, que reserva a vaga pelo controle de cota dele e entra pelo caminho local de sempre. O commit é conferido lá: se ele mudou desde esta tela, o pedido é recusado.</p>${listaHtml(r.destinos)}`,
+    corpo: `<p>O comando vai ao aparelho escolhido, que reserva uma vaga livre dele, se o piso de memória permitir, e entra pelo caminho local de sempre. O commit é conferido lá: se ele mudou desde esta tela, o pedido é recusado.</p>${listaHtml(r.destinos)}`,
     opcoes: aptos.map((d) => ({ valor: d.deviceId, rotulo: `Começar no ${rotuloDoDestino(d)}`, classe: 'primary' })),
     aptos: aptos.map((d) => d.deviceId),
   };
