@@ -550,3 +550,14 @@ test('card da fila: o ponto da conta fica na linha do PR, e a grade tem só avat
   assert.equal(colunasLargas.length, filhos.length, 'cada filho do card precisa da própria coluna na janela larga');
   assert.match(html, /<div class="pr-ref"><span class="acct-dot"><\/span><a /, 'o ponto abre a linha do PR');
 });
+
+test('Visão geral abre pelos checks de saúde e o aplicar só realça com diferença selecionada', () => {
+  const pos = (id) => HTML.indexOf(`id="${id}"`);
+  assert.ok(pos('doctor') > 0 && pos('doctor') < pos('updateBox'), 'doctor antes do updateBox');
+  assert.ok(pos('updateBox') < pos('setupManager'), 'updateBox antes do setupManager');
+  assert.ok(pos('setupManager') < pos('reviewLabels'), 'setupManager antes do reviewLabels');
+  assert.ok(pos('reviewLabels') < pos('preferencesTransfer'), 'reviewLabels antes do preferencesTransfer');
+  assert.match(HTML, /<button class="btn sm" type="button" id="preferencesApply"/, 'aplicar nasce sem primary');
+  const atualizacao = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'telas', 'sistema-atualizacao.js'), 'utf8');
+  assert.doesNotMatch(atualizacao, /O botão abaixo/);
+});
