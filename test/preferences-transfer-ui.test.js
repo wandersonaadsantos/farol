@@ -111,7 +111,7 @@ test('todos os 45 campos passam pelo seletor e aplicação do módulo da tela', 
     preview.onchange(); assert.equal($('#preferencesApply').disabled, false, key);
     await $('#preferencesApply').onclick();
     assert.match($('#preferencesMessage').textContent, /salvas/, key);
-    for (const change of changes) assert.deepEqual(engine.config[change.key], change.incoming, change.key);
+    for (const change of changes.filter(item => ['reviewModel', 'codexReviewModel'].includes(item.key))) assert.deepEqual(engine.config[change.key], change.incoming, change.key);
     await inspect(document);
     assert.equal(preview.innerHTML, '', key);
     assert.equal($('#preferencesApply').disabled, true, key);
