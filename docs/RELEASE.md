@@ -91,6 +91,8 @@ Toda release segue estes passos na ordem. Não pule nenhum.
 - [ ] Atualizar `CHANGELOG.md`: criar seção `## vX.Y.Z` com novidades e correções. Se houver versões intermediárias não publicadas, consolidar tudo numa seção só.
 - [ ] Atualizar `RELEASE_NOTES_RECENTES` no `ui/telas/release-notes.js` (a lista saiu da tela `ui/telas/novidades.js` em 02/10/2026, e as notas até a 2.59 foram para `ui/telas/release-notes-ate-2.59.js`, fechado, em 05/10/2026): adicionar entrada `['X.Y.Z', ['item 1', 'item 2']]` no topo do array. Se consolidou versões, uma entrada só. Verificar que a versão anterior publicada também tem entrada (corrigir se faltar). Se o arquivo se aproximar do teto de 400 linhas úteis, a série mais antiga dele vai inteira para um arquivo fechado do mesmo jeito; o teto não sobe.
 - [ ] Os três acima andam JUNTOS: `test/release-consistency.test.js` falha se qualquer um ficar pra trás.
+- [ ] **Versão das cascas nativas**, nos três arquivos, juntas: `shell/mac/project.yml` (`MARKETING_VERSION` e `CURRENT_PROJECT_VERSION`, sempre iguais: a Sparkle ordena pelo build), `shell/win/Farol.App/Package.appxmanifest` (`Identity/@Version` como `X.Y.Z.0`, o quarto campo é sempre 0) e o `package.json` do motor quando ele estiver no mesmo major das cascas. Confira também o `engines.farolShell` do `package.json` (a faixa de cascas que o motor aceita, `>=X.Y.Z <N`): a versão das cascas tem de caber nela. `test/release-versoes-iguais.test.js` reprova qualquer divergência e reprova também se um dos três arquivos perder a linha de versão.
+- [ ] **Transição (motor 2.x, cascas 3.0.0):** enquanto o motor não sobe para 3.0.0, o dmg e o msix (`Farol-3.0.0.*`) não entram numa release `v2.x`: a lista de anexos procura pelo nome com a versão da release, e o `appcast.xml` e o `Farol.appinstaller` apontam para `releases/download/v3.0.0/`. Anexá-los a outra tag quebraria o update de quem instalou. A primeira release nativa é a `v3.0.0`, com motor e cascas na mesma versão.
 
 ### 2. Gate de qualidade
 
@@ -151,26 +153,111 @@ instalador nem spawn, o gate local já responde.
 
 ### 4. Publicar a release
 
+**Caminho normal: a tag dispara a pipeline.** Com a `main` mergeada, a tag `vX.Y.Z` empurrada
+dispara o `.github/workflows/release-nativo.yml`, que constrói o motor (pacote leve), a casca
+do macOS (montada, assinada, notarizada, em dmg, com o appcast) e a do Windows (MSIX assinado
+e o App Installer), e o job `publicar` chama o `tools/publish-release.ps1` com
+`FAROL_SO_ANEXAR=1` depois de baixar os artefatos dos outros jobs.
+
+```
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+**Artefatos esperados na release** (a lista e a ordem saem de `tools/release/anexos-da-release.js`, a mesma nos dois modos do script):
+
+| arquivo | para quê | obrigatório |
+|---|---|---|
+| `farol-vX.Y.Z.zip` | pacote leve: o update do motor em todo modo (Electron, Termux, servidor e o motor das cascas) | sim: sem ele o script falha e nada é publicado |
+| `Farol-X.Y.Z.dmg` | casca do macOS 14 ou mais novo, assinada e notarizada | não (aviso) |
+| `appcast.xml` | feed da Sparkle; só sobe junto do dmg | não (aviso) |
+| `Farol-X.Y.Z.msix` | casca do Windows 10 1809 ou mais novo e Windows 11, assinada | não (aviso) |
+| `Farol.appinstaller` | manifesto do App Installer; só sobe junto do msix | não (aviso) |
+| `Farol-Setup-vX.Y.Z.exe` | instalador do Electron, até a retirada dele | não (aviso) |
+| `Farol-Instalar-mac.command` e `Farol-Instalar-mac-x64.command` | instaladores offline do Electron no macOS | não (aviso) |
+
+O appcast e o appinstaller sem o dmg e o msix que eles apontam ficam RETIDOS: manifesto de
+update apontando para um asset que não está na release quebraria a atualização de toda cópia
+instalada. Cada ausente ou retido vira uma linha de aviso com o nome do arquivo.
+
+**Secrets da pipeline** (no repositório, nunca em arquivo versionado): `APPLE_ID`,
+`APPLE_TEAM_ID`, `APPLE_APP_PASSWORD`, `MAC_SIGNING_CERT_P12`, `MAC_SIGNING_CERT_PASSWORD`,
+`MAC_SIGNING_IDENTITY`, `SPARKLE_PRIVATE_KEY`, `SPARKLE_PUBLIC_ED_KEY`,
+`WIN_SIGNING_CERT_PFX_BASE64` e `WIN_SIGNING_CERT_PASSWORD`. As chaves da Sparkle estão em
+"Sparkle: chaves e verificação automática", abaixo.
+
+**Caminho manual, só anexar.** Com os artefatos já construídos em `dist/` (pacote leve na
+raiz; dmg e appcast em `dist/mac/` ou na raiz; msix e appinstaller em `dist/win/` ou na raiz):
+
+```
+FAROL_SO_ANEXAR=1 pwsh -File tools/publish-release.ps1
+```
+
+Não constrói nada; confere o número contra a última release publicada, monta a nota e cria
+(ou, com `FAROL_REPUBLISH=1`, atualiza) a release com o que achou.
+
+**Caminho manual, local (Windows, como antes):**
+
 ```
 powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1
 ```
 
-O script faz tudo: builda o pacote leve (`dist/farol-vX.Y.Z.zip`, auditado) + instalador Windows (`dist/Farol-Setup-vX.Y.Z.exe`, NSIS), extrai notas do `CHANGELOG.md`, anexa rodapé de `tools/release-footer.md` e cria a release `vX.Y.Z` no GitHub. Se a release já existe, atualiza notas e sobrescreve os artefatos.
+Builda o pacote leve (`dist/farol-vX.Y.Z.zip`, auditado), o instalador Windows
+(`dist/Farol-Setup-vX.Y.Z.exe`, NSIS) e os `.command` do macOS, extrai notas do
+`CHANGELOG.md`, anexa o rodapé de `tools/release-footer.md` e cria a release `vX.Y.Z` no
+GitHub. Anexa também os artefatos nativos que estiverem no `dist/`, mas nunca os constrói:
+dmg e msix saem da pipeline. Se a release já existe, atualiza notas e sobrescreve os artefatos.
+
+A nota da release é o trecho `## vX.Y.Z` do `CHANGELOG.md` mais o rodapé de
+`tools/release-footer.md` (instalar e anexos, com `{VERSION}` preenchido), e nada mais:
+sem rodapé de ferramenta.
+
+**Windows: o `Publisher` é o certificado.** O `Publisher` do `Identity` no
+`shell/win/Farol.App/Package.appxmanifest` tem de ser IGUAL ao subject do certificado que
+assina o MSIX, senão o `signtool` recusa e o Windows não instala. `CN=BIUD` é provisório:
+quando o certificado de verdade chegar, o `Publisher` passa a ser o subject dele, e trocar o
+`Publisher` depois de publicado muda a identidade do pacote (quem instalou não recebe o
+update; precisa instalar de novo).
+
+**Windows App Runtime: plano B.** Hoje o MSIX é autocontido (decisão R-M): leva o Windows App
+Runtime dentro e não depende de nada instalado. Se o tamanho ou a instalação incomodarem, a
+alternativa é publicar o `Microsoft.WindowsAppRuntime.1.6.msix` junto e declarar a
+dependência em `<Dependencies>` do manifesto (o App Installer instala a dependência antes).
 
 ### 5. Pós-publicação
 
 - [ ] Verificar a release no GitHub (notas, artefatos).
 - [ ] **Restaurar a conta ativa do gh pra de trabalho** (`gh auth switch`), pra não deixar a máquina apontada pra conta pessoal no dia a dia.
-- [ ] macOS (quando aplicável): `bash tools/make-offline-mac.sh` e anexar com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol`.
+- [ ] Conferir os avisos de ausente ou retido que o script imprimiu: a release sai sem eles. Para completar depois, ponha o artefato no `dist/` e rode de novo com `FAROL_SO_ANEXAR=1 FAROL_REPUBLISH=1`.
+
+### O que a retirada do Electron vai remover (Task 8, ainda não executada)
+
+A Task 8 do plano 4 do Farol nativo (`docs/superpowers/plans/2026-10-28-farol-nativo-4-release.md`) NÃO roda agora: os artefatos do Electron continuam saindo em toda release. Ela só roda quando valerem as duas condições: o invariante 1 do `CLAUDE.md` (as DUAS cascas nativas em produção; a do Windows ainda não compilou num Windows real) e o motor subir para 3.0.0. Quando rodar, ela:
+
+- apaga `main.js`, `lib/electron-runtime.js`, `lib/update-installer.js`, `lib/autostart-mac.js`, `lib/desktop-identity.js`, `installer/electron-runtime.*`, `installer/native-bundle-mac.sh`, `installer/farol.nsi`, `tools/make-installer.ps1`, `tools/make-offline-mac.sh`, `tools/electron-smoke-*`, `tools/benchmark-ui-native.js` e os testes que importam `electron` (`test/desktop-identity.test.js`, `test/native-bundle-mac.test.js`, `test/electron-smoke-*.test.js`, `test/installer-update-mac.test.js`);
+- muda o `package.json` (sem `electron`, sem o script `start` do Electron; `start` vira `node server.js`), o `lib/engine/update.js` (saem os ramos Mac, Linux e Windows do instalador completo; ficam `aplicarNoServidor` e `aplicarNaCasca`), o `lib/paths.js` (`modoServidor` passa a ser "sem casca e sem Electron", documentado), o `installer/install.sh`, o `install.ps1` e o `install-linux.sh` (instalam o pacote leve para o modo servidor, sem Electron), o `test/distribuicao-listas.test.js`, o `tools/quality/baseline.json` (`npm run lint:update`, só pode descer), o `CLAUDE.md` (invariante 1 com a redação da seção 3 do desenho, mapa sem os arquivos retirados) e o `README.md`;
+- prova com `npm run check && npm run lint && npm test` e `npm run eng` verdes, e o smoke de `FAROL_HOME=/tmp/x node server.js`, de `FAROL_SHELL=mac` e dos dois instaladores de servidor com o pacote leve;
+- sai no commit `refactor: retira o Electron; a casca nativa e o modo servidor são os dois jeitos de rodar` e na tag `v3.0.0` pela pipeline, com piloto no time.
+
+Depois dela, o `Farol-Setup-vX.Y.Z.exe` e os `.command` deixam de existir e viram só avisos de ausente no script, até saírem da lista em `tools/release/anexos-da-release.js` e do `tools/release-footer.md`.
 
 ### Referência rápida
 
 | Artefato | Comando | Destino |
 |---|---|---|
-| Pacote leve (update) | `tools\make-package.ps1` | `dist/farol-vX.Y.Z.zip` |
-| Instalador Windows | `tools\make-installer.ps1` | `dist/Farol-Setup-vX.Y.Z.exe` |
-| Release GitHub | `tools\publish-release.ps1` | ambos acima + release |
-| Instalador macOS | `tools/make-offline-mac.sh` | `dist/Farol-Instalar-mac.command` |
+| Pacote leve (update) | `tools\make-package.ps1` (Windows) ou `tools/make-package.sh` (POSIX) | `dist/farol-vX.Y.Z.zip` |
+| Node embutido e semente do motor | `tools/release/baixar-node.sh` / `.ps1`, `tools/release/semente-do-motor.sh` / `.ps1` | usados pelos montadores abaixo |
+| Casca do macOS | `tools/release/montar-mac.sh` | `dist/mac/Farol.app` |
+| Assinatura e notarização (macOS) | `tools/release/assinar-mac.sh` (chama `notarizar-mac.sh`) | o `Farol.app` assinado e grampeado |
+| dmg (macOS) | `tools/release/dmg-mac.sh` | `dist/mac/Farol-X.Y.Z.dmg` |
+| Feed da Sparkle | `tools/release/appcast-mac.sh` | `<saida>/appcast.xml` |
+| Casca do Windows | `tools/release/montar-win.ps1` | `dist/win/Farol-X.Y.Z.msix` |
+| Assinatura (Windows) | `tools/release/assinar-win.ps1` | o msix assinado |
+| App Installer | `tools/release/appinstaller-win.ps1` | `Farol.appinstaller` |
+| Lista de anexos | `node tools/release/anexos-da-release.js X.Y.Z dist` | JSON com o que sobe, o que falta e o que fica retido |
+| Instalador Windows (Electron) | `tools\make-installer.ps1` | `dist/Farol-Setup-vX.Y.Z.exe` |
+| Instalador macOS (Electron) | `tools/make-offline-mac.sh` | `dist/Farol-Instalar-mac.command` |
+| Release GitHub | `tools/publish-release.ps1` (local) ou com `FAROL_SO_ANEXAR=1` (pipeline) | a release com tudo acima que existir |
+| Pipeline | `.github/workflows/release-nativo.yml` (tag `vX.Y.Z`) | constrói tudo e publica |
 
 **Auto-update**: cópias instaladas (>= 1.15.0) leem a última release via `gh` a cada ciclo de polling (detecção). Desde a v2.46.0, a APLICAÇÃO também é automática: `maybeAutoUpdate` (`lib/engine/update.js`) roda logo depois do `checkUpdate` no `check()` e aplica sozinha quando há update no canal `remote` e o app está ocioso (gate `sessionsBusy`, o mesmo do botão manual). Opt-out em Sistema > Automação (config `autoUpdate: false`) volta ao clique manual. Canal `local` (fluxo de dev do mantenedor) nunca auto-aplica, só pelo botão. Bootstrap: cópias antigas precisam instalar 1.15.0 uma vez (offline).
 
