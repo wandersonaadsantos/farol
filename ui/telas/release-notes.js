@@ -18,6 +18,7 @@ const RELEASE_NOTES_RECENTES = [
     'Revisões que marcavam o PR como em revisão sem estar revisando, e seguravam a atualização, deixam de ficar presas: a consulta às fontes encerra sozinha e a sessão fecha mesmo com um processo filho segurando a saída.',
     'A reconferência de critérios não cai mais enquanto o modelo escreve um resultado longo: a escrita conta como progresso para o prazo de cinco minutos sem atividade.',
     'PR mergeado ou fechado durante a revisão encerra a sessão na próxima conferência e sai da fila sem estacionar, em vez de seguir pagando até o fim.',
+    'O Consumo conta a resposta que o modelo ainda escrevia quando a sessão do Claude morreu, em vez de quase nada.',
   ]],
   ['2.78.22', [
     'Escolher um modelo no Claude ou no Codex atualiza seu equivalente no outro provedor. A equivalência é por perfil de uso; Sol volta para Opus para priorizar qualidade.',

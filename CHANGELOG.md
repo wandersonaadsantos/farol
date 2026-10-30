@@ -17,6 +17,7 @@ Revisões que marcavam o PR como em revisão sem estar revisando deixam de ficar
 
 - Sessões que ficavam presas para sempre, com a label `<conta>:revisando` no PR e a atualização recusada por "análise em andamento", agora terminam. A consulta às fontes que a sessão roda pelo executável do Farol abria como aplicativo e nunca encerrava, segurando a saída da sessão. Ela passa a encerrar sozinha, com teto de tempo, e a sessão cujo processo já saiu é fechada mesmo que um processo filho ainda segure a saída.
 - PR fechado sem merge também deixa de abrir revisão, como já acontecia com o mergeado.
+- O Consumo passa a contar a resposta que o modelo ainda estava escrevendo quando a sessão do Claude morreu. Antes, uma reconferência cortada depois de minutos escrevendo entrava com algumas dezenas de tokens; agora entram a entrada real e a saída estimada pelo texto recebido, trocada pelo valor real quando a mensagem fecha.
 - A reconferência de critérios, que pede de novo o resultado inteiro, não é mais interrompida enquanto o modelo escreve: a escrita conta como progresso para o prazo de cinco minutos sem atividade. Antes, um resultado longo era cortado no meio e a análise inteira se perdia.
 - PR mergeado ou fechado enquanto a revisão roda encerra a sessão na próxima conferência, inclusive na revisão pedida por clique, e o PR sai da fila sem estacionar. Antes, a revisão seguia até o fim sem ter onde postar.
 
