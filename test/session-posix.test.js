@@ -85,7 +85,7 @@ test('spawn headless posix: /bin/sh -lc, detached e cwd no WORKSPACE', { skip: I
   assert.equal(argv[0], '-lc', 'login shell, senão o PATH do Homebrew não entra');
   // o unset vem colado no começo da linha, DEPOIS do sourcing do profile que o -l faz (G21).
   // engineFalso resolve um perfil legado (sem dir), então não há re-export de CLAUDE_CONFIG_DIR.
-  assert.match(argv[1], /^unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR CLAUDE_CODE_OAUTH_TOKEN; claude -p --output-format stream-json --verbose --dangerously-skip-permissions/);
+  assert.match(argv[1], /^unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR CLAUDE_CODE_OAUTH_TOKEN; claude -p --output-format stream-json --verbose --include-partial-messages --dangerously-skip-permissions/);
   assert.match(argv[1], / --model opus --effort high$/, 'as flags entram no fim da linha');
   assert.equal(opts.detached, true, 'pré-condição do killTree posix (process.kill(-pid))');
   assert.equal(opts.cwd, WORKSPACE);
