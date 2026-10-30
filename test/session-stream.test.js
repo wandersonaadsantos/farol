@@ -183,6 +183,33 @@ test('Claude com eventos úteis segue além de 30min; ruído e api_retry não su
   child.emit('close', null);
 });
 
+// biudtech/biud-frontend#1627 (30/10/2026): a recuperação reescrevia o envelope inteiro
+// e o stream ficou mudo por mais de 5 minutos; o prazo matou a sessão no meio da escrita.
+test('Claude escrevendo (stream_event) renova o prazo da recuperação; silêncio ainda encerra', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const child = filhoStream();
+  const engine = engineFalso();
+  const killed = [];
+  engine.killTree = pid => killed.push(pid);
+  let cmd = '';
+  spawnImpl = (...args) => { cmd = JSON.stringify(args); return child; };
+  const p = runClaudeStream(engine, 'prompt', { id: 'recuperacao', recovery: true });
+  spawnImpl = null;
+  assert.match(cmd, /--include-partial-messages/, 'sem a flag o CLI não emite stream_event');
+  assert.match(cmd, /"ELECTRON_RUN_AS_NODE":"1"/, 'a sessão roda o query.js pelo Farol.exe e precisa do modo Node');
+  const rejected = assert.rejects(p, err => { assert.match(err.message, /5min sem progresso/); return true; });
+  child.stdout.write('{"type":"system","subtype":"init","session_id":"s-rec"}\n');
+  for (let i = 0; i < 6; i++) {
+    t.mock.timers.tick(2 * 60 * 1000);
+    child.stdout.write('{"type":"stream_event","session_id":"s-rec","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"{"}}}\n');
+    assert.equal(killed.length, 0, 'modelo escrevendo há 12 minutos não é sessão parada');
+  }
+  t.mock.timers.tick(5 * 60 * 1000);
+  await rejected;
+  assert.deepEqual(killed, [child.pid]);
+  child.emit('close', null);
+});
+
 test('runClaudeStream: multibyte cortado no limite do chunk não vira U+FFFD (M4)', async () => {
   const child = filhoStream();
   spawnImpl = () => child;
