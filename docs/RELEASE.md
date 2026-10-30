@@ -105,6 +105,10 @@ Verde nos dois é pré-requisito. Não publique com teste vermelho.
 aceita push direto (o admin tem bypass do ruleset), então havia uma janela entre
 "empurrei" e "descobri que quebrou". `core.hooksPath` é config LOCAL do clone:
 cada clone instala uma vez. Escape hatch é o `--no-verify` do próprio git.
+O hook precisa estar VERSIONADO como executável (modo 100755): fora do Windows o
+git ignora hook sem o bit e o push sai sem gate, só com um aviso. Foi o que
+aconteceu num clone Linux em 29/10/2026, porque o Git Bash não confere o bit e o
+`pre-push` vivia como 100644. `test/hooks-executaveis.test.js` trava isso.
 
 **O hook NÃO substitui o CI, e confundir os dois é o erro a evitar.** Parte da
 suíte pula fora do POSIX, e isso depende do SISTEMA, não do shell: no Windows,
