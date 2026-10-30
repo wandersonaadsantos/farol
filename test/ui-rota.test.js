@@ -8,7 +8,7 @@
 // ui/telas/rota.js e foi verificada no navegador.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lerRota, escreverRota, mudancaDeRota } from '../ui/pure.js';
+import { lerRota, escreverRota, mudancaDeRota, avisoDeAbaDesligada } from '../ui/pure.js';
 
 const PADRAO = {
   aba: 'radar', sub: 'mim', aparelho: '', secao: '', conta: '', pr: '',
@@ -214,4 +214,10 @@ test('o caminho que escreverRota gera nunca leva hash', () => {
     assert.ok(e.startsWith('/'), e);
     assert.ok(!e.includes('#'), e);
   }
+});
+
+test('avisoDeAbaDesligada diz qual aba está desligada e onde ligar; outra aba não avisa', () => {
+  assert.equal(avisoDeAbaDesligada('entregas'), 'Entregas está desligada. Ligue em Sistema > Preferências.');
+  assert.equal(avisoDeAbaDesligada('destaques'), 'Destaques está desligada. Ligue em Sistema > Preferências.');
+  assert.equal(avisoDeAbaDesligada('radar'), '');
 });

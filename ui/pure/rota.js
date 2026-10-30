@@ -114,6 +114,13 @@ function lerCaminho(rota, partes) {
    rota no hash, até 20/10/2026). O hash só é rota antiga na raiz e sem consulta, que é como
    o app escrevia; fora disso ele é pedaço do endereço, nunca a rota (o `#` cru de um
    `?pr=a/b#1` digitado à mão, por exemplo). */
+// Aviso de quando a rota (ou um link) pede uma aba opcional que está desligada nas
+// preferências: a tela cai no Radar e o aviso diz por quê. Outra aba não avisa.
+export function avisoDeAbaDesligada(aba) {
+  const nome = { entregas: 'Entregas', destaques: 'Destaques' }[aba];
+  return nome ? `${nome} está desligada. Ligue em Sistema > Preferências.` : '';
+}
+
 export function enderecoDaPagina(loc) {
   const l = loc || {};
   const caminho = String(l.pathname || '/');

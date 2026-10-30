@@ -114,10 +114,18 @@ test('trocar de lugar pela tela empilha; trocar de conta substitui', () => {
   assert.equal(escopo(), 'all', 'sem conta no endereço, numa aba com a barra, é Todas');
 });
 
-test('aba opcional desligada cai no Radar e o endereço diz isso', () => {
+test('aba opcional desligada cai no Radar, na sub-aba Pra mim, avisa e o endereço diz isso', () => {
+  switchRadarSub('pano');
+  const toasts = document.querySelector('#toasts').children;
+  const antes = toasts.length;
   irPara('/entregas?dias=30');
   disparar('popstate');
   assert.equal(abaAtual(), 'radar');
+  assert.equal(radarSubAtual(), 'mim');
+  const novos = toasts.slice(antes);
+  assert.equal(novos.length, 1);
+  assert.equal(novos[0].textContent, 'Entregas está desligada. Ligue em Sistema > Preferências.');
+  assert.match(novos[0].className, /info/);
   assert.match(ultima()[1], /^\/radar\//);
 });
 
