@@ -582,7 +582,7 @@ class Engine extends EventEmitter {
     ]);
     this.ignorados = new Set([...this.seen].filter(k => !comDecisao.has(k)));
     this.saveIgnorados();
-    this.log('WARN', `migração: ${this.ignorados.size} PR(s) já vistos sem decisão tratados como descarte deliberado`);
+    if (this.ignorados.size > 0) this.log('WARN', `migração: ${this.ignorados.size} PR(s) já vistos sem decisão tratados como descarte deliberado`);
   }
 
   // Devolve à fila o que foi marcado como visto por uma revisão que NUNCA decidiu:

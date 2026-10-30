@@ -51,7 +51,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 28, 'são 28 classes, incluindo indisponibilidade temporária de processos');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 29, 'são 29 classes, incluindo a migração dos vistos sem decisão');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -76,7 +76,7 @@ test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
     'restart-fila', 'console-fechado', 'limite-da-organizacao', 'limite-plano',
     'processos-indisponiveis', 'capacidade-agy', 'limite-agy', 'agy-print-timeout', 'agy-conta-trocada', 'agy-sem-login', 'assinatura-bloqueada',
     'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'resultado-invalido', 'coordenacao-indisponivel', 'rate-limit-github', 'rede', 'github-indisponivel',
-    'provedor-indisponivel', 'arquivo-local-preso', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'update-runtime', 'update-checkout-git', 'busca-sem-mensagem', 'ferramenta'
+    'provedor-indisponivel', 'arquivo-local-preso', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'update-runtime', 'update-checkout-git', 'migracao-vistos', 'busca-sem-mensagem', 'ferramenta'
   ]);
 });
 
@@ -756,10 +756,25 @@ test('checkout git: a recusa do auto-update tem classe própria e permanente', (
   assert.equal(c.grupo, 'app');
 });
 
-test('triage: WARN que a taxonomia não conhece não é falha, e WARN conhecido continua contando', () => {
-  assert.deepEqual(triage([
-    L('2026-08-06 14:12:35', 'WARN', 'aviso operacional que ninguém cadastrou'),
-  ]), []);
+test('triage: WARN que a taxonomia não conhece continua contando (falha real não some do Diagnóstico)', () => {
+  for (const msg of ['salvar destravados: ENOSPC', 'lease tomado por outro aparelho: risco de consumo duplicado']) {
+    const r = triage([L('2026-08-06 14:12:35', 'WARN', msg)]);
+    assert.equal(r.length, 1, msg);
+    assert.equal(r[0].id, 'desconhecido');
+    assert.equal(r[0].count, 1);
+  }
+});
+
+test('migração dos vistos sem decisão tem classe própria e operacional', () => {
+  const c = classify('migração: 12 PR(s) já vistos sem decisão tratados como descarte deliberado');
+  assert.equal(c.id, 'migracao-vistos');
+  assert.equal(c.kind, 'operacional');
+  assert.equal(c.grupo, 'app');
+  const r = triage([L('2026-08-06 14:12:35', 'WARN', 'migração: 1 PR(s) já vistos sem decisão tratados como descarte deliberado')]);
+  assert.equal(r[0].id, 'migracao-vistos');
+});
+
+test('triage: WARN conhecido e ERROR desconhecido continuam contando', () => {
   const r = triage([L('2026-08-07 10:00:00', 'WARN', MSG.limite)]);
   assert.equal(r.length, 1);
   assert.equal(r[0].id, 'limite-plano');
