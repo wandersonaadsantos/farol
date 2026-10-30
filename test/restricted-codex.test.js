@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { prepareSelfIsolation } from '../lib/engine/self-isolation.js';
 import { sourceRead, dispatchSource, serveSource } from '../lib/engine/restricted-source.js';
-import { observeRestrictedCodex, restrictedCodex } from '../lib/engine/restricted-codex.js';
+import { observeRestrictedCodex, restrictedCodex, beginRestrictedCodexObservation, finishRestrictedCodexObservation } from '../lib/engine/restricted-codex.js';
 import io from '../lib/io.js';
 import { IS_WIN } from '../lib/paths.js';
 import { blobHash } from '../lib/review-source/contract.js';
@@ -23,6 +23,25 @@ const source = { status: 'complete', manifest: { H: 'a'.repeat(40), B: 'b'.repea
       commit: side === 'head' ? 'a'.repeat(40) : 'c'.repeat(40), mode: '100644',
       blob: blobHash(Buffer.from('FLAG=false\n')), text: 'FLAG=false\n' }) } };
 const snapshot = await prepareSelfIsolation({ source }, { base });
+
+test('diagnóstico distingue configuração de resposta real, sem preservar stderr ou argumentos', async () => {
+  const session = { filesRead: new Set(), scopeRoot: snapshot.patches };
+  const engine = { activeReviews: new Map([['s', session]]) }, opts = { id: 's', selfIsolation: snapshot };
+  beginRestrictedCodexObservation(engine, opts);
+  assert.equal(session.sourceTools.calls, 0);
+  assert.equal(session.sourceTools.responses, 0);
+  const result = await dispatchSource(snapshot.root, { method: 'tools/call', params: {
+    name: 'list_sources', arguments: { side: 'patches' } } });
+  observeRestrictedCodex(engine, opts, { type: 'item.completed', item: { type: 'mcp_tool_call',
+    server: 'farol_source', tool: 'list_sources', status: 'completed', result } });
+  observeRestrictedCodex(engine, opts, { type: 'item.completed', item: { type: 'mcp_tool_call',
+    server: 'farol_source', tool: 'read_source', status: 'failed', error: { message: 'não guardar mensagem' } } });
+  finishRestrictedCodexObservation(engine, opts, 0, 'farol_source startup failed; PRIVATE_VALUE_NOT_TO_PERSIST');
+  assert.deepEqual(session.sourceTools, { provider: 'codex', configured: true, calls: 2, responses: 1, failures: 1,
+    finished: true, exitCode: 0, stderrMcpMentioned: true, stderrMcpFailureHint: true });
+  assert.equal(JSON.stringify(session.sourceTools).includes('PRIVATE_VALUE_NOT_TO_PERSIST'), false);
+  assert.equal(JSON.stringify(session.sourceTools).includes('não guardar mensagem'), false);
+});
 
 test('protocolo RPC recusa identificador fora do orçamento antes de produzir resposta', async () => {
   const input = new PassThrough(), output = new PassThrough();

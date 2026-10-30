@@ -43,9 +43,10 @@ test('nenhuma rota aparece em duas classes', () => {
 // O espelho sob demanda acrescentou /api/sync/mirror (75 virou 76).
 // O login do Claude pela tela acrescentou abrir, enviar o código (recebe segredo: o código de
 // autorização é credencial de uso único) e cancelar (77 virou 80).
-test('as classes da spec cobrem os 87 caminhos, e as públicas são só as duas de autenticação', () => {
+// A seleção Codex por autoanálise restrita acrescentou uma sessão paga (87 virou 88).
+test('as classes da spec cobrem os 88 caminhos, e as públicas são só as duas de autenticação', () => {
   const naoPublicas = Object.entries(CLASSES).filter(([c]) => c !== 'autenticacao-publica').flatMap(([, rotas]) => rotas);
-  assert.equal(naoPublicas.length, 87);
+  assert.equal(naoPublicas.length, 88);
   assert.deepEqual(CLASSES['autenticacao-publica'].slice().sort(), ['/api/auth/pair', '/api/auth/status']);
   assert.deepEqual(Object.keys(CLASSES).sort(), ['autenticacao-publica', 'demais', 'destrutiva', 'escreve-github', 'evento', 'leitura-baixo-risco', 'leitura-sensivel', 'recebe-segredo', 'sessao-paga']);
 });
