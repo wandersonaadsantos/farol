@@ -76,13 +76,13 @@ function renderAutomationSettings(c) {
     $('#effortHint').textContent = 'No Gemini o nível de raciocínio já está no nome do modelo, e o Farol não passa a flag. O esforço daqui só vale para Claude e GPT.';
   } else if (codex) {
     $('#reviewModelHint').textContent = 'Modelo usado pelo Codex nas revisões, contestações, autoanálise e ferramentas. O padrão acompanha a seleção do CLI e costuma ser a opção mais compatível com o teu plano.';
-    $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita mínimo, baixo, médio, alto e esforço máximo; o último depende do modelo.';
+    $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita mínimo, baixo, médio, alto e Muito alto (esforço máximo); o último depende do modelo.';
   } else {
     // sem nome de modelo escrito aqui: cada opção já diz o que é, e o Auto diz quais usa
-    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, contestações, autoanálise e ferramentas. O padrão herda a tua assinatura; o Auto revisa todo PR com o Opus e só sobe o raciocínio para esforço máximo em repositório crítico, caminho sensível ou PR muito grande, só na revisão em segundo plano. Cada opção aponta sempre para a versão mais nova daquela família que o teu Claude Code conhece.';
+    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, contestações, autoanálise e ferramentas. O padrão herda a tua assinatura; o Auto revisa todo PR com o Opus e só sobe o raciocínio para Muito alto (esforço máximo) em repositório crítico, caminho sensível ou PR muito grande, só na revisão em segundo plano. Cada opção aponta sempre para a versão mais nova daquela família que o teu Claude Code conhece.';
     let effortHint = 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
     if (selecao && selecao.auto) {
-      effortHint = 'No modo Auto a revisão usa o Opus no raciocínio padrão dele e sobe para esforço máximo quando o contexto do PR pede; o nível fixo desta seção e o modo rápido não entram.';
+      effortHint = 'No modo Auto a revisão usa o Opus no raciocínio padrão dele e sobe para Muito alto (esforço máximo) quando o contexto do PR pede; o nível fixo desta seção e o modo rápido não entram.';
     } else if (semEsforco) {
       effortHint = `O ${(selecao && selecao.nome) || 'modelo escolhido'} não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.`;
     }

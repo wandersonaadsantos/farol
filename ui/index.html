@@ -509,7 +509,7 @@
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
                 <span class="set-title">Modo rápido da revisão</span>
-                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho), verificação empírica só do que muda a decisão, e o esforço de raciocínio da sessão cai pra <b>medium</b> (minimal ou low explícito continua valendo). Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhuma regra de segurança afrouxa: a troca é velocidade por profundidade e autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa. Só vale pra revisão; chat, autoanálise e ferramentas seguem no esforço configurado. <b>Não vale no modelo Auto</b>, que fixa modelo e esforço sozinho.</span>
+                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho), verificação empírica só do que muda a decisão, e o raciocínio da sessão cai pra <b>esforço médio</b> (esforço mínimo ou baixo escolhido de propósito continua valendo). Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhuma regra de segurança afrouxa: a troca é velocidade por profundidade e autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa. Só vale pra revisão; chat, autoanálise e ferramentas seguem no esforço configurado. <b>Não vale no modelo Auto</b>, que fixa modelo e esforço sozinho.</span>
               </span>
               <span class="set-ctl"><input id="setReviewFast" type="checkbox"><span class="switch"></span></span>
             </label>
@@ -667,7 +667,7 @@
             <div class="set-row" id="sys-row-provedor">
               <div class="set-txt">
                 <span class="set-title">Configuração do provedor</span>
-                <span class="set-desc">Cada provedor tem o próprio modelo e esforço, e a revisão usa o par do provedor do perfil que a ordem de uso escolheu: modelo de um nunca vai para a linha de comando do outro. No Claude, Auto (qualidade primeiro) revisa todo PR com o Opus, no mesmo raciocínio do Opus fixo, e sobe o raciocínio para esforço máximo em repositório crítico, caminho sensível ou PR muito grande, só na revisão em segundo plano.</span>
+                <span class="set-desc">Cada provedor tem o próprio modelo e esforço, e a revisão usa o par do provedor do perfil que a ordem de uso escolheu: modelo de um nunca vai para a linha de comando do outro. No Claude, Auto (qualidade primeiro) revisa todo PR com o Opus, no mesmo raciocínio do Opus fixo, e sobe o raciocínio para Muito alto (esforço máximo) em repositório crítico, caminho sensível ou PR muito grande, só na revisão em segundo plano.</span>
               </div>
               <div class="set-ctl">
                 <div class="seg" id="setAutomationProvider" role="group" aria-label="Provedor que está sendo configurado">

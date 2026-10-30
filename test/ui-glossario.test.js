@@ -22,7 +22,7 @@ const RAIZ = path.join(import.meta.dirname, '..');
 const PROIBIDOS = [
   /\bgates?\b/i, /headless/i, /\blease\b/i, /pushback/i, /round 2/i, /\bxhigh\b/i,
   /\bMCPs?\b/i, /conectores/i, /\badmiss[ãa]o\b/i, /\badmiss[õo]es\b/i, /\bcadeia\b/i,
-  /conexão com o engine/i, /SHA-256 sem chave/i,
+  /conexão com o engine/i, /SHA-256 sem chave/i, /\bmedium\b/i,
 ];
 
 function htmlSemCodigo() {
