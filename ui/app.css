@@ -485,7 +485,8 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .pw-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .pw-ref { font-weight: 600; color: var(--text); }
 .prow.mine .pw-ref { color: var(--ac); }
-.pw-head .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; flex: none; }
+.pw-head .badge { font-size: 10.5px; font-weight: 700; color: var(--accent-text); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; flex: none; }
+:root[data-theme="light"] .prow.mine .pw-ref, :root[data-theme="light"] .pr-ref a { color: var(--accent-text); }
 .pw-head .badge.rev-ok { color: var(--ok); background: var(--ok-soft); }
 .pw-head .badge.rev-rc { color: var(--danger); background: var(--danger-soft); }
 .pw-head .badge.rev-cm, .pw-head .badge.rev-pend { color: var(--accent); background: var(--accent-soft); }
