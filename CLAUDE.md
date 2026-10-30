@@ -229,6 +229,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `tools/make-offline-mac.sh` | Gera o instalador OFFLINE do macOS (`dist/Farol-Instalar-mac.command`): autoextraível único, Electron embutido. RODA EM QUALQUER SO (baixa o zip darwin do GitHub e EMBUTE; o `.app` é montado no Mac na instalação, pois só o unzip do Mac preserva os symlinks do `.app`). Default Apple Silicon; `ARCH=x64` pra Intel. É BETA até validar num Mac real |
 | `tools/publish-release.ps1` | Publica a release no GitHub (`wandersonaadsantos/farol`): sobe o pacote leve (update) + o instalador único Windows. É como as cópias distribuídas recebem atualização |
 | `tools/make-icns.sh` | Gera `assets/farol.icns` (rodar num Mac) |
+| `shell/mac/` | **A casca nativa do macOS** (29/10/2026): app Swift 6/AppKit que sobe o motor como sidecar (`FAROL_SHELL=mac`), pareia pela A4, mostra a `ui/` num WKWebView e lê só os eventos `casca`, `aviso-nativo` e `casca-saida`; pacote `FarolKit` (FarolContrato puro, FarolSidecar IO, FarolApp AppKit); scripts em `shell/mac/scripts/`; não viaja no pacote leve do motor. Ver [`docs/MACOS.md`](docs/MACOS.md#casca-nativa-shellmac-29102026) |
 | `docs/` | Documentação. Só os quatro guias da tabela "Os guias operacionais" viajam com o app (allowlist nas seis rotas, travada em `test/distribuicao-listas.test.js`); `docs/superpowers/`, `docs/QUALITY.md` e o resto ficam no repositório |
 
 ## Invariantes do projeto (não negociar)
