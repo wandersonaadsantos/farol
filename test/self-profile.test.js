@@ -56,9 +56,16 @@ test('executor exige snapshot próprio e recusa perfil removido ou alterado dura
 test('duas sessões da mesma conta escolhem executores distintos sem trocar a associação', async () => {
   const engine = fixture(), before = structuredClone(engine.config), original = io.run;
   const selected = await snapshot(), associated = await snapshot();
-  engine.ghEnv = () => ({ ...process.env });
-  // Só a negociação de capacidades é substituída; o roteamento real deve chegar ao launcher correto.
-  io.run = async () => ({ ok: true, stdout: '--sandbox' });
+  const bin = path.join(home, 'native-fixture'), commands = [];
+  await fs.mkdir(bin);
+  for (const name of ['claude', 'codex']) {
+    const file = path.join(bin, name + (process.platform === 'win32' ? '.exe' : ''));
+    await fs.writeFile(file, 'fixture: capability negotiation is intercepted');
+    await fs.chmod(file, 0o700);
+  }
+  engine.ghEnv = () => ({ ...process.env, PATH: bin });
+  // Os executáveis da fixture não são iniciados; somente a negociação externa é substituída.
+  io.run = async (command, args) => { commands.push({ command, args }); return { ok: true, stdout: '--sandbox' }; };
   try {
     const results = await Promise.allSettled([
       engine.runClaudeStream('fixture', { id: 'selected', account: 'dev', operationKind: 'self', selfIsolation: selected, selfCodexProfileId: 'codex' }),
@@ -66,6 +73,9 @@ test('duas sessões da mesma conta escolhem executores distintos sem trocar a as
     ]);
     assert.match(results[0].reason?.message || '', /Codex sem contrato/);
     assert.match(results[1].reason?.message || '', /Claude sem contrato/);
+    assert.deepEqual(commands.map(item => path.basename(item.command)).sort(),
+      ['claude', 'codex'].map(name => name + (process.platform === 'win32' ? '.exe' : '')).sort());
+    assert.ok(commands.every(item => item.args.includes('--help')));
     assert.deepEqual(engine.config, before);
     assert.equal(engine.resolveClaudeAuth('dev').id, 'claude');
   } finally { io.run = original; }
