@@ -50,6 +50,20 @@ test('COMENTAR não é revisar: um COMMENTED meu no head não abandona a sessão
     'mas o que decide continua decidindo, mesmo acompanhado');
 });
 
+// biudtech/biud-frontend#1627 (30/10/2026): mergeado às 11:47 com a sessão aberta, que
+// seguiu pagando, pediu reconferência e caiu às 12:01 sem resultado nenhum.
+test('PR mergeado ou fechado manda abandonar, até a revisão pedida por clique', () => {
+  for (const estadoAgora of ['MERGED', 'CLOSED']) {
+    assert.deepEqual(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [], estadoAgora }),
+      { abandonar: true, motivo: 'pr-fechado' });
+    assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [], estadoAgora, porClique: true }).motivo,
+      'pr-fechado', 'não há onde postar, clique ou não');
+  }
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [], estadoAgora: 'OPEN' }).abandonar, false);
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [], estadoAgora: null }).abandonar, false,
+    'estado desconhecido não é prova de merge');
+});
+
 test('nada mudou: a sessão segue', () => {
   assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [] }).abandonar, false);
 });
@@ -63,10 +77,11 @@ test('falta de dado NUNCA abandona trabalho pago', () => {
 
 /* ---------- a rodada, contra um engine ---------- */
 
-function engineVigiado({ head, estados }) {
+function engineVigiado({ head, estados, estado = 'OPEN' }) {
   const e = new Engine();
   e.log = () => { };
   e.headSha = async () => head;
+  e.prState = async () => estado;
   e.myReviewStates = async () => estados;
   e.cancelados = [];
   e.cancelSession = (id) => { e.cancelados.push(id); return { ok: true }; };
@@ -102,9 +117,18 @@ test('gh que falha na conferida não cancela nada', async () => {
   const e = engineVigiado({ head: HEAD, estados: [] });
   e.headSha = async () => { throw new Error('fetch failed'); };
   e.myReviewStates = async () => { throw new Error('fetch failed'); };
+  e.prState = async () => { throw new Error('fetch failed'); };
   await vigia.conferir(e, PR, 'sess-2', HEAD);
   assert.deepEqual(e.cancelados, [], 'queda de rede não pode matar sessão de 10 minutos');
   assert.equal(vigia.abandonoDe(e, PR.key), '');
+});
+
+test('a rodada encerra a sessão de PR mergeado e carimba o motivo', async () => {
+  const e = engineVigiado({ head: HEAD, estados: [], estado: 'MERGED' });
+  const d = await vigia.conferir(e, { ...PR, manual: true }, 'sess-m1', HEAD);
+  assert.equal(d.motivo, 'pr-fechado');
+  assert.deepEqual(e.cancelados, ['sess-m1']);
+  assert.equal(vigia.abandonoDe(e, PR.key), 'pr-fechado');
 });
 
 test('parado, o vigia não consulta mais nada', async () => {
@@ -160,6 +184,15 @@ test('já revisado: sai da fila em silêncio, sem estacionar nem pedir clique', 
   await e.runOneHeadless({ ...PR }, 'conta');
   assert.equal(e.autoReviewParked.has(PR.key), false);
   assert.ok(!e.queue.some(p => p.key === PR.key), 'refazer o que está feito não volta pra fila');
+  assert.equal(vigia.abandonoDe(e, PR.key), '');
+});
+
+test('PR mergeado durante a revisão: sai da fila sem estacionar nem pedir clique', async () => {
+  const e = engineDeWorker('pr-fechado');
+  await e.runOneHeadless({ ...PR }, 'conta');
+  assert.equal(e.autoReviewParked.has(PR.key), false, 'merge por fora não é falha da revisão');
+  assert.ok(!e.queue.some(p => p.key === PR.key), 'PR fechado não volta pra fila');
+  assert.equal(e.retryAfterNet.has(PR.key), false);
   assert.equal(vigia.abandonoDe(e, PR.key), '');
 });
 
