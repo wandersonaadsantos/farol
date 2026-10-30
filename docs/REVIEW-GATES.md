@@ -19,7 +19,11 @@
 > repetir quando não há progresso. Mantém o material até o fechamento da sessão. Retoma na mesma
 > conversa quando há sessionId, sem nova admissão e sem publicação direta. O resultado volta
 > a todos os gates. A recuperação usa cinco minutos de inatividade, sem reduzir o teto com
-> progresso; critérios pendentes específicos acompanham a próxima rodada. O Codex recebe
+> progresso; o modelo escrevendo (eventos parciais do `--include-partial-messages`) conta como
+> progresso, porque a continuação reescreve o envelope inteiro e um envelope grande passa de
+> cinco minutos sem nenhum evento completo (biud-frontend#1627, 30/10/2026). Critérios
+> pendentes específicos acompanham a próxima rodada. O vigia da sessão também encerra a
+> continuação quando o PR é mergeado ou fechado. O Codex recebe
 > protocolo próprio e não precisa chamar outro provedor para cumprir o passo pr-reviewer.
 > Seus checkpoints são capturados pelo stream e gravados pelo engine. Uma continuação
 > reutiliza a posse viva da mesma operação e confere conta, alvo, perfil e modelo antes
@@ -1399,6 +1403,28 @@ As peças (`lib/engine/verification-checkpoint.js` + costuras em `session.js`,
 - Testes: `test/verification-checkpoint.test.js`, `test/session-checkpoint-capture.test.js`,
   `test/checkpoint-gate.test.js`, `test/checkpoint-review-wiring.test.js` e
   `test/checkpoint-retry-same-path.test.js`.
+
+### Sessão presa com a label de revisando (v2.78.23)
+
+Medido em 30/10/2026 em biblioteca-cnbb-api#144: a sessão ficou 75 minutos aberta,
+cancelada, sem processo do Codex vivo, com a label `<conta>:revisando` no PR e a
+atualização recusada por "análise em andamento". O vigia pedia o encerramento a cada três
+minutos e nada acontecia. A cadeia:
+
+- a sessão roda `lib/review-context/query.js` pelo `process.execPath`, que é o `Farol.exe`.
+  Sem `ELECTRON_RUN_AS_NODE=1` ele abre como app Electron e não sai quando o script acaba.
+  O prompt só pedia a variável ao modelo, e no PowerShell do Codex a forma `VAR=1 comando`
+  não existe;
+- os quatro `query.js` herdaram o pipe da sessão e ficaram órfãos quando o Codex saiu;
+- o `close` do processo da sessão só chega quando os pipes fecham, então o desfecho nunca
+  rodava, e o cancelamento não alcança neto que já perdeu o pai.
+
+Três camadas, cada uma suficiente para este caso: `ENV_SESSAO` (`lib/constants.js`) entra
+no ambiente de toda sessão de Claude, Codex e Antigravity; o `query.js` encerra o processo
+depois de entregar a saída, com teto `TEMPOS.CONSULTA_FONTES_MS`; e `fecharSaidaPresa`
+(`lib/saida-presa.js`) fecha os pipes do lado do Farol quando o processo da sessão já saiu
+e o `close` não veio em `TEMPOS.SAIDA_SEM_FECHAMENTO_MS`. Travado em
+`test/saida-presa.test.js`, com processos reais.
 
 ### Retomada após falha transitória (v2.57.3)
 
