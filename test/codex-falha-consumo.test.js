@@ -54,6 +54,18 @@ test('turn.completed segue como hoje: medido, sem marca de desconhecido', () => 
   assert.equal(s.costSource, 'medido');
 });
 
+for (const code of [1, 137, null]) test(`resultado completo seguido de saída ${code} não vira sucesso`, () => {
+  const eng = engineReal(), st = estado();
+  eventoCodex({ type: 'item.completed', item: { type: 'agent_message', text: 'parecer que não pode ser aceito' } }, st, () => {});
+  eventoCodex({ type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 5 } }, st, () => {});
+  assert.throws(() => fecharCodex(eng, { id: `failed-${code}` }, { cancelled: false, model: '' }, st, '', 'processo falhou', code), /codex saiu com código/);
+  const session = eng.usageSessions.sessions.at(-1);
+  assert.equal(session.status, 'erro');
+  assert.equal(session.costSource, 'medido');
+  assert.equal(session.inputTokens, 10);
+  assert.equal(session.outputTokens, 5);
+});
+
 test('saída 0 sem evento nenhum e sem token continua sem linha (stub)', () => {
   const eng = engineReal();
   fecharCodex(eng, { id: 'a-cx5' }, { cancelled: false, model: '' }, estado(), 'texto', '', 0);

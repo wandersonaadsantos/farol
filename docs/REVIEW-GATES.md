@@ -1138,6 +1138,21 @@ manifesto de exclusões. Caminhos protegidos e links não são copiados. Valores
 são ocultos antes da entrega e da persistência; fontes não verificadas impedem iniciar. Os materiais são preservados para
 diagnóstico, sem limpeza de diretórios compartilhados ou retomada de sessão.
 
+Para selecionar Codex somente naquela execução, use `POST /api/self-review/restricted/codex`
+com `url` e `profileId` de um perfil Codex existente. A resposta deve confirmar o mesmo
+`codexProfileId` e o modo restrito. A rota separada impede que uma instalação anterior
+ignore o perfil e inicie o provedor associado. Perfil ausente, de outro tipo ou removido
+antes do executor é recusado, sem fallback. O item da fila conserva a seleção; conta,
+cadeia e configuração global permanecem iguais. A reserva de cota e o orçamento consultam
+o perfil escolhido; Codex mantém sua classificação existente sem custo em dólar para o teto
+de grupo. O lease da análise e todos os controles do sandbox continuam obrigatórios.
+
+A observação `sourceTools` registra contagens de chamadas, respostas e erros, além do código
+de saída e sinais booleanos de MCP no stderr; nunca o texto do stderr. Zero respostas ou
+um sinal de falha não provam indisponibilidade: a cobertura observada continua sendo o gate.
+Codex com saída diferente de zero ou sem código confirmado é falha mesmo após `turn.completed`;
+o consumo medido é preservado.
+
 **Projeção de fontes (`source-redaction-v1`).** O fluxo normal continua recusando patches
 sensíveis. Somente a execução restrita solicita representações: mantém contexto e linhas,
 com marcadores opacos por execução. Marcadores iguais comprovam igualdade do texto oculto

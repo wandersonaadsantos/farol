@@ -14,6 +14,11 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.20', [
+    'Autoanálise restrita pode selecionar explicitamente um perfil Codex só para a execução, sem mudar a associação global nem iniciar fallback.',
+    'Codex recusa resultado com saída de processo malsucedida e preserva o consumo; diagnóstico restrito usa somente contagens e sinais fechados.',
+    'Seleção preserva orçamento, reservas de cota e coordenação entre aparelhos. A comemoração de merge volta a encerrar a animação.',
+  ]],
   ['2.78.19', [
     'Preparação restrita evita varreduras de quota por blob e mantém somente textos já ocultados em cache temporário limitado por execução.',
     'Reutilização preserva versão, caminho e política de template. Cancelamento e limites continuam impedindo resultados sem prova.',

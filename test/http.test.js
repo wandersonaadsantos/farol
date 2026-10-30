@@ -19,6 +19,32 @@ const { reviewCaps } = await import('../lib/engine/decision.js');
 
 let server, base, engine;
 
+test('rota Codex exige seleção explícita válida e preserva a associação global', async () => {
+  const saved = { myPRs: engine.myPRs, headlessQueue: engine.headlessQueue, accountForPr: engine.accountForPr,
+    tokenFor: engine.tokenFor, processHeadless: engine.processHeadless, pushState: engine.pushState };
+  const before = structuredClone(engine.config);
+  const url = 'https://github.com/fixture/repo/pull/938';
+  engine.myPRs = [{ url, key: 'fixture/repo#938', repo: 'fixture/repo', number: 938 }];
+  engine.config.claudeProfiles = [{ id: 'existing-codex', kind: 'codex' }, { id: 'claude', kind: 'dir', dir: '/fixture' }];
+  engine.headlessQueue = []; engine.accountForPr = () => 'fixture'; engine.tokenFor = () => 'fixture-token';
+  engine.processHeadless = engine.pushState = () => {};
+  const route = '/api/self-review/restricted/codex';
+  try {
+    assert.equal((await postSemHeader(route, { url, profileId: 'existing-codex' })).status, 403);
+    for (const profileId of [undefined, null, false, 1, {}, '', 'missing', 'claude']) {
+      const result = JSON.parse((await post(route, { url, profileId })).body);
+      assert.equal(result.ok, false);
+      assert.equal(engine.headlessQueue.length, 0);
+    }
+    const configBeforeLaunch = structuredClone(engine.config);
+    const result = JSON.parse((await post(route, { url, profileId: 'existing-codex', isolation: 'unrestricted' })).body);
+    assert.deepEqual(result, { ok: true, isolation: 'restricted-read', codexProfileId: 'existing-codex' });
+    assert.equal(engine.headlessQueue[0].codexProfileId, 'existing-codex');
+    assert.equal(engine.headlessQueue[0].isolation, 'restricted-read');
+    assert.deepEqual(engine.config, configBeforeLaunch);
+  } finally { Object.assign(engine, saved); engine.config = before; }
+});
+
 test('rota restrita exige o gate HTTP e fixa o modo, sem aceitar downgrade no corpo', async () => {
   const saved = { myPRs: engine.myPRs, headlessQueue: engine.headlessQueue, accountForPr: engine.accountForPr,
     tokenFor: engine.tokenFor, processHeadless: engine.processHeadless, pushState: engine.pushState };

@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.20
+
+Seleção de Codex por autoanálise restrita, sem trocar a associação da conta.
+
+### Melhorias
+
+- O diagnóstico restrito registra contagens de respostas da ferramenta e sinais fechados de falha, sem guardar stderr. Ausência de resposta não prova indisponibilidade.
+- Uma rota específica aceita um perfil Codex já configurado somente para aquela execução restrita. A resposta confirma a seleção; versões anteriores recusam a rota sem iniciar outro provedor.
+- Perfil ausente, incompatível ou removido enquanto espera é recusado sem fallback. Reservas, orçamento do perfil escolhido e coordenação entre aparelhos continuam protegendo a execução.
+
+### Correções
+
+- Codex deixa de aceitar resultado como sucesso quando o processo termina com erro ou sem código de saída confirmado, preservando o consumo medido.
+- A comemoração de merge encerra a animação em vez de continuar indefinidamente.
+
 ## v2.78.19
 
 Preparação das fontes restritas evita varreduras de quota por blob.
