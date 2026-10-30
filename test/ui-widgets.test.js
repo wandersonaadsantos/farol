@@ -430,6 +430,33 @@ test('Panorama: o CSS que impede o título de empurrar o autor pra fora', () => 
     'a menção do autor não encolhe junto com o título');
 });
 
+// Corpos de todos os `@media (max-width: N px)` concatenados (chaves equilibradas).
+function corposDaMedia(largura) {
+  const marca = `@media (max-width: ${largura}px)`;
+  const corpos = [];
+  for (let abre = CSS.indexOf(marca); abre >= 0; abre = CSS.indexOf(marca, abre + 1)) {
+    const i = CSS.indexOf('{', abre);
+    let prof = 0;
+    for (let j = i; j < CSS.length; j += 1) {
+      if (CSS[j] === '{') prof += 1;
+      if (CSS[j] === '}') { prof -= 1; if (!prof) { corpos.push(CSS.slice(i + 1, j)); break; } }
+    }
+  }
+  return corpos.join('\n');
+}
+
+test('topbar em 768 px: Verificar agora vira só o ícone até 900 px', () => {
+  assert.match(corposDaMedia(900), /#btnCheck span\s*\{\s*display:\s*none/,
+    'o rótulo some até 900 px, senão a aba Sistema é cortada em 768 px');
+});
+
+test('Panorama no celular: título em duas linhas, autor embaixo e alvos de 40 px', () => {
+  const m = corposDaMedia(420);
+  assert.match(m, /\.pw-title-txt\s*\{[^}]*white-space:\s*normal[^}]*-webkit-line-clamp:\s*2/);
+  assert.match(m, /\.pw-title \.person-mention\s*\{[^}]*flex-basis:\s*100%/);
+  assert.match(m, /\.pw-acts \.btn\s*\{[^}]*min-width:\s*40px[^}]*min-height:\s*40px/);
+});
+
 test('navegação interna tem UM handler só, delegado, e entende os 3 tipos', () => {
   const fn = APPJS.match(/function goTo\(spec\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'goTo existe');
