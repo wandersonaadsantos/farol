@@ -2552,6 +2552,14 @@ test('pedidosAntesDoInicio conta só mine, fora da fila e anteriores ao baseline
   assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(['d']), baseline: null }), 0);
 });
 
+test('pedidosAntesDoInicio: baseline legado e PR já revisado por mim não contam', () => {
+  const antes = '2026-10-01T00:00:00Z';
+  const panorama = [{ key: 'a', mine: true, updatedAt: antes }, { key: 'r', mine: true, reviewedByMe: true, updatedAt: antes }];
+  const at = Date.parse('2026-10-10T12:00:00Z');
+  assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(), baseline: { at, marcados: null } }), 0);
+  assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(), baseline: { at, marcados: 2 } }), 1);
+});
+
 test('vazio da fila com PRs anteriores ao baseline diz quantos e leva ao Panorama', () => {
   const html = P.queueEmptyOkHtml({ aprovados: 0, owners: ['biudtech'], intervalSeconds: 300, antesDoInicio: 14 });
   assert.match(html, /14 PRs já pediam sua revisão antes do Farol começar a vigiar/);

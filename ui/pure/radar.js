@@ -91,10 +91,12 @@ function orgsDaConta(a) {
 }
 
 // Quantos PRs já pediam minha revisão antes do Farol começar a vigiar (o baseline os marcou
-// como vistos): mine, fora da fila e com atividade anterior ao baseline. Sem baseline, 0.
+// como vistos): mine, fora da fila, não revisado por mim e sem atividade depois do baseline
+// (a linha do panorama só traz updatedAt). Baseline legado (sem `marcados`) ou ausente: 0,
+// porque nele não dá para afirmar que o PR saiu da fila pelo baseline e não por outro motivo.
 export function pedidosAntesDoInicio({ panorama, queueKeys, baseline } = {}) {
-  if (!baseline || !Number.isFinite(baseline.at)) return 0;
-  return (panorama || []).filter(pr => pr.mine && !queueKeys?.has(pr.key)
+  if (!baseline || !Number.isFinite(baseline.at) || !Number.isFinite(baseline.marcados)) return 0;
+  return (panorama || []).filter(pr => pr.mine && !pr.reviewedByMe && !queueKeys?.has(pr.key)
     && Date.parse(pr.updatedAt) < baseline.at).length;
 }
 
