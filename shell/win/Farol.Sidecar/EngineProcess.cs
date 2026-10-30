@@ -106,6 +106,11 @@ public sealed class EngineProcess : IDisposable
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                // Um pipe que a casca segura e nunca escreve: o motor em modo casca sai quando o
+                // stdin chega ao fim (lib/engine/casca-stdin.js). Herdado, o stdin de um app sem
+                // console chegaria ao fim na largada e o motor sairia sozinho. O Job Object
+                // continua sendo quem leva o motor junto quando a casca cai.
+                RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };

@@ -32,7 +32,7 @@ public sealed class EngineProcessTests : IDisposable
         }
     }
 
-    private enum Fake { WritesAndSleeps, OnlySleeps, ExitsWith3, StderrOnceThenQuiet }
+    private enum Fake { WritesAndSleeps, OnlySleeps, ExitsWith3, StderrOnceThenQuiet, ReadsStdinUntilEof }
 
     private string WriteFake(Fake kind)
     {
@@ -47,6 +47,11 @@ public sealed class EngineProcessTests : IDisposable
                     + "echo listen EADDRINUSE: address already in use 127.0.0.1:47170 1>&2\r\n"
                     + "exit /b 1\r\n",
                 Fake.OnlySleeps => "ping -n 31 127.0.0.1 > nul\r\n",
+                // O cmd não sabe dizer se o stdin é pipe: aqui só a espera pelo EOF é conferida.
+                Fake.ReadsStdinUntilEof =>
+                    "echo pipe> \"%FAROL_HOME%\\stdin.txt\"\r\n"
+                    + "more > nul\r\n"
+                    + "exit /b 7\r\n",
                 _ =>
                     "(\r\n"
                     + "echo FAROL_SHELL=%FAROL_SHELL%\r\n"
@@ -72,6 +77,10 @@ public sealed class EngineProcessTests : IDisposable
                 + "echo 'listen EADDRINUSE: address already in use 127.0.0.1:47170' >&2\n"
                 + "exit 1\n",
             Fake.OnlySleeps => "exec sleep 30\n",
+            Fake.ReadsStdinUntilEof =>
+                "if [ -p /dev/stdin ]; then echo pipe; else echo outro; fi > \"$FAROL_HOME/stdin.txt\"\n"
+                + "cat > /dev/null\n"
+                + "exit 7\n",
             _ =>
                 "printf 'FAROL_SHELL=%s\\nFAROL_SHELL_VERSION=%s\\nFAROL_HOME=%s\\n' \"$FAROL_SHELL\" \"$FAROL_SHELL_VERSION\" \"$FAROL_HOME\" > \"$FAROL_HOME/env.txt\"\n"
                 + "mkdir -p \"$FAROL_HOME/state\"\n"
@@ -246,6 +255,33 @@ public sealed class EngineProcessTests : IDisposable
 
         Assert.False(engine.IsRunning);
         Assert.Null(engine.Pid);
+    }
+
+    [Fact]
+    public async Task StandardInputIsAPipeHeldOpenWhileTheEngineLives()
+    {
+        // Paridade com a casca Mac (R28 de lá): o motor em modo casca sai quando o stdin chega ao
+        // fim, então a casca entrega um pipe e o segura aberto. Herdado, o stdin de um app sem
+        // console chegaria ao fim na largada e o motor sairia sozinho.
+        using var engine = NewProcess(Fake.ReadsStdinUntilEof);
+        var stdinFile = Path.Combine(_home, "stdin.txt");
+        try
+        {
+            await engine.StartAsync();
+            var watch = Stopwatch.StartNew();
+            while (!File.Exists(stdinFile) && watch.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                await Task.Delay(20);
+            }
+            Assert.Equal("pipe", (await File.ReadAllTextAsync(stdinFile)).Trim());
+            await Task.Delay(500);
+
+            Assert.True(engine.IsRunning);
+        }
+        finally
+        {
+            await engine.StopAsync();
+        }
     }
 
     [Fact]

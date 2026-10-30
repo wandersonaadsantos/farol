@@ -79,12 +79,12 @@ test('vigiarPai com o pai vivo não chama aoMorrer', async () => {
 test('o filho reexecutado em modo casca liga a vigia do pai', () => {
   const vigias = [];
   const env = { FAROL_SHELL: 'mac', FAROL_BOOTSTRAP_FEITO: '1', FAROL_PAI_PID: '4321' };
-  assert.equal(mod.bootstrapDaCasca({ env, vigiar: (o) => { vigias.push(o); return () => {}; } }), false);
+  assert.equal(mod.bootstrapDaCasca({ env, vigiar: (o) => { vigias.push(o); return () => {}; }, vigiarFim: () => {} }), false);
   assert.equal(vigias.length, 1);
   assert.equal(vigias[0].pid, 4321);
   assert.equal(typeof vigias[0].aoMorrer, 'function');
   const semPai = [];
-  mod.bootstrapDaCasca({ env: { FAROL_SHELL: 'mac', FAROL_BOOTSTRAP_FEITO: '1' }, vigiar: (o) => { semPai.push(o); } });
+  mod.bootstrapDaCasca({ env: { FAROL_SHELL: 'mac', FAROL_BOOTSTRAP_FEITO: '1' }, vigiar: (o) => { semPai.push(o); }, vigiarFim: () => {} });
   mod.bootstrapDaCasca({ env: { FAROL_BOOTSTRAP_FEITO: '1', FAROL_PAI_PID: '4321' }, vigiar: (o) => { semPai.push(o); } });
   assert.equal(semPai.length, 0, 'sem pid do pai, ou fora da casca, não há vigia');
 });
@@ -93,7 +93,7 @@ test('o aviso padrão de manifesto inválido vai para o farol.log', () => {
   fs.mkdirSync(paths.STATE_DIR, { recursive: true });
   const pastaEngine = pastaNova();
   motor(pastaEngine, '2.95.0', '{ corrompido');
-  mod.bootstrapDaCasca({ env: { FAROL_SHELL: 'mac', FAROL_SHELL_VERSION: '3.0.0' }, semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, reexec: () => {} });
+  mod.bootstrapDaCasca({ env: { FAROL_SHELL: 'mac', FAROL_SHELL_VERSION: '3.0.0' }, semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, reexec: () => {}, vigiarFim: () => {} });
   const log = fs.readFileSync(paths.LOG_FILE, 'utf8');
   assert.match(log, /\[WARN\].*manifesto inválido.*2\.95\.0/);
 });
@@ -102,6 +102,25 @@ test('package.json declara engines.farolShell e mantém o contrato do Node', () 
   const manifesto = JSON.parse(fs.readFileSync(path.join(paths.APP_ROOT, 'package.json'), 'utf8'));
   assert.equal(manifesto.engines.farolShell, '>=3.0.0 <4');
   assert.match(manifesto.engines.node, /^>=\d+\.\d+\.\d+ <\d+$/);
+});
+
+// Item A da onda de pendências das cascas: o motor que vai escutar (o semeado que fica, ou o
+// filho reexecutado) liga a vigia do fim do stdin; quem reexecuta não (a vigia dele mora no
+// `reexecutar`), e fora do modo casca ninguém liga.
+test('em modo casca, o motor que fica liga a vigia do fim do stdin', () => {
+  const pastaEngine = pastaNova();
+  motor(pastaEngine, '2.80.0', { version: '2.80.0', engines: COMPATIVEL });
+  let vigias = 0;
+  const vigiarFim = () => { vigias += 1; };
+  const base = { semeada: '2.79.5', raizSemeada: '/bundle', reexec: () => {}, vigiar: () => () => {}, vigiarFim };
+  assert.equal(mod.bootstrapDaCasca({ ...base, env: { FAROL_SHELL: 'mac', FAROL_SHELL_VERSION: '3.0.0' }, pastaEngine: pastaNova() }), false);
+  assert.equal(vigias, 1, 'semeado que fica');
+  assert.equal(mod.bootstrapDaCasca({ ...base, env: { FAROL_SHELL: 'mac', FAROL_BOOTSTRAP_FEITO: '1', FAROL_PAI_PID: '4321' }, pastaEngine }), false);
+  assert.equal(vigias, 2, 'filho reexecutado');
+  assert.equal(mod.bootstrapDaCasca({ ...base, env: { FAROL_SHELL: 'mac', FAROL_SHELL_VERSION: '3.0.0' }, pastaEngine }), true);
+  assert.equal(vigias, 2, 'quem reexecuta não liga aqui');
+  assert.equal(mod.bootstrapDaCasca({ ...base, env: {}, pastaEngine }), false);
+  assert.equal(vigias, 2, 'fora do modo casca nada muda');
 });
 
 test('sem FAROL_SHELL o bootstrap não roda', () => {
@@ -117,7 +136,7 @@ test('com o bootstrap já feito não roda de novo (sem laço)', () => {
   let chamou = false;
   const r = mod.bootstrapDaCasca({
     env: { FAROL_SHELL: 'mac', FAROL_SHELL_VERSION: '3.0.0', FAROL_BOOTSTRAP_FEITO: '1' }, pastaEngine,
-    reexec: () => { chamou = true; },
+    reexec: () => { chamou = true; }, vigiarFim: () => {},
   });
   assert.equal(r, false);
   assert.equal(chamou, false);
@@ -231,7 +250,7 @@ test('bootstrap avisa só manifesto inválido e fica na semeada', () => {
   let chamou = false;
   const r = mod.bootstrapDaCasca({
     env: { FAROL_SHELL: 'win', FAROL_SHELL_VERSION: '3.0.0' }, semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine,
-    reexec: () => { chamou = true; }, avisar: (m) => avisos.push(m),
+    reexec: () => { chamou = true; }, avisar: (m) => avisos.push(m), vigiarFim: () => {},
   });
   assert.equal(r, false);
   assert.equal(chamou, false);
@@ -289,4 +308,32 @@ test('reexecutar repassa o SIGTERM do pai ao filho e sai com o código dele', { 
   const r = await saida;
   assert.deepEqual(r, { code: 0, signal: null }, 'o pai sai pelo código do filho, não morto pelo sinal');
   assert.match(fs.readFileSync(marca, 'utf8'), new RegExp(`recebi SIGTERM ${pidDoFilho}`), 'o filho recebeu o SIGTERM');
+});
+
+// Item A da onda de pendências das cascas: quando a casca morre sem repassar sinal, o pipe que
+// ela segura como stdin fecha. O pai do bootstrap vê o EOF, repassa como SIGTERM ao filho e
+// sai com o código dele. O filho daqui não vigia o stdin, então só o repasse do pai o encerra.
+test('reexecutar em modo casca: o EOF do stdin vira SIGTERM no filho', { skip: process.platform === 'win32' }, async () => {
+  const raiz = fs.mkdtempSync(path.join(TMP, 'raiz-'));
+  const marca = path.join(raiz, 'marca.txt');
+  fs.writeFileSync(path.join(raiz, 'server.js'), [
+    `const fs = require('node:fs');`,
+    `process.on('SIGTERM', () => { fs.appendFileSync(${JSON.stringify(marca)}, 'recebi SIGTERM\\n'); process.exit(0); });`,
+    `fs.writeFileSync(${JSON.stringify(marca)}, 'pronto\\n');`,
+    `setInterval(() => {}, 1000);`,
+  ].join('\n'));
+  fs.writeFileSync(path.join(raiz, 'package.json'), JSON.stringify({ type: 'commonjs' }));
+  const { spawn } = await import('node:child_process');
+  const env = { ...process.env, FAROL_SHELL: 'mac', FAROL_SHELL_VERSION: '3.0.0' };
+  const pai = spawn(process.execPath, [scriptQueReexecuta(raiz)], { env, stdio: ['pipe', 'ignore', 'ignore'] });
+  const saida = new Promise((resolve) => pai.on('exit', (code, signal) => resolve({ code, signal })));
+  const inicio = Date.now();
+  while (!(fs.existsSync(marca) && fs.readFileSync(marca, 'utf8').startsWith('pronto'))) {
+    if (Date.now() - inicio > 10000) { pai.kill('SIGKILL'); throw new Error('o filho não subiu'); }
+    await new Promise(r => setTimeout(r, 25));
+  }
+  pai.stdin.end();
+  const r = await saida;
+  assert.deepEqual(r, { code: 0, signal: null });
+  assert.match(fs.readFileSync(marca, 'utf8'), /recebi SIGTERM/);
 });
