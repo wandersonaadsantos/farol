@@ -15,6 +15,7 @@ internal sealed class WebHost
     private readonly int _port;
     private readonly string _userDataFolder;
     private readonly Action<string>? _log;
+    private readonly EpisodeLatch _unresponsive = new();
     private string? _token;
     private string? _scriptId;
 
@@ -31,6 +32,12 @@ internal sealed class WebHost
         _token = token;
         _userDataFolder = userDataFolder;
     }
+
+    /// <summary>A porta do motor a que este controle está preso.</summary>
+    public int Port => _port;
+
+    /// <summary>O token injetado agora (o último dado por <see cref="UpdateTokenAsync"/>).</summary>
+    public string? Token => _token;
 
     /// <summary>
     /// O processo do navegador do WebView2 morreu: este controle não volta mais, e quem é dono da
@@ -68,6 +75,7 @@ internal sealed class WebHost
         core.NewWindowRequested += OnNewWindowRequested;
         core.NavigationStarting += OnNavigationStarting;
         core.ProcessFailed += OnProcessFailed;
+        core.NavigationCompleted += OnNavigationCompleted;
     }
 
     /// <summary>
@@ -132,8 +140,16 @@ internal sealed class WebHost
             switch (args.ProcessFailedKind)
             {
                 case CoreWebView2ProcessFailedKind.RenderProcessExited:
-                case CoreWebView2ProcessFailedKind.RenderProcessUnresponsive:
                     _log?.Invoke($"WARN janela: o processo da página falhou ({args.ProcessFailedKind}); recarregando");
+                    sender.Reload();
+                    break;
+                case CoreWebView2ProcessFailedKind.RenderProcessUnresponsive:
+                    // O travado avisa de novo a cada poucos segundos: uma linha por episódio,
+                    // que acaba quando uma página carrega.
+                    if (_unresponsive.TryEnter())
+                    {
+                        _log?.Invoke($"WARN janela: o processo da página falhou ({args.ProcessFailedKind}); recarregando");
+                    }
                     sender.Reload();
                     break;
                 case CoreWebView2ProcessFailedKind.BrowserProcessExited:
@@ -145,6 +161,14 @@ internal sealed class WebHost
         catch (Exception e)
         {
             _log?.Invoke($"WARN janela: recuperação da falha do WebView2 falhou ({e.GetType().Name})");
+        }
+    }
+
+    private void OnNavigationCompleted(CoreWebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
+    {
+        if (args.IsSuccess)
+        {
+            _unresponsive.End();
         }
     }
 

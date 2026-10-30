@@ -64,8 +64,11 @@ internal sealed class Composition
     private bool _windowShown;
     private bool _firstOpenDone;
     private bool _attachPending;
-    private int _attachedPort;
-    private string? _attachedToken;
+
+    // A janela de estabilidade do motor (SidecarMachine.StabilityWindow) e a vigia do visor:
+    // as duas são canceladas quando o que elas esperam deixa de valer.
+    private CancellationTokenSource? _stable;
+    private CancellationTokenSource? _viewerWatch;
 
     private ShellEvent.Shell? _lastShell;
     private bool? _autostartApplied;
@@ -162,6 +165,8 @@ internal sealed class Composition
     {
         try
         {
+            CancelStable();
+            StopViewerWatch();
             _machine = new SidecarMachine();
             var existing = EngineFile.Read(_engineFile);
             // casca.json vivo, ou outro Farol (um Electron, que não grava casca.json) na porta padrão.
@@ -190,10 +195,23 @@ internal sealed class Composition
         {
             return;
         }
+        // Um PortTaken com o motor já de pé é a saída de onde veio, e é cuidado como saída.
+        input = _machine.Resolve(input);
+        if (SidecarMachine.EndsEngineWaits(input))
+        {
+            // O motor que saiu (ou que não achou porta) não vai gravar o arquivo nem ficar de pé:
+            // as esperas acabam aqui. Sem isto o visor por EADDRINUSE ganhava, 30 s depois, um
+            // WARN falso de prazo do casca.json.
+            _wait.Cancel();
+            CancelStable();
+        }
+        if (input is SidecarInput.ViewerLost)
+        {
+            StopViewerWatch();
+        }
         if (input is SidecarInput.Exited exited)
         {
-            // O motor que saiu não vai gravar o arquivo nem provar token: as esperas acabam aqui.
-            _wait.Cancel();
+            // O motor que saiu não vai provar token.
             AbandonProof();
             _engineRestarted = true;
             if (exited.Code == 0)
@@ -223,6 +241,44 @@ internal sealed class Composition
                 Log($"WARN efeito {effect.GetType().Name} falhou ({e.GetType().Name})");
             }
         }
+        // O motor publicou o arquivo: se ficar de pé pela janela de estabilidade, as falhas
+        // seguidas zeram (paridade com a casca Mac). Pareamento sozinho não zera mais.
+        if (input is SidecarInput.FileAppeared && _machine.Phase is SidecarPhase.Pairing)
+        {
+            ScheduleStable();
+        }
+    }
+
+    private void ScheduleStable()
+    {
+        CancelStable();
+        _stable = new CancellationTokenSource();
+        _ = StableAfterAsync(_stable.Token);
+    }
+
+    private void CancelStable()
+    {
+        _stable?.Cancel();
+        _stable = null;
+    }
+
+    private async Task StableAfterAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(SidecarMachine.StabilityWindow, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        OnUi(() =>
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                Feed(new SidecarInput.Stable());
+            }
+        });
     }
 
     private void Post(SidecarInput input)
@@ -306,7 +362,7 @@ internal sealed class Composition
             if (port is { } taken && await EngineProbe.IsFarolAsync(taken))
             {
                 Debug.WriteLine($"casca: outro Farol ocupa a porta {taken}; a casca vira visor");
-                return new SidecarInput.PortTaken(taken);
+                return new SidecarInput.PortTaken(taken, code);
             }
         }
         catch (Exception e)
@@ -751,11 +807,16 @@ internal sealed class Composition
     {
         _port = port;
         _viewer = viewer;
+        if (viewer)
+        {
+            WatchViewer(port);
+        }
         NotifyUpdateIfRestarted();
         if (_window.IsAttached)
         {
             _window.RestoreEngineView();
-            if (port == _attachedPort)
+            // A porta é a da WebHost de verdade, não a que a casca pediu por último.
+            if (port == _window.Web.Port)
             {
                 _ = RefreshWindowTokenAsync();
                 return;
@@ -796,8 +857,21 @@ internal sealed class Composition
         try
         {
             await _window.AttachEngineAsync(port, token, FarolPaths.WebViewDataFolder(_home), Log);
-            _attachedPort = port;
-            _attachedToken = token;
+            if (!_window.IsAttached)
+            {
+                // Outra ligação estava em voo e esta não fez nada: quem confere a porta é ela,
+                // quando terminar.
+                return;
+            }
+            if (_window.Web.Port != _port)
+            {
+                // A janela ficou ligada numa porta que já não é a do motor (o motor voltou noutra
+                // enquanto um attach estava em voo): troca pela porta atual.
+                _window.DetachEngine();
+                _attachPending = true;
+                EnsureAttached();
+                return;
+            }
             if (_lastShell is { } shell)
             {
                 _window.Web.Apply(shell);
@@ -816,15 +890,13 @@ internal sealed class Composition
     // Só depois do Attach concluído (o UpdateTokenAsync exige o WebView2 de pé).
     private async Task RefreshWindowTokenAsync()
     {
-        if (_viewer || !_window.IsAttached || _attachedToken == _token)
+        if (_viewer || !_window.IsAttached || _window.Web.Token == _token)
         {
             return;
         }
         try
         {
-            var token = _token;
-            await _window.Web.UpdateTokenAsync(token);
-            _attachedToken = token;
+            await _window.Web.UpdateTokenAsync(_token);
             _window.Web.Reload();
         }
         catch (Exception e)
@@ -851,9 +923,15 @@ internal sealed class Composition
     }
 
     // O processo do navegador do WebView2 morreu: a janela já largou o controle, e um novo nasce
-    // na mesma porta.
+    // na mesma porta. Com a casca parada (a tela da falha na janela), nada: um WebView2 novo
+    // tomaria o lugar do "Tentar de novo", apontado para um motor morto; o Tentar de novo liga
+    // outro quando o motor voltar.
     private void OnEngineViewLost()
     {
+        if (_machine.GaveUp)
+        {
+            return;
+        }
         _attachPending = true;
         EnsureAttached();
     }
@@ -910,6 +988,53 @@ internal sealed class Composition
         if (SilentReopen.Consume(FarolPaths.EngineStateDir(_home)) is { } version)
         {
             _notifier.Post(ShellNotices.Updated(version));
+        }
+    }
+
+    // ---------- o visor ----------
+
+    // Enquanto a casca é só visor de outro Farol, confere de tempos em tempos se ele ainda
+    // responde; quando ele sai, a casca volta a ser casca e sobe o próprio motor.
+    private void WatchViewer(int port)
+    {
+        StopViewerWatch();
+        _viewerWatch = new CancellationTokenSource();
+        _ = WatchViewerAsync(port, _viewerWatch.Token);
+    }
+
+    private void StopViewerWatch()
+    {
+        _viewerWatch?.Cancel();
+        _viewerWatch = null;
+    }
+
+    private async Task WatchViewerAsync(int port, CancellationToken ct)
+    {
+        var watch = new ViewerWatch();
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(ViewerWatch.Interval, ct);
+                if (watch.OnProbe(await EngineProbe.IsFarolAsync(port, ct)))
+                {
+                    OnUi(() =>
+                    {
+                        if (!ct.IsCancellationRequested && _machine.Phase is SidecarPhase.Viewer)
+                        {
+                            Feed(new SidecarInput.ViewerLost());
+                        }
+                    });
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+        catch (Exception e)
+        {
+            Log($"WARN vigia do visor parou ({e.GetType().Name})");
         }
     }
 
@@ -1022,6 +1147,8 @@ internal sealed class Composition
         // Primeiro o update: uma checagem que chegue durante o Sair não vira reinício.
         _updates.Dispose();
         _wait.Cancel();
+        CancelStable();
+        StopViewerWatch();
         AbandonProof();
         try
         {

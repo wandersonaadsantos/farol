@@ -74,7 +74,14 @@ O detalhe mora no índice; aqui só o que a casca precisa lembrar.
   lê `state` nem `state-patch`.
 - **Códigos de saída** do motor: `0` é fim; `75` é saída de propósito (update ou
   reinício), e a casca religa na hora; qualquer outro é falha, com recuo de 1 s, 2 s,
-  4 s até o teto de 30 s, parando depois de 5 falhas seguidas.
+  4 s até o teto de 30 s, parando depois de 5 falhas seguidas. As falhas seguidas só
+  zeram depois de 60 s de motor de pé sem sair (como na casca Mac): pareamento sozinho
+  não zera, senão um motor que pareia e morre religaria para sempre.
+- **Stdin**: a casca entrega ao motor um pipe como stdin e o segura sem escrever; quando
+  ele chega ao fim, o motor em modo casca sai (o Job Object continua levando o motor junto
+  quando a casca cai).
+- **Visor**: com outro Farol na porta, a casca só mostra a tela dele e confere a cada 5 s
+  se ele ainda responde; duas faltas seguidas e ela volta a ser casca e sobe o próprio motor.
 
 ## Update do pacote
 
