@@ -1,7 +1,7 @@
 /* Farol · UI: versão e atualização (Sistema > Visão geral). */
 
 import { esc, fmtClock, updateAdiadoHtml, pontePainelHtml } from '../pure.js';
-import { estado, ehMac } from './estado.js';
+import { estado, ehMac, ehWin } from './estado.js';
 import { $, api, toast, confirmModal, origemLocal } from './infra.js';
 
 let updateEmAndamento = false;
@@ -24,6 +24,12 @@ async function aplicarAtualizacao() {
 }
 
 /* ---------- render: versão e atualização ---------- */
+// o aviso da ponte muda por sistema: macOS e Windows têm instalador nativo, o Linux não
+function plataformaDaPonte() {
+  if (ehMac()) return 'darwin';
+  return ehWin() ? 'win32' : 'linux';
+}
+
 function renderUpdate() {
   const u = estado().update;
   const box = $('#updateBox');
@@ -42,7 +48,7 @@ function renderUpdate() {
   box.classList.toggle('ponte', !!u.ponte);
   if (u.ponte) {
     // a 3.x é o Farol nativo: nada a aplicar aqui, só o instalador a baixar
-    box.innerHTML = pontePainelHtml(u, ehMac() ? 'darwin' : 'win32');
+    box.innerHTML = pontePainelHtml(u, plataformaDaPonte());
   } else if (u.available) {
     const autoOn = remote && estado().config?.autoUpdate !== false;
     const noteAuto = autoOn

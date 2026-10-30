@@ -21,6 +21,16 @@ test('pontePainelHtml mostra os dois instaladores, o do sistema atual primeiro',
   assert.ok(win.indexOf('Farol-3.0.0.msix') < win.indexOf('Farol-3.0.0.dmg'));
 });
 
+test('no Linux o aviso aponta o modo servidor, sem link de dmg nem msix', () => {
+  const html = pontePainelHtml(u, 'linux');
+  assert.match(html, /última versão do Farol nesta casca \(Electron\)/);
+  assert.match(html, /modo servidor/);
+  assert.match(html, /<code>node server\.js<\/code>/);
+  assert.doesNotMatch(html, /Baixe o Farol nativo/);
+  assert.doesNotMatch(html, /Farol-3\.0\.0\.(dmg|msix)/);
+  assert.doesNotMatch(html, /<a /);
+});
+
 test('link nulo vira texto, nunca link morto', () => {
   const html = pontePainelHtml({ ...u, ponte: { ...ponte, msix: null } }, 'win32');
   assert.match(html, /ainda sem instalador para este sistema/);
@@ -43,6 +53,11 @@ test('renderUpdate com ponte desenha o aviso e nenhum botão de atualizar', () =
   assert.match(box.innerHTML, /Baixe o Farol nativo/);
   assert.doesNotMatch(box.innerHTML, /Atualizar agora/);
   assert.doesNotMatch(box.innerHTML, /versão mais recente/);
+  definirPlataforma('linux');
+  renderUpdate();
+  assert.match(box.innerHTML, /modo servidor/);
+  assert.doesNotMatch(box.innerHTML, /Farol-3\.0\.0\.dmg/);
+  definirPlataforma('darwin');
   definirEstado({ config: {}, update: { ...u, ponte: undefined, sourceVersion: '2.80.0' } });
   renderUpdate();
   assert.ok(!box.classList.contains('ponte'));

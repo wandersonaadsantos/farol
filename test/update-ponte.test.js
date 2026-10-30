@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-ponte-'));
 process.env.FAROL_HOME = scratch;
-const { checkUpdateRemote, maybeAutoUpdate } = await import('../lib/engine/update.js');
+const { checkUpdate, checkUpdateRemote, maybeAutoUpdate } = await import('../lib/engine/update.js');
 after(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
 const REPO = 'owner/farol';
@@ -85,6 +85,33 @@ test('sob a casca nativa a 3.x também é update comum, mesmo com versão de Ele
   const engine = engineFalso();
   const run = async () => release('3.0.0', ['farol-v3.0.0.zip', 'Farol-3.0.0.dmg']);
   await checkUpdateRemote(engine, REPO, { run, electronVersion: '39.0.0', casca: 'mac' });
+  assert.equal(engine.update.available, true);
+  assert.equal(engine.update.ponte, undefined);
+});
+
+// o canal local (updateSource apontando uma árvore) passa pela MESMA guarda: sem ela, o
+// mantenedor com Electron e uma árvore 3.x veria o update disponível e falharia em laço
+function arvore(versao) {
+  const dir = fs.mkdtempSync(path.join(scratch, 'arvore-'));
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'farol', version: versao }));
+  return dir;
+}
+
+test('canal local com Electron e árvore 3.x: indisponível, com a ponte sem links', async () => {
+  const engine = engineFalso();
+  engine.config = { updateSource: arvore('3.2.0') };
+  await checkUpdate(engine, { electronVersion: '39.0.0', casca: '' });
+  assert.equal(engine.update.channel, 'local');
+  assert.equal(engine.update.available, false);
+  assert.deepEqual(engine.update.ponte, { versao: '3.2.0', dmg: null, msix: null, appinstaller: null });
+  assert.equal(engine.emitidos.filter(e => e.evento === 'update-ponte').length, 1);
+});
+
+test('canal local sem Electron: a árvore 3.x é update comum', async () => {
+  const engine = engineFalso();
+  engine.config = { updateSource: arvore('3.2.1') };
+  await checkUpdate(engine, { electronVersion: undefined, casca: '' });
+  assert.equal(engine.update.channel, 'local');
   assert.equal(engine.update.available, true);
   assert.equal(engine.update.ponte, undefined);
 });
