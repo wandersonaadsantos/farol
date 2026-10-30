@@ -185,3 +185,31 @@ test('Codex 6: caixa de revisão cuja busca termina depois de a rota mudar não 
     assert.equal(history.chamadas.slice(n).some(([tipo]) => tipo === 'push'), false, 'e não empilha nada');
   } finally { globalThis.fetch = real; }
 });
+
+test('período do Consumo: o clique escreve ?janela= (substituindo) e o endereço aplica a janela e marca o botão', async () => {
+  const { janelaDoConsumo, escolherJanelaDoConsumo } = await import('../ui/telas/consumo.js');
+  // o stub não tem os botões: dá à caixa do período quatro botões que lembram a classe
+  const caixa = document.querySelector('#usageWindow');
+  const botoes = [1, 7, 30, 90].map((n) => {
+    const b = document.createElement('button');
+    b.dataset.window = String(n);
+    return b;
+  });
+  caixa.querySelectorAll = () => botoes;
+  const ativo = () => botoes.filter((b) => b.classList.contains('active')).map((b) => b.dataset.window);
+  irPara('/consumo');
+  disparar('popstate');
+  assert.equal(abaAtual(), 'consumo');
+  assert.equal(janelaDoConsumo(), 30);
+  const n = history.chamadas.length;
+  escolherJanelaDoConsumo(7);
+  disparar('click');
+  assert.deepEqual(history.chamadas.slice(n), [['replace', '/consumo?janela=7']]);
+  irPara('/consumo?janela=90');
+  disparar('popstate');
+  assert.equal(janelaDoConsumo(), 90);
+  assert.deepEqual(ativo(), ['90']);
+  escolherJanelaDoConsumo(30);
+  disparar('click');
+  assert.deepEqual(ultima(), ['replace', '/consumo']);
+});

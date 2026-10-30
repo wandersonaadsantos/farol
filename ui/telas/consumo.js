@@ -244,6 +244,16 @@ async function renderUsageConsolidado() {
   alvo.innerHTML = usageConsolidadoEnvelopeHtml(r);
 }
 
+// O período do Consumo, também endereçável (?janela=7): a rota e o clique passam por aqui.
+function janelaDoConsumo() { return usageState.window; }
+function escolherJanelaDoConsumo(n) {
+  usageState.window = n;
+  const caixa = document.querySelector('#usageWindow');
+  if (caixa) marcarSeg(caixa.querySelectorAll('.seg-btn'), x => Number(x.dataset.window) === n);
+  usageHoverIdx = null;
+  renderUsage();
+}
+
 function wireUsageControls() {
   const advanced = $('#usageAdvanced');
   advanced?.addEventListener('toggle', () => { if (advanced.open) renderUsage(); });
@@ -257,7 +267,7 @@ function wireUsageControls() {
     }));
   };
   bind('#usageMetric', 'metric', 'metric');
-  bind('#usageWindow', 'window', 'window', Number);
+  document.querySelectorAll('#usageWindow .seg-btn').forEach(b => b.addEventListener('click', () => escolherJanelaDoConsumo(Number(b.dataset.window))));
   bind('#usageStack', 'dim', 'dim');
   const dev = document.querySelector('#usageDevice');
   if (dev) {
@@ -288,4 +298,4 @@ function registrarTelaConsumo() {
   });
 }
 
-export { revisarUrls, registrarTelaConsumo, renderUsage };
+export { revisarUrls, registrarTelaConsumo, renderUsage, janelaDoConsumo, escolherJanelaDoConsumo };

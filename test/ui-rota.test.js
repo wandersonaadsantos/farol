@@ -12,7 +12,7 @@ import { lerRota, escreverRota, mudancaDeRota, avisoDeAbaDesligada } from '../ui
 
 const PADRAO = {
   aba: 'radar', sub: 'mim', aparelho: '', secao: '', conta: '', pr: '',
-  dias: null, agrupar: '', org: '', busca: '', repo: '', pessoa: '',
+  dias: null, janela: null, agrupar: '', org: '', busca: '', repo: '', pessoa: '',
 };
 
 test('endereço vazio não é rota: a tela fica como está', () => {
@@ -106,6 +106,23 @@ test('conta só nas abas que mostram a barra de contas', () => {
   assert.equal(lerRota('/radar?conta=a%20b').conta, '');
   assert.equal(escreverRota({ aba: 'time', conta: 'alice' }), '/time?conta=alice');
   assert.equal(escreverRota({ aba: 'consumo', conta: 'alice' }), '/consumo');
+});
+
+test('período do Consumo: só 1, 7, 30 e 90, só na aba consumo; o padrão (30) não é escrito', () => {
+  assert.equal(lerRota('/consumo?janela=7').janela, 7);
+  assert.equal(lerRota('/consumo?janela=7').aba, 'consumo');
+  assert.equal(lerRota('/consumo?janela=90').janela, 90);
+  assert.equal(lerRota('/consumo?janela=30').janela, 30);
+  for (const ruim of ['15', '0', '-7', 'abc', '7x', '07', '']) assert.equal(lerRota(`/consumo?janela=${ruim}`).janela, null, ruim);
+  assert.equal(lerRota('/consumo').janela, null);
+  assert.equal(lerRota('/radar?janela=7').janela, null, 'nas outras abas é ignorada');
+  assert.equal(escreverRota({ aba: 'consumo', janela: 7 }), '/consumo?janela=7');
+  assert.equal(escreverRota({ aba: 'consumo', janela: 30 }), '/consumo');
+  assert.equal(escreverRota({ aba: 'consumo', janela: 15 }), '/consumo');
+  assert.equal(escreverRota({ aba: 'radar', janela: 7 }), '/radar/pra-mim');
+  assert.equal(escreverRota(lerRota('/consumo?janela=90&pr=acme%2Fapi%239')), '/consumo?janela=90&pr=acme%2Fapi%239');
+  assert.equal(mudancaDeRota({ aba: 'consumo' }, { aba: 'consumo', janela: 7 }), 'replace', 'filtro substitui');
+  assert.equal(mudancaDeRota({ aba: 'consumo', janela: 7 }, { aba: 'consumo', janela: 90 }), 'replace');
 });
 
 test('caixa de revisão aberta: só chave de PR no formato owner/repo#N', () => {

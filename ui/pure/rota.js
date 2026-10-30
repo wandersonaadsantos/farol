@@ -29,6 +29,8 @@ const SECOES_DO_SISTEMA = {
 // só nessas abas a barra de contas aparece (accountBarVisible, ui/pure/contas.js)
 const ABAS_COM_CONTA = new Set(['radar', 'destaques', 'time']);
 const DIAS_DE_ENTREGAS = [0, 7, 15, 30];
+const JANELAS_DO_CONSUMO = [1, 7, 30, 90];
+const JANELA_PADRAO_DO_CONSUMO = 30;
 const AGRUPAR = { repositorios: 'repo', pessoas: 'author' };
 
 const ID_OPACO = /^[A-Za-z0-9_-]{1,128}$/;
@@ -50,7 +52,7 @@ function decodificar(pedaco) {
 
 // Só os nomes que a rota conhece saem da consulta: o nome vem do endereço, e escrever
 // propriedade com nome livre deixaria `__proto__` e parentes mexerem no objeto.
-const NOMES_DA_CONSULTA = ['conta', 'pr', 'org', 'dias', 'agrupar', 'busca', 'repo', 'pessoa'];
+const NOMES_DA_CONSULTA = ['conta', 'pr', 'org', 'dias', 'agrupar', 'busca', 'repo', 'pessoa', 'janela'];
 
 function lerConsulta(texto) {
   const lidos = new Map();
@@ -72,7 +74,7 @@ const SECAO_PADRAO = { sistema: 'overview' };
 function rotaPadrao(aba = 'radar') {
   return {
     aba, sub: SUB_PADRAO[aba] || '', aparelho: '', secao: SECAO_PADRAO[aba] || '',
-    conta: '', pr: '', dias: null, agrupar: '', org: '', busca: '', repo: '', pessoa: '',
+    conta: '', pr: '', janela: null, dias: null, agrupar: '', org: '', busca: '', repo: '', pessoa: '',
   };
 }
 
@@ -96,6 +98,13 @@ function lerEntregas(rota, q) {
   rota.busca = buscaSegura(q.busca);
   rota.repo = valido(REPO_GH, q.repo);
   rota.pessoa = rota.repo ? '' : valido(LOGIN_GH, q.pessoa);
+}
+
+// período do Consumo: só os quatro botões da tela (Hoje, 7, 30 e 90 dias), o resto é null
+function janelaValida(v) {
+  const t = v === null || v === undefined ? '' : String(v);
+  const n = Number.parseInt(t, 10);
+  return /^\d+$/.test(t) && String(n) === t && JANELAS_DO_CONSUMO.includes(n) ? n : null;
 }
 
 function lerCaminho(rota, partes) {
@@ -147,6 +156,7 @@ export function lerRota(endereco) {
   lerCaminho(rota, aba === partes[0] ? partes : []);
   if (ABAS_COM_CONTA.has(aba)) rota.conta = valido(LOGIN_GH, consulta.conta);
   if (aba === 'entregas') lerEntregas(rota, consulta);
+  if (aba === 'consumo') rota.janela = janelaValida(consulta.janela);
   rota.pr = chaveDePr(consulta.pr);
   return rota;
 }
@@ -175,6 +185,7 @@ export function escreverRota(r) {
     if (rota.repo) consulta.push(pedacoDeConsulta('repo', rota.repo));
     if (rota.pessoa) consulta.push(pedacoDeConsulta('pessoa', rota.pessoa));
   }
+  if (rota.aba === 'consumo' && rota.janela !== null && rota.janela !== JANELA_PADRAO_DO_CONSUMO) consulta.push(pedacoDeConsulta('janela', rota.janela));
   if (rota.conta) consulta.push(pedacoDeConsulta('conta', rota.conta));
   if (rota.pr) consulta.push(pedacoDeConsulta('pr', rota.pr));
   const sufixo = consulta.length ? `?${consulta.join('&')}` : '';
@@ -197,6 +208,7 @@ function lerRotaDeObjeto(r) {
       agrupar: chaveDoValor(AGRUPAR, o.agrupar), org: o.org, busca: o.busca, repo: o.repo, pessoa: o.pessoa,
     });
   }
+  if (aba === 'consumo') rota.janela = janelaValida(o.janela);
   rota.pr = chaveDePr(o.pr);
   return rota;
 }
