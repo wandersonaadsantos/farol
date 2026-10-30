@@ -196,7 +196,6 @@ test('Claude escrevendo (stream_event) renova o prazo da recuperação; silênci
   const p = runClaudeStream(engine, 'prompt', { id: 'recuperacao', recovery: true });
   spawnImpl = null;
   assert.match(cmd, /--include-partial-messages/, 'sem a flag o CLI não emite stream_event');
-  assert.match(cmd, /"ELECTRON_RUN_AS_NODE":"1"/, 'a sessão roda o query.js pelo Farol.exe e precisa do modo Node');
   const rejected = assert.rejects(p, err => { assert.match(err.message, /5min sem progresso/); return true; });
   child.stdout.write('{"type":"system","subtype":"init","session_id":"s-rec"}\n');
   for (let i = 0; i < 6; i++) {

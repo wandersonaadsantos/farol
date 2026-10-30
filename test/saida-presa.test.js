@@ -6,8 +6,7 @@
 import cp from 'node:child_process';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fecharSaidaPresa } from '../lib/saida-presa.js';
-import { ENV_SESSAO } from '../lib/constants.js';
+import { fecharSaidaPresa } from '../lib/session-deadline.js';
 
 const NETO_MS = 8000;
 const PAI = `require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, ${NETO_MS})'], { stdio: 'inherit' }); process.stdout.write('feito\\n'); process.exit(0);`;
@@ -46,9 +45,4 @@ test('processo que fecha normalmente não é tocado', async () => {
   child.stdout.on('data', (c) => { saida += c; });
   assert.equal(await new Promise(resolve => child.on('close', resolve)), 0);
   assert.equal(saida, 'ok');
-});
-
-test('toda sessão herda ELECTRON_RUN_AS_NODE, para o Farol.exe rodar ferramenta como Node', () => {
-  assert.deepEqual({ ...ENV_SESSAO }, { ELECTRON_RUN_AS_NODE: '1' });
-  assert.ok(Object.isFrozen(ENV_SESSAO));
 });

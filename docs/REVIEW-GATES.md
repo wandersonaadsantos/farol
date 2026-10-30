@@ -1419,12 +1419,14 @@ minutos e nada acontecia. A cadeia:
 - o `close` do processo da sessão só chega quando os pipes fecham, então o desfecho nunca
   rodava, e o cancelamento não alcança neto que já perdeu o pai.
 
-Três camadas, cada uma suficiente para este caso: `ENV_SESSAO` (`lib/constants.js`) entra
-no ambiente de toda sessão de Claude, Codex e Antigravity; o `query.js` encerra o processo
-depois de entregar a saída, com teto `TEMPOS.CONSULTA_FONTES_MS`; e `fecharSaidaPresa`
-(`lib/saida-presa.js`) fecha os pipes do lado do Farol quando o processo da sessão já saiu
-e o `close` não veio em `TEMPOS.SAIDA_SEM_FECHAMENTO_MS`. Travado em
-`test/saida-presa.test.js`, com processos reais.
+Duas camadas, cada uma suficiente para este caso: o `query.js` encerra o processo depois de
+entregar a saída, nos dois modos, com teto `TEMPOS.CONSULTA_FONTES_MS`; e `fecharSaidaPresa`
+(`lib/session-deadline.js`), ligado nas sessões de Claude, Codex e Antigravity, fecha os pipes do
+lado do Farol quando o processo da sessão já saiu e o `close` não veio em
+`TEMPOS.SAIDA_SEM_FECHAMENTO_MS`. Travado em `test/saida-presa.test.js`, com processos reais.
+`ELECTRON_RUN_AS_NODE` NÃO entra no ambiente da sessão de propósito: ela também roda
+ferramentas do repositório revisado, e um `electron .` ou um smoke de app Electron rodaria
+como Node e daria resultado enganoso.
 
 ### Retomada após falha transitória (v2.57.3)
 
