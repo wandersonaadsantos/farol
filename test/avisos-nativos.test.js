@@ -106,6 +106,25 @@ test('badgeDe conta pendências que esperam você', () => {
   assert.deepEqual(badgeDe(null), { contador: 0, rotulo: '' });
 });
 
+// Até o Electron sair, o número do Dock e do ícone da barra de tarefas é IDÊNTICO nas duas
+// cascas e no main.js. A regra do main.js é tirada do próprio fonte (o filtro do updateBadge)
+// e rodada contra as mesmas pendências: quem mudar um lado sem o outro reprova aqui.
+test('badgeDe conta exatamente o que o updateBadge do main.js conta', () => {
+  const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'main.js'), 'utf8');
+  const corpo = fonte.slice(fonte.indexOf('function updateBadge('));
+  const m = corpo.match(/\.pending \|\| \[\]\)\.filter\((d => [^\n]*?)\)\.length;/);
+  assert.ok(m, 'o filtro do updateBadge do main.js mudou de forma; reveja a paridade com o badgeDe');
+  const filtroDoElectron = new Function(`return (${m[1]});`)();
+  const amostras = [
+    [], [null], [{}], [{ esperaCi: true }], [{ esperaProva: true }], [{ esperaCi: { head: 'x' } }],
+    [{ esperaProva: { tentativas: 2 } }], [{ esperaCi: false, esperaProva: null }],
+    [{}, { esperaCi: true }, { esperaProva: true }, null, { status: 'retry' }],
+  ];
+  for (const pending of amostras) {
+    assert.equal(badgeDe({ decisions: { pending } }).contador, pending.filter(filtroDoElectron).length, JSON.stringify(pending));
+  }
+});
+
 test('cascaDe projeta badge, ocupado, autostart e cores', () => {
   const engine = { activeReviews: new Map([['a1', {}]]), config: { autostart: true, theme: 'light' }, snapshot: () => ({ decisions: { pending: [{}] } }) };
   assert.deepEqual(cascaDe(engine), { badge: { contador: 1, rotulo: '1 decisão esperando você' }, ocupado: true, autostart: true, cores: { bg: '#f4f6f9', symbol: '#1c2536' } });
