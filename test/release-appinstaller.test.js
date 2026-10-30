@@ -73,18 +73,31 @@ test('appinstallerXml: recusa versão sem 4 partes numéricas, repo malformado e
   assert.throws(() => appinstallerXml({ ...BASE, nome: '' }), /nome/);
 });
 
-test('appinstaller-win.ps1 grava o mesmo XML da função pura, com Name e Publisher do manifesto', COM_PWSH, () => {
-  const msix = path.join(TMP, 'Farol-3.1.4.msix');
+const IDENTIDADE = /<Identity\b[^>]*>/.exec(fs.readFileSync(path.join(RAIZ, 'shell', 'win', 'Farol.App', 'Package.appxmanifest'), 'utf8'))[0];
+const doManifesto = (attr) => new RegExp(`\\b${attr}="([^"]*)"`).exec(IDENTIDADE)[1];
+
+test('appinstaller-win.ps1 grava o mesmo XML da função pura, com Name, Publisher e Version do manifesto', COM_PWSH, () => {
+  const versao = doManifesto('Version');
+  const msix = path.join(TMP, 'Farol-manifesto.msix');
   fs.writeFileSync(msix, 'msix falso');
   const saida = path.join(TMP, 'saida', 'Farol.appinstaller');
-  const r = pwsh('appinstaller-win.ps1', ['--msix', msix, '--saida', saida, '--versao', '3.1.4.0', '--repo', 'wandersonaadsantos/farol']);
+  const r = pwsh('appinstaller-win.ps1', ['--msix', msix, '--saida', saida, '--versao', versao, '--repo', 'wandersonaadsantos/farol']);
   assert.equal(r.status, 0, `appinstaller-win.ps1 falhou: ${r.stderr}`);
-  const manifesto = fs.readFileSync(path.join(RAIZ, 'shell', 'win', 'Farol.App', 'Package.appxmanifest'), 'utf8');
-  const identidade = /<Identity\b[^>]*>/.exec(manifesto)[0];
-  const nome = /\bName="([^"]*)"/.exec(identidade)[1];
-  const publisher = /\bPublisher="([^"]*)"/.exec(identidade)[1];
-  const esperado = appinstallerXml({ versao: '3.1.4.0', repo: 'wandersonaadsantos/farol', nomeDoMsix: 'Farol-3.1.4.msix', publisher, nome });
+  const esperado = appinstallerXml({ versao, repo: 'wandersonaadsantos/farol', nomeDoMsix: 'Farol-manifesto.msix',
+    publisher: doManifesto('Publisher'), nome: doManifesto('Name') });
   assert.equal(fs.readFileSync(saida, 'utf8'), esperado);
+});
+
+test('appinstaller-win.ps1 recusa versão diferente da Version do manifesto sem gravar nada', COM_PWSH, () => {
+  const msix = path.join(TMP, 'Farol-manifesto.msix');
+  fs.writeFileSync(msix, 'msix falso');
+  const partes = doManifesto('Version').split('.').map(Number);
+  partes[3] += 1;
+  const saida = path.join(TMP, 'divergente', 'Farol.appinstaller');
+  const r = pwsh('appinstaller-win.ps1', ['--msix', msix, '--saida', saida, '--versao', partes.join('.'), '--repo', 'wandersonaadsantos/farol']);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /difere da Version do Package\.appxmanifest/);
+  assert.ok(!fs.existsSync(saida), 'gravou o appinstaller mesmo recusando');
 });
 
 test('appinstaller-win.ps1 recusa versão de 3 partes sem gravar nada', COM_PWSH, () => {

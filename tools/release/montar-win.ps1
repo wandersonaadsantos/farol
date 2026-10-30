@@ -59,7 +59,7 @@ $versao = ($versaoDoPacote -split '\.')[0..2] -join '.'
 $nomeFinal = "Farol-$versao.msix"
 
 if (-not $dryRun) {
-  if (-not $IsWindows) { Falhar 'o MSIX so se monta no Windows (WinUI 3 e o tooling do MSIX).' }
+  if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) { Falhar 'o MSIX so se monta no Windows (WinUI 3 e o tooling do MSIX).' }
   if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { Falhar 'dotnet nao encontrado (instale o SDK do .NET 8).' }
   New-Item -ItemType Directory -Force -Path $saida | Out-Null
   $saida = (Resolve-Path -LiteralPath $saida).Path
@@ -72,8 +72,9 @@ if ($sementeGerada) {
   $semente = Join-Path $saida 'semente'
   if ($dryRun) { Write-Output "$(Join-Path $Release 'semente-do-motor.ps1') --destino $semente" }
   else {
+    # o $LASTEXITCODE dele nao prova nada (o ultimo nativo e robocopy/git); a prova e o
+    # engine\app\server.js conferido logo abaixo
     & (Join-Path $Release 'semente-do-motor.ps1') --destino $semente | Out-Null
-    if ($LASTEXITCODE -ne 0) { Falhar 'semente-do-motor.ps1 falhou' }
   }
 }
 if ($nodeGerado) {
@@ -81,8 +82,8 @@ if ($nodeGerado) {
   $node = Join-Path $pastaDoNode 'node.exe'
   if ($dryRun) { Write-Output "$(Join-Path $Release 'baixar-node.ps1') --plataforma win-x64 --destino $pastaDoNode" }
   else {
+    # a prova e o node.exe presente, conferido logo abaixo (nao o $LASTEXITCODE)
     & (Join-Path $Release 'baixar-node.ps1') --plataforma win-x64 --destino $pastaDoNode | Out-Host
-    if ($LASTEXITCODE -ne 0) { Falhar 'baixar-node.ps1 falhou' }
   }
 }
 

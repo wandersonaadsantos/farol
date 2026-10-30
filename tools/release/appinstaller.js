@@ -8,7 +8,8 @@
 //                                      --versao X.Y.Z.W --repo <dono/nome>
 //
 // O `Name` e o `Publisher` vêm do `Identity` do `shell/win/Farol.App/Package.appxmanifest`
-// (lidos só aqui, na linha de comando; a função pura os recebe por parâmetro). Sai 0 com o
+// (lidos só aqui, na linha de comando; a função pura os recebe por parâmetro), e a
+// `--versao` tem de ser igual à `Version` dele. Sai 0 com o
 // arquivo gravado, 1 (motivo no stderr, nada gravado) quando alguma entrada não confere.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -54,7 +55,7 @@ function identidadeDoManifesto(xml) {
     if (!m) throw new Error(`manifesto sem ${attr} no <Identity>`);
     return m[1].replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   };
-  return { nome: ler('Name'), publisher: ler('Publisher') };
+  return { nome: ler('Name'), publisher: ler('Publisher'), versao: ler('Version') };
 }
 
 function lerArgumentos(argv) {
@@ -75,7 +76,9 @@ if (executadoDireto(import.meta.url)) {
   try {
     const { msix, saida, versao, repo } = lerArgumentos(process.argv.slice(2));
     if (!fs.statSync(msix, { throwIfNoEntry: false })?.isFile()) throw new Error(`msix ausente: ${msix}`);
-    const { nome, publisher } = identidadeDoManifesto(fs.readFileSync(MANIFESTO, 'utf8'));
+    const { nome, publisher, versao: doManifesto } = identidadeDoManifesto(fs.readFileSync(MANIFESTO, 'utf8'));
+    // o appinstaller anuncia a versao do pacote: diferente da do MSIX, o Windows recusa a instalacao
+    if (versao !== doManifesto) throw new Error(`versao ${versao} difere da Version do Package.appxmanifest (${doManifesto})`);
     const xml = appinstallerXml({ versao, repo, nomeDoMsix: path.basename(msix), publisher, nome });
     fs.mkdirSync(path.dirname(path.resolve(saida)), { recursive: true });
     fs.writeFileSync(saida, xml);

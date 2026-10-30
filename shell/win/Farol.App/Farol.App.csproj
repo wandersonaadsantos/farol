@@ -14,6 +14,9 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsPackageType>MSIX</WindowsPackageType>
+    <!-- Runtime do Windows App SDK dentro do pacote: o App Installer instala numa maquina limpa sem um segundo asset.
+         Plano B, se o publish empacotado self-contained falhar no Windows real: publicar Dependencies\x64\Microsoft.WindowsAppRuntime.1.6.msix na release e declarar <Dependencies> no appinstaller. -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
   </PropertyGroup>
 
   <ItemGroup>
