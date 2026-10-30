@@ -27,6 +27,8 @@ const CONGELADA = [
   "mudancaDeRota",
   // o aviso de quando a rota pede uma aba opcional desligada e a tela cai no Radar
   "avisoDeAbaDesligada",
+  // o período padrão da aba Consumo, que a URL omite e a tela aplica quando ela não diz
+  "JANELA_PADRAO_DO_CONSUMO",
   // conflito e PR superado pela base, no card de Meus PRs: a nota provisória da v2.71.10
   // (notaDaBaseHtml) saiu com o desenho do Claude Design de 10/10/2026
   "avisoDaBaseNoCard",

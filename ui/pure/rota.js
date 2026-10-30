@@ -30,7 +30,7 @@ const SECOES_DO_SISTEMA = {
 const ABAS_COM_CONTA = new Set(['radar', 'destaques', 'time']);
 const DIAS_DE_ENTREGAS = [0, 7, 15, 30];
 const JANELAS_DO_CONSUMO = [1, 7, 30, 90];
-const JANELA_PADRAO_DO_CONSUMO = 30;
+export const JANELA_PADRAO_DO_CONSUMO = 30;
 const AGRUPAR = { repositorios: 'repo', pessoas: 'author' };
 
 const ID_OPACO = /^[A-Za-z0-9_-]{1,128}$/;

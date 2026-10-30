@@ -20,7 +20,7 @@
    Quem chega em `/` (o login do Google, quando não guarda o caminho pedido) vê a tela como
    sempre (o que estava guardado), e o endereço passa a dizer onde ela está. */
 
-import { enderecoDaPagina, lerRota, escreverRota, mudancaDeRota, accountBarVisible, validScope } from '../pure.js';
+import { enderecoDaPagina, lerRota, escreverRota, mudancaDeRota, accountBarVisible, validScope, JANELA_PADRAO_DO_CONSUMO } from '../pure.js';
 import { estado, abaAtual, escopo, definirEscopo } from './estado.js';
 import { $ } from './infra.js';
 import { aoNavegar } from './registro.js';
@@ -117,7 +117,7 @@ function aplicarCaixa(pr) {
 
 // janela ausente no endereço é o padrão (30), que o endereço não escreve
 function aplicarJanela(janela) {
-  const alvo = janela === null || janela === undefined ? 30 : janela;
+  const alvo = janela === null || janela === undefined ? JANELA_PADRAO_DO_CONSUMO : janela;
   if (alvo !== janelaDoConsumo()) escolherJanelaDoConsumo(alvo);
 }
 
