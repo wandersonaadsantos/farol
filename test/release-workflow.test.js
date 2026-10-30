@@ -82,8 +82,39 @@ test('todo job tem timeout-minutes, com os tetos do plano', () => {
   }
 });
 
-test('concorrência por ref', () => {
-  assert.match(topo(ler()), /^concurrency:\n {2}group:.*\$\{\{ github\.ref \}\}/m);
+test('concorrência: toda tag num grupo só, sem cancelar; fora de tag por ref', () => {
+  const t = topo(ler());
+  const grupo = t.match(/^concurrency:\n {2}group:\s*(.*)$/m);
+  assert.ok(grupo, 'sem concurrency.group');
+  assert.match(grupo[1], /startsWith\(github\.ref, 'refs\/tags\/'\) && 'release-nativo-tags'/);
+  assert.match(grupo[1], /format\('release-nativo-\{0\}', github\.ref\)/);
+  assert.match(t, /^ {2}cancel-in-progress:\s*\$\{\{ !startsWith\(github\.ref, 'refs\/tags\/'\) \}\}\s*$/m);
+});
+
+// o passo do appcast: 404 só passa como primeira release quando não há release 3.x
+// publicada; com uma no ar, o appcast anterior tem de baixar
+function passoDoAppcast() {
+  const b = blocosDosJobs(ler()).mac;
+  const inicio = b.indexOf('- name: Gerar o appcast');
+  assert.ok(inicio >= 0, 'mac sem o passo Gerar o appcast');
+  const resto = b.slice(inicio + 1);
+  const fim = resto.search(/\n {6}- /);
+  return fim >= 0 ? resto.slice(0, fim) : resto;
+}
+
+test('appcast: o 404 confere a lista de releases e falha com release 3.x publicada', () => {
+  const p = passoDoAppcast();
+  assert.match(p, /GH_TOKEN:\s*\$\{\{ github\.token \}\}/);
+  const ramo404 = p.slice(p.indexOf('404)'), p.indexOf('*)', p.indexOf('404)')));
+  assert.match(ramo404, /gh release list --repo "\$GITHUB_REPOSITORY"[^\n]*--exclude-drafts/);
+  assert.match(ramo404, /--json tagName/);
+  assert.match(ramo404, /grep -E '\^v\(\[3-9\]\|\[1-9\]\[0-9\]\+\)\\\.'/);
+  assert.match(ramo404, /exit 1/);
+  assert.ok(ramo404.indexOf('exit 1') < ramo404.indexOf('primeira release'), 'a falha vem antes de aceitar a primeira release');
+});
+
+test('appcast: a URL de download vem do repositorio da pipeline', () => {
+  assert.match(passoDoAppcast(), /appcast-mac\.sh[\s\S]*--repo "\$GITHUB_REPOSITORY"/);
 });
 
 test('permissões: contents read no topo, write só no publicar', () => {

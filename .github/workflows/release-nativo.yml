@@ -18,10 +18,15 @@ on:
 permissions:
   contents: read
 
-# Uma rodada por ref. Na tag nunca cancela: release cortada no meio deixaria anexo faltando.
-# No workflow_dispatch a rodada nova substitui a velha, porque o minuto do macOS conta 10x.
+# Toda tag cai num grupo SÓ (release-nativo-tags): duas tags seguidas (v3.0.1 e v3.0.2)
+# rodam uma depois da outra, sem disputar o `latest` nem o appcast anterior que cada uma
+# estende. Na tag nunca cancela: release cortada no meio deixaria anexo faltando. Fora de
+# tag o grupo é por ref, e no workflow_dispatch a rodada nova substitui a velha, porque o
+# minuto do macOS conta 10x. Limite do GitHub: num grupo fica UMA rodada pendente, então
+# uma terceira tag empurrada enquanto a primeira roda e a segunda espera tira a segunda da
+# fila; empurre uma tag por vez.
 concurrency:
-  group: release-nativo-${{ github.ref }}
+  group: ${{ startsWith(github.ref, 'refs/tags/') && 'release-nativo-tags' || format('release-nativo-{0}', github.ref) }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
@@ -165,12 +170,16 @@ jobs:
       # checksum do binário conferido pelo próprio SwiftPM): nada de segundo download nem de
       # hash mantido à mão, e a versão da ferramenta nunca diverge da do framework embutido.
       #
-      # O appcast publicado é estendido, não substituído: a primeira release não tem um
-      # (404 em releases/latest), e qualquer outra falha do download para o job, porque
+      # O appcast publicado é estendido, não substituído. O 404 em releases/latest só é
+      # aceito como primeira release quando NÃO existe release publicada (rascunho não
+      # conta) de major 3 ou mais: com uma 3.x no ar, o appcast anterior tem de existir, e
       # seguir sem ele apagaria o histórico do feed e a checagem de versão que sobe.
+      # Qualquer outra falha do download também para o job. O token aqui é o do próprio
+      # job (github.token, com o contents: read do topo), só para ler a lista de releases.
       - name: Gerar o appcast
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           export SPARKLE_BIN="$PWD/shell/mac/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin"
           anterior="$RUNNER_TEMP/appcast-publicado.xml"
@@ -179,11 +188,21 @@ jobs:
           argumentos=()
           case "$codigo" in
             200) argumentos=(--appcast-anterior "$anterior") ;;
-            404) echo 'nenhum appcast publicado: primeira release com a casca nativa' ;;
+            404)
+              publicadas=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --exclude-drafts \
+                --json tagName --jq '.[].tagName')
+              nativas=$(printf '%s\n' "$publicadas" | grep -E '^v([3-9]|[1-9][0-9]+)\.' || true)
+              if [ -n "$nativas" ]; then
+                echo "appcast publicado nao baixou (HTTP 404), mas ja existe release 3.x: $(printf '%s' "$nativas" | tr '\n' ' ')"
+                exit 1
+              fi
+              echo 'nenhum appcast publicado e nenhuma release 3.x: primeira release com a casca nativa'
+              ;;
             *) echo "download do appcast publicado falhou (HTTP $codigo)"; exit 1 ;;
           esac
           dmg=$(ls dist/mac/Farol-*.dmg)
-          bash tools/release/appcast-mac.sh --dmg "$dmg" --saida "$RUNNER_TEMP/appcast" "${argumentos[@]}"
+          bash tools/release/appcast-mac.sh --dmg "$dmg" --saida "$RUNNER_TEMP/appcast" \
+            --repo "$GITHUB_REPOSITORY" "${argumentos[@]}"
           cp "$RUNNER_TEMP/appcast/appcast.xml" dist/mac/appcast.xml
 
       # dmg e appcast na raiz do artefato: o publicar os baixa em dist/mac/, onde o

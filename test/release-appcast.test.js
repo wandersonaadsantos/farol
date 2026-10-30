@@ -125,14 +125,14 @@ const PULAR = process.platform === 'win32' ? 'appcast-mac.sh e bash: nao roda no
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-appcast-'));
 after(() => fs.rmSync(TMP, { recursive: true, force: true }));
 
-function rodar(nomeDoDmg, versaoPublicada, build, buildPublicado = '1') {
+function rodar(nomeDoDmg, versaoPublicada, build, buildPublicado = '1', extra = []) {
   const base = fs.mkdtempSync(path.join(TMP, 'caso-'));
   const dmg = path.join(base, nomeDoDmg);
   fs.writeFileSync(dmg, 'dmg falso\n');
   const anterior = path.join(base, 'appcast-publicado.xml');
   fs.writeFileSync(anterior, appcast(item(versaoPublicada, buildPublicado)));
   return spawnSync('bash', [SH, '--dmg', dmg, '--saida', path.join(base, 'saida'),
-    '--appcast-anterior', anterior, '--versao-build', build, '--dry-run'], {
+    '--appcast-anterior', anterior, '--versao-build', build, '--dry-run', ...extra], {
     encoding: 'utf8',
     env: { ...process.env, SPARKLE_PRIVATE_KEY: CHAVE_FALSA, SPARKLE_BIN: '' },
   });
@@ -153,6 +153,18 @@ test('appcast-mac.sh com versao maior imprime o generate_appcast sem a chave', {
   assert.match(linha, /--ed-key-file/);
   assert.match(linha, /--download-url-prefix https:\/\/github\.com\/wandersonaadsantos\/farol\/releases\/download\/v1\.0\.1\//);
   assert.ok(!`${r.stdout}${r.stderr}`.includes(CHAVE_FALSA), 'a chave privada vazou na saida');
+});
+
+test('appcast-mac.sh com --repo aponta a URL de download para o repositorio dado', { skip: PULAR }, () => {
+  const r = rodar('Farol-1.0.1.dmg', '1.0.0', '1.0.1', '1', ['--repo', 'outro-dono/outro-farol']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /--download-url-prefix https:\/\/github\.com\/outro-dono\/outro-farol\/releases\/download\/v1\.0\.1\//);
+});
+
+test('appcast-mac.sh recusa --repo malformado', { skip: PULAR }, () => {
+  const r = rodar('Farol-1.0.1.dmg', '1.0.0', '1.0.1', '1', ['--repo', 'sem-barra']);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /--repo tem que ser dono\/nome/);
 });
 
 test('appcast-mac.sh recusa curta maior com build igual ao publicado', { skip: PULAR }, () => {

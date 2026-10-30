@@ -13,6 +13,8 @@
 #     Nunca os constroi aqui: dmg e msix saem da pipeline (.github/workflows/release-nativo.yml).
 #   - FAROL_SO_ANEXAR=1 (a pipeline): nao constroi NADA; anexa o que existe no dist. Sem o
 #     pacote leve, falha. Cada ausente vira uma linha de aviso com o nome do arquivo.
+#   Nos dois modos, da 3.0.0 em diante, dmg, appcast, msix e appinstaller tambem sao
+#   obrigatorios: faltando ou retido um deles, falha e nada e publicado.
 #
 # Pre-req: o codigo desta versao ja commitado e no repo (git push), pra a tag
 # apontar pro codigo certo. Requer gh autenticado com acesso ao repo, e node no PATH.
@@ -106,8 +108,9 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'node nao enc
 $listaJson = & node (Join-Path (Join-Path $PSScriptRoot 'release') 'anexos-da-release.js') $version $Dist
 if ($LASTEXITCODE -ne 0) { throw "tools/release/anexos-da-release.js falhou (codigo $LASTEXITCODE)" }
 $lista = ($listaJson -join "`n") | ConvertFrom-Json
-if ($lista.erro) { throw "$($lista.erro): $(Join-Path $Dist "farol-v$version.zip"). Nada foi publicado." }
 foreach ($retido in @($lista.retidos)) { if ($retido) { Write-Host "  !  $retido" -ForegroundColor Yellow } }
+# pacote leve ausente, ou (da 3.0.0 em diante) um dos quatro nativos ausente ou retido
+if ($lista.erro) { throw "$($lista.erro) (procurado em $Dist). Nada foi publicado." }
 foreach ($ausente in @($lista.faltando)) { if ($ausente) { Write-Host "  !  ausente, a release sai sem: $ausente" -ForegroundColor Yellow } }
 $arquivos = @($lista.anexar | ForEach-Object { Join-Path $Dist $_ })
 

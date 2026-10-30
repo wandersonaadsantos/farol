@@ -92,6 +92,7 @@ Toda release segue estes passos na ordem. Não pule nenhum.
 - [ ] Atualizar `RELEASE_NOTES_RECENTES` no `ui/telas/release-notes.js` (a lista saiu da tela `ui/telas/novidades.js` em 02/10/2026, e as notas até a 2.59 foram para `ui/telas/release-notes-ate-2.59.js`, fechado, em 05/10/2026): adicionar entrada `['X.Y.Z', ['item 1', 'item 2']]` no topo do array. Se consolidou versões, uma entrada só. Verificar que a versão anterior publicada também tem entrada (corrigir se faltar). Se o arquivo se aproximar do teto de 400 linhas úteis, a série mais antiga dele vai inteira para um arquivo fechado do mesmo jeito; o teto não sobe.
 - [ ] Os três acima andam JUNTOS: `test/release-consistency.test.js` falha se qualquer um ficar pra trás.
 - [ ] **Versão das cascas nativas**, nos três arquivos, juntas: `shell/mac/project.yml` (`MARKETING_VERSION` e `CURRENT_PROJECT_VERSION`, sempre iguais: a Sparkle ordena pelo build), `shell/win/Farol.App/Package.appxmanifest` (`Identity/@Version` como `X.Y.Z.0`, o quarto campo é sempre 0) e o `package.json` do motor quando ele estiver no mesmo major das cascas. Confira também o `engines.farolShell` do `package.json` (a faixa de cascas que o motor aceita, `>=X.Y.Z <N`): a versão das cascas tem de caber nela. `test/release-versoes-iguais.test.js` reprova qualquer divergência e reprova também se um dos três arquivos perder a linha de versão.
+- [ ] **Ordem da transição para a 3.0.0:** publicar PRIMEIRO a release de ponte 2.x (a que avisa no Electron e aponta para o instalador nativo), esperar as instalações Electron se atualizarem para ela, e só então marcar `v3.0.0`. Uma instalação Electron que pular a ponte veria a 3.0.0 como disponível, tentaria aplicar e falharia em laço, porque o pacote 3.x não roda no Electron.
 - [ ] **Transição (motor 2.x, cascas 3.0.0):** enquanto o motor não sobe para 3.0.0, o dmg e o msix (`Farol-3.0.0.*`) não entram numa release `v2.x`: a lista de anexos procura pelo nome com a versão da release, e o `appcast.xml` e o `Farol.appinstaller` apontam para `releases/download/v3.0.0/`. Anexá-los a outra tag quebraria o update de quem instalou. A primeira release nativa é a `v3.0.0`, com motor e cascas na mesma versão.
 
 ### 2. Gate de qualidade
@@ -171,16 +172,32 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | arquivo | para quê | obrigatório |
 |---|---|---|
 | `farol-vX.Y.Z.zip` | pacote leve: o update do motor em todo modo (Electron, Termux, servidor e o motor das cascas) | sim: sem ele o script falha e nada é publicado |
-| `Farol-X.Y.Z.dmg` | casca do macOS 14 ou mais novo, assinada e notarizada | não (aviso) |
-| `appcast.xml` | feed da Sparkle; só sobe junto do dmg | não (aviso) |
-| `Farol-X.Y.Z.msix` | casca do Windows 10 1809 ou mais novo e Windows 11, assinada | não (aviso) |
-| `Farol.appinstaller` | manifesto do App Installer; só sobe junto do msix | não (aviso) |
+| `Farol-X.Y.Z.dmg` | casca do macOS 14 ou mais novo, assinada e notarizada | sim da 3.0.0 em diante; abaixo dela, aviso |
+| `appcast.xml` | feed da Sparkle; só sobe junto do dmg | sim da 3.0.0 em diante; abaixo dela, aviso |
+| `Farol-X.Y.Z.msix` | casca do Windows 10 1809 ou mais novo e Windows 11, assinada | sim da 3.0.0 em diante; abaixo dela, aviso |
+| `Farol.appinstaller` | manifesto do App Installer; só sobe junto do msix | sim da 3.0.0 em diante; abaixo dela, aviso |
 | `Farol-Setup-vX.Y.Z.exe` | instalador do Electron, até a retirada dele | não (aviso) |
 | `Farol-Instalar-mac.command` e `Farol-Instalar-mac-x64.command` | instaladores offline do Electron no macOS | não (aviso) |
 
 O appcast e o appinstaller sem o dmg e o msix que eles apontam ficam RETIDOS: manifesto de
 update apontando para um asset que não está na release quebraria a atualização de toda cópia
 instalada. Cada ausente ou retido vira uma linha de aviso com o nome do arquivo.
+
+**Release 3.x falha sem os quatro nativos.** Da `v3.0.0` em diante, `Farol-X.Y.Z.dmg`,
+`appcast.xml`, `Farol-X.Y.Z.msix` e `Farol.appinstaller` são obrigatórios como o pacote leve:
+faltando ou retido um deles, o script falha nomeando o arquivo e nada é publicado. A release
+3.x é a que as cascas instaladas leem pelo `releases/latest`, e uma sem o appcast ou sem o
+appinstaller deixaria toda cópia instalada sem update. A regra é a mesma nos dois modos do
+script, inclusive no `FAROL_SO_ANEXAR=1` da pipeline e do caminho manual. Abaixo da 3.0.0 (as
+releases do Electron, a de ponte inclusive) os nativos seguem como aviso.
+
+**Appcast anterior.** A pipeline estende o `appcast.xml` da release mais recente. HTTP 404
+nele só é aceito como primeira release nativa quando não existe release publicada de major 3
+ou mais; com uma 3.x no ar, o 404 para o job. Um `workflow_dispatch` rodado depois de a
+release da mesma versão já ter saído falha na guarda de versão do appcast (a versão não é
+maior que a publicada): é o esperado, não defeito. As tags caem num grupo de concorrência só e
+rodam uma depois da outra; empurre uma tag por vez, porque o GitHub guarda uma única rodada
+pendente por grupo.
 
 **Secrets da pipeline** (no repositório, nunca em arquivo versionado): `APPLE_ID`,
 `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD`, `MAC_SIGNING_CERT_P12`, `MAC_SIGNING_CERT_PASSWORD`,

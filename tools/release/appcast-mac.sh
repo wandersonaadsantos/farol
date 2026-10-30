@@ -3,7 +3,8 @@
 #
 #   tools/release/appcast-mac.sh --dmg <Farol-X.Y.Z.dmg> --saida <dir>
 #                                [--appcast-anterior <appcast.xml publicado>]
-#                                [--versao-build <CFBundleVersion>] [--dry-run]
+#                                [--versao-build <CFBundleVersion>] [--repo <dono/nome>]
+#                                [--dry-run]
 #
 # Duas versoes sobem a cada release (regra unica em tools/release/versao-maior.js, a mesma
 # comparacao do update do motor): a curta X.Y.Z, do nome do dmg, e o build (CFBundleVersion,
@@ -14,7 +15,9 @@
 # publicado (se o appcast tiver um). Sem --appcast-anterior (primeira release) passa.
 # Copia o dmg e o appcast anterior para <dir> (o generate_appcast estende o appcast.xml que
 # acha na pasta, entao o historico se mantem) e roda o generate_appcast de SPARKLE_BIN ou do
-# PATH com a URL de download da release v<X.Y.Z>. Sai <dir>/appcast.xml.
+# PATH com a URL de download da release v<X.Y.Z> do repositorio --repo (padrao
+# wandersonaadsantos/farol; a pipeline passa o GITHUB_REPOSITORY, como no
+# appinstaller-win.ps1). Sai <dir>/appcast.xml.
 #
 # SPARKLE_PRIVATE_KEY (ambiente): a chave privada EdDSA, como o generate_keys a exporta.
 # Ela vai num arquivo temporario criado com umask 077 e apagado na saida (trap), passado por
@@ -25,7 +28,6 @@ set -euo pipefail
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PREFIXO=appcast-mac
 SECO=0
-REPO_DE_RELEASE='https://github.com/wandersonaadsantos/farol/releases/download'
 # shellcheck source=tools/release/comum-mac.sh
 . "$RAIZ/tools/release/comum-mac.sh"
 
@@ -33,15 +35,17 @@ dmg=""
 saida=""
 anterior=""
 build=""
+repo="wandersonaadsantos/farol"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --dmg | --saida | --appcast-anterior | --versao-build)
+    --dmg | --saida | --appcast-anterior | --versao-build | --repo)
       [ $# -ge 2 ] || falhar "falta o valor de $1"
       case "$1" in
         --versao-build) build="$2" ;;
         --dmg) dmg="$2" ;;
         --saida) saida="$2" ;;
         --appcast-anterior) anterior="$2" ;;
+        --repo) repo="$2" ;;
       esac
       shift 2
       ;;
@@ -60,6 +64,7 @@ nome="$(basename "$dmg")"
 [[ "$nome" =~ ^Farol-([0-9]+\.[0-9]+\.[0-9]+)\.dmg$ ]] \
   || falhar "o dmg tem que se chamar Farol-X.Y.Z.dmg (como o dmg-mac.sh gera), recebi $nome"
 versao="${BASH_REMATCH[1]}"
+[[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || falhar "--repo tem que ser dono/nome, recebi $repo"
 if [ -n "$anterior" ]; then
   [ -f "$anterior" ] || falhar "appcast anterior ausente: $anterior"
 fi
@@ -98,7 +103,7 @@ else
   falhar 'generate_appcast nao encontrado: defina SPARKLE_BIN (a pasta bin da distribuicao da Sparkle) ou ponha no PATH.'
 fi
 
-prefixo_url="$REPO_DE_RELEASE/v$versao/"
+prefixo_url="https://github.com/$repo/releases/download/v$versao/"
 if [ "$SECO" = 1 ]; then
   linha_mascarada "$gerador" --ed-key-file '<arquivo temporario com SPARKLE_PRIVATE_KEY>' \
     --download-url-prefix "$prefixo_url" "$saida"

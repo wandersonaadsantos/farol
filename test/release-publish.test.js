@@ -18,15 +18,17 @@ const PWSH = ['/opt/homebrew/bin/pwsh', '/usr/local/bin/pwsh', '/usr/bin/pwsh'].
   || (existe('pwsh', ['-v']) ? 'pwsh' : null);
 const COM_PWSH = { skip: PWSH ? false : 'pwsh ausente nesta máquina' };
 const V = '3.1.4';
+const NATIVOS = [`farol-v${V}.zip`, `mac/Farol-${V}.dmg`, 'mac/appcast.xml', `win/Farol-${V}.msix`, 'win/Farol.appinstaller'];
 
-function montarArvore() {
+function montarArvore(versao = V, noDist = NATIVOS) {
+  const V = versao;
   const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-publish-'));
   const copiar = (rel) => fs.cpSync(path.join(RAIZ, rel), path.join(raiz, rel), { recursive: true });
   for (const rel of ['lib', 'tools/publish-release.ps1', 'tools/release-footer.md', 'tools/release/anexos-da-release.js']) copiar(rel);
   fs.writeFileSync(path.join(raiz, 'package.json'), `{ "name": "farol", "version": "${V}", "type": "module" }\n`);
-  fs.writeFileSync(path.join(raiz, 'CHANGELOG.md'), `# Changelog\n\n## v${V}\n\n- casca nativa nos dois sistemas\n\n## v3.1.3\n\n- antiga\n`);
+  fs.writeFileSync(path.join(raiz, 'CHANGELOG.md'), `# Changelog\n\n## v${V}\n\n- casca nativa nos dois sistemas\n\n## v2.0.0\n\n- antiga\n`);
   const dist = path.join(raiz, 'dist');
-  for (const rel of [`farol-v${V}.zip`, `mac/Farol-${V}.dmg`, 'mac/appcast.xml', 'win/Farol.appinstaller']) {
+  for (const rel of noDist) {
     fs.mkdirSync(path.dirname(path.join(dist, rel)), { recursive: true });
     fs.writeFileSync(path.join(dist, rel), 'x');
   }
@@ -46,27 +48,32 @@ process.exitCode = args[0] === 'release' && args[1] === 'view' ? 1 : 0;
   return { raiz, dist, bin, log };
 }
 
+function publicar(raiz, bin) {
+  const env = { ...process.env, FAROL_SO_ANEXAR: '1',
+    PATH: [bin, path.dirname(process.execPath), process.env.PATH].join(path.delimiter) };
+  delete env.FAROL_REPUBLISH;
+  delete env.GH_TOKEN;
+  return spawnSync(PWSH, ['-NoProfile', '-NonInteractive', '-File', path.join(raiz, 'tools', 'publish-release.ps1')],
+    { encoding: 'utf8', env });
+}
+
+function chamadasDoGh(log) {
+  return fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+}
+
 test('FAROL_SO_ANEXAR=1: anexa o que o anexosDaRelease devolve, sem construir nada', COM_PWSH, () => {
   const { raiz, dist, bin, log } = montarArvore();
   try {
-    const env = { ...process.env, FAROL_SO_ANEXAR: '1',
-      PATH: [bin, path.dirname(process.execPath), process.env.PATH].join(path.delimiter) };
-    delete env.FAROL_REPUBLISH;
-    delete env.GH_TOKEN;
-    const r = spawnSync(PWSH, ['-NoProfile', '-NonInteractive', '-File', path.join(raiz, 'tools', 'publish-release.ps1')],
-      { encoding: 'utf8', env });
+    const r = publicar(raiz, bin);
     assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
-    const chamadas = fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    const chamadas = chamadasDoGh(log);
     const create = chamadas.find((a) => a[0] === 'release' && a[1] === 'create');
     assert.ok(create, `sem gh release create: ${JSON.stringify(chamadas)}`);
     assert.equal(create[2], `v${V}`);
     const arquivos = create.slice(3, create.indexOf('--repo'));
-    const existentes = [`farol-v${V}.zip`, `mac/Farol-${V}.dmg`, 'mac/appcast.xml', 'win/Farol.appinstaller'];
-    const esperado = anexosDaRelease({ versao: V, existentes }).anexar.map((rel) => path.join(dist, rel));
+    const esperado = anexosDaRelease({ versao: V, existentes: NATIVOS }).anexar.map((rel) => path.join(dist, rel));
     assert.deepEqual(arquivos.map((a) => path.normalize(a)), esperado.map((a) => path.normalize(a)));
-    // o appinstaller sem o msix fica de fora, e o aviso nomeia os ausentes
-    assert.ok(!arquivos.some((a) => a.endsWith('Farol.appinstaller')));
-    assert.match(r.stdout, /Farol-3\.1\.4\.msix/);
+    // os do Electron ausentes viram aviso com o nome
     assert.match(r.stdout, /Farol-Setup-v3\.1\.4\.exe/);
     // nada foi construído: o modo da pipeline não chama o make-package (que nem existe aqui)
     assert.ok(!fs.existsSync(path.join(dist, `Farol-Setup-v${V}.exe`)));
@@ -82,15 +89,44 @@ test('FAROL_SO_ANEXAR=1: anexa o que o anexosDaRelease devolve, sem construir na
   }
 });
 
+test('FAROL_SO_ANEXAR=1 em 3.x sem o msix: falha nomeando o arquivo, sem publicar nada', COM_PWSH, () => {
+  const { raiz, bin, log } = montarArvore(V, NATIVOS.filter((p) => !p.endsWith('.msix')));
+  try {
+    const r = publicar(raiz, bin);
+    assert.notEqual(r.status, 0);
+    // o pwsh quebra a mensagem da exceção em linhas: confere os pedaços
+    const saida = `${r.stdout}${r.stderr}`;
+    assert.match(saida, /artefato nativo ausente na release 3\.1\.4/);
+    assert.match(saida, /Farol-3\.1\.4\.msix/);
+    assert.match(saida, /Nada foi publicado/);
+    assert.doesNotMatch(JSON.stringify(chamadasDoGh(log)), /"create"|"upload"|"edit"/);
+  } finally {
+    fs.rmSync(raiz, { recursive: true, force: true });
+  }
+});
+
+test('FAROL_SO_ANEXAR=1 em 2.x: o appinstaller sem o msix fica de fora, e a release sai', COM_PWSH, () => {
+  const V2 = '2.80.0';
+  const noDist = [`farol-v${V2}.zip`, `mac/Farol-${V2}.dmg`, 'mac/appcast.xml', 'win/Farol.appinstaller'];
+  const { raiz, bin, log } = montarArvore(V2, noDist);
+  try {
+    const r = publicar(raiz, bin);
+    assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+    const create = chamadasDoGh(log).find((a) => a[0] === 'release' && a[1] === 'create');
+    assert.ok(create);
+    const arquivos = create.slice(3, create.indexOf('--repo'));
+    assert.ok(!arquivos.some((a) => a.endsWith('Farol.appinstaller')));
+    assert.match(r.stdout, /Farol-2\.80\.0\.msix/);
+  } finally {
+    fs.rmSync(raiz, { recursive: true, force: true });
+  }
+});
+
 test('FAROL_SO_ANEXAR=1 sem o pacote leve: falha sem criar a release', COM_PWSH, () => {
   const { raiz, dist, bin, log } = montarArvore();
   try {
     fs.rmSync(path.join(dist, `farol-v${V}.zip`));
-    const env = { ...process.env, FAROL_SO_ANEXAR: '1',
-      PATH: [bin, path.dirname(process.execPath), process.env.PATH].join(path.delimiter) };
-    delete env.FAROL_REPUBLISH;
-    const r = spawnSync(PWSH, ['-NoProfile', '-NonInteractive', '-File', path.join(raiz, 'tools', 'publish-release.ps1')],
-      { encoding: 'utf8', env });
+    const r = publicar(raiz, bin);
     assert.notEqual(r.status, 0);
     assert.match(`${r.stdout}${r.stderr}`, /pacote leve ausente/);
     const chamadas = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
