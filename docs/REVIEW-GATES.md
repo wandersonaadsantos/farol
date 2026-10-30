@@ -39,6 +39,10 @@
 > Desde 18/10/2026 (v2.73.2) a conta em automático decide sem mesa: clique, admin, comando e
 > distribuição postam pela política, defeito do PR e CI vermelho viram REQUEST_CHANGES com a
 > conta reprovando sozinha, e PR da própria conta sai como COMMENT (ver "A decisão sem mesa").
+> Desde a v2.78.24, análise incompleta que já confirmou defeito do PR também reprova pela
+> política (`analiseSustentaReprovacao`): defeito não arma recuperação e incompleto não
+> reprovava, e o biblioteca-cnbb-api#143 parou na mesa com violação confirmada e a conta
+> reprovando sozinha. Aprovar continua exigindo análise completa.
 > O critério técnico aparece na caixa de revisão; resultado antigo sem avaliação pede
 > revisão atual, e não recebe selo de conformidade durante migração.
 >

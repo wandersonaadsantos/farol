@@ -479,6 +479,23 @@ test('aprovação em branco (sem texto) também é resultado incompleto: segue n
   semMesa(e);
 });
 
+// biblioteca-cnbb-api#143 (30/10/2026): violação confirmada e uma regra inconclusiva. Defeito
+// não arma recuperação e incompleto não reprovava: o PR parava na mesa com a conta reprovando sozinha.
+test('análise incompleta com violação confirmada: a conta reprova sozinha, sem mesa', async () => {
+  const e = motor();
+  technicalRuntime.finishTechnicalReview = violacao();
+  await revisar(e, 44, { extra: { analysisStatus: 'incomplete', verdict: 'request_changes', decision: 'needs_decision' } });
+  assert.deepEqual(envios.map(p => p.event), ['REQUEST_CHANGES'], 'o defeito confirmado basta para pedir mudanças');
+  assert.equal(envios[0].commit_id, HEAD);
+  semMesa(e);
+});
+
+test('análise incompleta sem defeito confirmado continua sem reprovar sozinha', async () => {
+  const e = motor();
+  await revisar(e, 45, { marcas: { manual: true }, extra: { analysisStatus: 'incomplete', verdict: 'request_changes' } });
+  assert.deepEqual(envios, [], 'sem defeito, o pedido de mudanças de uma análise incompleta não sai');
+});
+
 test('origem desconhecida com resultado incompleto não ganha recuperação com publicação', async () => {
   const e = motor();
   await revisar(e, 42, { marcas: {}, extra: { analysisStatus: 'incomplete' } });
