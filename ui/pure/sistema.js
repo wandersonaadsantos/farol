@@ -322,6 +322,22 @@ export function settingsIgnoradasTexto(r) {
 // A linha do status do update que diz por que o Farol ainda não aplicou a versão nova: o
 // que está segurando e desde quando (lib/engine/update.js, marcarAdiado). Sem ela, um
 // update detectado e não aplicado parecia defeito (25/09/2026).
+// Release de ponte (desenho 4.7 do Farol nativo): a 3.x não roda nesta casca Electron.
+// O instalador do sistema atual vem primeiro; anexo ausente vira texto, nunca link morto.
+export function pontePainelHtml(u, plataforma) {
+  const p = (u && u.ponte) || {};
+  const item = (rotulo, href) => href
+    ? `<a class="btn primary sm" href="${esc(href)}" target="_blank" rel="noreferrer">Baixar para ${rotulo}</a>`
+    : `<span>${rotulo}: ainda sem instalador para este sistema</span>`;
+  const mac = item('macOS (.dmg)', p.dmg);
+  const win = item('Windows (.msix)', p.msix);
+  const links = plataforma === 'darwin' ? [mac, win] : [win, mac];
+  return `
+      <span class="up-ver">v${esc(u.current)} → v${esc(p.versao)}</span>
+      <span class="up-note">Esta é a última versão do Farol nesta casca (Electron). Baixe o Farol nativo: a v${esc(p.versao)} em diante só sai como app nativo, e estado e configurações em <code>~/.farol</code> continuam valendo.</span>
+      ${links.join(' ')}`;
+}
+
 export function updateAdiadoHtml(u) {
   const a = u && u.adiado;
   if (!a || !a.motivo) return '';

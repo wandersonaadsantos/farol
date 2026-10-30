@@ -271,6 +271,7 @@ const CONGELADA = [
   "personMention",
   "personOf",
   "plural",
+  "pontePainelHtml",
   "prCoordNoteHtml",
   "prIdentificado",
   "prIdentificadoHtml",
