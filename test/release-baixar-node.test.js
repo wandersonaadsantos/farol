@@ -101,14 +101,30 @@ test.after(() => {
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
+// sem erro é 0; morte por sinal ou timeout (code não numérico) conta como 1
+function codigoDeSaida(err) {
+  if (!err) return 0;
+  return typeof err.code === 'number' ? err.code : 1;
+}
+
+// o script do Windows roda pelo pwsh; o do POSIX, pelo bash
+function comandoDe(script) {
+  if (script.endsWith('.ps1')) return [PWSH, ['-NoProfile', '-NonInteractive', '-File', script]];
+  return ['bash', [script]];
+}
+
+// o .ps1 só roda com pwsh na máquina; o .sh tem o próprio motivo
+function motivoParaPular(script) {
+  if (script !== PS1) return motivoParaPularSh();
+  return PWSH ? false : 'pwsh ausente nesta máquina';
+}
+
 // assíncrono de propósito: o servidor falso mora neste processo e precisa do laço livre
 function rodar(script, args) {
-  const [cmd, base] = script.endsWith('.ps1')
-    ? [PWSH, ['-NoProfile', '-NonInteractive', '-File', script]]
-    : ['bash', [script]];
+  const [cmd, base] = comandoDe(script);
   return new Promise((ok) => {
     execFile(cmd, [...base, ...args], { timeout: 60_000 }, (err, stdout, stderr) => {
-      ok({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr });
+      ok({ code: codigoDeSaida(err), stdout, stderr });
     });
   });
 }
@@ -124,7 +140,7 @@ function listarTudo(dir, base = dir) {
 
 for (const script of [SH, PS1]) {
   const nome = path.basename(script);
-  const pular = script === PS1 ? (PWSH ? false : 'pwsh ausente nesta máquina') : motivoParaPularSh();
+  const pular = motivoParaPular(script);
 
   test(`${nome}: hash certo, darwin-arm64, versão do .nvmrc por padrão: só bin/node sai do pacote`, { skip: pular }, async () => {
     const destino = destinoNovo();
