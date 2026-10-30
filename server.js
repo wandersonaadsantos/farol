@@ -60,6 +60,7 @@ import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import meusPrsBase from './lib/engine/meus-prs-base.js';
 import labelsATirar from './lib/engine/labels-a-tirar.js';
+import { gravarBaseline, lerBaseline, textoDoAviso } from './lib/engine/baseline.js';
 import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
 import retomadaMod from './lib/engine/retomada-duravel.js';
@@ -1101,8 +1102,7 @@ class Engine extends EventEmitter {
       // primeira execucao da vida: baseline silencioso (nao notifica o estoque)
       if (!fs.existsSync(BASELINE_FILE)) {
         for (const pr of mineList) { this.markSeen(pr.key); this.marcarIgnorado(pr.key); }
-        fs.writeFileSync(BASELINE_FILE, new Date().toISOString() + '\n');
-        this.emit('toast', { kind: 'info', text: 'Primeira checagem: PRs atuais marcados como vistos (baseline).' });
+        this.baseline = gravarBaseline(BASELINE_FILE, { at: Date.now(), marcados: mineList.length }); this.emit('toast', { kind: 'info', text: textoDoAviso(mineList.length) });
       }
 
       // devolve à fila o que foi marcado visto por revisão que nunca decidiu, ANTES
@@ -1907,7 +1907,7 @@ class Engine extends EventEmitter {
       // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica
       capacidades: this.estadoDasCapacidades(),
       status: this.status, interventions: interventionMod.forUi(this),
-      error: this.lastError,
+      error: this.lastError, baseline: this.baseline ??= lerBaseline(BASELINE_FILE),   // desde quando vigia (lido uma vez)
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
       // a projecao de cada conta pra tela mora em lib/engine/contas-gh.js, junto do resto
       // do que este app sabe sobre conta: o snapshot aqui so junta as pecas

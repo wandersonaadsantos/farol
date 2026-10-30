@@ -2538,6 +2538,38 @@ test('vazio da fila: sem aprovação hoje, não inventa contagem', () => {
   assert.doesNotMatch(html, /aprovou/, 'zero não vira "aprovou 0"');
 });
 
+test('pedidosAntesDoInicio conta só mine, fora da fila e anteriores ao baseline', () => {
+  const baseline = { at: Date.parse('2026-10-10T12:00:00Z'), marcados: 3 };
+  const antes = '2026-10-01T00:00:00Z';
+  const depois = '2026-10-20T00:00:00Z';
+  const panorama = [
+    { key: 'a', mine: true, updatedAt: antes },
+    { key: 'b', mine: true, updatedAt: depois },
+    { key: 'c', mine: false, updatedAt: antes },
+    { key: 'd', mine: true, updatedAt: antes },
+  ];
+  assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(['d']), baseline }), 1);
+  assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(['d']), baseline: null }), 0);
+});
+
+test('vazio da fila com PRs anteriores ao baseline diz quantos e leva ao Panorama', () => {
+  const html = P.queueEmptyOkHtml({ aprovados: 0, owners: ['biudtech'], intervalSeconds: 300, antesDoInicio: 14 });
+  assert.match(html, /14 PRs já pediam sua revisão antes do Farol começar a vigiar/);
+  assert.match(html, /class="btn sm eo-panorama"/);
+  assert.doesNotMatch(html, /Nada esperando por você/);
+});
+
+test('vazio da fila sem aprovados não oferece "Ver o que foi aprovado"', () => {
+  assert.doesNotMatch(P.queueEmptyOkHtml({ aprovados: 0, owners: [], intervalSeconds: 300, antesDoInicio: 0 }), /eo-resolved/);
+  assert.match(P.queueEmptyOkHtml({ aprovados: 2, owners: [], intervalSeconds: 300, antesDoInicio: 0 }), /eo-resolved/);
+});
+
+test('vazio da fila com antesDoInicio 0 é o vazio bom de sempre', () => {
+  const html = P.queueEmptyOkHtml({ aprovados: 0, owners: ['acme'], intervalSeconds: 300, antesDoInicio: 0 });
+  assert.match(html, /Nada esperando por você/);
+  assert.doesNotMatch(html, /eo-panorama/);
+});
+
 test('vazio da fila: singular e plural de PR e de minuto', () => {
   const um = P.queueEmptyOkHtml({ aprovados: 1, owners: ['acme'], intervalSeconds: 60 });
   assert.match(um, /aprovou 1 PR sozinho/);

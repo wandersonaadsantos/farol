@@ -90,6 +90,14 @@ function orgsDaConta(a) {
   return (Array.isArray(a.owners) ? a.owners : []).map(o => String(o || '').trim()).filter(Boolean);
 }
 
+// Quantos PRs já pediam minha revisão antes do Farol começar a vigiar (o baseline os marcou
+// como vistos): mine, fora da fila e com atividade anterior ao baseline. Sem baseline, 0.
+export function pedidosAntesDoInicio({ panorama, queueKeys, baseline } = {}) {
+  if (!baseline || !Number.isFinite(baseline.at)) return 0;
+  return (panorama || []).filter(pr => pr.mine && !queueKeys?.has(pr.key)
+    && Date.parse(pr.updatedAt) < baseline.at).length;
+}
+
 export function queueEmptyOkHtml(ctx = {}) {
   const aprovados = ctx.aprovados || 0;
   const orgs = (ctx.owners || []).map(o => `<b>${esc(o)}</b>`).join(', ');
@@ -114,12 +122,27 @@ export function queueEmptyOkHtml(ctx = {}) {
       </div>
     </div>`;
   }
+  const antes = ctx.antesDoInicio || 0;
+  const botaoAprovados = aprovados ? '<button class="btn sm ghost eo-resolved">Ver o que foi aprovado</button>' : '';
+  if (antes > 0) {
+    const tituloAntes = `${antes} ${antes === 1 ? 'PR já pedia' : 'PRs já pediam'} sua revisão antes do Farol começar a vigiar`;
+    return `<div class="empty-ok">
+      <div class="eo-check" aria-hidden="true">i</div>
+      <div class="eo-title">${tituloAntes}</div>
+      <p class="eo-sub">Eles ficam fora da fila para não disparar revisões de estoque. Cada um pode ser revisado pelo Panorama.</p>
+      <div class="eo-acts">
+        <button class="btn sm eo-panorama">Ver no Panorama</button>
+        ${botaoAprovados}
+        <button class="btn sm ghost eo-check-now">Verificar agora</button>
+      </div>
+    </div>`;
+  }
   return `<div class="empty-ok">
       <div class="eo-check" aria-hidden="true">✓</div>
       <div class="eo-title">Nada esperando por você</div>
       <p class="eo-sub">${feito}${quem} a cada ${min} ${cadencia}. Quando pedirem sua revisão, o card aparece aqui.</p>
       <div class="eo-acts">
-        <button class="btn sm eo-resolved">Ver o que foi aprovado</button>
+        ${botaoAprovados.replace('btn sm ghost', 'btn sm')}
         <button class="btn sm ghost eo-check-now">Verificar agora</button>
       </div>
     </div>`;

@@ -266,6 +266,8 @@ const CONGELADA = [
   "parkedNoteHtml",
   "pareamentoHtml",
   "parseGoto",
+  // o estoque que o baseline deixou fora da fila (30/10/2026, ui/pure/radar.js)
+  "pedidosAntesDoInicio",
   "perfilProblemasHtml",
   "perfilTesteHtml",
   "personMention",
