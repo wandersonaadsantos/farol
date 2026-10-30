@@ -22,6 +22,12 @@
     <Content Include="Assets\farol.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- O motor embutido (engine\app\server.js e engine\node\node.exe), encenado aqui pelo
+       tools\release\montar-win.ps1 antes do publish e fora do git; entra no MSIX em engine\... -->
+  <ItemGroup>
+    <Content Include="engine\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
