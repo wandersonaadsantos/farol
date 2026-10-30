@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.78.20
+## v2.78.21
 
 Seleção de Codex por autoanálise restrita, sem trocar a associação da conta.
 
@@ -22,7 +22,15 @@ Seleção de Codex por autoanálise restrita, sem trocar a associação da conta
 ### Correções
 
 - Codex deixa de aceitar resultado como sucesso quando o processo termina com erro ou sem código de saída confirmado, preservando o consumo medido.
-- A comemoração de merge encerra a animação em vez de continuar indefinidamente.
+
+## v2.78.20
+
+O confete da análise impecável volta a sair da tela sozinho.
+
+### Correções
+
+- **O confete ficava na tela para sempre.** Quando uma autoanálise terminava sem nenhum apontamento, os confetes caíam e não paravam mais: a festa misturava a hora do sistema com o relógio da página e achava que ainda faltavam décadas. Agora ela dura os quatro segundos de sempre e sai, inclusive se a hora do computador for ajustada no meio (sincronização automática ou troca manual).
+- **O gate de pré-push não rodava fora do Windows.** O `tools/hooks/pre-push` estava versionado sem permissão de execução, e no Linux e no macOS o git ignorava o hook e deixava o push sair sem check, lint, suíte e eng. Agora ele roda nos três sistemas, e um teste reprova qualquer hook versionado sem essa permissão.
 
 ## v2.78.19
 

@@ -14,10 +14,14 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
-  ['2.78.20', [
+  ['2.78.21', [
     'Autoanálise restrita pode selecionar explicitamente um perfil Codex só para a execução, sem mudar a associação global nem iniciar fallback.',
     'Codex recusa resultado com saída de processo malsucedida e preserva o consumo; diagnóstico restrito usa somente contagens e sinais fechados.',
-    'Seleção preserva orçamento, reservas de cota e coordenação entre aparelhos. A comemoração de merge volta a encerrar a animação.',
+    'Seleção preserva orçamento, reservas de cota e coordenação entre aparelhos.',
+  ]],
+  ['2.78.20', [
+    'O confete da análise impecável volta a sair da tela depois de quatro segundos, mesmo com a hora do computador ajustada no meio da festa.',
+    'O gate de pré-push passa a rodar também no Linux e no macOS: o hook estava versionado sem permissão de execução e o git o ignorava.',
   ]],
   ['2.78.19', [
     'Preparação restrita evita varreduras de quota por blob e mantém somente textos já ocultados em cache temporário limitado por execução.',
