@@ -490,6 +490,21 @@ test('análise incompleta com violação confirmada: a conta reprova sozinha, se
   semMesa(e);
 });
 
+// Revisão do PR #326: incompleta para em analise_incompleta antes da checagem de coerência do
+// approve, então o caminho do defeito confere a coerência direto. No fluxo completo a recuperação
+// desvia antes do desfecho; aqui é a porta do desfecho (o que o concluirRevisao consulta).
+test('caminho do defeito recusa resultado incompleto incoerente, mesmo com motivo analise_incompleta', async () => {
+  const { caminhoNovo } = await import('../lib/engine/desfecho-da-revisao.js');
+  const motorMinimo = { config: {}, accountForPr: () => 'eu', rejectPolicyFor: () => 'request_changes' };
+  const base = { verdict: 'approve', analysisStatus: 'incomplete', headSha: HEAD, approvalEvidence: ['violação técnica confirmada'],
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Antes do merge, revise a duplicação da regra.' } } };
+  const autoDec = { ok: false, motivo: 'analise_incompleta' };
+  assert.equal(caminhoNovo(motorMinimo, PR(46, { manual: true }), { ...base, criteriaEvidence: { ok: false } }, autoDec, false), null,
+    'evidência incoerente vai para a recuperação, não para o pedido de mudanças');
+  assert.equal(caminhoNovo(motorMinimo, PR(47, { manual: true }), base, autoDec, false)?.tipo, 'defeito',
+    'coerente, o defeito confirmado segue reprovando');
+});
+
 test('análise incompleta sem defeito confirmado continua sem reprovar sozinha', async () => {
   const e = motor();
   await revisar(e, 45, { marcas: { manual: true }, extra: { analysisStatus: 'incomplete', verdict: 'request_changes' } });
