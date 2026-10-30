@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.24
+
+PR com defeito confirmado é reprovado pela política mesmo quando parte da análise ficou inconclusiva, e as ferramentas de manutenção da Visão geral vão para o fim da página.
+
+### Correções
+
+- Uma revisão que confirmou defeito no PR, mas deixou outra avaliação inconclusiva, parava em "Precisa de você" mesmo com a conta configurada para reprovar sozinha: o defeito não arma a recuperação automática e a análise incompleta não deixava reprovar. Agora o defeito confirmado basta para pedir mudanças pela política da conta. Aprovar continua exigindo a análise completa.
+
+### Melhorias
+
+- Em Sistema > Visão geral, "Configuração e retomada", "Tags de revisão no GitHub" e "Preferências entre instalações" vão para o fim da página; o topo fica com a atualização e a saúde do ambiente.
+
 ## v2.78.23
 
 Revisões que marcavam o PR como em revisão sem estar revisando deixam de ficar presas, revisões grandes não caem mais no meio da reconferência, e PR mergeado durante a análise encerra a sessão.
