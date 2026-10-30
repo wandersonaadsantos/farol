@@ -25,10 +25,10 @@ const ESTADOS = Object.freeze({
 });
 
 const DICA_DO_ESTADO = Object.freeze({
-  'cota-reservada': 'Não inicia sessões novas neste perfil; a cadeia só usa alternativas já habilitadas. Sessões iniciadas podem concluir.',
+  'cota-reservada': 'Não inicia sessões novas neste perfil; a ordem de uso só considera alternativas já habilitadas. Sessões iniciadas podem concluir.',
   'cota-desconhecida': 'Reserva ativa sem saldo verificável: aguarda fonte válida ou outra opção autorizada. Perfil próprio de conta não transborda.',
   orcamento: 'O orçamento continua segurando este perfil; a reserva não autoriza contorná-lo.',
-  'sem-login': 'A cadeia pula este perfil enquanto houver outro pronto. Use Abrir sessão de login no cartão dele, abaixo.',
+  'sem-login': 'A ordem de uso pula este perfil enquanto houver outro pronto. Use Abrir sessão de login no cartão dele, abaixo.',
   problema: 'Falta o que este perfil precisa para rodar (a pasta ou a chave). Complete no cartão dele, abaixo.',
 });
 
@@ -73,7 +73,7 @@ function alternarNaCadeia(entradas, id) {
 
 function resumoDaCadeia(cadeia, agora) {
   const ligados = (cadeia.entradas || []).filter(e => e.ativo);
-  if (!ligados.length) return 'Nenhum perfil ligado: as revisões usam o login padrão desta máquina, como antes da cadeia.';
+  if (!ligados.length) return 'Nenhum perfil ligado: as revisões usam o login padrão desta máquina, como antes da ordem de uso dos perfis.';
   if (cadeia.todosNoLimite) {
     const primeiro = ligados.slice().sort((a, b) => a.ate - b.ate)[0];
     return `Todos os perfis ligados estão no limite. As revisões esperam o primeiro reset (${esc(primeiro.label)}, ${esc(estadoDaCadeiaTexto(primeiro, agora).replace(/^No limite /, ''))}) sem estacionar nenhum PR.`;
@@ -92,7 +92,7 @@ function linhaDaCadeia(e, i, total, agora) {
   const ligado = e.ativo ? ' checked' : '';
   // Antigravity: a cota lida por grupo, com a hora em que volta (lib/agy/cota.js)
   const cota = e.provedor === 'agy' ? cotaAgyHtml(e.cota) : '';
-  const titulo = e.ativo ? 'Desligar: a cadeia deixa de usar este perfil' : 'Ligar: a cadeia passa a usar este perfil na posição dele';
+  const titulo = e.ativo ? 'Desligar: a ordem de uso deixa de usar este perfil' : 'Ligar: a ordem de uso passa a usar este perfil na posição dele';
   return `<li class="cad-item${desligado}" data-cadeia-id="${id}">
     <span class="cad-pos" aria-hidden="true">${i + 1}</span>
     <span class="cad-txt">
@@ -105,7 +105,7 @@ function linhaDaCadeia(e, i, total, agora) {
       <button type="button" class="btn icon sm ghost cad-subir" data-id="${id}" title="Subir na prioridade" aria-label="Subir ${esc(e.label)} na prioridade"${sobe}>↑</button>
       <button type="button" class="btn icon sm ghost cad-descer" data-id="${id}" title="Descer na prioridade" aria-label="Descer ${esc(e.label)} na prioridade"${desce}>↓</button>
       <label class="cad-liga" title="${titulo}">
-        <input type="checkbox" class="cad-ativo" data-id="${id}"${ligado} aria-label="Usar ${esc(e.label)} na cadeia"><span class="switch"></span>
+        <input type="checkbox" class="cad-ativo" data-id="${id}"${ligado} aria-label="Usar ${esc(e.label)} na ordem de uso"><span class="switch"></span>
       </label>
     </span>
   </li>`;
@@ -124,7 +124,7 @@ function cadeiaHtml(cadeia, agora = Date.now()) {
   }
   const proprias = (Array.isArray(c.contasComPerfilProprio) ? c.contasComPerfilProprio : []);
   const nota = proprias.length
-    ? `<p class="set-desc cad-nota">Conta com perfil próprio (Sistema → Contas) usa só ele e fica fora da cadeia: ${proprias.map(p => personMention(p.user)).join(', ')}.</p>`
+    ? `<p class="set-desc cad-nota">Conta com perfil próprio (Sistema → Contas) usa só ele e fica fora da ordem de uso: ${proprias.map(p => personMention(p.user)).join(', ')}.</p>`
     : '';
   return `<div class="card cad-card">
     <div class="set-title">Ordem de uso</div>

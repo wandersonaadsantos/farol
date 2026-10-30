@@ -330,7 +330,7 @@ export function chatBadge(key, chats) {
   return c && c.count ? ` <span class="count">${c.count}</span>` : '';
 }
 
-export const PB_OPTS = [['', 'sem pushback'], ['author_right', 'o autor tinha razão'], ['we_right', 'nós tínhamos razão'], ['mixed', 'meio-termo']];
+export const PB_OPTS = [['', 'sem contestação'], ['author_right', 'o autor tinha razão'], ['we_right', 'nós tínhamos razão'], ['mixed', 'meio-termo']];
 
 export const PB_SHORT = { author_right: 'autor tinha razão', we_right: 'nós tínhamos razão', mixed: 'meio-termo' };
 
@@ -343,18 +343,18 @@ export function pushbackControl(r, pushbacks, disclosure = {}) {
   const pb = (pushbacks || {})[r.key] || null;
   const pending = pb && pb.status === 'pending';    // auto em dúvida: pede confirmação
   const sum = resumoDoPushback(pending, pb);
-  const title = pending ? 'O Farol suspeita de pushback aqui; confirme ou corrija o desfecho'
+  const title = pending ? 'O Farol suspeita de contestação aqui; confirme ou corrija o desfecho'
     : 'Marque se o autor contestou este review, pra calibrar os reviews futuros dele';
   const abre = chave ? ` data-abre="${esc(chave)}"` : '';
   return `<details class="pushback"${abre}${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1"' : ''}${pending || aberto ? ' open' : ''}>
     <summary title="${title}">${sum}</summary>
     <div class="pb-body">
-      ${pending ? `<span class="pb-hint">O Farol detectou possível pushback${pb.note ? ` (${esc(pb.note)})` : ''}. Confirme o desfecho:</span>` : ''}
+      ${pending ? `<span class="pb-hint">O Farol detectou possível contestação${pb.note ? ` (${esc(pb.note)})` : ''}. Confirme o desfecho:</span>` : ''}
       <select class="pb-outcome" data-key="${esc(r.key)}" data-author="${esc(author)}">
         ${PB_OPTS.map(([v, t]) => `<option value="${v}"${pb && pb.outcome === v ? ' selected' : ''}>${t}</option>`).join('')}
       </select>
       <input class="pb-note" data-key="${esc(r.key)}" data-author="${esc(author)}" value="${esc(pb && pb.note || '')}" placeholder="nota curta (opcional)" spellcheck="false" maxlength="300">
-      ${pending ? `<button class="btn sm primary pb-confirm" data-key="${esc(r.key)}" data-author="${esc(author)}" title="Grava o desfecho selecionado como confirmado (re-selecionar a mesma opção não dispara change; com '' confirma que NÃO houve pushback)">Confirmar</button>` : ''}
+      ${pending ? `<button class="btn sm primary pb-confirm" data-key="${esc(r.key)}" data-author="${esc(author)}" title="Grava o desfecho selecionado como confirmado (re-selecionar a mesma opção não dispara change; com '' confirma que NÃO houve contestação)">Confirmar</button>` : ''}
     </div>
   </details>`;
 }
@@ -409,10 +409,10 @@ function divergenciasDoCheckpoint(vc) {
 
 // pendente pede confirmação; confirmado mostra o desfecho (e de onde ele veio)
 function resumoDoPushback(pending, pb) {
-  const nome = (p) => esc(PB_SHORT[p.outcome] || 'pushback');
+  const nome = (p) => esc(PB_SHORT[p.outcome] || 'contestação');
   if (pending) return `↩ confirmar: ${nome(pb)}?`;
   if (pb) return `↩ ${nome(pb)}${pb.source === 'auto' ? ' (auto)' : ''}`;
-  return '↩ pushback?';
+  return '↩ contestação?';
 }
 
 export function resolvedRow(r, ctx) {

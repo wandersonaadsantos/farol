@@ -353,7 +353,7 @@ $('#myPRs').addEventListener('click', (e) => {
     confirmModal({
       title: `Merge como ADMIN de ${key}`, danger: true, confirmLabel: 'Merge como admin', cancelLabel: 'Cancelar',
       body: `<p>Isso <b>bypassa a proteção da branch</b> e mergeia <b>agora</b>, ignorando revisões e checks obrigatórios. Só funciona se você for admin do repo.</p>
-        <p><b>Você está passando por cima do gate de review do time.</b> Use com consciência. Quando der, prefira o <b>Auto-merge</b>: ele espera os requisitos passarem, sem furar nada.</p>`
+        <p><b>Você está passando por cima da regra de revisão do time.</b> Use com consciência. Quando der, prefira o <b>Auto-merge</b>: ele espera os requisitos passarem, sem furar nada.</p>`
     }).then(ok => {
       if (!ok) return;
       mAdmin.disabled = true; mAdmin.textContent = 'Mergeando…';

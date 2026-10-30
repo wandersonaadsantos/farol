@@ -1078,7 +1078,7 @@ test('pushback confirmado NÃO mostra o botão Confirmar', () => {
 
 test('pushbackControl sem autor devolve vazio e sem registro rende o convite padrão', () => {
   assert.equal(P.pushbackControl({ key: 'a/b#1' }, {}), '');
-  assert.match(P.pushbackControl({ key: 'a/b#1', pr: { author: 'dev' } }, {}), /pushback\?/);
+  assert.match(P.pushbackControl({ key: 'a/b#1', pr: { author: 'dev' } }, {}), /contestação\?/);
 });
 
 test('pushbackControl escapa a nota vinda do classificador', () => {

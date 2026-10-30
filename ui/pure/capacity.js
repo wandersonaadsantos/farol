@@ -39,6 +39,6 @@ function quotaHistory(value) {
     if (item.end) outcome = 'Teto atingido após a sessão: ' + (item.end.aboveMax ? 'sim' : 'não');
     if (item.end?.aboveMax === null) outcome = 'Cota final indisponível.';
     return `<p>${esc(item.start.profileId)} · ${esc(item.start.sessionId || 'sem identificador')} · ${esc(outcome)}</p>`;
-  }).join('') || '<p>Nenhuma admissão com política de cota registrada.</p>';
+  }).join('') || '<p>Nenhum controle de cota com política de cota registrada.</p>';
 }
 export { quotaProfile, resourceReport, quotaHistory };

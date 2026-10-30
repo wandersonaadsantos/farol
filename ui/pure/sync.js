@@ -140,7 +140,7 @@ export function syncTogglesHtml(cfg, sync) {
       <span class="set-txt"><span class="set-title">Sincronizar entre dispositivos</span><span class="set-desc">Chave geral. Desligada, este Farol não fala com o Firebase: nenhuma conexão, nenhum envio, nenhuma consulta.</span></span>
       <span class="set-ctl"><input type="checkbox" id="setSyncEnabled"${geral ? ' checked' : ''}><span class="switch"></span></span>
     </label>
-    ${syncSubToggle('setSyncCoordination', geral, coord, 'Evitar análises simultâneas', 'Antes de abrir uma revisão, autoanálise ou classificação de pushback automática, confere se outro aparelho seu já cuidou daquele PR neste commit. Se já cuidou, nenhuma sessão nasce aqui.')}
+    ${syncSubToggle('setSyncCoordination', geral, coord, 'Evitar análises simultâneas', 'Antes de abrir uma revisão, autoanálise ou reconhecimento automático de contestação, confere se outro aparelho seu já cuidou daquele PR neste commit. Se já cuidou, nenhuma sessão nasce aqui.')}
     ${syncSubToggle('setSyncConsolidation', geral, cons, 'Consolidar histórico de consumo', 'Envia tokens, custo e desfecho de cada sessão, sem prompt, diff ou relatório, pra aba Consumo mostrar todos os aparelhos juntos. O histórico deste aparelho continua aqui do jeito que está.')}
     ${syncTogglesConjuntoHtml(c, sync)}
   </div>`;
@@ -237,7 +237,7 @@ export function syncEnvioHtml(sync) {
 //
 // Título e autor de PR são dados de colegas: só sobem cifrados, e a frase nomeia isso.
 const PRIVACIDADE = [
-  ['Sobe cifrado', 'títulos, endereços e autores de PR, relatórios e resumos, andamento, Panorama, Meus PRs, Precisa de você, políticas, grupos, nome do aparelho e memória de pushback confirmada. Título e autor de PR são dados de colegas.'],
+  ['Sobe cifrado', 'títulos, endereços e autores de PR, relatórios e resumos, andamento, Panorama, Meus PRs, Precisa de você, políticas, grupos, nome do aparelho e memória de contestação confirmada. Título e autor de PR são dados de colegas.'],
   ['Qualquer cópia do banco enxerga', 'horários, custos e tokens por sessão, quantidade e tamanho aproximado dos itens, qual aparelho fez cada coisa, e a correlação entre itens do mesmo PR e da mesma organização pelos identificadores.'],
   ['A coordenação expõe', 'conta, PR e commit por resumo sem chave, descobríveis testando nomes conhecidos. Aparelho em versão antiga continua enviando o nome da máquina e o commit.'],
   ['A cifra não protege contra', 'quem sabe a sua senha ou controla o e-mail da conta, o Google (que recebe a senha no login) e quem tem acesso a um aparelho seu.'],

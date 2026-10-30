@@ -83,7 +83,7 @@ function jiraCredHtml(s) {
       </span>
       <button class="btn sm js-cred-save" data-id="${esc(s.id)}">Cadastrar credencial</button>
     </div>
-    <p class="jira-cred-nota">O token nunca passa por linha de comando: o arquivo de configuração do MCP carrega só o id do site, e quem lê o segredo do disco é o servidor do Farol.</p>
+    <p class="jira-cred-nota">O token nunca passa por linha de comando: o arquivo de configuração da integração carrega só o id do site, e quem lê o segredo do disco é o servidor do Farol.</p>
   </div>`;
 }
 

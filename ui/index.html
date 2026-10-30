@@ -73,7 +73,7 @@
        qualquer outra aba o app parecia apenas ter parado de atualizar. -->
   <div id="connLost" class="conn-lost" role="status" aria-live="polite" hidden>
     <span class="cl-dot" aria-hidden="true"></span>
-    <span class="cl-txt">Sem conexão com o engine. <span class="cl-sub">Reconectando…</span></span>
+    <span class="cl-txt">Sem conexão com o Farol neste computador. <span class="cl-sub">Reconectando…</span></span>
     <span class="cl-try"></span>
   </div>
   <!-- ============ RADAR ============ -->
@@ -160,7 +160,7 @@
 
     <div id="resolvedWrap" hidden>
       <div class="section-head"><h2>Revisões recentes</h2></div>
-      <p class="section-desc">O que o Farol já resolveu, com o veredito e os pontos de atenção que ficaram só aqui. É onde você confirma um pushback quando o autor contesta.</p>
+      <p class="section-desc">O que o Farol já resolveu, com o veredito e os pontos de atenção que ficaram só aqui. É onde você confirma a contestação quando o autor contesta.</p>
       <div id="resolved" class="rows"></div>
     </div>
 
@@ -442,7 +442,7 @@
             <div id="doctor" class="doctor-grid"></div>
             <div id="updateBox" class="card update-box">…</div>
             <details class="card set-list review-tools setup" id="setupManager" aria-labelledby="setupTitle">
-              <summary><span><b class="set-title" id="setupTitle">Configuração e retomada</b><span class="set-desc">Retome o roteiro quando precisar. Os indicadores usam o estado atual e o último diagnóstico; nenhum passo ativa automação ou dispensa os gates.</span></span><span class="chev" aria-hidden="true"></span></summary>
+              <summary><span><b class="set-title" id="setupTitle">Configuração e retomada</b><span class="set-desc">Retome o roteiro quando precisar. Os indicadores usam o estado atual e o último diagnóstico; nenhum passo ativa automação ou dispensa as regras de segurança da postagem.</span></span><span class="chev" aria-hidden="true"></span></summary>
               <ol class="steps" id="setupSteps"></ol>
             </details>
             <details class="card set-list review-tools setup" id="reviewLabels" aria-labelledby="reviewLabelsTitle">
@@ -509,14 +509,14 @@
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
                 <span class="set-title">Modo rápido da revisão</span>
-                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho), verificação empírica só do que muda a decisão, e o esforço de raciocínio da sessão cai pra <b>medium</b> (minimal ou low explícito continua valendo). Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhum gate afrouxa: a troca é velocidade por profundidade e autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa. Só vale pra revisão; chat, autoanálise e ferramentas seguem no esforço configurado. <b>Não vale no modelo Auto</b>, que fixa modelo e esforço sozinho.</span>
+                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho), verificação empírica só do que muda a decisão, e o esforço de raciocínio da sessão cai pra <b>medium</b> (minimal ou low explícito continua valendo). Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhuma regra de segurança afrouxa: a troca é velocidade por profundidade e autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa. Só vale pra revisão; chat, autoanálise e ferramentas seguem no esforço configurado. <b>Não vale no modelo Auto</b>, que fixa modelo e esforço sozinho.</span>
               </span>
               <span class="set-ctl"><input id="setReviewFast" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-rereviewresume">
               <span class="set-txt">
-                <span class="set-title">Retomar a sessão no round 2</span>
-                <span class="set-desc">Quando o autor corrige depois de um pedido de mudanças seu, a re-revisão automática continua a mesma conversa da revisão anterior (a sessão já leu o PR, então retomar poupa a releitura). Desligado (padrão), cada round parte do zero, sem carregar o contexto do anterior. Se a sessão antiga não existir mais, o app recomeça do zero sozinho. Só vale no Claude Code: conta com perfil Codex sempre recomeça do zero.</span>
+                <span class="set-title">Retomar a sessão na segunda rodada</span>
+                <span class="set-desc">Quando o autor corrige depois de um pedido de mudanças seu, a re-revisão automática continua a mesma conversa da revisão anterior (a sessão já leu o PR, então retomar poupa a releitura). Desligado (padrão), cada rodada parte do zero, sem carregar o contexto do anterior. Se a sessão antiga não existir mais, o app recomeça do zero sozinho. Só vale no Claude Code: conta com perfil Codex sempre recomeça do zero.</span>
               </span>
               <span class="set-ctl"><input id="setReReviewResume" type="checkbox"><span class="switch"></span></span>
             </label>
@@ -529,8 +529,8 @@
             </label>
             <label class="set-row" id="sys-row-pushback">
               <span class="set-txt">
-                <span class="set-title">Detectar pushback automaticamente</span>
-                <span class="set-desc">Roda 1 sessão do provedor de IA associado à conta por PR em que o autor respondeu depois do seu pedido de mudanças ou aprovação com ressalva, pra classificar se foi contestação e como terminou (no máximo 2 por ciclo; com confiança baixa, fica pra você confirmar). Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</span>
+                <span class="set-title">Reconhecer quando o autor contesta a revisão (usa 1 sessão de IA por PR contestado)</span>
+                <span class="set-desc">Para cada PR em que o autor respondeu depois do seu pedido de mudanças ou aprovação com ressalva, usa 1 sessão do provedor de IA associado à conta pra classificar se foi contestação e como terminou (no máximo 2 por ciclo; com confiança baixa, fica pra você confirmar). Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</span>
               </span>
               <span class="set-ctl"><input id="setAutoPushback" type="checkbox"><span class="switch"></span></span>
             </label>
@@ -582,7 +582,7 @@
             <label class="set-row" id="sys-row-skipperms">
               <span class="set-txt">
                 <span class="set-title">Sessão no terminal sem pedir permissões</span>
-                <span class="set-desc"><code>--dangerously-skip-permissions</code>: vale só pras sessões no terminal, o modo interno já roda sem prompts.</span>
+                <span class="set-desc">A sessão no terminal não pede permissão a cada comando (<code>--dangerously-skip-permissions</code>). O modo em segundo plano já roda assim.</span>
               </span>
               <span class="set-ctl"><input id="setSkipPerms" type="checkbox"><span class="switch"></span></span>
             </label>
@@ -612,7 +612,7 @@
           <p class="section-desc">Um site do Jira por organização do GitHub. Antes de abrir a revisão, o Farol descobre o site pela org dona do PR e lê o card, com os critérios de aceite.</p>
           <div class="callout info">
             <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 7.4v3.8M8 5.1v.6" stroke-linecap="round"/></svg>
-            <span><b>Do primeiro site cadastrado em diante, o Farol assume todos os MCPs</b> das sessões de revisão e de autoanálise, e remove os outros conectores delas. Vale inclusive em PR de organização que não tenha site aqui, pra nenhuma sessão alcançar o Jira de outra empresa.</span>
+            <span><b>Do primeiro site cadastrado em diante, o Farol assume todas as integrações</b> das sessões de revisão e de autoanálise: elas passam a usar só o Jira do Farol e nenhuma outra integração. Vale inclusive em PR de organização que não tenha site aqui, pra nenhuma sessão alcançar o Jira de outra empresa.</span>
           </div>
           <div id="jiraSitesManager" class="cards"></div>
         </div>
@@ -623,7 +623,7 @@
           <p class="section-desc">Opcional. Evita que dois aparelhos seus revisem o mesmo PR e mostra o consumo de todos juntos. Cada aparelho continua com o próprio histórico e funciona sem internet.</p>
           <div class="callout info">
             <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 7.4v3.8M8 5.1v.6" stroke-linecap="round"/></svg>
-            <span><b>O conteúdo compartilhado entre seus aparelhos é cifrado.</b> Catálogo e resultados podem incluir títulos de PR e relatórios. Ao abrir “Ver ao vivo”, as últimas 120 linhas de atividade, inclusive mensagens e descrições de ferramentas, são enviadas cifradas para uma chave temporária do observador. Trechos de prompt ou diff presentes nessa atividade também podem entrar na captura; credenciais reconhecidas são ocultadas. Sobem em claro o SHA do commit analisado (no lease e no recibo; ele pode levar direto ao repositório, quando o repositório é público), o nome do aparelho (vazio usa o nome da máquina), o sistema operacional, a versão do Farol e, no consumo, o modelo, o perfil, os tokens e o custo de cada sessão, além de identificadores e horários de cada análise. Conta do GitHub e PR sobem como resumo SHA-256 sem chave: quem já conhece o nome consegue conferir.</span>
+            <span><b>O conteúdo compartilhado entre seus aparelhos é cifrado.</b> Catálogo e resultados podem incluir títulos de PR e relatórios. Ao abrir “Ver ao vivo”, as últimas 120 linhas de atividade, inclusive mensagens e descrições de ferramentas, são enviadas cifradas para uma chave temporária do observador. Trechos de prompt ou diff presentes nessa atividade também podem entrar na captura; credenciais reconhecidas são ocultadas. Sobem em claro o SHA do commit analisado (na reserva do PR e no recibo; ele pode levar direto ao repositório, quando o repositório é público), o nome do aparelho (vazio usa o nome da máquina), o sistema operacional, a versão do Farol e, no consumo, o modelo, o perfil, os tokens e o custo de cada sessão, além de identificadores e horários de cada análise. Conta do GitHub e PR sobem como resumo criptográfico (SHA-256) sem segredo: quem já conhece o nome consegue conferir.</span>
           </div>
           <div id="syncManager"></div>
         </div>
@@ -654,11 +654,11 @@
             <div class="field"><label for="capacityProfile">Perfil</label><select id="capacityProfile"></select></div>
             <div class="field"><label for="capacityMode">Política de novos trabalhos</label><select id="capacityMode"><option value="off">Desligada</option><option value="observe">Observar e avisar</option><option value="enforce">Reservar: bloquear novas sessões no teto ou sem medição</option></select></div>
             <div class="field"><label for="capacityMax">Uso máximo em qualquer janela do grupo (1–99%)</label><input type="number" id="capacityMax" min="1" max="99" step="1" value="70"></div>
-            </div><p class="set-desc">Comece em observação. Reservar com cota indisponível aguarda fonte válida ou outra opção já habilitada da cadeia. Conta com perfil exclusivo não transborda. Orçamentos, grupos e políticas do aparelho continuam valendo.</p>
-            <p class="set-desc">Sessões iniciadas podem concluir e ultrapassar o percentual. Isso não garante reserva rígida de 30% nem separa consumo de outros aplicativos da mesma assinatura. Terminais interativos ficam fora desta admissão.</p>
+            </div><p class="set-desc">Comece em observação. Reservar com cota indisponível aguarda fonte válida ou outra opção já habilitada na ordem de uso dos perfis. Conta com perfil exclusivo não transborda. Orçamentos, grupos e políticas do aparelho continuam valendo.</p>
+            <p class="set-desc">Sessões iniciadas podem concluir e ultrapassar o percentual. Isso não garante reserva rígida de 30% nem separa consumo de outros aplicativos da mesma assinatura. Terminais interativos ficam fora deste controle de cota.</p>
             <div class="set-actions"><button type="button" class="btn" id="capacitySave">Salvar política deste perfil</button></div><p class="set-msg" id="capacityMessage" role="status" aria-live="polite"></p></div>
             <details class="disc"><summary>Fonte de cota e limites da leitura</summary><div class="disc-body"><p>A fonte precisa comprovar identidade, janela, atualização e reset. A leitura verificável integrada é o /usage do Antigravity; os demais provedores mostram cota indisponível.</p></div></details>
-            <details class="disc"><summary>Últimas observações de admissão</summary><div class="disc-body" id="capacityHistory"></div></details>
+            <details class="disc"><summary>Últimas observações do controle de cota</summary><div class="disc-body" id="capacityHistory"></div></details>
             <div class="set-row"><div class="set-txt"><h4 class="set-title">Recursos deste aparelho</h4><p class="set-desc">Medição sob demanda. Não ajusta concorrência nem encerra processos.</p></div><div class="set-ctl"><button type="button" class="btn sm" id="capacityMeasure">Medir recursos agora</button></div></div>
             <details class="disc"><summary>Como a medição funciona</summary><div class="disc-body"><p>Cache de cinco segundos. CPU precisa de duas amostras e é normalizada pela máquina inteira. RAM soma RSS/working set, incluindo páginas compartilhadas; não é memória física exclusiva. O coletor também tem custo.</p></div></details>
             <div id="capacityResources" class="set-block"></div>
@@ -667,7 +667,7 @@
             <div class="set-row" id="sys-row-provedor">
               <div class="set-txt">
                 <span class="set-title">Configuração do provedor</span>
-                <span class="set-desc">Cada provedor tem o próprio modelo e esforço, e a revisão usa o par do provedor do perfil que a cadeia escolheu: modelo de um nunca vai para a linha de comando do outro. No Claude, Auto (qualidade primeiro) revisa todo PR com o Opus, no mesmo raciocínio do Opus fixo, e sobe o raciocínio para xhigh em repositório crítico, caminho sensível ou PR muito grande, só na revisão headless.</span>
+                <span class="set-desc">Cada provedor tem o próprio modelo e esforço, e a revisão usa o par do provedor do perfil que a ordem de uso escolheu: modelo de um nunca vai para a linha de comando do outro. No Claude, Auto (qualidade primeiro) revisa todo PR com o Opus, no mesmo raciocínio do Opus fixo, e sobe o raciocínio para esforço máximo em repositório crítico, caminho sensível ou PR muito grande, só na revisão em segundo plano.</span>
               </div>
               <div class="set-ctl">
                 <div class="seg" id="setAutomationProvider" role="group" aria-label="Provedor que está sendo configurado">
@@ -816,7 +816,7 @@
             </div>
           </div>
           <section class="card set-list review-tools" id="specialistManager" aria-labelledby="specialistHeading">
-            <div class="set-head"><div><h3 id="specialistHeading">Especialistas por repositório</h3><p>Contexto curado usado pelo revisor existente. Fontes alteradas ficam fora do prompt. Lições propostas precisam da sua confirmação; nenhum conteúdo muda os gates.</p></div></div>
+            <div class="set-head"><div><h3 id="specialistHeading">Especialistas por repositório</h3><p>Contexto curado usado pelo revisor existente. Fontes alteradas ficam fora do prompt. Lições propostas precisam da sua confirmação; nenhum conteúdo muda as regras de segurança da postagem.</p></div></div>
             <div class="set-block"><div class="form-grid">
             <div class="field"><label for="specialistAccount">Conta</label><select id="specialistAccount"></select></div>
             <div class="field"><label for="specialistRepo">Repositório (organização/nome)</label><input id="specialistRepo" type="text" placeholder="organização/projeto" autocomplete="off"></div>
@@ -824,7 +824,7 @@
             <div class="field"><button type="button" class="btn" id="specialistLoad">Carregar e conferir fontes</button></div>
             </div><p id="specialistCurrent" class="set-msg">Escolha conta, repositório e branch.</p><p id="specialistMessage" class="set-msg" role="status" aria-live="polite"></p></div>
             <div id="specialistEntries" class="specialist-evidence ilist"></div>
-            <details class="disc"><summary>Lições propostas por pushbacks e auditorias</summary><div class="disc-body"><p>Auditorias exigem avaliação humana favorável. Pushbacks podem incluir registros legados sem conta de origem. Confira a procedência antes de curar para a conta escolhida.</p><div id="specialistProposals" class="ilist"></div></div></details>
+            <details class="disc"><summary>Lições propostas por contestações e auditorias</summary><div class="disc-body"><p>Auditorias exigem avaliação humana favorável. Contestações podem incluir registros legados sem conta de origem. Confira a procedência antes de curar para a conta escolhida.</p><div id="specialistProposals" class="ilist"></div></div></details>
             <div class="set-block"><div class="set-head"><div><h4 class="set-subtitle">Conclusão e evidências</h4><p id="specialistOrigin">Origem: curadoria manual.</p></div><div class="row-actions"><button type="button" class="btn sm ghost" id="specialistNew">Nova conclusão</button></div></div>
             <div class="form-grid">
             <div class="field"><label for="specialistKind">Tipo</label><select id="specialistKind"><option value="architecture">Arquitetura</option><option value="contract">Contrato</option><option value="convention">Convenção</option><option value="critical">Ponto crítico</option><option value="lesson">Lição</option></select></div>
@@ -851,9 +851,9 @@
               <div class="form-grid">
               <div class="field"><label for="auditAccounts">Contas autorizadas, separadas por vírgula</label><input id="auditAccounts" type="text" autocomplete="off"></div>
               <div class="field"><label for="auditLimit">Máximo de auditorias automáticas por dia (0–10)</label><input id="auditLimit" type="number" min="0" max="10" step="1" value="0"></div>
-              <div class="field"><label for="auditBudget">Orçamento diário de admissão em US$</label><input id="auditBudget" type="number" min="0" max="1000" step="0.01" value="0"></div>
+              <div class="field"><label for="auditBudget">Orçamento diário do controle de cota em US$</label><input id="auditBudget" type="number" min="0" max="1000" step="0.01" value="0"></div>
               <div class="field"><label for="auditReserve">Reserva estimada para cada auditoria (duas sessões) em US$</label><input id="auditReserve" type="number" min="0" max="1000" step="0.01" value="0"></div>
-              </div><p>A reserva controla novas admissões, não é teto rígido do provedor. Um trabalho pode ultrapassá-la. Custo indisponível suspende novas amostras no dia. As revisões em andamento têm prioridade. Quantidade e orçamento são locais, não compartilhados entre aparelhos.</p>
+              </div><p>A reserva controla novas sessões, não é teto rígido do provedor. Um trabalho pode ultrapassá-la. Custo indisponível suspende novas amostras no dia. As revisões em andamento têm prioridade. Quantidade e orçamento são locais, não compartilhados entre aparelhos.</p>
               <div class="set-actions"><button type="button" class="btn" id="auditSavePolicy">Salvar amostragem</button></div></div>
             </details>
           </section>
