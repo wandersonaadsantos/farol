@@ -303,6 +303,11 @@ function wireEngine() {
   engine.on('meu-pr-base', (a) => {
     notify(a.tituloSistema, a.corpo, a.url || ((a.itens || [])[0] || {}).url);
   });
+  // release de ponte (desenho 4.7 do Farol nativo): a 3.x não roda nesta casca; o engine emite
+  // uma vez por processo e versão, e o clique só abre a janela (o aviso fica em Sistema)
+  engine.on('update-ponte', (p) => {
+    notify('Farol · última versão nesta casca', `A ${p.versao} é o Farol nativo. Baixe o instalador em Sistema > Visão geral.`, null);
+  });
   engine.on('state', updateBadge);
   engine.on('settings-changed', (cfg) => {
     applyAutostart();

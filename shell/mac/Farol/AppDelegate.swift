@@ -46,6 +46,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             paths: paths, environment: environment, shellVersion: shellVersion ?? "3.0.0")
         let supervisor = SidecarSupervisor(services: services, ui: self)
         self.supervisor = supervisor
+        // O que o Farol Electron deixou (LaunchAgent e lançador), em segundo plano: não atrasa
+        // a janela e não mostra nada.
+        let migration = LegacyMigration(
+            home: FileManager.default.homeDirectoryForCurrentUser, runningBundle: Bundle.main.bundleURL)
+        Task.detached(priority: .utility) { migration.run() }
         Task { await supervisor.boot() }
     }
 

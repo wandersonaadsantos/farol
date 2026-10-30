@@ -14,12 +14,21 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsPackageType>MSIX</WindowsPackageType>
+    <!-- Runtime do Windows App SDK dentro do pacote: o App Installer instala numa maquina limpa sem um segundo asset.
+         Plano B, se o publish empacotado self-contained falhar no Windows real: publicar Dependencies\x64\Microsoft.WindowsAppRuntime.1.6.msix na release e declarar <Dependencies> no appinstaller. -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
   </PropertyGroup>
 
   <ItemGroup>
     <Content Include="Assets\*.png" />
     <!-- Ícone da bandeja, lido do disco pelo LoadImageW; copiado de assets/farol.ico da raiz. -->
     <Content Include="Assets\farol.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- O motor embutido (engine\app\server.js e engine\node\node.exe), encenado aqui pelo
+       tools\release\montar-win.ps1 antes do publish e fora do git; entra no MSIX em engine\... -->
+  <ItemGroup>
+    <Content Include="engine\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

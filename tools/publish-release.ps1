@@ -1,14 +1,23 @@
 # Farol: publica uma release no GitHub (wandersonaadsantos/farol) pras copias instaladas
-# se atualizarem sozinhas. Sobe DOIS artefatos:
-#   - farol-vX.Y.Z.zip     (leve, sem node_modules): e o que o UPDATE baixa.
-#   - Farol-Setup-vX.Y.Z.exe (Electron embutido): PRIMEIRA instalacao, arquivo unico
-#     (duplo clique instala e abre, sem extrair zip).
-# O instalador offline do macOS (.command) RODA EM QUALQUER SO
-# (tools/make-offline-mac.sh baixa o zip darwin do GitHub e embute); anexe com:
-#   gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol
+# se atualizarem sozinhas. Uma release so leva tudo (plano 4 do Farol nativo):
+#   - farol-vX.Y.Z.zip       (leve, sem node_modules): e o que o UPDATE do motor baixa em
+#     todo modo (Electron, Termux, servidor e as cascas nativas). OBRIGATORIO.
+#   - Farol-X.Y.Z.dmg + appcast.xml          (casca do macOS e o feed da Sparkle)
+#   - Farol-X.Y.Z.msix + Farol.appinstaller  (casca do Windows e o manifesto do App Installer)
+#   - Farol-Setup-vX.Y.Z.exe e Farol-Instalar-mac*.command (Electron, enquanto ele existir)
+#
+# Dois modos, com a MESMA lista de anexos (tools/release/anexos-da-release.js decide; os
+# dois modos nunca divergem sobre o que sobe):
+#   - local (padrao): constroi o pacote leve, o Setup.exe e os .command, como sempre, e
+#     anexa TAMBEM os artefatos nativos que estiverem no dist (dist/, dist/mac/, dist/win/).
+#     Nunca os constroi aqui: dmg e msix saem da pipeline (.github/workflows/release-nativo.yml).
+#   - FAROL_SO_ANEXAR=1 (a pipeline): nao constroi NADA; anexa o que existe no dist. Sem o
+#     pacote leve, falha. Cada ausente vira uma linha de aviso com o nome do arquivo.
+#   Nos dois modos, da 3.0.0 em diante, dmg, appcast, msix e appinstaller tambem sao
+#   obrigatorios: faltando ou retido um deles, falha e nada e publicado.
 #
 # Pre-req: o codigo desta versao ja commitado e no repo (git push), pra a tag
-# apontar pro codigo certo. Requer gh autenticado com acesso ao repo.
+# apontar pro codigo certo. Requer gh autenticado com acesso ao repo, e node no PATH.
 $ErrorActionPreference = 'Stop'
 
 $Src = Split-Path -Parent $PSScriptRoot
@@ -16,6 +25,8 @@ $pkg = Get-Content (Join-Path $Src 'package.json') -Raw | ConvertFrom-Json
 $version = $pkg.version
 $repo = 'wandersonaadsantos/farol'
 $tag = "v$version"
+$Dist = Join-Path $Src 'dist'
+$soAnexar = ($env:FAROL_SO_ANEXAR -eq '1')
 
 Write-Host ''
 Write-Host "  Farol · publicar release $tag em $repo" -ForegroundColor Yellow
@@ -44,53 +55,68 @@ if ($LASTEXITCODE -eq 0 -and $latestTag) {
 }
 
 # --- build dos artefatos ------------------------------------------------------
-Write-Host '  -> Gerando o pacote leve (update)' -ForegroundColor Cyan
-& (Join-Path $PSScriptRoot 'make-package.ps1') | Out-Null
-$light = Join-Path $Src "dist\farol-v$version.zip"
-if (-not (Test-Path $light)) { throw "pacote leve nao gerado: $light" }
-
-Write-Host '  -> Gerando o instalador unico do Windows (primeira instalacao)' -ForegroundColor Cyan
-& (Join-Path $PSScriptRoot 'make-installer.ps1') | Out-Null
-$offline = Join-Path $Src "dist\Farol-Setup-v$version.exe"
-if (-not (Test-Path $offline)) { throw "instalador nao gerado: $offline" }
-
-# Instalador offline do macOS (primeira instalacao no Mac). Ate a v2.56.0 este passo
-# era so um LEMBRETE impresso no fim, e o resultado foi previsivel: as releases
-# v2.54.8, v2.55.0 e v2.55.1 sairam sem o anexo. Lembrete que depende de disciplina
-# nao e processo. Agora e construido aqui, com o resto.
-#
-# Nao e fatal: ele exige bash (Git Bash no Windows) e baixa ~116 MB do Electron
-# darwin. Falhar a release inteira por causa disso seria pior do que publicar sem o
-# anexo do Mac, que e o comportamento de sempre. O AVISO fala alto quando cai.
-$macInstaller = Join-Path $Src 'dist\Farol-Instalar-mac.command'
-$macIntelInstaller = Join-Path $Src 'dist\Farol-Instalar-mac-x64.command'
-if (Test-Path $macInstaller) { Remove-Item $macInstaller -Force }
-if (Test-Path $macIntelInstaller) { Remove-Item $macIntelInstaller -Force }
-$bash = Get-Command bash -ErrorAction SilentlyContinue
-if ($bash) {
-  Write-Host '  -> Gerando o instalador offline do macOS (Apple Silicon)' -ForegroundColor Cyan
-  # `*> $null` engole TODOS os fluxos, e o ErrorActionPreference cai pra Continue em
-  # volta da chamada de proposito: o curl do script escreve a barra de progresso no
-  # STDERR, e com 'Stop' o PowerShell trata saida nativa em stderr como erro
-  # terminante. Medido em campo: a primeira versao deste passo usava `2>&1 | Out-Null`
-  # e abortou a publicacao da v2.56.1 depois de ja ter construido os dois instaladores.
-  # O que decide se deu certo e o arquivo existir, nao o fluxo de erro.
-  $eapAnterior = $ErrorActionPreference
-  $ErrorActionPreference = 'Continue'
-  & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') --arch=arm64 *> $null
-  & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') --arch=x64 *> $null
-  $ErrorActionPreference = $eapAnterior
+if ($soAnexar) {
+  Write-Host '  -> FAROL_SO_ANEXAR=1: nada e construido, so anexo o que esta no dist' -ForegroundColor Cyan
 } else {
-  Write-Host '  !  bash nao encontrado: instalador de macOS NAO sera anexado' -ForegroundColor Yellow
+  Write-Host '  -> Gerando o pacote leve (update)' -ForegroundColor Cyan
+  & (Join-Path $PSScriptRoot 'make-package.ps1') | Out-Null
+  $light = Join-Path $Dist "farol-v$version.zip"
+  if (-not (Test-Path $light)) { throw "pacote leve nao gerado: $light" }
+
+  Write-Host '  -> Gerando o instalador unico do Windows (primeira instalacao)' -ForegroundColor Cyan
+  & (Join-Path $PSScriptRoot 'make-installer.ps1') | Out-Null
+  $offline = Join-Path $Dist "Farol-Setup-v$version.exe"
+  if (-not (Test-Path $offline)) { throw "instalador nao gerado: $offline" }
+
+  # Instalador offline do macOS (primeira instalacao no Mac). Ate a v2.56.0 este passo
+  # era so um LEMBRETE impresso no fim, e o resultado foi previsivel: as releases
+  # v2.54.8, v2.55.0 e v2.55.1 sairam sem o anexo. Lembrete que depende de disciplina
+  # nao e processo. Agora e construido aqui, com o resto.
+  #
+  # Nao e fatal: ele exige bash (Git Bash no Windows) e baixa ~116 MB do Electron
+  # darwin. Falhar a release inteira por causa disso seria pior do que publicar sem o
+  # anexo do Mac, que e o comportamento de sempre. O AVISO fala alto quando cai.
+  $macInstaller = Join-Path $Dist 'Farol-Instalar-mac.command'
+  $macIntelInstaller = Join-Path $Dist 'Farol-Instalar-mac-x64.command'
+  if (Test-Path $macInstaller) { Remove-Item $macInstaller -Force }
+  if (Test-Path $macIntelInstaller) { Remove-Item $macIntelInstaller -Force }
+  $bash = Get-Command bash -ErrorAction SilentlyContinue
+  if ($bash) {
+    Write-Host '  -> Gerando o instalador offline do macOS (Apple Silicon)' -ForegroundColor Cyan
+    # `*> $null` engole TODOS os fluxos, e o ErrorActionPreference cai pra Continue em
+    # volta da chamada de proposito: o curl do script escreve a barra de progresso no
+    # STDERR, e com 'Stop' o PowerShell trata saida nativa em stderr como erro
+    # terminante. Medido em campo: a primeira versao deste passo usava `2>&1 | Out-Null`
+    # e abortou a publicacao da v2.56.1 depois de ja ter construido os dois instaladores.
+    # O que decide se deu certo e o arquivo existir, nao o fluxo de erro.
+    $eapAnterior = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') --arch=arm64 *> $null
+    & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') --arch=x64 *> $null
+    $ErrorActionPreference = $eapAnterior
+  } else {
+    Write-Host '  !  bash nao encontrado: instalador de macOS NAO sera anexado' -ForegroundColor Yellow
+  }
+  if (-not (Test-Path $macInstaller)) {
+    Write-Host '  !  instalador de macOS ausente: a release sai sem ele (primeira instalacao no Mac fica de fora)' -ForegroundColor Yellow
+    Write-Host '     Para anexar depois: bash tools/make-offline-mac.sh; gh release upload <tag> dist/Farol-Instalar-mac.command' -ForegroundColor DarkGray
+  }
 }
-if (-not (Test-Path $macInstaller)) {
-  Write-Host '  !  instalador de macOS ausente: a release sai sem ele (primeira instalacao no Mac fica de fora)' -ForegroundColor Yellow
-  Write-Host '     Para anexar depois: bash tools/make-offline-mac.sh; gh release upload <tag> dist/Farol-Instalar-mac.command' -ForegroundColor DarkGray
-}
+
+# --- o que anexar: a lista vem de UMA funcao pura, a mesma nos dois modos ----------
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'node nao encontrado no PATH: ele decide a lista de anexos (tools/release/anexos-da-release.js)' }
+$listaJson = & node (Join-Path (Join-Path $PSScriptRoot 'release') 'anexos-da-release.js') $version $Dist
+if ($LASTEXITCODE -ne 0) { throw "tools/release/anexos-da-release.js falhou (codigo $LASTEXITCODE)" }
+$lista = ($listaJson -join "`n") | ConvertFrom-Json
+foreach ($retido in @($lista.retidos)) { if ($retido) { Write-Host "  !  $retido" -ForegroundColor Yellow } }
+# pacote leve ausente, ou (da 3.0.0 em diante) um dos quatro nativos ausente ou retido
+if ($lista.erro) { throw "$($lista.erro) (procurado em $Dist). Nada foi publicado." }
+foreach ($ausente in @($lista.faltando)) { if ($ausente) { Write-Host "  !  ausente, a release sai sem: $ausente" -ForegroundColor Yellow } }
+$arquivos = @($lista.anexar | ForEach-Object { Join-Path $Dist $_ })
 
 # --- notas: extrai a secao desta versao do CHANGELOG.md -----------------------
 $changelog = Join-Path $Src 'CHANGELOG.md'
-$notesFile = Join-Path $Src "dist\release-notes-v$version.md"
+$notesFile = Join-Path $Dist "release-notes-v$version.md"
 $body = $null
 if (Test-Path $changelog) {
   # -Encoding UTF8: sem isso o PS 5.1 le o CHANGELOG (UTF-8) como ANSI e dobra a
@@ -115,7 +141,7 @@ if (-not $body) {
 # rodape padrao (Instalar/Atualizar + Anexos): por padrao SEMPRE presente, com a
 # versao preenchida. Lido como UTF-8 pra nao mojibakear. Assim o CHANGELOG so
 # descreve o que mudou e o padrao das notas fica garantido em toda release.
-$footerFile = Join-Path $Src 'tools\release-footer.md'
+$footerFile = Join-Path (Join-Path $Src 'tools') 'release-footer.md'
 if (-not (Test-Path $footerFile)) {
   Write-Host "  !  tools\release-footer.md ausente; release sai SEM o rodape Instalar/Anexos" -ForegroundColor Yellow
 }
@@ -153,23 +179,18 @@ if ($exists) {
   Write-Host "  -> Release $tag ja existe; FAROL_REPUBLISH=1: atualizando notas e anexos" -ForegroundColor Cyan
   & gh release edit $tag --repo $repo --title "Farol $tag" --notes-file $notesFile
   if ($LASTEXITCODE -ne 0) { throw "gh release edit falhou (codigo $LASTEXITCODE)" }
-  $anexos = @($light, $offline); if (Test-Path $macInstaller) { $anexos += $macInstaller }
-  if (Test-Path $macIntelInstaller) { $anexos += $macIntelInstaller }
-  & gh release upload $tag @anexos --repo $repo --clobber
+  & gh release upload $tag @arquivos --repo $repo --clobber
 } else {
   Write-Host "  -> Criando a release $tag" -ForegroundColor Cyan
-  $anexos = @($light, $offline); if (Test-Path $macInstaller) { $anexos += $macInstaller }
-  if (Test-Path $macIntelInstaller) { $anexos += $macIntelInstaller }
-  & gh release create $tag @anexos --repo $repo --title "Farol $tag" --notes-file $notesFile
+  & gh release create $tag @arquivos --repo $repo --title "Farol $tag" --notes-file $notesFile
 }
 if ($LASTEXITCODE -ne 0) { throw "gh release falhou (codigo $LASTEXITCODE)" }
 
 Write-Host ''
 Write-Host "  ok  release $tag publicada em $repo" -ForegroundColor Green
 Write-Host '      As copias instaladas (>= 1.15.0) vao ver o update no proximo ciclo.' -ForegroundColor DarkGray
-if (Test-Path $macInstaller) {
-  Write-Host '      Instalador de macOS (Apple Silicon) anexado. Intel: ARCH=x64 bash tools/make-offline-mac.sh' -ForegroundColor DarkGray
-} else {
-  Write-Host '      SEM instalador de macOS nesta release (ver aviso acima).' -ForegroundColor Yellow
+Write-Host "      Anexos: $(($lista.anexar) -join ', ')" -ForegroundColor DarkGray
+if (@($lista.faltando).Count) {
+  Write-Host "      SEM nesta release (ver avisos acima): $(($lista.faltando) -join ', ')" -ForegroundColor Yellow
 }
 Write-Host ''

@@ -71,3 +71,66 @@ footprint.
 
 "Sair" pela bandeja: nenhum processo `Farol` nem `server.js` restante, `casca.json` apagado, porta
 47190 livre e os três processos WebKit encerrados.
+
+## Medição em Release (30/10/2026)
+
+### Condições
+
+- **Data**: 30/10/2026, das 09:15 às 09:29 (horário de Brasília).
+- **Máquina**: a mesma (Apple M1 Max, macOS 27, Xcode 26.6).
+- **Build**: o primeiro bundle de verdade, `tools/release/montar-mac.sh` sem argumentos: `xcodebuild
+  archive` em Release universal (arm64 e x86_64), motor 2.78.11 e Node 24.22.1 universal DENTRO do
+  `.app` (`Contents/Resources/engine/`), assinatura ad hoc, Sparkle 2.10.1 embutida e sem iniciar
+  (chave EdDSA vazia). Nada de `FAROL_NODE` nem `FAROL_SERVER_JS`: o motor subiu do bundle.
+- **Motor**: `FAROL_HOME` temporário (`/tmp/farol-bundle-home`, porta 47195), aberto com
+  `FAROL_HOME=... open dist/mac/Farol.app`. A conta do `gh` foi detectada e nasceu com
+  `autoReview: false`: as buscas foram só leitura (3 PRs em Pra mim, 6 em Meus PRs, 59 no
+  Panorama) e nenhuma revisão rodou.
+- **Janela**: autenticada (log `pareamento com o motor concluído` e `janela aberta (visor: false,
+  com token: true)`), num monitor secundário, na tela (`kCGWindowIsOnscreen` verdadeiro nas três
+  leituras) e pintando: a captura só da janela no fim mostrou a fila com a última checagem às
+  09:26. Ninguém clicou nela. A máquina seguiu em uso no monitor principal, então não dá para
+  afirmar que nenhuma outra janela a cobriu em parte nesse tempo.
+- **Leitura**: o mesmo método da medição anterior, `ps -o rss= -p <pid>` (KB) do `Farol`, do
+  `node` do bundle e dos três WebKit nascidos no mesmo segundo da abertura (09:15:10).
+
+### Resultado (RSS)
+
+| processo | 0 min (09:15:56) | 5 min (09:20:56) | 10 min (09:25:56) |
+|---|---:|---:|---:|
+| Farol (app) | 106 048 KB | 92 848 KB | 92 960 KB |
+| node (motor) | 108 576 KB | 96 496 KB | 78 624 KB |
+| WebKit.WebContent | 57 744 KB | 42 992 KB | 57 984 KB |
+| WebKit.GPU | 34 720 KB | 20 896 KB | 31 040 KB |
+| WebKit.Networking | 26 576 KB | 14 880 KB | 15 920 KB |
+| **soma** | **333 664 KB (325,8 MB)** | **268 112 KB (261,8 MB)** | **276 528 KB (270,0 MB)** |
+
+A leitura de 0 min saiu 46 s depois da abertura, ainda na primeira checagem.
+
+O `footprint` dos cinco processos às 09:29 (14 min) deu: app 33 MB, motor 58 MB, WebContent
+47 MB, GPU 28 MB, Networking 9,7 MB, soma 176 MB. No mesmo instante o RSS somava 241 376 KB
+(235,7 MB).
+
+### Veredito
+
+- **Contra o critério de 150 MB**: não passa. Pelo RSS de 10 min estoura em 120 MB (270 MB); pelo
+  footprint fica 26 MB acima (176 MB).
+- **Contra o Electron**: 270 MB contra 398 MB, 32% a menos.
+- **Contra a medição em Debug**: o Release não baixou o app (33 MB de footprint contra 31 MB; o
+  RSS maior vem do binário universal e das páginas compartilhadas) e o total subiu porque, com a
+  janela pintando o tempo todo, o WebKit ficou em 105 MB de RSS (contra 40 MB com a janela
+  encoberta) e 85 MB de footprint. O motor também pesou mais (58 MB de footprint contra 44 MB)
+  com a mesma conta. O peso que falta cortar para o critério está no WebKit pintando e no motor,
+  não na casca.
+
+### O que não foi medido
+
+- Bundle assinado com Developer ID e notarizado (é o mesmo binário; a assinatura não muda a
+  memória, mas fica registrado).
+- Update real pela Sparkle (chave EdDSA vazia).
+- Sessão de revisão rodando.
+
+### Saída
+
+`quit app "Farol"`: nenhum processo `Farol` nem `node` do bundle restante, `casca.json` apagado,
+porta 47195 livre e os três processos WebKit encerrados.

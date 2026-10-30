@@ -1,7 +1,7 @@
 /* Farol · UI: versão e atualização (Sistema > Visão geral). */
 
-import { esc, fmtClock, updateAdiadoHtml } from '../pure.js';
-import { estado } from './estado.js';
+import { esc, fmtClock, updateAdiadoHtml, pontePainelHtml } from '../pure.js';
+import { estado, ehMac, ehWin } from './estado.js';
 import { $, api, toast, confirmModal, origemLocal } from './infra.js';
 
 let updateEmAndamento = false;
@@ -24,6 +24,12 @@ async function aplicarAtualizacao() {
 }
 
 /* ---------- render: versão e atualização ---------- */
+// o aviso da ponte muda por sistema: macOS e Windows têm instalador nativo, o Linux não
+function plataformaDaPonte() {
+  if (ehMac()) return 'darwin';
+  return ehWin() ? 'win32' : 'linux';
+}
+
 function renderUpdate() {
   const u = estado().update;
   const box = $('#updateBox');
@@ -37,9 +43,13 @@ function renderUpdate() {
   // não deu pra ler a release (repo privado/sem acesso, sem release ainda, ou rede):
   // sourceVersion nulo + note. Não é "está na mais recente", é falta de acesso.
   const noAccess = hasChannel && !u.available && !u.sourceVersion && !!u.note;
-  box.classList.toggle('avail', !!u.available);
-  box.classList.toggle('ok-state', !u.available && hasChannel && !noAccess);
-  if (u.available) {
+  box.classList.toggle('avail', !!u.available || !!u.ponte);
+  box.classList.toggle('ok-state', !u.available && hasChannel && !noAccess && !u.ponte);
+  box.classList.toggle('ponte', !!u.ponte);
+  if (u.ponte) {
+    // a 3.x é o Farol nativo: nada a aplicar aqui, só o instalador a baixar
+    box.innerHTML = pontePainelHtml(u, plataformaDaPonte());
+  } else if (u.available) {
     const autoOn = remote && estado().config?.autoUpdate !== false;
     const noteAuto = autoOn
       ? `Atualização disponível ${'nas ' + origin}. Com "Atualizar sozinho" ligado (Sistema > Automação), o Farol aplica sozinho assim que ficar ocioso (sem análise, chat ou terminal em andamento), fecha e reabre preservando estado e configurações. O botão abaixo aplica agora, sem esperar.`

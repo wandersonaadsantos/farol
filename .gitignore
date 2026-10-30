@@ -42,3 +42,6 @@ Microsoft/
 
 # anexos temporarios de sessao (Claude Design); nunca versionar
 .claude-anexos/
+
+# motor encenado no projeto da casca do Windows pelo tools/release/montar-win.ps1 (entra no MSIX)
+shell/win/Farol.App/engine/
