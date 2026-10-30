@@ -105,6 +105,9 @@ button { font: inherit; }
 .tabs-row { display: contents; }
 body.electron .topbar-main { padding-right: 150px; }
 body.electron.mac .topbar-main { padding-right: 22px; padding-left: 84px; }
+/* A casca Mac também tem a barra "hidden inset": o mesmo recuo, pelo atributo que a ui/app.js
+   escreve a partir do snapshot.casca do motor. */
+html[data-casca="mac"] .topbar-main { padding-right: 22px; padding-left: 84px; }
 .topbar button, .topbar nav, .topbar .account-bar { -webkit-app-region: no-drag; }
 .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .logo { width: 24px; height: 24px; flex: none; }

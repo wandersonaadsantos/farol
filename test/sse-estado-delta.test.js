@@ -146,3 +146,26 @@ test('o stream pede para não ser bufferizado por intermediário', async () => {
   assert.equal(s.headers['x-accel-buffering'], 'no');
   s.fechar();
 });
+
+// Onda de pendências das cascas, item C: o snapshot diz em que casca nativa a página roda,
+// pelo mesmo modoCasca() do motor, para a UI dar o recuo dos semáforos. Fora dela é null.
+test('o snapshot leva a casca nativa em que o motor roda', async () => {
+  const s = await abrirStream();
+  const chegou = await ate(() => s.eventos.length >= 1);
+  s.fechar();
+  assert.ok(chegou, 'o primeiro evento não chegou');
+  const inicial = JSON.parse(s.eventos[0].dados);
+  assert.ok(Object.hasOwn(inicial, 'casca'), 'o campo vai no snapshot');
+  assert.equal(inicial.casca, null);
+  const antes = process.env.FAROL_SHELL;
+  try {
+    process.env.FAROL_SHELL = 'mac';
+    assert.equal(engine.snapshot().casca, 'mac');
+    process.env.FAROL_SHELL = 'win';
+    assert.equal(engine.snapshot().casca, 'win');
+    process.env.FAROL_SHELL = 'linux';
+    assert.equal(engine.snapshot().casca, null, 'valor fora do contrato não é casca');
+  } finally {
+    if (antes === undefined) delete process.env.FAROL_SHELL; else process.env.FAROL_SHELL = antes;
+  }
+});

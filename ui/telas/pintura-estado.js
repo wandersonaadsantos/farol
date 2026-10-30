@@ -7,7 +7,7 @@ function gruposDaPintura(pintar) {
   const sistema = () => telaVisivel('sistema') && !editandoFormulario() && !textoSelecionado('#tab-sistema');
   const grupo = (id, campos, visivel = () => true) => ({ id, campos, visivel, pintar: pintar[id] });
   return [
-    grupo('plataforma', ['app']),
+    grupo('plataforma', ['app', 'casca']),
     grupo('contas', ['accounts', 'account', 'config', 'queue', 'decisions', 'panorama', 'activeSessions']),
     grupo('status', ['app', 'status', 'error', 'account', 'activeSessions', 'buscasPausadas']),
     grupo('sessoes', ['activeSessions', 'activity', 'headlessWaiting', 'headlessWaitingContas', 'panorama', 'accounts'], mim),

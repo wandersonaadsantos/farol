@@ -122,3 +122,23 @@ test('goTo trata o formato aba:<nome>:<seletor> (senão o destino de ferramenta 
     'o ramo da aba precisa repassar o seletor');
   assert.match(APPJS, /function gotoAba\(nome, at\)/, 'gotoAba() definida');
 });
+
+// Onda de pendências das cascas, item C: dentro da casca Mac a barra é "hidden inset" e os
+// três semáforos cobrem o logo, como no Electron do macOS. O motor diz em que casca a página
+// roda (snapshot.casca, de modoCasca()), a ui/app.js o escreve em <html data-casca> e o CSS dá
+// o MESMO recuo do Electron por atributo, sem canal novo entre casca e página.
+test('dentro da casca Mac a topbar recua para os semáforos como no Electron do macOS', () => {
+  const css = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.css'), 'utf8');
+  const app = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+  const recuo = (seletor) => {
+    const m = css.match(new RegExp(`${seletor.replace(/[.[\]"=]/g, '\\$&')} \\.topbar-main \\{([^}]*)\\}`));
+    return m ? m[1].replace(/\s+/g, ' ').trim() : null;
+  };
+  const doElectron = recuo('body.electron.mac');
+  assert.ok(doElectron, 'o recuo do Electron no macOS existe');
+  assert.equal(recuo('html[data-casca="mac"]'), doElectron, 'o recuo da casca Mac é o mesmo do Electron');
+  assert.match(app, /dataset\.casca\s*=/, 'a ui/app.js escreve o atributo data-casca');
+  assert.match(app, /estado\(\)\.casca/, 'a partir do estado que o motor manda');
+  const pintura = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'telas', 'pintura-estado.js'), 'utf8');
+  assert.match(pintura, /grupo\('plataforma', \[[^\]]*'casca'/, 'o campo casca repinta o grupo da plataforma');
+});

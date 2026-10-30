@@ -65,9 +65,13 @@ if (isElectron) document.body.classList.add('electron');
    O estado (PLATAFORMA) e as duas funções moram em telas/estado.js desde a Task 10a (Fase
    1b): telas/sistema-perfis.js também precisa perguntar "é Windows?" pro editor de perfis
    Claude, e um módulo de tela não pode importar o bootstrap de volta. */
-function aplicaPlataforma(p) {
+function aplicaPlataforma(p, casca) {
   definirPlataforma(p);
   document.body.classList.toggle('mac', ehMac());
+  // A casca nativa em que a página roda (snapshot.casca do motor): o CSS dá o recuo dos
+  // semáforos da casca Mac por <html data-casca>, o mesmo do Electron no macOS.
+  if (casca === 'mac' || casca === 'win') document.documentElement.dataset.casca = casca;
+  else delete document.documentElement.dataset.casca;
   renderPlatformSettings();
   rotularBtnCmdK();   // o botão é da paleta; quem sabe rotulá-lo é telas/paleta.js
 }
@@ -344,7 +348,7 @@ function pintarTelaRegistrada(id) {
 const preservarConfiguracao = criarPreservacaoDeFormulario();
 const pinturas = criarAgendaVisual({
   grupos: gruposDaPintura({
-    plataforma: () => aplicaPlataforma(estado().app?.platform),
+    plataforma: () => aplicaPlataforma(estado().app?.platform, estado().casca),
     contas: () => { rebuildAccounts(); renderAccountBar(); renderIdentity(); },
     status: renderStatus, sessoes: renderActive, decisoes: renderDecisions, fila: renderQueue,
     meus: () => { renderMyPRs(); syncAnalysisOps(); }, panorama: renderPanorama,

@@ -1899,7 +1899,8 @@ class Engine extends EventEmitter {
       // `app` é a IDENTIDADE do app, e o smoke do Electron confere o objeto inteiro: o
       // catálogo de seleções (lib/modelos.js), de onde a tela monta os seletores, é outra coisa
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
-      modelos: catalogoDeModelos(this.claudeVersao || null),
+      // `casca`: a casca nativa em que o motor roda (modoCasca), para a UI dar o recuo dos semáforos
+      modelos: catalogoDeModelos(this.claudeVersao || null), casca: modoCasca() || null,
       cadeiaPerfis: cadeiaMod.cadeiaParaTela(this), provedores: provedoresParaTela(this.config),
       // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
