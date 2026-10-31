@@ -14,6 +14,11 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.25', [
+    'Aparelho antigo que sumiu da frota sem ser aposentado não trava mais a memória de rodadas de toda revisão: só conta quem foi visto nas últimas 24 horas.',
+    'A recusa da política de uso do modelo aparece no Diagnóstico com a ação certa: rodar com outro modelo ou provedor.',
+    'Autoanálise do Codex que volta vazia passa a deixar no log o que o turno teve, sem conteúdo.',
+  ]],
   ['2.78.24', [
     'PR com defeito confirmado é reprovado pela política da conta mesmo quando outra avaliação ficou inconclusiva, em vez de parar em "Precisa de você". Aprovar continua exigindo a análise completa.',
     'Em Sistema > Visão geral, configuração e retomada, tags de revisão e preferências entre instalações vão para o fim da página.',

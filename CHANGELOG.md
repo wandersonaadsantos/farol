@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.25
+
+Menos alarme falso no log e no Diagnóstico, e mais pistas quando uma análise volta vazia ou é recusada pelo modelo.
+
+### Correções
+
+- Aparelho que saiu da frota sem ser aposentado (versão antiga, sem aparecer há dias) não trava mais a memória de rodadas de toda revisão. A conferência passa a considerar só quem foi visto nas últimas 24 horas, como as outras regras do compartilhamento. Era a origem de mais da metade das linhas do log.
+
+### Melhorias
+
+- A recusa da política de uso do modelo ganhou classificação própria no Diagnóstico, com a ação certa (rodar com outro modelo ou provedor), em vez de "falha não classificada".
+- Quando o Codex fecha o turno sem mensagem final, o log registra os tipos de item do turno e os tokens de saída, sem conteúdo, para a próxima autoanálise vazia ter causa diagnosticável.
+
 ## v2.78.24
 
 PR com defeito confirmado é reprovado pela política mesmo quando parte da análise ficou inconclusiva, e as ferramentas de manutenção da Visão geral vão para o fim da página.
