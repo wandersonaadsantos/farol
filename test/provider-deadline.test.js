@@ -143,3 +143,62 @@ test('Antigravity sem progresso preserva conversa e tentativa no erro de timeout
   proc.emit('close', null);
   cp.spawn = original;
 });
+
+// 31/10/2026: autoanálises do CNBB pelo Codex voltavam vazias e, com --ephemeral, sem rastro.
+test('turno do Codex que fecha sem mensagem final deixa no log os tipos de item, sem conteúdo', async () => {
+  const proc = child();
+  cp.spawn = () => proc;
+  process.env.FAROL_HEADLESS_CMD = 'stub-local';
+  const logs = [];
+  const eng = { ...engine(), log: (nivel, texto) => logs.push([nivel, texto]) };
+  const promise = runCodexStream(eng, 'prompt', { id: 'v1', ref: 'acme/app#9', operationKind: 'self' });
+  await Promise.resolve();
+  event(proc, { type: 'item.completed', item: { type: 'reasoning', text: 'segredo lido do repositório' } });
+  event(proc, { type: 'item.completed', item: { type: 'command_execution', command: 'cat .env' } });
+  event(proc, { type: 'item.completed', item: { type: 'command_execution', command: 'ls' } });
+  event(proc, { type: 'turn.completed', usage: { output_tokens: 812 } });
+  proc.emit('close', 0);
+  const result = await promise;
+  assert.equal(result.text, '');
+  const aviso = logs.find(([, t]) => /turno fechou sem mensagem final/.test(t));
+  assert.ok(aviso, 'o turno vazio deixa rastro');
+  assert.equal(aviso[0], 'WARN');
+  assert.match(aviso[1], /acme\/app#9: turno fechou sem mensagem final \(itens: reasoning 1, command_execution 2; último: command_execution; saída: 812 tokens\)/);
+  assert.doesNotMatch(aviso[1], /segredo|cat \.env/, 'só tipos e contagens, nunca conteúdo');
+  delete process.env.FAROL_HEADLESS_CMD;
+  cp.spawn = original;
+});
+
+test('turno com mensagem final não registra nada', async () => {
+  const proc = child();
+  cp.spawn = () => proc;
+  process.env.FAROL_HEADLESS_CMD = 'stub-local';
+  const logs = [];
+  const eng = { ...engine(), log: (nivel, texto) => logs.push([nivel, texto]) };
+  const promise = runCodexStream(eng, 'prompt', { id: 'v2', operationKind: 'self' });
+  await Promise.resolve();
+  event(proc, { type: 'item.completed', item: { type: 'agent_message', text: '{"analysisStatus":"complete"}' } });
+  event(proc, { type: 'turn.completed', usage: {} });
+  proc.emit('close', 0);
+  assert.equal((await promise).text, '{"analysisStatus":"complete"}');
+  assert.deepEqual(logs, []);
+  delete process.env.FAROL_HEADLESS_CMD;
+  cp.spawn = original;
+});
+
+// Revisão do PR #327: turno fechado sem nenhum item também é turno vazio.
+test('turno do Codex fechado sem nenhum item também deixa rastro', async () => {
+  const proc = child();
+  cp.spawn = () => proc;
+  process.env.FAROL_HEADLESS_CMD = 'stub-local';
+  const logs = [];
+  const eng = { ...engine(), log: (nivel, texto) => logs.push([nivel, texto]) };
+  const promise = runCodexStream(eng, 'prompt', { id: 'v3', ref: 'acme/app#10', operationKind: 'self' });
+  await Promise.resolve();
+  event(proc, { type: 'turn.completed', usage: { output_tokens: 40 } });
+  proc.emit('close', 0);
+  assert.equal((await promise).text, '');
+  assert.ok(logs.some(([n, t]) => n === 'WARN' && /itens: nenhum; último: nenhum; saída: 40 tokens/.test(t)), JSON.stringify(logs));
+  delete process.env.FAROL_HEADLESS_CMD;
+  cp.spawn = original;
+});
