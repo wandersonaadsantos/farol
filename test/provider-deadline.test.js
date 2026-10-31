@@ -185,3 +185,20 @@ test('turno com mensagem final não registra nada', async () => {
   delete process.env.FAROL_HEADLESS_CMD;
   cp.spawn = original;
 });
+
+// Revisão do PR #327: turno fechado sem nenhum item também é turno vazio.
+test('turno do Codex fechado sem nenhum item também deixa rastro', async () => {
+  const proc = child();
+  cp.spawn = () => proc;
+  process.env.FAROL_HEADLESS_CMD = 'stub-local';
+  const logs = [];
+  const eng = { ...engine(), log: (nivel, texto) => logs.push([nivel, texto]) };
+  const promise = runCodexStream(eng, 'prompt', { id: 'v3', ref: 'acme/app#10', operationKind: 'self' });
+  await Promise.resolve();
+  event(proc, { type: 'turn.completed', usage: { output_tokens: 40 } });
+  proc.emit('close', 0);
+  assert.equal((await promise).text, '');
+  assert.ok(logs.some(([n, t]) => n === 'WARN' && /itens: nenhum; último: nenhum; saída: 40 tokens/.test(t)), JSON.stringify(logs));
+  delete process.env.FAROL_HEADLESS_CMD;
+  cp.spawn = original;
+});

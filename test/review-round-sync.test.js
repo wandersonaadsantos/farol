@@ -69,6 +69,16 @@ test('aparelho fora da frota agora não trava a memória; aparelho visto agora e
   assert.match(agora.reason, /outro executor/);
 });
 
+// Revisão do PR #327: a presença vem do relógio do banco, e o local pode estar adiantado.
+test('presença usa o relógio corrigido: par online não parece sumido com o relógio local adiantado', async () => {
+  const { engine } = bank();
+  await publishRound(engine, round());
+  const trintaHoras = 30 * 3600 * 1000;
+  const sync = { ...engine.sync, deviceId: 'd2', devices: { antigo: { lastSeenAt: Date.now() - trintaHoras } }, agora: () => Date.now() - trintaHoras };
+  const r = await readRemoteRounds({ ...engine, sync }, scope);
+  assert.equal(r.ok, false, 'pelo relógio do banco o par acabou de aparecer e não anuncia suporte');
+});
+
 test('fragmento ausente ou adulterado impede afirmar memória completa', async () => {
   const { engine, nodes } = bank();
   await publishRound(engine, round());
