@@ -12,7 +12,6 @@ import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
 import { tick as tickReviewAudits } from './lib/review-audit/commands.js';
-import { pararManutencaoMaterial } from './lib/technical-review/cleanup.js';
 import { iniciarManutencaoDoEngine } from './lib/technical-review/material-session-proof.js';
 import { snapshotDecisions } from './lib/engine/snapshot-decisions.js';
 
@@ -97,7 +96,8 @@ import acesso from './lib/local-auth/acesso.js';
 import credMod from './lib/jira/credentials.js';
 import jiraMod from './lib/engine/jira.js';
 import { startServer } from './lib/http-server.js';
-import { publicarCasca, apagarCasca } from './lib/engine/casca-arquivo.js';
+import { publicarCasca } from './lib/engine/casca-arquivo.js';
+import { registrarSaidaOrdenada } from './lib/engine/saida-ordenada.js';
 import { bootstrapDaCasca } from './lib/engine/casca-bootstrap.js';
 
 function codexWindowsPathDirs() {
@@ -2216,26 +2216,6 @@ class Engine extends EventEmitter {
 }
 
 // --- bootstrap ---------------------------------------------------------------
-
-// Saída ORDENADA devolve os leases que este aparelho segura, para outro aparelho não
-// esperar até o TTL por um trabalho que já morreu. `once` nos dois sinais porque o
-// handler não pode correr duas vezes, e o `stopSync` é síncrono (os aborts saem em
-// best effort, sem await): pendurar a saída do processo em rede seria pior que o
-// lease preso que ela evita. Queda dura continua coberta só pelo TTL. Exportada só para o
-// teste do caminho de saída por sinal (test/casca-saida-por-sinal.test.js).
-function registrarSaidaOrdenada(engine) {
-  if (engine.saidaRegistrada) return;
-  engine.saidaRegistrada = true;
-  const sair = () => {
-    pararManutencaoMaterial();
-    try { engine.syncStop(); } catch { /* encerrando: nada a fazer */ }
-    if (modoCasca()) apagarCasca();
-  };
-  // SIGHUP junto: o pai do bootstrap da casca repassa os três ao motor reexecutado, e sem
-  // ele o casca.json ficava para trás com o pid de um motor morto
-  for (const sinal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.once(sinal, () => { sair(); process.exit(0); });
-  process.once('beforeExit', sair);
-}
 
 function start(onReady) {
   const engine = new Engine();
