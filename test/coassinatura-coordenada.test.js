@@ -77,6 +77,15 @@ test('aprovouNoMesmoSha: só APPROVED da pessoa no mesmo commit', () => {
   assert.equal(aprovouNoMesmoSha(null, 'ana', HEAD), false);
 });
 
+test('aprovação alheia não troca minha reprovação por aprovação automática no mesmo head', async () => {
+  const a = aparelho('dA');
+  anaAprovou();
+  gh.adicionarReview({ user: 'eu', state: 'CHANGES_REQUESTED', commit_id: HEAD });
+  assert.equal(await skip.coAssinar(a, PR, 'ana', HEAD), false);
+  assert.equal(gh.posts.length, 0);
+  assert.equal(a.skipComentado[PR.key].coAssinado, undefined);
+});
+
 test('duas co-assinaturas concorrentes em dois aparelhos: um único POST, ancorado', async () => {
   anaAprovou();
   const a = aparelho('dA');

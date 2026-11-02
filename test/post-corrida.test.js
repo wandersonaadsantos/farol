@@ -90,6 +90,38 @@ test('duas vias postando o MESMO veredito no mesmo head ao mesmo tempo: só uma 
   assert.ok(a.deduped || b.deduped, 'a segunda diz que não postou de novo');
 });
 
+test('vias automáticas com pareceres opostos releem depois da fila e só uma publica', async () => {
+  const e = engineDeTeste(), states = [];
+  e.myReviewStates = async () => [...states];
+  runImpl = async (_cmd, args) => {
+    if (args.includes('--input')) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      states.push('CHANGES_REQUESTED');
+      return { ok: true, stdout: '{"id":1}', stderr: '' };
+    }
+    return { ok: true, stdout: '{}', stderr: '' };
+  };
+  const [a, b] = await Promise.all([
+    e.postReview(PR, { event: 'REQUEST_CHANGES', body: 'A entrada chega à gravação sem validação.', commit_id: '3cf42b3' }, { via: 'revisao' }),
+    e.postReview(PR, { event: 'APPROVE', body: 'O fluxo foi conferido.', commit_id: '3cf42b3' }, { via: 'reenvio' }),
+  ]);
+  assert.equal(a.ok, true);
+  assert.equal(b.ok, true);
+  assert.equal(b.alreadyReviewed, true);
+  assert.deepEqual(posts.map(p => p.event), ['REQUEST_CHANGES']);
+});
+
+test('ato manual explícito conserva manifestação própria e estado desconhecido impede envio automático', async () => {
+  const e = engineDeTeste();
+  e.myReviewStates = async () => null;
+  runImpl = ghLento(1);
+  const payload = { event: 'REQUEST_CHANGES', body: 'Há falha na validação.', commit_id: '3cf42b3' };
+  assert.equal((await e.postReview(PR, payload, { via: 'revisao' })).ok, false);
+  assert.equal(posts.length, 0);
+  assert.equal((await e.postReview({ ...PR, manual: true }, payload, { via: 'revisao' })).ok, true);
+  assert.equal(posts.length, 1);
+});
+
 test('a fila é por PR: dois PRs diferentes postam os dois', async () => {
   const e = engineDeTeste();
   runImpl = ghLento();

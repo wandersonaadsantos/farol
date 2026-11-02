@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // Reasons do runHeadlessReview: o bloco de transparência só pode atribuir à POLÍTICA
 // da conta o que veio de fato da política. Antes ele disparava sempre que o gate
 // recusava um PR aprovável e pedido a mim, então contestação e cobertura apareciam
@@ -41,7 +42,7 @@ const textos = rs => (rs || []).map(texto);
 
 function envelope(extra) {
   return {
-    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
   };

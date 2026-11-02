@@ -167,7 +167,7 @@ test('buildModelFlags: config envenenada nunca chega na linha', () => {
 test('buildModelFlags: a linha montada não tem metacaractere de shell', () => {
   // invariante que vale nos DOIS shells (cmd.exe e /bin/sh)
   const PERIGO = /[`$;&|<>()*?[\]{}'"\\]/;
-  const base = 'claude -p --output-format stream-json --verbose --dangerously-skip-permissions';
+  const base = 'claude -p --output-format stream-json --verbose --include-partial-messages --dangerously-skip-permissions';
   const combos = [];
   for (const m of ['', ...MODEL_ALIASES, 'claude-opus-5']) {
     for (const e of ['', ...EFFORT_LEVELS]) combos.push({ reviewModel: m, reviewEffort: e });

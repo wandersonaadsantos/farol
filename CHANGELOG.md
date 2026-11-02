@@ -9,6 +9,173 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.25
+
+Menos alarme falso no log e no Diagnóstico, e mais pistas quando uma análise volta vazia ou é recusada pelo modelo.
+
+### Correções
+
+- Aparelho que saiu da frota sem ser aposentado (versão antiga, sem aparecer há dias) não trava mais a memória de rodadas de toda revisão. A conferência passa a considerar só quem foi visto nas últimas 24 horas, como as outras regras do compartilhamento. Era a origem de mais da metade das linhas do log.
+
+### Melhorias
+
+- A recusa da política de uso do modelo ganhou classificação própria no Diagnóstico, com a ação certa (rodar com outro modelo ou provedor), em vez de "falha não classificada".
+- Quando o Codex fecha o turno sem mensagem final, o log registra os tipos de item do turno e os tokens de saída, sem conteúdo, para a próxima autoanálise vazia ter causa diagnosticável.
+
+## v2.78.24
+
+PR com defeito confirmado é reprovado pela política mesmo quando parte da análise ficou inconclusiva, e as ferramentas de manutenção da Visão geral vão para o fim da página.
+
+### Correções
+
+- Uma revisão que confirmou defeito no PR, mas deixou outra avaliação inconclusiva, parava em "Precisa de você" mesmo com a conta configurada para reprovar sozinha: o defeito não arma a recuperação automática e a análise incompleta não deixava reprovar. Agora o defeito confirmado basta para pedir mudanças pela política da conta. Aprovar continua exigindo a análise completa.
+
+### Melhorias
+
+- Em Sistema > Visão geral, "Configuração e retomada", "Tags de revisão no GitHub" e "Preferências entre instalações" vão para o fim da página; o topo fica com a atualização e a saúde do ambiente.
+
+## v2.78.23
+
+Revisões que marcavam o PR como em revisão sem estar revisando deixam de ficar presas, revisões grandes não caem mais no meio da reconferência, e PR mergeado durante a análise encerra a sessão.
+
+### Correções
+
+- Sessões que ficavam presas para sempre, com a label `<conta>:revisando` no PR e a atualização recusada por "análise em andamento", agora terminam. A consulta às fontes que a sessão roda pelo executável do Farol abria como aplicativo e nunca encerrava, segurando a saída da sessão. Ela passa a encerrar sozinha, com teto de tempo, e a sessão cujo processo já saiu é fechada mesmo que um processo filho ainda segure a saída.
+- PR fechado sem merge também deixa de abrir revisão, como já acontecia com o mergeado.
+- O Consumo passa a contar a resposta que o modelo ainda estava escrevendo quando a sessão do Claude morreu. Antes, uma reconferência cortada depois de minutos escrevendo entrava com algumas dezenas de tokens; agora entram a entrada real e a saída estimada pelo texto recebido, trocada pelo valor real quando a mensagem fecha.
+- A reconferência de critérios, que pede de novo o resultado inteiro, não é mais interrompida enquanto o modelo escreve: a escrita conta como progresso para o prazo de cinco minutos sem atividade. Antes, um resultado longo era cortado no meio e a análise inteira se perdia.
+- PR mergeado ou fechado enquanto a revisão roda encerra a sessão na próxima conferência, inclusive na revisão pedida por clique, e o PR sai da fila sem estacionar. Antes, a revisão seguia até o fim sem ter onde postar.
+
+## v2.78.22
+
+Claude e Codex passam a respeitar a mesma escolha de modelo por perfil de uso.
+
+### Correções
+
+- Escolher um modelo em um provedor sincroniza seu equivalente no outro. Sol volta para Opus para priorizar qualidade; a escolha explícita de Terra é preservada ao reiniciar.
+- O Auto revisa com Opus no Claude e GPT-6.1 Sol no Codex, sem modo rápido, e eleva ambos para `xhigh` em repositórios críticos, caminhos sensíveis ou PRs muito grandes.
+- A seleção acompanha o executor efetivo, inclusive quando a cadeia troca de provedor depois da preparação da revisão.
+
+### Melhorias
+
+- Catálogo atualizado com GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra e GPT-6 Luna. A equivalência é aproximada por perfil de uso; modelos anteriores continuam disponíveis para compatibilidade.
+
+## v2.78.21
+
+Seleção de Codex por autoanálise restrita, sem trocar a associação da conta.
+
+### Melhorias
+
+- O diagnóstico restrito registra contagens de respostas da ferramenta e sinais fechados de falha, sem guardar stderr. Ausência de resposta não prova indisponibilidade.
+- Uma rota específica aceita um perfil Codex já configurado somente para aquela execução restrita. A resposta confirma a seleção; versões anteriores recusam a rota sem iniciar outro provedor.
+- Perfil ausente, incompatível ou removido enquanto espera é recusado sem fallback. Reservas, orçamento do perfil escolhido e coordenação entre aparelhos continuam protegendo a execução.
+
+### Correções
+
+- Codex deixa de aceitar resultado como sucesso quando o processo termina com erro ou sem código de saída confirmado, preservando o consumo medido.
+
+## v2.78.20
+
+O confete da análise impecável volta a sair da tela sozinho.
+
+### Correções
+
+- **O confete ficava na tela para sempre.** Quando uma autoanálise terminava sem nenhum apontamento, os confetes caíam e não paravam mais: a festa misturava a hora do sistema com o relógio da página e achava que ainda faltavam décadas. Agora ela dura os quatro segundos de sempre e sai, inclusive se a hora do computador for ajustada no meio (sincronização automática ou troca manual).
+- **O gate de pré-push não rodava fora do Windows.** O `tools/hooks/pre-push` estava versionado sem permissão de execução, e no Linux e no macOS o git ignorava o hook e deixava o push sair sem check, lint, suíte e eng. Agora ele roda nos três sistemas, e um teste reprova qualquer hook versionado sem essa permissão.
+
+## v2.78.19
+
+Preparação das fontes restritas evita varreduras de quota por blob.
+
+### Correções
+
+- Autoanálises restritas reutilizam blobs já existentes, mas não gravam novos blobs no cache compartilhado. Textos já projetados ficam em um cache temporário de até 32 MiB por execução, sem conteúdo bruto ou base64.
+- Caminho, commit, modo e política de template permanecem separados ao reutilizar conteúdo. Cancelamento também recusa leituras atendidas em memória.
+- O mapa de igualdade dos valores ocultos tem limites próprios e recusa crescimento excessivo sem descartar identidades anteriores. Quotas persistentes, concorrência, prazos e gates de aprovação permanecem os mesmos.
+
+## v2.78.18
+
+Autoanálises restritas recebem representações verificáveis com valores ocultos.
+
+### Correções
+
+- Tokens sintéticos reconhecidos nas fixtures deixam de exigir a recusa do arquivo inteiro: o modo restrito oculta os valores antes de entregá-los ou persistir a representação, sem abrir o fluxo normal de fontes sensíveis.
+- A falta de um patch completo permite comparar projeções das versões verificadas M/H, com origem e limitações explícitas. Links, binários, caminhos protegidos e versões não comprovadas continuam recusados.
+- Templates públicos mostram somente chaves; valores e comentários permanecem ocultos. Contraprovas em arquivos com partes ocultas ficam inconclusivas por decisão do aplicativo, e o relatório distingue leitura da representação de leitura dos valores originais.
+- O índice sintático compartilhado não é reutilizado nessas execuções. A configuração do perfil, os checks e as aprovações exigidas continuam preservados.
+
+## v2.78.17
+
+Parecer publicado encerra a revisão automática daquele commit.
+
+### Correções
+
+- Um novo pedido de review no GitHub deixa de desconsiderar a aprovação ou reprovação anterior da mesma conta no mesmo head. Comentários e alterações de tags também não reabrem essa revisão; outro commit permite uma nova análise automática. A revisão solicitada manualmente conserva seu caminho próprio.
+- A consulta de reviews percorre todo o histórico paginado. A conferência final, o reenvio e a espera do CI respeitam também um parecer anterior de tipo diferente, sem publicar outra decisão automaticamente no mesmo head.
+- Uma reprovação pelo CI obrigatório encerra a revisão daquele commit. Reexecutar o CI até ficar verde, sem outro commit, deixa de gerar uma aprovação automática por cima; esperas antigas com parecer confirmado também são encerradas.
+- Quando a conferência encontra um head já decidido e uma tag residual da própria conta, a remoção entra na limpeza durável. Ela preserva sessões locais e a posse de outro aparelho antes de remover o marcador. Tags de outras contas continuam preservadas.
+- Tentativas sem parecer publicado continuam sendo pendências; esta mudança não transforma falha de provedor, limite de uso ou análise inconclusiva em revisão concluída.
+
+## v2.78.16
+
+Autoanálise com execução restrita por solicitação, preservando as demais sessões.
+
+### Correções
+
+- A API local oferece uma rota específica para autoanálise restrita, que versões antigas recusam em vez de iniciar uma sessão sem isolamento. O modo fica na execução e não altera as preferências da conta.
+- Claude e Codex recebem fontes fixadas em diretório exclusivo, sem tokens GitHub herdados, comandos shell ou acesso livre por MCP. Codex usa sandbox somente leitura e um servidor de fontes limitado ao snapshot; Claude limita as ferramentas a Read, Grep e Glob.
+- Cobertura exige conferir o conteúdo retornado. Contraprovas de leitura não são apresentadas como testes executados, e evidência ausente, head alterado ou ferramenta fora do contrato impedem concluir a análise como comprovada.
+
+O novo modo é solicitado pela API; as sessões existentes e o comportamento padrão não são reconfigurados. CI, aprovação humana e validação do produto continuam provas independentes.
+## v2.78.15
+
+Erros de fechamento voltam à própria sessão antes de reagendar uma revisão inteira.
+
+### Correções
+
+- O Farol confere a avaliação técnica antes de concluir a recuperação e devolve os campos inválidos à conversa, em vez de guardar somente uma falha genérica. As versões exigidas para cada avaliação são fornecidas pelo próprio avaliador.
+- Uma pendência nova descoberta após o primeiro reparo permite uma segunda continuação na mesma sessão. Erro idêntico interrompe a repetição; o material de leitura permanece disponível até o fechamento. Nenhum reparo dispensa evidências ou libera aprovação inconclusiva.
+- Pendências preservadas de versões anteriores retomam automaticamente pelo agendador, respeitando sessões ativas, pausas e limites da conta.
+
+## v2.78.14
+
+Recuperação da revisão continua o trabalho na mesma sessão antes de abrir outra rodada.
+
+### Correções
+
+- Respostas com critérios incompletos ou análise declarada incompleta ganham uma continuação dirigida na mesma conversa, limitada a uma por rodada. O resultado passa novamente pelos critérios, avaliação técnica, conferência do commit e gates de publicação. Pode concluir pela aprovação ou pelo pedido de mudanças conforme as evidências e a política da conta; não exige pular o PR para retomar.
+- O Codex recebe instruções específicas para executar a revisão com suas próprias ferramentas, sem recorrer ao Claude ou depender do login de outro provedor. O protocolo conserva leitura, critérios e evidências, registrando quando a sessão principal fez o trabalho.
+- Checkpoints emitidos pelo Codex passam a ser gravados no diário pelo engine, com o PR, commit e escopo da sessão, antes da leitura do resultado final. Continuações reutilizam a posse válida da mesma operação, sem disputar um novo lease, e recusam enviar a conversa anterior a outro perfil ou modelo.
+- A instrução técnica esclarece que a cópia privada contém código, e que o Farol aplica a declaração e executa a avaliação. A sessão devolve as avaliações estruturadas, sem tentar executar uma auditoria sem configuração na cópia do PR.
+- Recuperações interrompem a sessão após cinco minutos sem eventos de progresso, preservando cancelamento e o teto absoluto. Revisões comuns mantêm sua janela atual. As pendências específicas do resultado são conservadas para a próxima rodada, em vez de reaparecerem somente como erro genérico de coerência.
+- Pendências de uma versão anterior da recuperação são retomadas uma vez com o fluxo atualizado, sem aguardar o intervalo antigo e sem interromper uma sessão que já esteja em andamento. Cancelamento, pausa da conta, orçamento e posse continuam sendo respeitados.
+- A continuação mantém o vigia de mudanças ativo: um commit novo ou um parecer próprio já publicado encerra cedo o trabalho que perdeu validade, sem aguardar o teto da sessão nem publicar sobre código antigo.
+- Falhas reais de login, cota ou rede durante a continuação seguem para a recuperação já existente com o perfil e a conversa usados. Uma resposta malformada conserva a análise anterior; falha de infraestrutura não fica escondida como simples falta de campos.
+- O card esclarece que análise incompleta ainda não é aprovação nem reprovação. O botão de aprovação continua desabilitado nesse estado. Falhas persistentes de acesso ou configuração continuam exigindo restabelecer o pré-requisito; a recuperação não fabrica provas nem garante a conclusão de uma ferramenta indisponível.
+
+## v2.78.13
+
+Revisões orientadas a comunicar com clareza por que um ponto impede o merge.
+
+### Correções
+
+- A orientação de escrita distingue obrigações comprovadas de sugestões opcionais, tanto no corpo quanto nos comentários inline. Um bloqueio deve explicar o motivo, a evidência e o que falta para liberar o merge, em vez de soar apenas como "vale padronizar".
+- Sugestões devem ser apresentadas como opcionais e não justificar um pedido de mudanças. O perfil do autor ajusta a explicação, preservando a classificação técnica. Convenções obrigatórias são descritas como exigências de conformidade, sem inventar falha funcional ou expor fontes privadas.
+
+Esta correção orienta a geração do texto; a adequação semântica da redação continua dependendo da revisão do modelo. Revisões já publicadas não são reescritas.
+
+## v2.78.12
+
+Revisões preservam os critérios já comunicados ao autor e distinguem recomendação testada de hipótese.
+
+### Correções
+
+- Sugestões e apontamentos publicados passam a registrar identidade do comportamento, critério, fonte e escopo. Mudar a classificação ou a regra exige nova evidência e justificativa; omitir um ponto não significa resolvê-lo. Uma tentativa que não foi publicada não redefine esse compromisso. A comparação usa o diário de rodadas existente, preservando as resoluções mesmo quando houve tentativas intermediárias.
+- Entre PRs do mesmo card confirmado no Jira, os critérios do mesmo comportamento também são confrontados, isolados por conta, repositório e site. Um PR relacionado não encerra pontos nem redefine o histórico do próprio PR.
+- Uma recomendação só pode ser declarada validada com prova no commit atual de que corrige o defeito e preserva outro comportamento. Sem execução, permanece hipótese e deve ser apresentada assim ao autor; o defeito comprovado continua podendo impedir a aprovação.
+- Decisões de produto ficam ligadas a trechos da descrição e dos comentários relidos no Jira configurado. Uma alegação no PR não comprova aceite, e autoria de comentário não comprova autoridade de produto. Quando a conclusão depende de decisão conflitante, leitura incompleta ou aceite não confirmado, o resultado não é publicado até a confirmação e nova revisão.
+- A conferência alcança a publicação automática, o clique e o reenvio. Registros antigos continuam disponíveis sem receber classificações inventadas. Nesta etapa, a confirmação de quais critérios foram publicados usa o histórico local do executor; o diário de rodadas já existente continua sincronizado, mas não comprova a publicação feita por outro aparelho. A suficiência técnica das provas e a identificação de conflitos de produto continuam exigindo julgamento.
+
 ## v2.78.11
 
 A análise técnica volta a rodar nos repositórios cuja declaração diz que não têm testes de ponta a ponta ou componentes.

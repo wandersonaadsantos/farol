@@ -91,6 +91,24 @@ test('posse perdida durante a espera na fila por processo: o io.run não é cham
   assert.equal((await registro.lerRegistro(a, CTX_REG)).efetivo.estado, 'nao_enviada');
 });
 
+test('parecer oposto aparece enquanto aguarda a lane: posse relê e não confirma um envio inexistente', async () => {
+  const a = aparelho('dA');
+  const handle = await revisaoAdmitida(a);
+  let liberar;
+  a.postLanes = new Map([['eu|o/r#1', new Promise(resolve => { liberar = resolve; })]]);
+  const pending = a.postReview(PR, { ...APPROVE, commit_id: HEAD }, { via: 'revisao', handle });
+  await new Promise(resolve => setTimeout(resolve, 30));
+  gh.reviews.push({ id: 2000, user: 'eu', state: 'CHANGES_REQUESTED', commit_id: HEAD, submitted_at: new Date(AGORA).toISOString() });
+  liberar();
+  const result = await pending;
+  assert.equal(result.ok, true);
+  assert.equal(result.alreadyReviewed, true);
+  assert.equal(result.attempted, false);
+  assert.equal(result.estado, 'nao_enviada');
+  assert.equal(gh.posts.length, 0);
+  assert.equal((await registro.lerRegistro(a, CTX_REG)).efetivo, null, 'nenhum APPROVE foi confirmado artificialmente');
+});
+
 test('retomada depois de suspensão: posse vencida não posta e nem grava intenção', async () => {
   const a = aparelho('dA');
   const handle = await revisaoAdmitida(a);

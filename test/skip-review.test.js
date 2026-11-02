@@ -432,6 +432,30 @@ test('coAssinar: não posta quando eu já aprovei este head', async (t) => {
   assert.equal(postados.length, 0);
 });
 
+test('coAssinar: reprovação própria no mesmo head também impede aprovação automática', async t => {
+  const postados = [];
+  const engine = engineFalso({ postados, myReviewStates: async () => ['CHANGES_REQUESTED'] });
+  const original = io.run;
+  io.run = async () => ({ ok: true, stdout: '[{"quem":"ana","tipo":"User","state":"APPROVED","commit_id":"sha1"}]' });
+  t.after(() => { io.run = original; });
+  assert.equal(await skip.coAssinar(engine, PR, 'ana', 'sha1'), false);
+  assert.equal(postados.length, 0);
+  assert.equal(engine.skipComentado[PR.key]?.coAssinado, undefined);
+});
+
+test('coAssinar: parecer que aparece no funil não é anunciado como aprovação nova', async t => {
+  const engine = engineFalso({ postReview: async (_pr, _payload, options) => {
+    assert.equal(options.via, 'coassinatura');
+    return { ok: true, alreadyReviewed: true };
+  } });
+  const original = io.run;
+  io.run = async () => ({ ok: true, stdout: '[{"quem":"ana","tipo":"User","state":"APPROVED","commit_id":"sha1"}]' });
+  t.after(() => { io.run = original; });
+  assert.equal(await skip.coAssinar(engine, PR, 'ana', 'sha1'), false);
+  assert.equal(engine.skipComentado[PR.key]?.coAssinado, undefined);
+  assert.deepEqual(engine.toasts, []);
+});
+
 test('coAssinar: sem conseguir confirmar meus reviews (null), não posta', async (t) => {
   const postados = [];
   const engine = engineFalso({ postados, myReviewStates: async () => null });

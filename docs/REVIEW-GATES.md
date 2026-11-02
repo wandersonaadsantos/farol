@@ -1,3 +1,11 @@
+> Regra de repetição automática (29/10/2026): uma aprovação ou reprovação publicada
+> encerra aquele head para a conta revisora. Novo pedido de review, comentário ou
+> alteração de label não invalida a decisão; somente outro commit permite nova revisão
+> automática. Isso inclui reprovação por CI: reexecutar o CI sem outro commit não gera
+> uma segunda review automática de aprovação. Uma tentativa sem parecer publicado continua pendente.
+> A revisão manual explícita mantém seu caminho próprio. Tag residual da própria conta
+> observada num head já decidido entra na limpeza durável, que preserva sessões e leases vivos.
+>
 > Política vigente: admissibilidade técnica e prova suficiente são obrigatórias antes
 > de qualquer APPROVE. Esta regra substitui os trechos históricos que tratavam lacunas
 > de leitura, checkpoint ou CI obrigatório como ressalvas
@@ -6,6 +14,20 @@
 > voltaram a ser ressalva, e só a parte do card que cabe a ESTE PR bloqueia (ver
 > "Card só na parte deste PR e dependência aberta voltam a ser ressalva", abaixo).
 > Recuperação vigente (PR #253, 18/10/2026): a falta de evidência é responsabilidade do Farol.
+> Antes de reagendar por resultado incompleto, o Farol confere critérios e avaliação técnica,
+> devolvendo os erros específicos à mesma conversa em até duas continuações dirigidas, sem
+> repetir quando não há progresso. Mantém o material até o fechamento da sessão. Retoma na mesma
+> conversa quando há sessionId, sem nova admissão e sem publicação direta. O resultado volta
+> a todos os gates. A recuperação usa cinco minutos de inatividade, sem reduzir o teto com
+> progresso; o modelo escrevendo (eventos parciais do `--include-partial-messages`) conta como
+> progresso, porque a continuação reescreve o envelope inteiro e um envelope grande passa de
+> cinco minutos sem nenhum evento completo (biud-frontend#1627, 30/10/2026). Critérios
+> pendentes específicos acompanham a próxima rodada. O vigia da sessão também encerra a
+> continuação quando o PR é mergeado ou fechado. O Codex recebe
+> protocolo próprio e não precisa chamar outro provedor para cumprir o passo pr-reviewer.
+> Seus checkpoints são capturados pelo stream e gravados pelo engine. Uma continuação
+> reutiliza a posse viva da mesma operação e confere conta, alvo, perfil e modelo antes
+> de enviar o sessionId. Não readmite nem publica uma revisão por conta própria.
 > Duas revisões complementares são imediatas; as seguintes têm intervalo crescente, de 15
 > minutos até seis horas. Uma execução interrompida é reagendada e não vira uma decisão humana.
 > **Decisão do dono de 19/10/2026, que supera a regra do PR #250 (v2.72.8) e o "todas as provas
@@ -17,6 +39,10 @@
 > Desde 18/10/2026 (v2.73.2) a conta em automático decide sem mesa: clique, admin, comando e
 > distribuição postam pela política, defeito do PR e CI vermelho viram REQUEST_CHANGES com a
 > conta reprovando sozinha, e PR da própria conta sai como COMMENT (ver "A decisão sem mesa").
+> Desde a v2.78.24, análise incompleta que já confirmou defeito do PR também reprova pela
+> política (`analiseSustentaReprovacao`): defeito não arma recuperação e incompleto não
+> reprovava, e o biblioteca-cnbb-api#143 parou na mesa com violação confirmada e a conta
+> reprovando sozinha. Aprovar continua exigindo análise completa.
 > O critério técnico aparece na caixa de revisão; resultado antigo sem avaliação pede
 > revisão atual, e não recebe selo de conformidade durante migração.
 >
@@ -46,6 +72,40 @@
 > prefixo (`src` já cobre `src/a/b`), e uma lista exaustiva quebra a cada pasta apagada.
 
 # Gates de revisão e postagem do Farol
+
+Novas sessões headless exigem `criteriaVersion: 1`, `productDecisions` e `findings`
+explícitos. Os achados canônicos do diário de rodadas carregam `criteria` com key
+estável do comportamento, criterion, source e scope. Bloqueio ativo exige evidence.
+O histórico local de decisões publicadas confirma os compromissos da revisão;
+tentativas não publicadas não redefinem o critério. A seleção atravessa os ancestrais
+intermediários para que uma resolução publicada não ressuscite apontamento antigo.
+Não há um segundo diário: os metadados acompanham findings. A confirmação de publicação
+é local nesta etapa; receber uma rodada de outro aparelho não comprova sua postagem.
+Entre PRs diferentes, só entram achados publicados da mesma conta e repositório
+com a mesma URL de card confirmada pelo Jira configurado. A URL inclui o site;
+a chave isolada não mistura tenants. A comparação usa a key do comportamento e
+não exige encerrar pontos de outro PR. O histórico próprio tem precedência. O
+vínculo do card é gravado pelo engine, sem aceitar um card alegado pelo modelo.
+
+Mudar critério ou classificação exige change com tipo, motivo, evidência nova e
+escopo. Apontamento publicado com critérios precisa receber destino; encerramento
+atualiza a prova. Legado continua contexto e não ganha classificação inventada.
+Essas inconsistências impedem publicar o resultado mesmo no modo de observação,
+pelo clique ou reenvio; exigem nova análise. Pular continua disponível.
+
+Recommendation distingue hipótese de solução validada no head atual. Validação
+exige dois casos distintos, defeito e preservação, com esperado, observado, prova
+e execução aprovada. Sem execução, o texto público deve dizer que é hipótese;
+a hipótese não remove defeito comprovado nem obriga um único remédio. O engine
+confere o contrato da prova, não sua suficiência semântica.
+
+ProductDecisions liga trechos às fontes primárias do Jira configurado: URL, hash,
+autoria registrada e data disponível. A descrição é relida sem cache e os comentários
+são paginados até cinco páginas; erros, repetição ou variação de total deixam leitura
+incompleta. Só requisito do card com leitura completa fundamenta automaticamente o
+veredito. Registro de comentário não prova autoridade de PO; alegação sem fonte e
+conflito determinante exigem decisão humana registrada no card e nova revisão.
+Identificar conflitos e alegações omitidos pelo modelo continua sendo julgamento.
 
 Extraído do `CLAUDE.md` na Fase 1.5 da reorganização. O `CLAUDE.md` da raiz é o sumário, e os
 invariantes continuam lá.
@@ -1074,6 +1134,82 @@ vira ação**, e poda errada não pode custar sessão paga.
 
 ## Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)
 
+**Execução restrita, opt-in por requisição.** Use `POST /api/self-review/restricted`
+com a URL do PR. A resposta confirma `isolation: "restricted-read"`; versões antigas
+recusam essa rota, sem iniciar uma sessão irrestrita por ignorar um campo novo.
+O endpoint original também aceita `isolation`, mas clientes que exigem isolamento
+devem usar a rota específica, sem fallback. O modo fica no item da fila, não na configuração
+da conta. Suporta Claude de assinatura com `--restricted` e Codex autenticado
+pelo plano ChatGPT; provedor incompatível ou fontes incompletas recusam a execução,
+sem fallback. A sessão recebe material exclusivo de head, base e merge-base fixados, representações por arquivo e
+manifesto de exclusões. Caminhos protegidos e links não são copiados. Valores reconhecidos
+são ocultos antes da entrega e da persistência; fontes não verificadas impedem iniciar. Os materiais são preservados para
+diagnóstico, sem limpeza de diretórios compartilhados ou retomada de sessão.
+
+Para selecionar Codex somente naquela execução, use `POST /api/self-review/restricted/codex`
+com `url` e `profileId` de um perfil Codex existente. A resposta deve confirmar o mesmo
+`codexProfileId` e o modo restrito. A rota separada impede que uma instalação anterior
+ignore o perfil e inicie o provedor associado. Perfil ausente, de outro tipo ou removido
+antes do executor é recusado, sem fallback. O item da fila conserva a seleção; conta,
+cadeia e configuração global permanecem iguais. A reserva de cota e o orçamento consultam
+o perfil escolhido; Codex mantém sua classificação existente sem custo em dólar para o teto
+de grupo. O lease da análise e todos os controles do sandbox continuam obrigatórios.
+
+A observação `sourceTools` registra contagens de chamadas, respostas e erros, além do código
+de saída e sinais booleanos de MCP no stderr; nunca o texto do stderr. Zero respostas ou
+um sinal de falha não provam indisponibilidade: a cobertura observada continua sendo o gate.
+Codex com saída diferente de zero ou sem código confirmado é falha mesmo após `turn.completed`;
+o consumo medido é preservado.
+
+**Projeção de fontes (`source-redaction-v1`).** O fluxo normal continua recusando patches
+sensíveis. Somente a execução restrita solicita representações: mantém contexto e linhas,
+com marcadores opacos por execução. Marcadores iguais comprovam igualdade do texto oculto
+reconhecido, não formato, tamanho ou validade da credencial.
+Valores não citados são ocultados até o fim da faixa reconhecida, inclusive pontuação
+ambígua; a projeção pode perder sintaxe e não serve para executar ou validar parsing.
+O manifesto registra H/B/M, caminhos, OIDs já verificados, regiões ocultadas, versão da transformação e SHA-256 da
+representação entregue, sem gravar valor de credencial, sua versão base64 ou hash individual.
+Quando o patch falta ou é parcial, compara projeções verificadas M/H, distinguindo ausência
+confirmada de erro de leitura e usando o caminho anterior nas renomeações; não as chama de
+diff GitHub. Binários, links, árvores incompletas e caminhos protegidos continuam recusados.
+Somente `.env.example` e `.env.sample` regulares têm opt-in fechado: mostram chaves
+convencionais, ocultando valores, comentários e continuações multilinha. Outros `.env*`
+continuam excluídos. Templates sem o esquema suportado são recusados.
+
+Na execução restrita, blobs novos não são persistidos no cache compartilhado; entradas
+já existentes podem ser lidas e verificadas. O reader conserva somente texto projetado,
+digest e metadados em cache efêmero por execução, com orçamento de 32 MiB de payload
+serializado (não é limite de RSS). A chave distingue blob e política efetiva de template;
+caminho, commit e modo vêm sempre da referência atual. O mapa de igualdade retém no
+máximo 4.096 valores e 8 MiB de texto oculto; ao atingir o limite, recusa novos valores sem
+apagar identidades anteriores. O fluxo normal e a contabilidade persistente não mudam.
+
+O índice sintático compartilhado não é reutilizado na projeção, para não misturar fatos de
+texto original e ocultado; isso não altera a configuração de contexto. A evidência do host
+distingue leitura integral da representação de leitura dos valores originais, e conserva
+as limitações mesmo que o modelo as omita. Qualquer contraprova em arquivo com partes
+ocultas é marcada inconclusiva pelo host. Isso não dispensa CI, aprovação humana ou QA.
+
+O filho inicia diretamente, sem shell do sistema ou tokens GitHub herdados.
+Temporários pertencem à execução; associação de conta, perfil e provedor não muda.
+Claude usa Read/Grep/Glob, MCP vazio e confere as ferramentas no evento inicial.
+Codex usa sessão efêmera, ignora configuração e regras do usuário, desliga hooks,
+shell, apps, navegador, plugins, subagentes, imagens e memórias. Seu sandbox é read-only;
+com leitura dos diretórios mínimos da plataforma e do snapshot, sem escrita nem
+rede para ferramentas. O único MCP configurado é um servidor local de leitura/listagem do snapshot.
+Eventos de comando ou MCP fora desse contrato recusam a sessão. O host de ferramentas
+do Codex permanece ligado porque também transporta o MCP; isso não habilita shell.
+As páginas de leitura têm até 60 linhas e 2.048 caracteres de conteúdo; o limite
+explícito de saída é 32.768 tokens, acima da resposta serializada máxima. O manifesto
+e suas exclusões entram no prompt. Cobertura exige conferir conteúdo e intervalos
+de cada resposta com a representação local, mesmo quando o observador global é o antigo.
+Ela comprova conteúdo disponibilizado, não compreensão ou persistência após compactação.
+Checkpoints de leitura usam `FAROL_CHECKPOINT` em texto principal, com `method:
+"read"`, depois da entrega da representação; o registro explicita que não houve execução
+de teste. Entradas de outra sessão ou head não contam e ausência fica desconhecida.
+Testes locais, CI, aprovação humana e QA continuam provas separadas. Esse modo
+não concede capacidade de publicar no GitHub nem permissão de integrar.
+
 **O defeito de origem, e ele era de AUTORIDADE, não de qualidade da análise.** Até a
 v2.54.7 o único gate de qualidade de todo o caminho do `mergeSelfPR` era
 `analysis.approvable !== true`, um booleano produzido pela sessão de IA, e o MESMO gate
@@ -1271,6 +1407,30 @@ As peças (`lib/engine/verification-checkpoint.js` + costuras em `session.js`,
 - Testes: `test/verification-checkpoint.test.js`, `test/session-checkpoint-capture.test.js`,
   `test/checkpoint-gate.test.js`, `test/checkpoint-review-wiring.test.js` e
   `test/checkpoint-retry-same-path.test.js`.
+
+### Sessão presa com a label de revisando (v2.78.23)
+
+Medido em 30/10/2026 em biblioteca-cnbb-api#144: a sessão ficou 75 minutos aberta,
+cancelada, sem processo do Codex vivo, com a label `<conta>:revisando` no PR e a
+atualização recusada por "análise em andamento". O vigia pedia o encerramento a cada três
+minutos e nada acontecia. A cadeia:
+
+- a sessão roda `lib/review-context/query.js` pelo `process.execPath`, que é o `Farol.exe`.
+  Sem `ELECTRON_RUN_AS_NODE=1` ele abre como app Electron e não sai quando o script acaba.
+  O prompt só pedia a variável ao modelo, e no PowerShell do Codex a forma `VAR=1 comando`
+  não existe;
+- os quatro `query.js` herdaram o pipe da sessão e ficaram órfãos quando o Codex saiu;
+- o `close` do processo da sessão só chega quando os pipes fecham, então o desfecho nunca
+  rodava, e o cancelamento não alcança neto que já perdeu o pai.
+
+Duas camadas, cada uma suficiente para este caso: o `query.js` encerra o processo depois de
+entregar a saída, nos dois modos, com teto `TEMPOS.CONSULTA_FONTES_MS`; e `fecharSaidaPresa`
+(`lib/session-deadline.js`), ligado nas sessões de Claude, Codex e Antigravity, fecha os pipes do
+lado do Farol quando o processo da sessão já saiu e o `close` não veio em
+`TEMPOS.SAIDA_SEM_FECHAMENTO_MS`. Travado em `test/saida-presa.test.js`, com processos reais.
+`ELECTRON_RUN_AS_NODE` NÃO entra no ambiente da sessão de propósito: ela também roda
+ferramentas do repositório revisado, e um `electron .` ou um smoke de app Electron rodaria
+como Node e daria resultado enganoso.
 
 ### Retomada após falha transitória (v2.57.3)
 

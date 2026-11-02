@@ -61,6 +61,18 @@ test('runOneHeadless cancela a revisão se o PR já foi mergeado enquanto espera
   assert.equal(e.headlessBusyAccounts.has('eu'), false, 'libera a conta pro escalonador');
 });
 
+test('runOneHeadless também não abre sessão de PR fechado sem merge', async () => {
+  const e = engineBase();
+  e.prState = async () => 'CLOSED';
+  let rodouRevisao = false;
+  e.runHeadlessReview = async () => { rodouRevisao = true; };
+  const toasts = [];
+  e.on('toast', t => toasts.push(t.text));
+  await e.runOneHeadless(prDe('o/r#1'), 'eu');
+  assert.equal(rodouRevisao, false, 'o vigia mataria a sessão depois de três minutos pagos');
+  assert.ok(toasts.some(t => /foi fechado; cancelei/.test(t)));
+});
+
 test('runOneHeadless roda normalmente quando o estado do PR não confirma merge', async () => {
   const e = engineBase();
   e.prState = async () => 'OPEN';

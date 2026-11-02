@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 const FONTE = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'selfpr.js'), 'utf8');
 
 test('a autoanálise sobe com os argumentos do mcp escopado', () => {
-  assert.match(FONTE, /extraArgs: jiraMod\.mcpArgsFor\(engine, jiraMod\.siteForPr\(engine, pr\)\)/);
+  assert.match(FONTE, /extraArgs: isolated \? \[\] : jiraMod\.mcpArgsFor\(engine, jiraMod\.siteForPr\(engine, pr\)\)/);
 });
 
 test('a autoanálise importa o compositor do Jira', () => {

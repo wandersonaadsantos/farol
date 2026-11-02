@@ -70,6 +70,21 @@ test('já pedi mudanças NESTE head: mesma coisa', async () => {
   assert.equal(e.sessoes, 0);
 });
 
+test('novo pedido e marca antiga de destrave não reabrem decisão; outro commit permite a revisão', async () => {
+  for (const state of ['APPROVED', 'CHANGES_REQUESTED']) {
+    const e = motor({ estados: [] });
+    e.myReviewsWithTime = async () => [{ state, commit: HEAD, at: Date.now() - 10_000 }];
+    e.myReviewStates = Engine.prototype.myReviewStates.bind(e);
+    e.destravados = { [PR.key]: { tipo: 'pedido', at: Date.now() } };
+    await e.runOneHeadless({ ...PR }, 'conta');
+    await e.runOneHeadless({ ...PR, updatedAt: new Date().toISOString() }, 'conta');
+    assert.equal(e.sessoes, 0);
+    e.headSha = async () => 'outro-commit';
+    await e.runOneHeadless({ ...PR }, 'conta');
+    assert.equal(e.sessoes, 1);
+  }
+});
+
 test('head sem review meu: a revisão acontece, como sempre', async () => {
   const e = motor({ estados: [] });
   await e.runOneHeadless({ ...PR }, 'conta');

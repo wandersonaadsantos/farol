@@ -55,6 +55,30 @@ test('dois aparelhos recuperam 75 blockers grandes sem cortes, sempre cifrados',
   assert.equal(nodes.size, count);
 });
 
+// 31/10/2026: dois aparelhos antigos, sumidos havia mais de 12 dias e não aposentados, travavam
+// a memória de rodadas de toda revisão (955 avisos em 7 dias).
+test('aparelho fora da frota agora não trava a memória; aparelho visto agora e sem suporte trava', async () => {
+  const { engine } = bank();
+  await publishRound(engine, round());
+  const leitor = (devices) => ({ ...engine, sync: { ...engine.sync, deviceId: 'd2', devices } });
+  const treze = Date.now() - 13 * 24 * 3600 * 1000;
+  assert.equal((await readRemoteRounds(leitor({ velho: { lastSeenAt: treze } }), scope)).ok, true, 'sumido há 13 dias não está revisando');
+  assert.equal((await readRemoteRounds(leitor({ semCarimbo: {} }), scope)).ok, true, 'sem carimbo de presença não conta como presente');
+  const agora = await readRemoteRounds(leitor({ antigo: { lastSeenAt: Date.now() } }), scope);
+  assert.equal(agora.ok, false, 'presente e sem anunciar suporte continua travando');
+  assert.match(agora.reason, /outro executor/);
+});
+
+// Revisão do PR #327: a presença vem do relógio do banco, e o local pode estar adiantado.
+test('presença usa o relógio corrigido: par online não parece sumido com o relógio local adiantado', async () => {
+  const { engine } = bank();
+  await publishRound(engine, round());
+  const trintaHoras = 30 * 3600 * 1000;
+  const sync = { ...engine.sync, deviceId: 'd2', devices: { antigo: { lastSeenAt: Date.now() - trintaHoras } }, agora: () => Date.now() - trintaHoras };
+  const r = await readRemoteRounds({ ...engine, sync }, scope);
+  assert.equal(r.ok, false, 'pelo relógio do banco o par acabou de aparecer e não anuncia suporte');
+});
+
 test('fragmento ausente ou adulterado impede afirmar memória completa', async () => {
   const { engine, nodes } = bank();
   await publishRound(engine, round());
@@ -89,7 +113,7 @@ test('memória não abre em outra conta, PR, uid ou chave', async () => {
 
 test('executor antigo fica explicitamente incompatível, nunca presumido pronto', async () => {
   const { engine } = bank();
-  engine.sync.devices.d2 = { name: 'antigo' };
+  engine.sync.devices.d2 = { name: 'antigo', lastSeenAt: Date.now() }; // presente na frota agora
   assert.match((await readRemoteRounds(engine, scope)).reason, /suporte/);
   const c = envelope.cifrar({ uid: 'u1', caminho: 'live/deviceStatus/d2', campo: 'capacidade', esquema: 'cap1',
     no: 'live/deviceStatus', cur: 'g1', material: engine.sync.material, r: 1, dados: { c: { reviewRoundsSchema: 1 } } });

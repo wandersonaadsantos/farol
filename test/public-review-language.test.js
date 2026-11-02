@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 
 import os from 'node:os';
 import path from 'node:path';
@@ -724,7 +725,7 @@ test('payload contaminado no auto-approve e auto-reject nunca resolve a decisão
     {
       name: 'auto-approve', number: 81,
       result: {
-        protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+        protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
         reportMarkdown: '## Ação\nDiagnóstico interno.',
         reviewMarkdown: 'O fallback em `src/config.ts:41` ficou consistente.',
         payloads: { approve: payload('Esta revisão foi gerada automaticamente pelo Farol.') },
@@ -734,7 +735,7 @@ test('payload contaminado no auto-approve e auto-reject nunca resolve a decisão
       name: 'auto-reject', number: 82,
       onReject: 'request_changes',
       result: {
-        protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+        protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('request_changes'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
         reasons: ['A validação aceita vazio em src/config.ts:41.'],
         reportMarkdown: '## Ação\nDiagnóstico interno.',
         reviewMarkdown: 'A validação em `src/config.ts:41` precisa rejeitar vazio.',
@@ -766,7 +767,7 @@ test('eventos de auto-approve e auto-reject carregam somente a projeção públi
     {
       eventName: 'auto-approved', number: 84,
       result: {
-        protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+        protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
         reportMarkdown: '## Ação\nINTERNAL_EVENT_SENTINEL: não auto-aprovei por política.',
         reviewMarkdown: 'O fallback em `src/config.ts:41` ficou consistente.',
         payloads: { approve: payload('O fallback em `src/config.ts:41` ficou consistente.') },
@@ -776,7 +777,7 @@ test('eventos de auto-approve e auto-reject carregam somente a projeção públi
     {
       eventName: 'auto-rejected', number: 85, onReject: 'request_changes',
       result: {
-        protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+        protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('request_changes'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
         reasons: ['A validação aceita vazio em src/config.ts:41.'],
         reportMarkdown: '## Ação\nINTERNAL_EVENT_SENTINEL: fluxo interno.',
         reviewMarkdown: 'A validação em `src/config.ts:41` precisa rejeitar vazio.',

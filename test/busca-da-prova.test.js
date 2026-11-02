@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // O Farol vai atrás da prova, e depois de duas tentativas deixa de exigir (v2.72.6, 17/10/2026).
 //
 // Decisão do dono: "o Farol não pode esperar uma ação externa; o próprio Farol precisa ir atrás
@@ -90,7 +91,7 @@ function motor(politica = ['approve', 'approve']) {
 function sessao(e, extra) {
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
-      protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+      protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
       coverage: { total: 0, reviewed: [], missing: [] },
       payloads: { approve: { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.' } },
       reportMarkdown: '# ok', ...extra,
@@ -209,7 +210,7 @@ test('esgotada não converte a parte do card deste PR dita não entregue: com a 
 });
 
 test('unidade: só a lacuna que não é dura vira ressalva, e o relatório com violação segue impedindo', () => {
-  const base = { headSha: HEAD, analysisStatus: 'complete', checksVerifiedHead: HEAD, diffMedido: [], verificationCheckpoint: { total: 0, conflicts: [] },
+  const base = { headSha: HEAD, ...criteriaFixture('approve'), analysisStatus: 'complete', checksVerifiedHead: HEAD, diffMedido: [], verificationCheckpoint: { total: 0, conflicts: [] },
     technicalReview: technicalReport(HEAD), protocolo: { prReviewer: 'pulado' }, coverage: { total: 0, reviewed: [], missing: [] } };
   assert.deepEqual(busca.lacunasExigidas(base), ['protocolo de revisão não comprovado']);
   assert.deepEqual(busca.lacunasExigidas({ ...base, provaEsgotada: true }), []);

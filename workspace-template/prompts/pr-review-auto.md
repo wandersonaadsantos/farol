@@ -45,6 +45,8 @@ Coerência obrigatória: `request_changes` exige um defeito bloqueante sustentad
   "cardMet": true | false | null,
   "cardParteDestePr": true | false | null,
   "analysisStatus": "complete" | "incomplete",
+  "criteriaVersion": 1,
+  "productDecisions": [],
   "verdict": "approve" | "request_changes",
   "decision": "auto_approve" | "needs_decision",
   "reasons": ["motivo curto e claro", "..."],

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { SETTINGS } from '../lib/settings.js';
-import { baseConfig, fieldCases, account, profiles, configForField } from './helpers/preferences-cases.js';
+import { baseConfig, fieldCases, account, profiles, configForField, valuesForField } from './helpers/preferences-cases.js';
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-preferences-matrix-'));
 process.env.FAROL_HOME = home;
 const { Engine } = await import('../server.js');
@@ -30,23 +30,25 @@ for (const [key, values] of Object.entries(cases)) {
       scenarioCount++;
       const engine = engineFor(configForField(key));
       if (key === 'accounts' && value.length === 0) { engine.config.ghUser = ''; engine.config.accounts = []; }
-      const document = documentFor({ [key]: value });
+      const document = documentFor(valuesForField(key, value));
       const context = `${key}: ${JSON.stringify(value)}`;
       const preview = await command(engine, { action: 'preview', document });
       assert.equal(preview.ok, true, `${context}: ${preview.error}`);
-      assert.equal(preview.changes.length <= 1, true, context);
+      assert.ok(preview.changes.every(change => Object.hasOwn(document.values, change.key)), context);
       if (!preview.changes.length) continue;
       assert.equal(preview.changes[0].blocked, undefined, context);
-      const result = await command(engine, { action: 'apply', document, token: preview.token, keys: [key] });
+      const result = await command(engine, { action: 'apply', document, token: preview.token, keys: preview.changes.map(change => change.key) });
       assert.equal(result.ok, true, `${context}: ${result.error}`);
       const expected = key === 'cadeiaPerfis' ? preview.changes[0].incoming : value;
       assert.deepEqual(result.values[key], expected, `${context}: valor aplicado difere da prévia`);
+      for (const change of preview.changes) assert.deepEqual(result.values[change.key], change.incoming, `${context}: ${change.key} difere da prévia`);
       const next = await command(engine, { action: 'preview', document });
       assert.deepEqual(next.changes, [], `${context}: a mesma diferença continua após aplicar`);
       const reloaded = new Engine(); reloaded.log = () => {};
       const exported = await command(reloaded, { action: 'export' });
       assert.equal(exported.ok, true, `${context}: ${exported.error}`);
       assert.deepEqual(exported.document.values[key], expected, `${context}: valor mudou ao recarregar`);
+      for (const change of preview.changes) assert.deepEqual(exported.document.values[change.key], change.incoming, `${context}: ${change.key} mudou ao recarregar`);
     }
   });
 }

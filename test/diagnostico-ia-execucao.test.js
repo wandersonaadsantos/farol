@@ -89,7 +89,7 @@ test('a sessão de leitura executa o claude com a linha exata, no workspace, sem
   if (!await falsoResolve(t)) return;
   const { res, reg } = await execucao({ somenteLeitura: true });
   assert.equal(res.text, 'ok', 'o resultado do processo real voltou');
-  assert.deepEqual(reg.argv, ['-p', '--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', ...RESTRICAO]);
+  assert.deepEqual(reg.argv, ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--dangerously-skip-permissions', ...RESTRICAO]);
   // o cwd que o processo enxerga vem canônico: no macOS a pasta temporária mora em
   // /var, que é link para /private/var (medido no CI em 17/09/2026)
   assert.equal(fs.realpathSync(reg.cwd), fs.realpathSync(WORKSPACE));
@@ -100,12 +100,12 @@ test('a sessão de leitura executa o claude com a linha exata, no workspace, sem
 test('a sessão comum executa sem nenhuma das restrições', async (t) => {
   if (!await falsoResolve(t)) return;
   const { reg } = await execucao({});
-  assert.deepEqual(reg.argv, ['-p', '--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions']);
+  assert.deepEqual(reg.argv, ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--dangerously-skip-permissions']);
 });
 
 test('argumento extra de quem chama não substitui a restrição, vem depois dela', async (t) => {
   if (!await falsoResolve(t)) return;
   const { reg } = await execucao({ somenteLeitura: true, extraArgs: ['--resume', '00000000-0000-4000-8000-000000000000'] });
-  assert.deepEqual(reg.argv.slice(5, 5 + RESTRICAO.length), RESTRICAO);
+  assert.deepEqual(reg.argv.slice(6, 6 + RESTRICAO.length), RESTRICAO);
   assert.deepEqual(reg.argv.slice(-2), ['--resume', '00000000-0000-4000-8000-000000000000']);
 });

@@ -74,9 +74,12 @@ export function festejar({ texto = 'Análise impecável: nada a ajustar.', durac
   avisoDiscreto(texto, duracaoMs);
 
   const particulas = Array.from({ length: PARTICULAS }, () => novaParticula(largura));
-  const inicio = Date.now();
-  const passo = (agora) => {
-    const decorrido = (Number(agora) || Date.now()) - inicio;
+  // Um relógio só, o monotônico da página. Misturar o argumento do requestAnimationFrame
+  // (relógio da página) com Date.now() (hora do sistema) dava decorrido negativo e a festa
+  // nunca terminava (29/10/2026); e a hora do sistema sozinha recua com o NTP.
+  const inicio = performance.now();
+  const passo = () => {
+    const decorrido = performance.now() - inicio;
     const restante = duracaoMs - decorrido;
     if (restante <= 0) { canvas.remove(); return; }
     ctx.clearRect(0, 0, largura, altura);

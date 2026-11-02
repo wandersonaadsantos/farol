@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -97,7 +98,7 @@ function motor(politica = ['approve', 'approve']) {
 function sessao(e, extra) {
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
-      protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+      protocolo: { prReviewer: 'rodou' }, ...criteriaFixture(extra?.verdict || 'approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
       coverage: { total: 0, reviewed: [], missing: [] },
       payloads: { approve: { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.' } },
       reportMarkdown: '# ok', ...extra,
@@ -121,6 +122,24 @@ async function revisado(e, extra) {
   await e.runHeadlessReview({ ...PR });
   return pendente(e);
 }
+
+test('atualização retoma uma pendência antiga uma vez, sem interromper rodada ativa ou esperar o recuo velho', async () => {
+  const e = motor();
+  const d = await revisado(e, { analysisStatus: 'incomplete', decision: 'needs_decision' });
+  d.esperaProva.recuperacao = 1;
+  d.esperaProva.proximaEm = Date.now() + intervaloDaProva(5);
+  const attempts = d.esperaProva.tentativas;
+  e.activeReviews.set('ativa', { keys: [PR.key] });
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.equal(d.esperaProva.recuperacao, 1);
+  e.activeReviews.delete('ativa');
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(d.esperaProva.recuperacao, 2);
+  assert.equal(d.esperaProva.tentativas, attempts);
+  assert.equal(d.blockedKind, 'stale_head');
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.equal(envios.length, 0, 'retomar não fabrica um parecer nem publica');
+});
 
 test('aprovável com prova incompleta: nada é postado, e a pendência BUSCA A PROVA, sem pedir você', async () => {
   const e = motor();
@@ -151,7 +170,7 @@ test('recuperação entrega as 44 lacunas completas após persistir a marca, sem
   const { coverageGap } = await import('../lib/engine/file-proof.js');
   const { blocoDaTentativa } = await import('../lib/engine/busca-da-prova.js');
   const arquivos = Array.from({ length: 44 }, (_, i) => `src/components/design-system/foundations/arquivo-muito-longo-${i}.ts`);
-  const result = { headSha: HEAD, verdict: 'approve', analysisStatus: 'complete',
+  const result = { headSha: HEAD, verdict: 'approve', ...criteriaFixture('approve'), analysisStatus: 'complete',
     coverage: { total: 44, reviewed: arquivos, missing: [] }, diffMedido: arquivos, alcance: [],
     approvalEvidence: ['a cobertura da leitura tem 44 pendências'], technicalReview: { semDeclaracao: true } };
   const espera = esperaProva.armar(e, PR, 'prova_tecnica_incompleta', result, []);

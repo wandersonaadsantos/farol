@@ -40,7 +40,7 @@ const HEAD = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/pull/1', author: 'dev', account: 'eu' };
 const CORPO = 'Leitura atenta, tudo certo por aqui.';
 const POST = ['api', 'repos/o/r/pulls/1/reviews', '--input', '<arquivo>'];
-const MEUS = ['api', 'repos/o/r/pulls/1/reviews', '--jq', '[.[] | select((.user.login | ascii_downcase) == "eu") | {state, submitted_at, commit_id, body}]'];
+const MEUS = ['api', 'repos/o/r/pulls/1/reviews', '--paginate', '--jq', '[.[] | select((.user.login | ascii_downcase) == "eu") | {state, submitted_at, commit_id, body}]'];
 const OUTROS = ['api', 'repos/o/r/pulls/1/reviews', '--jq', '[.[] | select((.user.login | ascii_downcase) != "eu") | {quem: .user.login, tipo: .user.type, state, commit_id}]'];
 const VAZIO = { ok: true, code: 0, stdout: '[]', stderr: '' };
 const OK_POST = { ok: true, code: 0, stdout: '{"id":1}', stderr: '' };
@@ -124,9 +124,10 @@ test('decide: dedup no GitHub e POST ancorado no head lido', async () => {
 test('retryFailedPosts: dedup no GitHub e POST ancorado', async () => {
   const e = motor();
   e.decisions.pending = [pendencia({ postRetry: { event: 'approve', attempts: 0 } })];
-  respostas = [VAZIO, OK_POST];
+  respostas = [VAZIO, VAZIO, OK_POST];
   assert.equal(await e.retryFailedPosts(), 1);
   assert.deepEqual(chamadas, [
+    { cmd: 'gh', args: MEUS, conteudo: null },
     { cmd: 'gh', args: MEUS, conteudo: null },
     { cmd: 'gh', args: POST, conteudo: arquivo({ event: 'APPROVE', body: CORPO, comments: [], commit_id: HEAD }) },
   ]);
@@ -148,10 +149,11 @@ test('postReviewFromSession: POST direto, sem consulta ao GitHub antes', async (
 test('coAssinar: relê o endosso no mesmo sha, dedup, e POST ancorado no head', async () => {
   const e = motor();
   e.skipComentado[PR.key] = { head: HEAD, quem: ['ana'] };
-  respostas = [{ ok: true, code: 0, stdout: `[{"quem":"ana","tipo":"User","state":"APPROVED","commit_id":"${HEAD}"}]`, stderr: '' }, VAZIO, OK_POST];
+  respostas = [{ ok: true, code: 0, stdout: `[{"quem":"ana","tipo":"User","state":"APPROVED","commit_id":"${HEAD}"}]`, stderr: '' }, VAZIO, VAZIO, OK_POST];
   assert.equal(await skip.coAssinar(e, PR, 'ana', HEAD), true);
   assert.deepEqual(chamadas, [
     { cmd: 'gh', args: OUTROS, conteudo: null },
+    { cmd: 'gh', args: MEUS, conteudo: null },
     { cmd: 'gh', args: MEUS, conteudo: null },
     { cmd: 'gh', args: POST, conteudo: arquivo({ event: 'APPROVE', body: skip.textoDaCoassinatura('ana').trim(), comments: [], commit_id: HEAD }) },
   ]);

@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // M6: o envelope da sessão é saída de modelo, não fonte de identidade. recordDecision
 // preferia result.pr (repo/number ditados pela sessão) e decide()/postReview postavam
 // NESSE repo: um envelope mentiroso redirecionaria um APPROVE pra outro repositório.
@@ -62,7 +63,7 @@ function novoEngine() {
 
 function resultado(extra) {
   return {
-    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     reportMarkdown: '# ok', ...extra
   };
@@ -190,7 +191,7 @@ test('caminho automático: auto-reject também atribui a memória pela fila', as
   const meuPR = prDaFila(44, { requested: true });
   engine.runClaudeStream = async () => ({
     text: JSON.stringify({
-      protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: false, reasons: ['blocker X'],
+      protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('request_changes'), analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: false, reasons: ['blocker X'],
       payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'muda X' } },
       reportMarkdown: '# x',
       pr: { repo: 'evil/repo', number: 1, author: 'hera' },

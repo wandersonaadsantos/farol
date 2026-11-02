@@ -5,7 +5,8 @@ let serial = 0;
 function auditFixture(engine) {
   const remote = specialistSource(), repo = `org/audit-${++serial}`, key = repo + '#1';
   remote.state.commits[remote.second]['src/a.ts'] = 'export const value = 1;\n';
-  const finding = { id: 'f-original', file: 'src/a.ts', line: 1, severity: 'suggestion', title: 'Valor mutável', summary: 'Conferir a imutabilidade do valor.', ref: null, status: null, evidence: '' };
+  const finding = { id: 'f-original', file: 'src/a.ts', line: 1, severity: 'suggestion', title: 'Valor mutável', summary: 'Conferir a imutabilidade do valor.', ref: null, status: null, evidence: '',
+    criteria: { key: 'valor-mutavel', criterion: 'Conferir imutabilidade', source: 'src/a.ts:1', scope: 'Valor alterado neste diff' } };
   const round = { schema: 1, id: digest(key).slice(0, 32), ordinal: 1, scope: scopeFor(key, 'dev'), parents: [], headSha: remote.second,
     baseSha: remote.first, at: Date.now(), executor: 'fixture', decision: 'auto_approve', verdict: 'approve', findingsStatus: 'complete', findings: [finding], unresolved: [], files: [{ path: 'src/a.ts', sha: remote.gitBlob(remote.state.commits[remote.second]['src/a.ts']) }], integrity: [] };
   saveRound(round);

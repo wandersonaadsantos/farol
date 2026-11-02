@@ -14,6 +14,74 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.25', [
+    'Aparelho antigo que sumiu da frota sem ser aposentado não trava mais a memória de rodadas de toda revisão: só conta quem foi visto nas últimas 24 horas.',
+    'A recusa da política de uso do modelo aparece no Diagnóstico com a ação certa: rodar com outro modelo ou provedor.',
+    'Autoanálise do Codex que volta vazia passa a deixar no log o que o turno teve, sem conteúdo.',
+  ]],
+  ['2.78.24', [
+    'PR com defeito confirmado é reprovado pela política da conta mesmo quando outra avaliação ficou inconclusiva, em vez de parar em "Precisa de você". Aprovar continua exigindo a análise completa.',
+    'Em Sistema > Visão geral, configuração e retomada, tags de revisão e preferências entre instalações vão para o fim da página.',
+  ]],
+  ['2.78.23', [
+    'Revisões que marcavam o PR como em revisão sem estar revisando, e seguravam a atualização, deixam de ficar presas: a consulta às fontes encerra sozinha e a sessão fecha mesmo com um processo filho segurando a saída.',
+    'A reconferência de critérios não cai mais enquanto o modelo escreve um resultado longo: a escrita conta como progresso para o prazo de cinco minutos sem atividade.',
+    'PR mergeado ou fechado durante a revisão encerra a sessão na próxima conferência e sai da fila sem estacionar, em vez de seguir pagando até o fim.',
+    'O Consumo conta a resposta que o modelo ainda escrevia quando a sessão do Claude morreu, em vez de quase nada.',
+  ]],
+  ['2.78.22', [
+    'Escolher um modelo no Claude ou no Codex atualiza seu equivalente no outro provedor. A equivalência é por perfil de uso; Sol volta para Opus para priorizar qualidade.',
+    'O Auto usa Opus ou GPT-6.1 Sol nas revisões, sem modo rápido, e sobe para xhigh quando o contexto pede. A seleção acompanha o executor mesmo após troca na cadeia.',
+    'Catálogo atualizado com Astra, Sol, Terra e Luna atuais. Escolhas explícitas, inclusive Terra, sobrevivem ao reinício.',
+  ]],
+  ['2.78.21', [
+    'Autoanálise restrita pode selecionar explicitamente um perfil Codex só para a execução, sem mudar a associação global nem iniciar fallback.',
+    'Codex recusa resultado com saída de processo malsucedida e preserva o consumo; diagnóstico restrito usa somente contagens e sinais fechados.',
+    'Seleção preserva orçamento, reservas de cota e coordenação entre aparelhos.',
+  ]],
+  ['2.78.20', [
+    'O confete da análise impecável volta a sair da tela depois de quatro segundos, mesmo com a hora do computador ajustada no meio da festa.',
+    'O gate de pré-push passa a rodar também no Linux e no macOS: o hook estava versionado sem permissão de execução e o git o ignorava.',
+  ]],
+  ['2.78.19', [
+    'Preparação restrita evita varreduras de quota por blob e mantém somente textos já ocultados em cache temporário limitado por execução.',
+    'Reutilização preserva versão, caminho e política de template. Cancelamento e limites continuam impedindo resultados sem prova.',
+  ]],
+  ['2.78.18', [
+    'Autoanálises restritas recebem representações com valores ocultos e deixam claro o que não foi lido, sem mudar o perfil ou abrir fontes sensíveis no fluxo normal.',
+    'Patches ausentes usam versões verificadas. Templates públicos expõem somente chaves; contraprovas em arquivos com valores ocultos continuam inconclusivas.',
+  ]],
+  ['2.78.17', [
+    'Depois de uma aprovação ou reprovação publicada, o mesmo commit não é revisado automaticamente de novo, mesmo quando alguém pede review outra vez. Outro commit libera nova análise.',
+    'A leitura percorre o histórico paginado e a conferência final respeita qualquer parecer decisivo anterior da conta naquele commit.',
+    'Uma reprovação pelo CI encerra aquele commit; o CI ficar verde depois, sem outro commit, não publica uma segunda review de aprovação.',
+    'Uma tag residual da própria conta num head já decidido entra na limpeza durável, preservando sessões ativas e a posse de outro aparelho.',
+    'Falhas sem parecer publicado continuam pendentes. A revisão manual explícita mantém seu caminho próprio.',
+  ]],
+  ['2.78.16', [
+    'A API local oferece autoanálise restrita por execução, sem reconfigurar a conta ou interromper outras sessões.',
+    'Claude e Codex recebem fontes fixadas; cobertura e contraprovas de leitura ficam separadas de testes executados e aprovação humana.',
+  ]],
+  ['2.78.15', [
+    'Erros de formato e evidências da avaliação técnica voltam à própria conversa para correção, com a versão exigida fornecida pelo avaliador.',
+    'Uma pendência nova permite uma segunda continuação na mesma sessão; erros repetidos encerram a tentativa. A aprovação continua bloqueada enquanto a análise for inconclusiva.',
+    'Pendências preservadas retomam automaticamente pelo agendador após a atualização, respeitando sessões ativas, pausas e limites da conta.',
+  ]],
+  ['2.78.14', [
+    'Análises e critérios incompletos ganham uma continuação dirigida na mesma conversa antes de outra rodada, com todos os gates de publicação preservados.',
+    'O Codex recebe protocolo próprio para revisar sem depender do login do Claude; a avaliação técnica é executada pelo Farol com a configuração correta.',
+    'Recuperações detectam cinco minutos sem progresso e preservam as pendências específicas. Análise incompleta continua sem aprovação habilitada.',
+  ]],
+  ['2.78.13', [
+    'A orientação de escrita pede motivo, evidência e condição de liberação para cada bloqueio, no corpo e nos comentários inline.',
+    'Sugestões são apresentadas como opcionais, preservando a classificação técnica e sem reescrever revisões já publicadas.',
+  ]],
+  ['2.78.12', [
+    'Critérios publicados mantêm identidade, fonte e escopo entre rodadas e PRs do mesmo card confirmado; mudar classificação exige nova evidência e justificativa.',
+    'Recomendações distinguem hipótese de solução validada, com prova da correção e de um comportamento preservado no commit atual.',
+    'Decisões de produto exigem procedência no Jira: alegação no PR ou autoria de comentário não comprovam aceite de PO.',
+    'Resultados inconsistentes não saem pelo automático, clique ou reenvio. A confirmação dos critérios publicados é local; registros antigos permanecem como contexto.',
+  ]],
   ['2.78.11', ['Repositórios cuja declaração técnica diz que não têm testes de ponta a ponta ou componentes deixam de ter os PRs parados por "pasta que não existe"; os PRs que ficaram parados voltam a ser revisados sozinhos. Quando a pasta declarada tem outro problema, o card diz qual.']],
   ['2.78.10', ['Quando o Farol fecha no meio de uma busca de código, a marca de Git em andamento e a reserva de disco que ficaram para trás são recuperadas sozinhas, assim que o processo dono terminou e nenhum Git anterior continua em execução. Antes elas prendiam até 2 GB de folga e paravam a análise técnica de todos os repositórios.']],
   ['2.78.9', ['Quando a declaração técnica de um repositório cita uma pasta que não existe mais, o card diz quais pastas faltam e a revisão espera a declaração ser corrigida, em vez de falhar sem explicação, tentar de novo e virar ressalva genérica. Isso nunca vira pedido de mudanças no PR.']],

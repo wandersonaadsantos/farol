@@ -4,7 +4,7 @@ import path from 'node:path';
 import { once } from 'node:events';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { baseConfig, fieldCases, configForField } from './helpers/preferences-cases.js';
+import { baseConfig, fieldCases, configForField, valuesForField } from './helpers/preferences-cases.js';
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-preferences-http-'));
 process.env.FAROL_HOME = home;
 const { Engine } = await import('../server.js');
@@ -27,14 +27,15 @@ test('todos os campos e opções percorrem a rota HTTP e persistem a seleção d
     for (const [key, candidates] of Object.entries(fieldCases())) for (const value of candidates) {
       engine.config = configForField(key); engine.config.port = server.address().port;
       if (key === 'accounts' && value.length === 0) { engine.config.ghUser = ''; engine.config.accounts = []; }
-      const document = { type: 'farol-preferences', schema: 2, values: { [key]: value } };
+      const document = { type: 'farol-preferences', schema: 2, values: valuesForField(key, value) };
       const preview = await send({ action: 'preview', document });
       assert.equal(preview.ok, true, `${key}: ${preview.error}`);
       scenarios++;
       if (!preview.changes.length) continue;
-      const result = await send({ action: 'apply', document, token: preview.token, keys: [key] });
+      const result = await send({ action: 'apply', document, token: preview.token, keys: preview.changes.map(change => change.key) });
       assert.equal(result.ok, true, `${key}: ${result.error}`);
       assert.deepEqual(result.values[key], preview.changes[0].incoming, key);
+      for (const change of preview.changes) assert.deepEqual(result.values[change.key], change.incoming, change.key);
       const stored = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
       assert.deepEqual(stored[key], engine.config[key], key);
       assert.deepEqual((await send({ action: 'preview', document })).changes, [], key);

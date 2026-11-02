@@ -99,7 +99,7 @@ test('boot migra configuração GPT compartilhada pras chaves próprias do Codex
   }
 });
 
-test('boot preserva configurações independentes de Claude e Codex', () => {
+test('boot preserva pares de modelos compatíveis e os esforços próprios', () => {
   fs.mkdirSync(HOME, { recursive: true });
   const arq = path.join(HOME, 'config.json');
   const antes = lerConfigAnterior(arq);

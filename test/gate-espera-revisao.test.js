@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 // A aprovação automática com CI obrigatório vermelho ou em andamento, na revisão de verdade.
 //
 // De 27 a 30/09/2026 este arquivo provava que o card ia para a mesa e pedia o clique "quando
@@ -111,7 +112,7 @@ function motor(checks, politica = ['approve', 'approve']) {
 function sessao(e, extra) {
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
-      protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+      protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
       coverage: { total: 0, reviewed: [], missing: [] },
       payloads: { approve: { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.' } },
       reportMarkdown: '# ok', ...extra,

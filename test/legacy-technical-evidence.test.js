@@ -84,7 +84,8 @@ test('nova revisão substitui a decisão esgotada e persiste a versão para a pu
 // mostra lacuna pendente (de regras anteriores, por exemplo) continua sem liberar o Aprovar.
 test('a busca ativa diz que o que faltar vira ressalva, e a lacuna ainda pendente não libera Aprovar', () => {
   const active = staleCardMeta({ esperaProva: { tentativas: 1 }, technical: { state: 'pending' } });
-  assert.match(active.statusHtml, /vira ressalva e a política da conta decide/);
+  assert.match(active.statusHtml, /somente lacunas não impeditivas podem virar ressalva conforme a política da conta/);
+  assert.match(active.statusHtml, /Análise incompleta não é aprovação nem reprovação/);
   const blocked = staleCardMeta({ provaEsgotada: true, technical: { state: 'pending' }, verdict: 'approve' });
   assert.equal(blocked.reviewBtn, 'primary');
   assert.equal(blocked.approveDisabled, true);

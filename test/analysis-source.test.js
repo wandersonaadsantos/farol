@@ -62,6 +62,30 @@ test('inventário preparado evita nova aquisição de patches na preparação da
   assert.equal(e.activeReviews.get('s1').fileBlobs['src/a.js'], 'd'.repeat(40));
   await analysis.releaseAnalysisSource(result.prepared, e); assert.equal(handle.releases(), 1);
 });
+
+test('projeção restrita não reutiliza índice original nem muda a configuração de contexto', async () => {
+  const e = engine('self', 'assist'); e.config.reviewNavigationFacts = true;
+  let projection;
+  analysis.sourceRuntime.prepareSources = async (_engine, _pr, options) => {
+    projection = options.projection; return { ...source(), projection };
+  };
+  analysis.sourceRuntime.buildMap = async () => { throw new Error('Índice original não pode ser lido nesta execução.'); };
+  const result = await analysis.prepareAnalysisSource(e, { ...pr, isolation: 'restricted-read' }, 's1', H);
+  assert.ok(projection); assert.equal(result.source.projection, projection);
+  assert.equal(result.map, null); assert.equal(result.selection, null);
+  assert.equal(result.diagnostics.indexStatus, 'restricted-projection-not-indexed');
+  assert.equal(e.config.reviewContextMode, 'assist'); assert.equal(e.config.reviewNavigationFacts, true);
+  await analysis.releaseAnalysisSource(result, e);
+});
+
+test('cancelamento após aquisição da projeção ainda libera a fonte antes de qualquer retorno', async () => {
+  const e = engine('self', 'assist'), handle = source(); let complete;
+  analysis.sourceRuntime.prepareSources = () => new Promise(resolve => { complete = resolve; });
+  const preparing = analysis.prepareAnalysisSource(e, { ...pr, isolation: 'restricted-read' }, 's1', H);
+  assert.equal(cancelSession(e, 's1').ok, true); complete(handle);
+  await assert.rejects(preparing, error => error.cancelled === true);
+  assert.equal(handle.releases(), 1);
+});
 test('cancelar durante aquisição aborta a operação e libera fonte recém-adquirida', async () => {
   const e = engine(), handle = source(); let complete, signal;
   analysis.sourceRuntime.prepareSources = (_engine, _pr, options) => { signal = options.signal; return new Promise(resolve => { complete = resolve; }); };

@@ -4,7 +4,7 @@
 // pediu de novo 13 s depois de aprovar, voltava à fila a cada ciclo (90 vezes no dia), com
 // duas leituras gh e um toast por volta. Aqui o ciclo é reproduzido de verdade (o
 // reconciliarVistos e a boca da fila automática, alternados como no check()), e as
-// contraprovas cobrem o que tem de continuar funcionando: head novo e pedido de outra pessoa.
+// contraprovas cobrem head novo e a estabilidade da decisão após pedido de outra pessoa.
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -19,6 +19,7 @@ const io = (await import('../lib/io.js')).default;
 const { reconciliarVistos, jaResolvido, ARQUIVO } = await import('../lib/engine/vistos-reconciliacao.js');
 const destrava = await import('../lib/engine/destrava.js');
 const { STATE_DIR } = await import('../lib/paths.js');
+const labelsATirar = (await import('../lib/engine/labels-a-tirar.js')).default;
 fs.mkdirSync(STATE_DIR, { recursive: true }); // o prepareHome faz isso no boot
 
 const runReal = io.run;
@@ -82,7 +83,7 @@ test('o laço não volta: revisado fora do Farol e pedido pela própria conta fi
   e.seen.add('acme/infra#7');
   for (let i = 0; i < 10; i++) await ciclo(e, PR());
   assert.equal(m.chamadas.head, 1, 'uma conferência só, no primeiro ciclo');
-  assert.equal(m.chamadas.timeline, 1);
+  assert.equal(m.chamadas.timeline, 0, 'decisão no head confirmado não depende da timeline');
   assert.equal(e.toasts.length, 1, 'um aviso só');
   assert.equal(e.avisos.filter((l) => l.includes('voltaram à fila')).length, 1, 'a volta acontece uma vez, não uma por ciclo');
   assert.ok(e.seen.has('acme/infra#7'));
@@ -112,26 +113,25 @@ test('contraprova: head novo volta a revisar', async () => {
   assert.equal(e.seen.has('acme/infra#7'), false);
 });
 
-test('contraprova: pedido de OUTRA pessoa depois do meu review revisa de novo, e o dedup passa a ignorar o review anterior', async () => {
+test('pedido de outra pessoa no mesmo head mantém a decisão e não reabre a automação', async () => {
   const m = mundo();
   const e = motor(m);
   e.seen.add('acme/infra#7');
   await ciclo(e, PR());
   m.pedidos.push({ at: '2026-10-04T12:00:00Z', alvo: 'eu', ator: 'autora' });
   const resolvido = await ciclo(e, PR('2026-10-04T12:00:00Z'));
-  assert.equal(resolvido, false);
-  assert.deepEqual(e.destravados['acme/infra#7'], { at: Date.parse('2026-10-04T12:00:00Z'), tipo: 'pedido' });
-  assert.equal(e.revisadosFora['acme/infra#7'], undefined, 'a marca sai');
-  // o myReviewStates real, com a marca de pedido, não conta mais o review anterior
-  assert.deepEqual(await e.myReviewStates(PR(), H1), [], 'a revisão nova não termina em already_reviewed');
+  assert.equal(resolvido, true);
+  assert.equal(e.destravados['acme/infra#7'], undefined);
+  assert.equal(e.revisadosFora['acme/infra#7'].head, H1);
+  assert.deepEqual(await e.myReviewStates(PR(), H1), ['APPROVED']);
 });
 
-test('falta de dado não vira marca: timeline ilegível mantém o comportamento antigo (sem sessão, sem marca); head ilegível revisa', async () => {
+test('timeline ilegível não reabre decisão confirmada; head ilegível não inventa decisão', async () => {
   const m = mundo();
   m.timelineFalha = true;
   const e = motor(m);
   assert.equal(await jaResolvido(e, PR()), true, 'head já revisado não abre sessão, como antes');
-  assert.equal(e.revisadosFora['acme/infra#7'], undefined, 'mas não grava marca: o próximo ciclo confere de novo');
+  assert.equal(e.revisadosFora['acme/infra#7'].head, H1, 'head e review bastam para a marca');
   const m2 = mundo();
   m2.head = '';
   const e2 = motor(m2);
@@ -143,6 +143,36 @@ test('comentário meu (COMMENTED) não é revisão: segue revisando', async () =
   m.reviews = [{ state: 'COMMENTED', commit: H1, at: APROVEI }];
   const e = motor(m);
   assert.equal(await jaResolvido(e, PR()), false);
+});
+
+test('decisão confirmada recupera nossa tag residual sem retirar a de outra conta', async () => {
+  for (const state of ['APPROVED', 'CHANGES_REQUESTED']) {
+    const m = mundo(); m.reviews[0].state = state;
+    const e = motor(m), removed = [];
+    e.labelsATirar = {}; e.tokenFor = account => account === 'eu' ? 'synthetic' : null;
+    const pr = { ...PR(), labels: ['EU:revisando', 'outra:revisando'] };
+    assert.equal(await jaResolvido(e, pr), true);
+    await labelsATirar.tirarPendentes(e, async (_cmd, args) => { removed.push(args[args.indexOf('--remove-label') + 1]); return { ok: true }; });
+    assert.deepEqual(removed, ['EU:revisando']);
+    assert.deepEqual(e.labelsATirar, {});
+  }
+});
+
+test('recuperação de tag residual preserva revisão manual ativa e não inventa decisão', async () => {
+  const e = motor(mundo()); e.labelsATirar = {};
+  const pr = { ...PR(), labels: ['eu:revisando'] };
+  e.activeReviews.set('manual', { keys: [pr.key], mode: 'auto' });
+  assert.equal(await jaResolvido(e, pr), true);
+  let calls = 0;
+  await labelsATirar.tirarPendentes(e, async () => { calls++; return { ok: true }; });
+  assert.equal(calls, 0);
+  e.activeReviews.clear();
+  await labelsATirar.tirarPendentes(e, async () => { calls++; return { ok: true }; });
+  assert.equal(calls, 1);
+  const pending = mundo(); pending.reviews = [];
+  const notReviewed = motor(pending); notReviewed.labelsATirar = {};
+  assert.equal(await jaResolvido(notReviewed, pr), false);
+  assert.deepEqual(notReviewed.labelsATirar, {});
 });
 
 test('o destrave também ignora pedido feito pela própria conta; linha antiga sem ator continua valendo', () => {

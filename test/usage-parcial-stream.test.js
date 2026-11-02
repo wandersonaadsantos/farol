@@ -30,6 +30,7 @@ childProcess.spawn = function mockableSpawn(...args) {
 
 const { runClaudeStream, parseEnvelope, acumularParcial } = await import('../lib/engine/session.js');
 const medicao = (await import('../tools/medicao/contagem-dobrada.js')).default;
+const { usoDoStream } = await import('../lib/engine/uso-parcial.js');
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -101,6 +102,46 @@ test('sessão que morre SEM evento final registra o parcial acumulado', async ()
   assert.equal(ev.farol_parcial, true, 'marcado como parcial: o custo vai ter que ser estimado');
   assert.equal(ev.usage.output_tokens, 150, 'soma das mensagens');
   assert.equal(ev.usage.cache_read_input_tokens, 900);
+});
+
+// biud-frontend#1627 (30/10/2026): a reconferência morreu depois de minutos escrevendo o
+// envelope e entrou no Consumo com 79 tokens de saída, porque a mensagem nunca fechou.
+const evStream = (event, parent = null) => JSON.stringify({ type: 'stream_event', event, parent_tool_use_id: parent }) + '\n';
+
+test('sessão que morre ESCREVENDO registra a entrada e a saída estimada da mensagem aberta', async () => {
+  const registros = [];
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const p = runClaudeStream(engineFalso(registros), 'prompt', { id: 's9', account: 'alguem' });
+  spawnImpl = null;
+
+  child.stdout.write(evStream({ type: 'message_start', message: { id: 'msg_a', usage: { input_tokens: 5, cache_read_input_tokens: 4000, output_tokens: 1 } } }));
+  for (let i = 0; i < 10; i++) child.stdout.write(evStream({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'x'.repeat(400) } }));
+  child.stdout.once('end', () => child.emit('close', 143));
+  child.stdout.end();
+  await p.catch(() => { });
+
+  assert.equal(registros.length, 1, 'a mensagem aberta é gasto, mesmo sem fechar');
+  assert.equal(registros[0].ev.farol_parcial, true);
+  assert.equal(registros[0].ev.usage.cache_read_input_tokens, 4000, 'entrada e cache vêm do message_start');
+  assert.equal(registros[0].ev.usage.output_tokens, 1000, '4000 caracteres recebidos, cerca de 4 por token');
+});
+
+test('a mensagem que fecha troca a estimativa pelo valor real, sem somar duas vezes', () => {
+  const estados = new Map();
+  const acc = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+  const conta = (ev) => { const u = usoDoStream(estados, ev); if (u) acumularParcial(acc, u.usage, u.id); };
+  conta({ event: { type: 'message_start', message: { id: 'm1', usage: { input_tokens: 7, output_tokens: 1 } } } });
+  conta({ event: { type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: 'y'.repeat(80) } } });
+  assert.equal(acc.output_tokens, 20, 'estimativa pelo texto do thinking');
+  conta({ event: { type: 'message_delta', usage: { output_tokens: 33 } } });
+  assert.equal(acc.output_tokens, 33, 'o message_delta traz a saída real');
+  acumularParcial(acc, { input_tokens: 7, output_tokens: 33 }, 'm1');
+  assert.deepEqual([acc.input_tokens, acc.output_tokens], [7, 33], 'o evento assistant do mesmo id substitui, não soma');
+  conta({ event: { type: 'message_start', message: { id: 's1', usage: { input_tokens: 2 } } }, parent_tool_use_id: 'toolu_x' });
+  conta({ event: { type: 'content_block_delta', delta: { text: 'z'.repeat(8) } }, parent_tool_use_id: 'toolu_x' });
+  assert.equal(acc.output_tokens, 35, 'subagente conta na própria mensagem, sem misturar com a principal');
+  assert.equal(usoDoStream(new Map(), { event: { type: 'content_block_delta', delta: { text: 'a' } } }), null, 'delta sem message_start não inventa mensagem');
 });
 
 test('com evento final, registra ELE e não o acumulado: senão conta duas vezes', async () => {

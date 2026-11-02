@@ -1,3 +1,4 @@
+import { criteriaFixture } from './helpers/criteria-fixture.js';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -59,7 +60,7 @@ test('decisão produzida pela revisão real preserva inventário e pode ser audi
   e.approvePolicyFor = () => 'wait'; e.rejectPolicyFor = () => 'wait';
   e.postReview = () => assert.fail('revisão configurada para aguardar');
   e.runClaudeStream = async () => ({ sessionId: 'review-fixture', text: JSON.stringify({
-    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve',
+    protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve',
     cardMet: true, reasons: [], reportMarkdown: 'Contrato conferido.', findings: f.round.findings,
     coverage: { total: 1, reviewed: ['src/a.ts'], missing: [] },
     alcance: [{ alterado: 'src/a.ts', chamadores: [], semChamador: 'entrypoint sintético' }],
