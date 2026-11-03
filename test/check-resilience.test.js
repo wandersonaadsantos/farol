@@ -106,8 +106,9 @@ test('falha da busca de UMA conta preserva myPRs, autoanálise e ocultos DELA (G
   e.hidePR(PR_B.key);
   assert.ok(e.hiddenPRs[PR.key] && e.hiddenPRs[PR_B.key], 'ocultei os dois');
 
-  // ciclo 2: a conta 'voce' cai; a conta 'me' responde e confirma que o PR dela fechou
+  // ciclo 2: a conta 'voce' cai; a busca autoral de 'me' volta vazia.
   e.autorais = { me: [], voce: null };
+  e.prState = async () => 'CLOSED'; // Fechamento confirmado fora do índice autoral.
   await e.check('test');
 
   assert.deepEqual(e.myPRs.map(p => p.key), [PR_B.key],
@@ -117,11 +118,11 @@ test('falha da busca de UMA conta preserva myPRs, autoanálise e ocultos DELA (G
   assert.ok(e.selfAnalyses[PR.key],
     'nem a da conta que respondeu sai na PRIMEIRA ausência: o gh search é índice, e índice atrasado devolve ok incompleto');
 
-  // ciclo 3: a mesma conta responde de novo e o PR continua ausente. Duas medições
-  // independentes concordando é o que separa "o PR fechou" de "o índice piscou".
+  // ciclo 3: a segunda ausência permite consultar o estado diretamente.
+  // O índice vazio sozinho não comprova fechamento.
   await e.check('test');
   assert.equal(e.selfAnalyses[PR.key], undefined,
-    'na segunda ausência seguida a análise é podada (o PR fechou de verdade)');
+    'na segunda ausência a consulta direta confirma fechamento e permite a poda');
   assert.ok(e.selfAnalyses[PR_B.key],
     'e a da conta caída segue intacta, porque ela nunca chegou a responder');
   assert.ok(e.hiddenPRs[PR_B.key],
