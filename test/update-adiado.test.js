@@ -139,6 +139,25 @@ test('checkout git: não tenta, não loga, não arma backoff e declara a indispo
   assert.equal(e.update.indisponivel, 'checkout-git');
 });
 
+// O Electron aplica o pacote baixado com o installer e nunca recusou checkout git; só o
+// servidor e a casca recusam. No Electron o checkout não pode desligar o update.
+test('checkout git no Electron: o update segue e nada é declarado indisponível', async () => {
+  const e = engineComUpdate();
+  let aplicou = false;
+  const r = await update.maybeAutoUpdate(e, { checkoutGit: true, externa: false, electronVersion: '33.0.0', applyUpdate: async () => { aplicou = true; return { ok: true, from: '0.0.1', to: '9.9.9' }; } });
+  assert.equal(aplicou, true);
+  assert.equal(r.ok, true);
+  assert.equal(e.update.indisponivel, undefined);
+});
+
+test('checkUpdateRemote no Electron em checkout git não grava indisponibilidade', async () => {
+  const e = engineComUpdate();
+  e.ghEnv = () => ({});
+  const run = async () => ({ ok: true, stdout: JSON.stringify({ tagName: 'v9.9.9', assets: [] }) });
+  await update.checkUpdateRemote(e, 'x/y', { run, checkoutGit: true, externa: false, electronVersion: '33.0.0' });
+  assert.equal(e.update.indisponivel, null);
+});
+
 test('motivoDeIndisponibilidade: externo vence checkout git, e sem nenhum é null', () => {
   assert.equal(update.motivoDeIndisponibilidade({ externo: true, checkoutGit: true }), 'externo');
   assert.equal(update.motivoDeIndisponibilidade({ externo: false, checkoutGit: true }), 'checkout-git');
