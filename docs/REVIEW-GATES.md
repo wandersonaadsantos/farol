@@ -1176,6 +1176,23 @@ Somente `.env.example` e `.env.sample` regulares têm opt-in fechado: mostram ch
 convencionais, ocultando valores, comentários e continuações multilinha. Outros `.env*`
 continuam excluídos. Templates sem o esquema suportado são recusados.
 
+**Arquivo de ambiente no fluxo normal (03/11/2026).** Um PR que só altera `.env.dev` nunca
+fechava a cobertura, porque o patch de `.env*` era recusado. Liberar o patch não serve: as linhas
+de contexto e o título do hunk podem trazer segredos versionados. `lib/review-source/env-changes.js`
+entrega só as linhas alteradas, sem contexto e sem o texto de seção do hunk, e mostra o valor
+apenas quando ele é vazio, booleano, número curto em chave de medida (`_PORT`, `_TIMEOUT`) ou a
+origem de uma URL http(s), sem caminho, credencial, query ou fragmento; chave com nome de segredo
+sempre oculta. Comentário nunca aparece: é texto livre, e nenhuma régua fechou (três rodadas de
+revisão adversarial acharam senha em comentário e em caminho de URL). O comentário que não parece
+prosa conta como oculto. Chave fora da convenção esconde a linha inteira. Ler esse patch conta como
+cobertura. O arquivo inteiro continua recusado pelo leitor, e os demais caminhos protegidos seguem
+sem patch. Valor oculto segura a aprovação automática (`valor_oculto_de_ambiente`, vai para a pessoa
+com o motivo), salvo quando o autor tem o papel Tech Lead no cadastro local, por decisão do dono.
+Patch truncado pelo GitHub vai sempre para a pessoa, mesmo com Tech Lead: o que não veio não foi visto.
+Caminho protegido sem essa projeção segura para qualquer autor (`protegido_sem_leitura`). Limite
+conhecido: comentário com senha em forma de frase passa sem ser visto por ninguém; ele não chega à
+sessão, mas também não segura a aprovação.
+
 Na execução restrita, blobs novos não são persistidos no cache compartilhado; entradas
 já existentes podem ser lidas e verificadas. O reader conserva somente texto projetado,
 digest e metadados em cache efêmero por execução, com orçamento de 32 MiB de payload

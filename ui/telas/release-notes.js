@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.27', [
+    'PR que altera arquivo de ambiente é revisado pelo fluxo normal: a sessão recebe só as linhas alteradas, com valores ocultos quando podem ser credencial.',
+    'Valor oculto segura a aprovação automática e vai para a pessoa, salvo com autor Tech Lead. Patch truncado e arquivo protegido não lido vão sempre para a pessoa.',
+  ]],
   ['2.78.26', [
     'Autoanálise de PR de outro autor não desaparece mais por estar fora da lista de minha autoria. A remoção exige confirmação direta de fechamento no GitHub.',
     'Falha de consulta preserva o relatório e o histórico, inclusive quando uma nova análise termina durante a conferência.',

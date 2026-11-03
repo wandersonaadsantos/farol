@@ -174,6 +174,32 @@ test('caminhos sensíveis mantêm inventário sem persistir patch ou conteúdo',
   assert.equal((await source.reader.read('.env')).status, 'excluded');
   assert.equal(fx.calls.filter(x => x.includes('/git/blobs')).length, 0);
 });
+test('arquivo de ambiente: patch só com as linhas alteradas, e o arquivo inteiro continua recusado', async t => {
+  const segredo = 'Zk3vQ9pLm2Xw7Rt5Yb8Nc1Df4Gh6Jk0S';
+  const patch = `@@ -1,2 +1,3 @@ AUTH_SECRET=${segredo}\n INTERNAL_PROXY_SECRET=${segredo}\n+LP_ZONE_ORIGIN=https://lp.exemplo.com\n`;
+  const fx = await fixture(t, { pages: [[{ ...file, path: '.env.dev', patch, additions: 1, deletions: 0 }]] }), source = await fx.prepare(); t.after(source.release);
+  const entrada = source.manifest.files[0];
+  assert.ok(entrada.patch.includes('+LP_ZONE_ORIGIN=https://lp.exemplo.com'));
+  assert.ok(!entrada.patch.includes(segredo));
+  assert.equal(entrada.patchStatus, 'available');
+  assert.equal(entrada.sensitive, true);
+  assert.equal(entrada.patchOrigin.policy, 'env-changes');
+  assert.deepEqual({ kind: entrada.representation.kind, hiddenValues: entrada.representation.hiddenValues }, { kind: 'env-changes', hiddenValues: 0 });
+  assert.match(source.manifest.limitations[0].reason, /conta como cobertura/);
+  assert.equal((await source.reader.read('.env.dev')).status, 'excluded');
+  assert.equal(fx.calls.filter(x => x.includes('/git/blobs')).length, 0);
+});
+test('arquivo de ambiente com patch truncado fica marcado como parcial', async t => {
+  const fx = await fixture(t, { pages: [[{ ...file, path: '.env.dev', patch: '@@ -1 +1 @@\n+FEATURE=true', additions: 500, deletions: 0 }]] }), source = await fx.prepare(); t.after(source.release);
+  assert.equal(source.manifest.files[0].patchStatus, 'partial');
+  assert.equal(source.manifest.files[0].representation.partial, true);
+  assert.match(source.manifest.limitations[0].reason, /coverage\.missing/);
+});
+test('outro caminho protegido continua sem patch nenhum', async t => {
+  const fx = await fixture(t, { pages: [[{ ...file, path: 'secrets/config.json', patch: '@@ -1 +1 @@\n+FEATURE=true' }]] }), source = await fx.prepare(); t.after(source.release);
+  assert.equal(source.manifest.files[0].patch, null);
+  assert.equal(source.manifest.files[0].patchOrigin.policy, 'protected-path');
+});
 test('patch com possível credencial não é persistido no escopo preparado', async t => {
   const fx = await fixture(t, { pages: [[{ ...file, patch: '+GH_TOKEN=ghp_' + 'z'.repeat(30) }]] }), source = await fx.prepare();
   assert.equal(source.manifest.files[0].patch, null); assert.equal(source.manifest.files[0].sensitive, true); await source.release();
