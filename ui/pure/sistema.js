@@ -323,7 +323,7 @@ export function settingsIgnoradasTexto(r) {
 // O instalador do sistema atual vem primeiro; anexo ausente vira texto, nunca link morto.
 // No Linux não há casca nativa: o texto aponta o modo servidor, sem link de dmg nem msix.
 export function pontePainelHtml(u, plataforma) {
-  const p = (u && u.ponte) || {};
+  const p = u?.ponte ?? {};
   const versoes = `<span class="up-ver">v${esc(u.current)} → v${esc(p.versao)}</span>`;
   if (plataforma === 'linux') {
     return `
@@ -348,7 +348,7 @@ export function pontePainelHtml(u, plataforma) {
 // Instalação que não se atualiza sozinha: diz o motivo em vez de oferecer um botão que
 // falharia (engine.update.indisponivel, lib/engine/update.js).
 export function updateIndisponivelHtml(u) {
-  const motivo = u && u.indisponivel;
+  const motivo = u?.indisponivel;
   if (motivo === 'checkout-git') return '<span class="up-note">Atualização automática indisponível nesta instalação: ela roda de um checkout git. Atualize com git pull.</span>';
   if (motivo === 'externo') return '<span class="up-note">Atualização administrada por fora desta instalação.</span>';
   return '';

@@ -57,11 +57,8 @@ test('a paleta de comandos usa funções de decisão que EXISTEM no app.js', () 
   assert.match(APPJS, /comandosDasPendencias\(estado\(\)\?\.decisions\?\.pending, \{ scopeVisible, decide, decideComConfirmacao \}\)/);
 });
 
-test('a paleta não lista o botão da própria paleta e troca a sub-aba do Radar nas entradas "Ir para"', () => {
+test('a paleta não lista o botão da própria paleta', () => {
   assert.match(APPJS, /querySelectorAll\('\.nav-item:not\(\.cmd-open\)'\)/, 'o #btnCmdK (nav-item + cmd-open) fica fora');
-  for (const [rotulo, sub] of [['Pra mim', 'mim'], ['Precisa de você', 'mim'], ['Sua fila', 'mim'], ['Meus PRs', 'meus'], ['Panorama', 'pano']]) {
-    assert.match(APPJS, new RegExp(`label: 'Ir para ${rotulo}'[^\\n]*irParaSubDoRadar\\('${sub}'`), `${rotulo} troca para a sub-aba ${sub}`);
-  }
 });
 
 test('o clique num item da paleta fecha a paleta ANTES de rodar e captura a rejeição', () => {

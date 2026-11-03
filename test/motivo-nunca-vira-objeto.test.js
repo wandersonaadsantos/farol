@@ -60,11 +60,11 @@ test('main.js nunca interpola motivo cru numa string', () => {
   assert.deepEqual(cru, [], `interpolação crua de motivo em main.js: ${cru.join(', ')}`);
 });
 
-test('main.js usa a fonte única do unwrap (lib/format.js)', () => {
-  const fonte = fs.readFileSync(path.join(RAIZ, 'main.js'), 'utf8');
-  assert.match(fonte, /import \{ reasonText \} from '\.\/lib\/format\.js'/);
-  // e não reimplementa a própria cópia
-  assert.doesNotMatch(fonte, /function reasonText/);
+test('as notificações usam a fonte única do unwrap (lib/format.js)', () => {
+  const avisos = fs.readFileSync(path.join(RAIZ, 'lib', 'engine', 'avisos-nativos.js'), 'utf8');
+  assert.match(avisos, /import \{ reasonText \} from '\.\.\/format\.js'/);
+  // e o main.js não reimplementa a própria cópia
+  assert.doesNotMatch(fs.readFileSync(path.join(RAIZ, 'main.js'), 'utf8'), /function reasonText/);
 });
 
 // o engine também: a cópia local dele foi removida na v2.51.1

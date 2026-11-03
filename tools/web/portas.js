@@ -78,9 +78,9 @@ function serializarPortas(registros) {
   return registros.map(({ login, porta }) => `${login} ${porta}\n`).join('');
 }
 
-function proximaPortaLivre(registros, aPartirDe = DEFAULT_PORT) {
+function proximaPortaLivre(registros) {
   const ocupadas = new Set(registros.map(r => r.porta));
-  let porta = aPartirDe;
+  let porta = DEFAULT_PORT;
   while (ocupadas.has(porta)) porta += 1;
   if (porta > PORTA_MAX) throw new Error('nenhuma porta livre até 65535');
   return porta;

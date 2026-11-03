@@ -1,5 +1,5 @@
-// A busca do Sistema e as seções que somem com a sincronização desligada. Extraído de
-// ui/telas/sistema.js: o índice e as duas regras são puros, a tela só desenha.
+// A busca do Sistema. Extraído de ui/telas/sistema.js: o índice e o filtro são puros, a tela só
+// desenha.
 
 import { sysNorm } from './comum.js';
 
@@ -60,11 +60,4 @@ export function buscarNoSistema(indice, query, nomeDaSecao) {
   return indice.filter((e) => sysNorm(`${e.title} ${e.hint} ${nomeDaSecao(e.sec)}`).includes(q));
 }
 
-// Aparelhos e Grupos só fazem sentido com a sincronização ligada: desligada, as duas
-// seções só mostravam o aviso de que ela está desligada.
-export function secoesOcultasDoSistema(config) {
-  const ligada = !!(config && config.sync && config.sync.enabled === true);
-  return ligada ? [] : ['devices', 'groups'];
-}
-
-export default { SYS_INDEX, buscarNoSistema, secoesOcultasDoSistema };
+export default { SYS_INDEX, buscarNoSistema };

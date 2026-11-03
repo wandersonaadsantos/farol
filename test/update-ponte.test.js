@@ -42,7 +42,6 @@ test('com Electron e release 3.0.0: não oferece o pacote, aponta dmg e msix e a
     versao: '3.0.0',
     dmg: url('3.0.0', 'Farol-3.0.0.dmg'),
     msix: url('3.0.0', 'Farol-3.0.0.msix'),
-    appinstaller: url('3.0.0', 'Farol.appinstaller'),
   });
   await checkUpdateRemote(engine, REPO, deps);
   const avisos = engine.emitidos.filter(e => e.evento === 'update-ponte');
@@ -60,7 +59,6 @@ test('com Electron e release 3.1.0 sem msix: o link do Windows fica nulo, nunca 
   assert.equal(engine.update.available, false);
   assert.equal(engine.update.ponte.dmg, url('3.1.0', 'Farol-3.1.0.dmg'));
   assert.equal(engine.update.ponte.msix, null);
-  assert.equal(engine.update.ponte.appinstaller, null);
 });
 
 test('com Electron e release 2.x: update comum, sem ponte', async () => {
@@ -103,7 +101,7 @@ test('canal local com Electron e árvore 3.x: indisponível, com a ponte sem lin
   await checkUpdate(engine, { electronVersion: '39.0.0', casca: '' });
   assert.equal(engine.update.channel, 'local');
   assert.equal(engine.update.available, false);
-  assert.deepEqual(engine.update.ponte, { versao: '3.2.0', dmg: null, msix: null, appinstaller: null });
+  assert.deepEqual(engine.update.ponte, { versao: '3.2.0', dmg: null, msix: null });
   assert.equal(engine.emitidos.filter(e => e.evento === 'update-ponte').length, 1);
 });
 

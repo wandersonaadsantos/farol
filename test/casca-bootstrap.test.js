@@ -12,9 +12,13 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-casca-bootstrap-'));
 process.env.FAROL_HOME = path.join(TMP, 'home');
 
 let mod;
+let motores;
+let vigia;
 let paths;
 before(async () => {
   mod = await import('../lib/engine/casca-bootstrap.js');
+  motores = await import('../lib/engine/casca-motores.js');
+  vigia = await import('../lib/engine/casca-vigia-do-pai.js');
   paths = await import('../lib/paths.js');
 });
 
@@ -55,22 +59,15 @@ function pidMorto() {
 
 test('vigiarPai chama aoMorrer quando o pai não existe mais, uma vez só', async () => {
   let vezes = 0;
-  const parar = mod.vigiarPai({ pid: pidMorto(), intervaloMs: 5, aoMorrer: () => { vezes++; } });
+  const parar = vigia.vigiarPai({ pid: pidMorto(), intervaloMs: 5, aoMorrer: () => { vezes++; } });
   await new Promise(r => setTimeout(r, 60));
-  parar();
-  assert.equal(vezes, 1);
-});
-
-test('vigiarPai com agora confere na hora', () => {
-  let vezes = 0;
-  const parar = mod.vigiarPai({ pid: pidMorto(), intervaloMs: 60000, aoMorrer: () => { vezes++; }, agora: true });
   parar();
   assert.equal(vezes, 1);
 });
 
 test('vigiarPai com o pai vivo não chama aoMorrer', async () => {
   let vezes = 0;
-  const parar = mod.vigiarPai({ pid: process.pid, intervaloMs: 5, aoMorrer: () => { vezes++; }, agora: true });
+  const parar = vigia.vigiarPai({ pid: process.pid, intervaloMs: 5, aoMorrer: () => { vezes++; } });
   await new Promise(r => setTimeout(r, 40));
   parar();
   assert.equal(vezes, 0);
@@ -147,7 +144,7 @@ test('escolhe a maior versão compatível acima da semeada', () => {
   const r280 = motor(pastaEngine, '2.80.0', { version: '2.80.0', engines: COMPATIVEL });
   motor(pastaEngine, '2.81.0', { version: '2.81.0', engines: { farolShell: '>=4.0.0 <5' } });
   motor(pastaEngine, '2.79.0', { version: '2.79.0', engines: COMPATIVEL });
-  const r = mod.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
+  const r = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
   assert.equal(r.versao, '2.80.0');
   assert.equal(r.raiz, r280);
   assert.equal(r.motivo, 'instalada');
@@ -158,7 +155,7 @@ test('entre duas compatíveis ganha a maior, comparando por número', () => {
   const pastaEngine = pastaNova();
   motor(pastaEngine, '2.9.0', { version: '2.9.0', engines: COMPATIVEL });
   const r10 = motor(pastaEngine, '2.10.0', { version: '2.10.0', engines: COMPATIVEL });
-  const r = mod.escolherMotor({ semeada: '2.8.0', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.2.1' });
+  const r = motores.escolherMotor({ semeada: '2.8.0', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.2.1' });
   assert.equal(r.raiz, r10);
 });
 
@@ -168,7 +165,7 @@ test('pasta corrompida ou sem package.json é ignorada e a semeada ganha', () =>
   motor(pastaEngine, '2.91.0', undefined);
   motor(pastaEngine, '2.92.0', { version: '2.93.0', engines: COMPATIVEL });
   motor(pastaEngine, '2.94.0', { version: '2.94.0', engines: COMPATIVEL }, { semServer: true });
-  const r = mod.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
+  const r = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
   assert.equal(r.raiz, '/bundle');
   assert.equal(r.versao, '2.79.5');
   assert.equal(r.motivo, 'nenhuma-compativel');
@@ -178,19 +175,19 @@ test('pasta corrompida ou sem package.json é ignorada e a semeada ganha', () =>
 test('package.json sem engines.farolShell é incompatível', () => {
   const pastaEngine = pastaNova();
   motor(pastaEngine, '2.80.0', { version: '2.80.0', engines: { node: '>=24.22.1 <25' } });
-  const r = mod.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
+  const r = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
   assert.equal(r.raiz, '/bundle');
   assert.deepEqual(r.ignoradas.map(i => i.motivo), ['sem-farolShell']);
 });
 
 test('sem a pasta engine, vazia, ou sem a versão da casca, a semeada ganha', () => {
-  const r = mod.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine: path.join(TMP, 'nao-existe'), versaoCasca: '3.0.0' });
+  const r = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine: path.join(TMP, 'nao-existe'), versaoCasca: '3.0.0' });
   assert.deepEqual([r.raiz, r.versao, r.motivo], ['/bundle', '2.79.5', 'sem-pasta']);
   const vazia = pastaNova();
-  assert.equal(mod.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine: vazia, versaoCasca: '3.0.0' }).motivo, 'semeada');
+  assert.equal(motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine: vazia, versaoCasca: '3.0.0' }).motivo, 'semeada');
   const pastaEngine = pastaNova();
   motor(pastaEngine, '2.80.0', { version: '2.80.0', engines: COMPATIVEL });
-  const r2 = mod.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '' });
+  const r2 = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '' });
   assert.equal(r2.raiz, '/bundle');
   assert.deepEqual(r2.ignoradas.map(i => i.motivo), ['casca-incompativel']);
 });
@@ -198,7 +195,7 @@ test('sem a pasta engine, vazia, ou sem a versão da casca, a semeada ganha', ()
 test('nome de pasta que não é X.Y.Z fica de fora', () => {
   const pastaEngine = pastaNova();
   motor(pastaEngine, 'tmp-download', { version: '9.0.0', engines: COMPATIVEL });
-  const r = mod.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
+  const r = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
   assert.equal(r.raiz, '/bundle');
   assert.deepEqual(r.ignoradas, []);
 });
@@ -208,10 +205,10 @@ test('podarMotores apaga só o que está abaixo das duas', () => {
   for (const v of ['2.70.0', '2.79.4', '2.79.5', '2.79.9', '2.80.0', '2.81.0']) motor(pastaEngine, v, { version: v });
   motor(pastaEngine, 'nao-versao', { version: '1.0.0' });
   fs.writeFileSync(path.join(pastaEngine, '1.0.0'), 'arquivo solto, não pasta');
-  const removidas = mod.podarMotores({ pastaEngine, manter: ['2.80.0', '2.79.5'] });
+  const removidas = motores.podarMotores({ pastaEngine, manter: ['2.80.0', '2.79.5'] });
   assert.deepEqual(removidas.sort(), ['2.70.0', '2.79.4']);
   assert.deepEqual(fs.readdirSync(pastaEngine).sort(), ['1.0.0', '2.79.5', '2.79.9', '2.80.0', '2.81.0', 'nao-versao']);
-  assert.deepEqual(mod.podarMotores({ pastaEngine: path.join(TMP, 'nao-existe'), manter: ['2.80.0'] }), []);
+  assert.deepEqual(motores.podarMotores({ pastaEngine: path.join(TMP, 'nao-existe'), manter: ['2.80.0'] }), []);
 });
 
 test('podarMotores apaga toda sobra X.Y.Z.tmp de update interrompido, e nada parecido', () => {
@@ -221,7 +218,7 @@ test('podarMotores apaga toda sobra X.Y.Z.tmp de update interrompido, e nada par
   fs.mkdirSync(path.join(pastaEngine, 'x.tmp'));
   fs.mkdirSync(path.join(pastaEngine, '2.81.0.tmp.bak'));
   fs.writeFileSync(path.join(pastaEngine, '3.0.0.tmp'), 'arquivo solto, não pasta');
-  const removidas = mod.podarMotores({ pastaEngine, manter: ['2.80.0'] });
+  const removidas = motores.podarMotores({ pastaEngine, manter: ['2.80.0'] });
   assert.deepEqual(removidas.sort(), ['2.70.0.tmp', '2.81.0.tmp', '9.9.9.tmp']);
   assert.deepEqual(fs.readdirSync(pastaEngine).sort(), ['2.80.0', '2.81.0.tmp.bak', '3.0.0.tmp', 'x.tmp']);
 });

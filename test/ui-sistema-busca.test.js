@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { SYS_INDEX, buscarNoSistema, secoesOcultasDoSistema } from '../ui/pure/sistema-busca.js';
+import { SYS_INDEX, buscarNoSistema } from '../ui/pure/sistema-busca.js';
+import { secoesOcultasDoSistema } from '../ui/pure/sistema-secoes.js';
 
 const html = fs.readFileSync(new URL('../ui/index.html', import.meta.url), 'utf8');
 

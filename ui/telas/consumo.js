@@ -131,7 +131,7 @@ function renderFilaJusta() {
 /* O orçamento mora fora do details: pinta ao entrar na aba, em qualquer escopo. */
 function renderOrcamento() {
   const budget = $('#usageBudget');
-  if (budget) budget.innerHTML = usageBudgetHtml((estado() && estado().usage) || {});
+  if (budget) budget.innerHTML = usageBudgetHtml(estado()?.usage ?? {});
 }
 
 function renderUsage() {

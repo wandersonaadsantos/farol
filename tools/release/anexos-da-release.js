@@ -24,6 +24,7 @@ import path from 'node:path';
 import { executadoDireto } from '../../lib/paths.js';
 import { safeStringify } from '../../lib/io.js';
 import { cmpVersion } from '../../lib/engine/update.js';
+import { CASCA } from '../../lib/constants.js';
 
 const VERSAO = /^\d+\.\d+\.\d+$/;
 
@@ -43,7 +44,6 @@ function artefatos(v) {
 }
 
 const relativo = (pasta, nome) => (pasta ? `${pasta}/${nome}` : nome);
-const PRIMEIRA_NATIVA = '3.0.0';
 
 function anexosDaRelease({ versao, existentes } = {}) {
   if (!VERSAO.test(String(versao ?? ''))) throw new Error(`versao malformada: ${versao} (esperado X.Y.Z)`);
@@ -65,7 +65,7 @@ function anexosDaRelease({ versao, existentes } = {}) {
     } else if (achado) anexar.push(achado);
     else faltando.push(a.nome);
   }
-  if (cmpVersion(versao, PRIMEIRA_NATIVA) >= 0) {
+  if (cmpVersion(versao, CASCA.PRIMEIRA_VERSAO_NATIVA) >= 0) {
     const nativosFaltando = artefatos(versao).filter((a) => a.nativo && faltando.includes(a.nome)).map((a) => a.nome);
     if (nativosFaltando.length) {
       return { anexar: [], faltando, retidos, erro: `artefato nativo ausente na release ${versao}: ${nativosFaltando.join(', ')}` };

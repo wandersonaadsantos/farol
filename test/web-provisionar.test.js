@@ -78,7 +78,6 @@ test('proximaPortaLivre começa na porta padrão e pula as ocupadas', () => {
     { login: 'caio', porta: DEFAULT_PORT + 3 },
   ];
   assert.equal(proximaPortaLivre(registros), DEFAULT_PORT + 2);
-  assert.equal(proximaPortaLivre(registros, DEFAULT_PORT + 3), DEFAULT_PORT + 4);
 });
 
 test('alocarPorta acrescenta no fim com a próxima livre', () => {

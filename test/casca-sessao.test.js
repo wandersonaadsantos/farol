@@ -30,7 +30,7 @@ function usarAte(token, t0, fim) {
 }
 
 test('código da classe casca gera sessão da classe casca', () => {
-  const { codigo } = criarCodigo(Date.now(), { classe: 'casca' });
+  const codigo = criarCodigo(Date.now(), { classe: 'casca' });
   const r = parear({ codigo, rotulo: 'Farol.app' });
   assert.equal(r.ok, true);
   const sessoes = listarSessoes();
@@ -54,24 +54,22 @@ test('sessão comum continua vencendo nos 90 dias', () => {
 });
 
 test('código comum gera sessão sem classe', () => {
-  const { codigo } = criarCodigo(Date.now());
+  const codigo = criarCodigo(Date.now());
   assert.equal(tentarCodigo(codigo).classe, '');
-  const { codigo: c2 } = criarCodigo(Date.now());
+  const c2 = criarCodigo(Date.now());
   assert.equal(parear({ codigo: c2, rotulo: 'navegador' }).ok, true);
   assert.equal(listarSessoes().at(-1).classe, '');
 });
 
 test('código consumido ou vencido não pareia (sidecar órfão)', () => {
-  const { codigo } = criarCodigo(Date.now(), { classe: 'casca' });
+  const codigo = criarCodigo(Date.now(), { classe: 'casca' });
   assert.equal(parear({ codigo }).ok, true);
   assert.equal(parear({ codigo }).ok, false, 'uso único');
-  const { codigo: c2 } = criarCodigo(Date.now() - TEMPOS.PAREAMENTO_VALIDADE_MS - 1, { classe: 'casca' });
+  const c2 = criarCodigo(Date.now() - TEMPOS.PAREAMENTO_VALIDADE_MS - 1, { classe: 'casca' });
   assert.equal(tentarCodigo(c2).ok, false, 'vencido');
 });
 
-test('criarCodigo devolve o código e a validade', () => {
+test('tentarCodigo devolve a classe com que o código foi criado', () => {
   const agora = Date.now();
-  const r = criarCodigo(agora, { classe: 'casca' });
-  assert.equal(r.expiraEm, agora + TEMPOS.PAREAMENTO_VALIDADE_MS);
-  assert.equal(tentarCodigo(r.codigo, agora).classe, 'casca');
+  assert.equal(tentarCodigo(criarCodigo(agora, { classe: 'casca' }), agora).classe, 'casca');
 });
