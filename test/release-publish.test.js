@@ -22,7 +22,8 @@ const NATIVOS = [`farol-v${V}.zip`, `mac/Farol-${V}.dmg`, 'mac/appcast.xml', `wi
 
 function montarArvore(versao = V, noDist = NATIVOS) {
   const V = versao;
-  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-publish-'));
+  // Caminho longo: no runner do Windows o TEMP vem como RUNNER~1, e o script devolve o nome longo.
+  const raiz = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-publish-')));
   const copiar = (rel) => fs.cpSync(path.join(RAIZ, rel), path.join(raiz, rel), { recursive: true });
   for (const rel of ['lib', 'tools/publish-release.ps1', 'tools/release-footer.md', 'tools/release/anexos-da-release.js']) copiar(rel);
   fs.writeFileSync(path.join(raiz, 'package.json'), `{ "name": "farol", "version": "${V}", "type": "module" }\n`);
