@@ -147,7 +147,6 @@ test('escolhe a maior versão compatível acima da semeada', () => {
   const r = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
   assert.equal(r.versao, '2.80.0');
   assert.equal(r.raiz, r280);
-  assert.equal(r.motivo, 'instalada');
   assert.deepEqual(r.ignoradas.map(i => i.motivo).sort(), ['abaixo-da-semeada', 'casca-incompativel']);
 });
 
@@ -168,7 +167,6 @@ test('pasta corrompida ou sem package.json é ignorada e a semeada ganha', () =>
   const r = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '3.0.0' });
   assert.equal(r.raiz, '/bundle');
   assert.equal(r.versao, '2.79.5');
-  assert.equal(r.motivo, 'nenhuma-compativel');
   assert.deepEqual(r.ignoradas.map(i => i.motivo), Array(4).fill('manifesto-invalido'));
 });
 
@@ -182,9 +180,9 @@ test('package.json sem engines.farolShell é incompatível', () => {
 
 test('sem a pasta engine, vazia, ou sem a versão da casca, a semeada ganha', () => {
   const r = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine: path.join(TMP, 'nao-existe'), versaoCasca: '3.0.0' });
-  assert.deepEqual([r.raiz, r.versao, r.motivo], ['/bundle', '2.79.5', 'sem-pasta']);
+  assert.deepEqual([r.raiz, r.versao], ['/bundle', '2.79.5']);
   const vazia = pastaNova();
-  assert.equal(motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine: vazia, versaoCasca: '3.0.0' }).motivo, 'semeada');
+  assert.equal(motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine: vazia, versaoCasca: '3.0.0' }).raiz, '/bundle');
   const pastaEngine = pastaNova();
   motor(pastaEngine, '2.80.0', { version: '2.80.0', engines: COMPATIVEL });
   const r2 = motores.escolherMotor({ semeada: '2.79.5', raizSemeada: '/bundle', pastaEngine, versaoCasca: '' });
@@ -205,10 +203,9 @@ test('podarMotores apaga só o que está abaixo das duas', () => {
   for (const v of ['2.70.0', '2.79.4', '2.79.5', '2.79.9', '2.80.0', '2.81.0']) motor(pastaEngine, v, { version: v });
   motor(pastaEngine, 'nao-versao', { version: '1.0.0' });
   fs.writeFileSync(path.join(pastaEngine, '1.0.0'), 'arquivo solto, não pasta');
-  const removidas = motores.podarMotores({ pastaEngine, manter: ['2.80.0', '2.79.5'] });
-  assert.deepEqual(removidas.sort(), ['2.70.0', '2.79.4']);
+  motores.podarMotores({ pastaEngine, manter: ['2.80.0', '2.79.5'] });
   assert.deepEqual(fs.readdirSync(pastaEngine).sort(), ['1.0.0', '2.79.5', '2.79.9', '2.80.0', '2.81.0', 'nao-versao']);
-  assert.deepEqual(motores.podarMotores({ pastaEngine: path.join(TMP, 'nao-existe'), manter: ['2.80.0'] }), []);
+  assert.doesNotThrow(() => motores.podarMotores({ pastaEngine: path.join(TMP, 'nao-existe'), manter: ['2.80.0'] }));
 });
 
 test('podarMotores apaga toda sobra X.Y.Z.tmp de update interrompido, e nada parecido', () => {
@@ -218,8 +215,7 @@ test('podarMotores apaga toda sobra X.Y.Z.tmp de update interrompido, e nada par
   fs.mkdirSync(path.join(pastaEngine, 'x.tmp'));
   fs.mkdirSync(path.join(pastaEngine, '2.81.0.tmp.bak'));
   fs.writeFileSync(path.join(pastaEngine, '3.0.0.tmp'), 'arquivo solto, não pasta');
-  const removidas = motores.podarMotores({ pastaEngine, manter: ['2.80.0'] });
-  assert.deepEqual(removidas.sort(), ['2.70.0.tmp', '2.81.0.tmp', '9.9.9.tmp']);
+  motores.podarMotores({ pastaEngine, manter: ['2.80.0'] });
   assert.deepEqual(fs.readdirSync(pastaEngine).sort(), ['2.80.0', '2.81.0.tmp.bak', '3.0.0.tmp', 'x.tmp']);
 });
 

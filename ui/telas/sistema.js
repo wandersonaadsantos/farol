@@ -46,7 +46,7 @@ function secaoDoSistema() { return SISTEMA_SECTION; }
 /* Aparelhos e Grupos somem do menu com a sincronização desligada (só mostravam o aviso
    de que ela está desligada). Se a pessoa estava numa delas, volta para Sincronização. */
 function ocultarSecoesInertes() {
-  const ocultas = secoesOcultasDoSistema(estado() && estado().config);
+  const ocultas = secoesOcultasDoSistema(estado()?.config);
   document.querySelectorAll('.sys-nav-item').forEach(b => {
     b.hidden = ocultas.includes(b.dataset.section);
   });
@@ -93,7 +93,7 @@ function sysSearchFilter(query) {
     navItems.forEach(b => { b.classList.remove('match'); b.classList.toggle('active', b.dataset.section === SISTEMA_SECTION); });
     return;
   }
-  const ocultas = secoesOcultasDoSistema(estado() && estado().config);
+  const ocultas = secoesOcultasDoSistema(estado()?.config);
   const hits = buscarNoSistema(SYS_INDEX, query, sysSecName).filter(h => !ocultas.includes(h.sec));
   // enquanto busca, nenhuma seção fica aberta: quem ocupa a área é a lista de resultados
   document.querySelectorAll('.sys-section').forEach(s => s.classList.remove('active'));
