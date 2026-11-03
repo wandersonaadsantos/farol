@@ -212,7 +212,7 @@ test('a versão que já roda nunca apaga a própria pasta', () => {
   escrever(path.join(d.pastaEngine, APP_VERSION), 'server.js', 'o motor em uso');
   const r = aplicarNaCasca(motorFalso(pacote(APP_VERSION), APP_VERSION), d);
   assert.equal(r.ok, false);
-  assert.match(r.error, new RegExp(APP_VERSION.replace(/\./g, '\\.')));
+  assert.ok(r.error.includes(APP_VERSION), r.error);
   assert.equal(fs.readFileSync(path.join(d.pastaEngine, APP_VERSION, 'server.js'), 'utf8'), 'o motor em uso');
   assert.deepEqual(d.relogio.agendados, []);
 });

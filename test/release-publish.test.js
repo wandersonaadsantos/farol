@@ -79,7 +79,7 @@ test('FAROL_SO_ANEXAR=1: anexa o que o anexosDaRelease devolve, sem construir na
     assert.ok(!fs.existsSync(path.join(dist, `Farol-Setup-v${V}.exe`)));
     const notas = fs.readFileSync(create[create.indexOf('--notes-file') + 1], 'utf8');
     assert.match(notas, /casca nativa nos dois sistemas/);
-    assert.match(notas, new RegExp(`Farol-${V.replace(/\./g, '\\.')}\\.dmg`));
+    assert.ok(notas.includes(`Farol-${V}.dmg`), notas);
     assert.doesNotMatch(notas, /Generated with|Co-Authored|Anthropic|🤖/i);
     // "Claude" só aparece como o CLI que o Farol orquestra (pré-requisito), nunca como autoria
     const semPreRequisito = notas.split('\n').filter((l) => !/Pré-requisitos/.test(l)).join('\n');

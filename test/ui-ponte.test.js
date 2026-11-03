@@ -40,7 +40,7 @@ test('link nulo vira texto, nunca link morto', () => {
 
 test('versão e link passam pelo escape', () => {
   const html = pontePainelHtml({ ...u, ponte: { ...ponte, versao: '<b>3</b>', dmg: 'https://x/"><script>' } }, 'darwin');
-  assert.doesNotMatch(html, /<script>/);
+  assert.doesNotMatch(html, /<script\b/i);
   assert.doesNotMatch(html, /<b>3<\/b>/);
 });
 

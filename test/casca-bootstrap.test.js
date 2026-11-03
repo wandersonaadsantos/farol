@@ -283,8 +283,9 @@ test('reexecutar repassa o SIGTERM do pai ao filho e sai com o código dele', { 
   const marca = path.join(raiz, 'marca.txt');
   fs.writeFileSync(path.join(raiz, 'server.js'), [
     `const fs = require('node:fs');`,
-    `process.on('SIGTERM', () => { fs.appendFileSync(${JSON.stringify(marca)}, 'recebi SIGTERM ' + process.pid + '\\n'); process.exit(0); });`,
-    `fs.writeFileSync(${JSON.stringify(marca)}, 'pronto ' + process.pid + '\\n');`,
+    `const marca = require('node:path').join(__dirname, 'marca.txt');`,
+    `process.on('SIGTERM', () => { fs.appendFileSync(marca, 'recebi SIGTERM ' + process.pid + '\\n'); process.exit(0); });`,
+    `fs.writeFileSync(marca, 'pronto ' + process.pid + '\\n');`,
     `setInterval(() => {}, 1000);`,
   ].join('\n'));
   fs.writeFileSync(path.join(raiz, 'package.json'), JSON.stringify({ type: 'commonjs' }));
@@ -311,8 +312,9 @@ test('reexecutar em modo casca: o EOF do stdin vira SIGTERM no filho', { skip: p
   const marca = path.join(raiz, 'marca.txt');
   fs.writeFileSync(path.join(raiz, 'server.js'), [
     `const fs = require('node:fs');`,
-    `process.on('SIGTERM', () => { fs.appendFileSync(${JSON.stringify(marca)}, 'recebi SIGTERM\\n'); process.exit(0); });`,
-    `fs.writeFileSync(${JSON.stringify(marca)}, 'pronto\\n');`,
+    `const marca = require('node:path').join(__dirname, 'marca.txt');`,
+    `process.on('SIGTERM', () => { fs.appendFileSync(marca, 'recebi SIGTERM\\n'); process.exit(0); });`,
+    `fs.writeFileSync(marca, 'pronto\\n');`,
     `setInterval(() => {}, 1000);`,
   ].join('\n'));
   fs.writeFileSync(path.join(raiz, 'package.json'), JSON.stringify({ type: 'commonjs' }));

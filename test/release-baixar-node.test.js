@@ -87,10 +87,12 @@ test.before(async () => {
   servidor = http.createServer((req, res) => {
     const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const alvo = path.join(SITE, path.normalize(rel));
-    if (!alvo.startsWith(SITE) || !fs.existsSync(alvo) || !fs.statSync(alvo).isFile()) {
-      res.writeHead(404); res.end('nao achei'); return;
+    let conteudo = null;
+    if (alvo.startsWith(SITE)) {
+      try { conteudo = fs.readFileSync(alvo); } catch { /* ausente ou pasta: 404 abaixo */ }
     }
-    res.writeHead(200); res.end(fs.readFileSync(alvo));
+    if (conteudo === null) { res.writeHead(404); res.end('nao achei'); return; }
+    res.writeHead(200); res.end(conteudo);
   });
   await new Promise((ok) => servidor.listen(0, '127.0.0.1', ok));
   origem = `http://127.0.0.1:${servidor.address().port}`;
@@ -167,7 +169,7 @@ for (const script of [SH, PS1]) {
     const r = await rodar(script, ['--versao', VERSAO_ERRADA, '--plataforma', 'darwin-x64', '--destino', destino, '--origem', origem]);
     assert.notEqual(r.code, 0);
     const saida = r.stderr + r.stdout;
-    assert.match(saida, new RegExp(VERSAO_ERRADA.replace(/\./g, '\\.')));
+    assert.ok(saida.includes(VERSAO_ERRADA), saida);
     assert.ok(saida.includes(arquivo), saida);
     assert.ok(saida.includes('f'.repeat(64)), `sem o hash esperado: ${saida}`);
     assert.ok(saida.includes(real), `sem o hash obtido: ${saida}`);

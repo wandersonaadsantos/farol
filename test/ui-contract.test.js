@@ -135,7 +135,7 @@ test('dentro da casca Mac a topbar recua para os semáforos como no Electron do 
   const css = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.css'), 'utf8');
   const app = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
   const recuo = (seletor) => {
-    const m = css.match(new RegExp(`${seletor.replace(/[.[\]"=]/g, '\\$&')} \\.topbar-main \\{([^}]*)\\}`));
+    const m = css.match(new RegExp(`${seletor.replace(/[\\.[\]"=]/g, '\\$&')} \\.topbar-main \\{([^}]*)\\}`));
     return m ? m[1].replace(/\s+/g, ' ').trim() : null;
   };
   const doElectron = recuo('body.electron.mac');
