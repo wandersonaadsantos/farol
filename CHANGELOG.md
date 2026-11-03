@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.27
+
+PR que altera arquivo de ambiente agora é revisado e aprovado pelo fluxo normal, sem expor credencial.
+
+### Correções
+
+- Arquivo `.env*` deixou de travar a cobertura. A sessão recebe só as linhas alteradas, sem contexto e sem comentários, e o valor aparece apenas quando é vazio, booleano, número curto em chave de medida ou a origem de uma URL.
+- Valor oculto segura a aprovação automática e vai para a pessoa com o motivo, salvo quando o autor tem o papel Tech Lead. Patch truncado pelo GitHub e caminho protegido que a revisão não leu vão sempre para a pessoa.
+- O caminho de reserva da autoanálise não grava mais em disco o patch de arquivo protegido, nem de arquivo renomeado a partir de um, nem conteúdo com segredo reconhecido.
+- `prod.env` e `env.production` passam a ser tratados como arquivo de ambiente. Antes o patch deles ia cru para a sessão.
+
 ## v2.78.26
 
 As autoanálises permanecem disponíveis enquanto o PR continua aberto, mesmo quando ele pertence a outro autor.
