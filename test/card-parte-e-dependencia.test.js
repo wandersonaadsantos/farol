@@ -136,6 +136,19 @@ test('caminho protegido sem a projeção vai para a pessoa, mesmo de Tech Lead e
   comum.inventarioDiff.files = [{ path: 'src/env.test.ts' }];
   assert.deepEqual(shouldAutoApprove(engineComPapel('junior'), DA_ANA, comum), { ok: true, motivo: null });
 });
+// Tentar de novo não abre arquivo protegido: a análise incompleta por causa dele nunca conclui, e o
+// card prometia conclusão sozinho a cada tentativa (biud-frontend#1698, 03/11/2026).
+test('caminho protegido sem projeção vai direto para a pessoa, antes de qualquer motivo que recupera', () => {
+  const casos = [{ analysisStatus: 'incomplete' }, { coverage: { total: 1, reviewed: [], missing: ['secrets/a.json'] } }, { verdict: 'comment' }];
+  for (const extra of casos) {
+    const r = { ...comAmbiente(0), ...extra };
+    r.inventarioDiff.files = [{ path: 'secrets/a.json' }];
+    assert.equal(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, r).motivo, 'protegido_sem_leitura', JSON.stringify(extra));
+    const texto = textoDaRecusa(engineComPapel('techlead'), DA_ANA, 'protegido_sem_leitura', r);
+    assert.match(texto, /secrets\/a\.json/);
+    assert.doesNotMatch(texto, /Aprovar/, 'a saída pode ser reprovar ou comentar');
+  }
+});
 test('valor oculto com cobertura pendente segue para a recuperação da prova, não direto para a pessoa', () => {
   const r = { ...comAmbiente(1), coverage: { total: 1, reviewed: [], missing: ['a.md'] } };
   assert.equal(shouldAutoApprove(engineComPapel('junior'), DA_ANA, r).motivo, 'prova_tecnica_incompleta');
