@@ -16,6 +16,17 @@ function engineFalso() {
   return e;
 }
 
+test('primeira checagem com a fila vazia grava o baseline e não avisa', () => {
+  const e = { vistos: [], ignorados: [], toasts: [], baseline: null };
+  e.markSeen = () => {};
+  e.marcarIgnorado = () => {};
+  e.emit = (tipo, dados) => e.toasts.push([tipo, dados]);
+  const arq = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'farol-baseline-reg-')), 'baseline');
+  registrarBaseline(e, arq, []);
+  assert.equal(e.baseline.marcados, 0);
+  assert.equal(e.toasts.length, 0);
+});
+
 test('registrarBaseline marca o estoque, grava o arquivo, guarda o retrato e avisa', () => {
   const arq = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'farol-baseline-reg-')), 'baselined');
   const e = engineFalso();

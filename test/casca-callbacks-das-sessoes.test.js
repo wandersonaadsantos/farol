@@ -75,6 +75,19 @@ test('POST /api/session-exit: segredo certo encerra, errado ou ausente é 401', 
   assert.equal(engine.activeReviews.has('t-saida'), false, 'a sessão saiu de activeReviews');
 });
 
+test('POST /api/session-exit com corpo que não é objeto responde, em vez de ficar pendurado', async () => {
+  for (const corpo of ['null', '0', 'false', '""']) {
+    const status = await new Promise((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port: porta, method: 'POST', path: '/api/session-exit', headers: { 'x-farol': '1', 'content-type': 'application/json' }, timeout: 3000 },
+        (res) => { res.resume(); resolve(res.statusCode); });
+      req.on('timeout', () => { req.destroy(new Error(`corpo ${corpo} ficou sem resposta`)); });
+      req.on('error', reject);
+      req.end(corpo);
+    });
+    assert.equal(status, 401, corpo);
+  }
+});
+
 test('as credenciais de escopo único não abrem nenhuma outra rota', async () => {
   const cap = engine.createReviewPostCapability(['acme/repo#2'], 'eu', 'terminal', 't-cap2');
   const segredo = novoSegredoDeSaida();
