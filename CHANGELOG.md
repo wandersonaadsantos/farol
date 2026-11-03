@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.26
+
+As autoanálises permanecem disponíveis enquanto o PR continua aberto, mesmo quando ele pertence a outro autor.
+
+### Correções
+
+- Ausência na lista de PRs de minha autoria não apaga mais uma autoanálise solicitada manualmente. Antes de remover o relatório, o Farol confirma diretamente no GitHub que o PR foi fechado ou integrado.
+- Falha de consulta preserva o relatório e seu histórico. Um resultado novo que chega durante a conferência também é preservado.
+
 ## v2.78.25
 
 Menos alarme falso no log e no Diagnóstico, e mais pistas quando uma análise volta vazia ou é recusada pelo modelo.
