@@ -17,7 +17,7 @@ process.env.FAROL_HOME = path.join(root, 'home');
 const { TOOL } = await import('../lib/technical-review/verdict.js');
 const { approvalGaps } = await import('../lib/technical-review/evidence.js');
 const { attentionPoints } = await import('../lib/engine/ressalvas.js');
-const { shouldAutoApprove } = await import('../lib/engine/approval-policy.js');
+const { shouldAutoApprove, textoDaRecusa } = await import('../lib/engine/approval-policy.js');
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const head = 'a'.repeat(40);
@@ -90,4 +90,53 @@ test('CI vermelho e violação técnica continuam bloqueando o mesmo caso multi-
   assert.equal(shouldAutoApprove(engineCom('approve'), PEDIDO, violacao).motivo, 'prova_tecnica_incompleta');
   const leitura = multiRepo({ coverage: { total: 1, reviewed: [], missing: ['a.md'] } });
   assert.equal(shouldAutoApprove(engineCom('approve'), PEDIDO, leitura).motivo, 'prova_tecnica_incompleta');
+});
+
+// Arquivo de ambiente (03/11/2026): valor oculto segura só quando o autor não é Tech Lead.
+function comAmbiente(hiddenValues) {
+  return multiRepo({ inventarioDiff: { status: 'complete', reason: '', headSha: head, baseSha: 'b'.repeat(40), changedFiles: 1,
+    files: [{ path: 'a.md', representation: { kind: 'env-changes', hiddenValues, redactions: [] } }] } });
+}
+function engineComPapel(papel) {
+  return { ...engineCom('approve'), config: { people: papel ? { 'ana-dev': { papel } } : {} } };
+}
+const DA_ANA = { requested: true, author: 'Ana-Dev' };
+
+test('arquivo de ambiente sem valor oculto aprova sozinho, seja quem for o autor', () => {
+  assert.deepEqual(shouldAutoApprove(engineComPapel('junior'), DA_ANA, comAmbiente(0)), { ok: true, motivo: null });
+  assert.deepEqual(shouldAutoApprove(engineComPapel(null), DA_ANA, comAmbiente(0)), { ok: true, motivo: null });
+});
+test('valor oculto de Tech Lead aprova sozinho', () => {
+  assert.deepEqual(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, comAmbiente(2)), { ok: true, motivo: null });
+});
+test('valor oculto de quem não é Tech Lead, ou sem papel cadastrado, vai para a pessoa com o motivo', () => {
+  for (const papel of ['junior', 'senior', 'arquiteto', null]) {
+    assert.deepEqual(shouldAutoApprove(engineComPapel(papel), DA_ANA, comAmbiente(1)), { ok: false, motivo: 'valor_oculto_de_ambiente' }, String(papel));
+  }
+  assert.match(textoDaRecusa(engineComPapel('junior'), DA_ANA, 'valor_oculto_de_ambiente', comAmbiente(1)), /a\.md/);
+});
+test('Tech Lead não dispensa as outras provas', () => {
+  const semCobertura = { ...comAmbiente(1), coverage: { total: 1, reviewed: [], missing: ['a.md'] } };
+  assert.equal(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, semCobertura).ok, false);
+});
+test('patch truncado de arquivo de ambiente vai para a pessoa, mesmo de Tech Lead', () => {
+  const r = comAmbiente(0);
+  r.inventarioDiff.files[0].representation.partial = true;
+  assert.deepEqual(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, r), { ok: false, motivo: 'valor_oculto_de_ambiente' });
+});
+test('caminho protegido sem a projeção vai para a pessoa, mesmo de Tech Lead e com a cobertura declarada', () => {
+  for (const arquivo of [{ path: '.env.prod' }, { path: '.env.prod', representation: null }, { path: 'deploy/prod.env' },
+    { path: 'secrets/a.json' }, { path: 'notas.txt', previousPath: '.env.prod' }]) {
+    const r = comAmbiente(0);
+    r.inventarioDiff.files = [arquivo];
+    assert.deepEqual(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, r), { ok: false, motivo: 'protegido_sem_leitura' }, arquivo.path);
+    assert.ok(textoDaRecusa(engineComPapel('techlead'), DA_ANA, 'protegido_sem_leitura', r).includes(arquivo.path), arquivo.path);
+  }
+  const comum = comAmbiente(0);
+  comum.inventarioDiff.files = [{ path: 'src/env.test.ts' }];
+  assert.deepEqual(shouldAutoApprove(engineComPapel('junior'), DA_ANA, comum), { ok: true, motivo: null });
+});
+test('valor oculto com cobertura pendente segue para a recuperação da prova, não direto para a pessoa', () => {
+  const r = { ...comAmbiente(1), coverage: { total: 1, reviewed: [], missing: ['a.md'] } };
+  assert.equal(shouldAutoApprove(engineComPapel('junior'), DA_ANA, r).motivo, 'prova_tecnica_incompleta');
 });
