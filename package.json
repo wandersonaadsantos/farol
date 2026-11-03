@@ -32,6 +32,6 @@
     "electron": "^44.9.3"
   },
   "devDependencies": {
-    "@babel/parser": "7.28.5"
+    "@babel/parser": "8.0.10"
   }
 }
