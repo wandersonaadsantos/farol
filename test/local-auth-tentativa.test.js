@@ -26,7 +26,7 @@ const ERRADO = 'AAAAAAAAAA';
 
 test('código certo: ok, sem motivo e sem contagem', () => {
   const codigo = criarCodigo();
-  assert.deepEqual(tentarCodigo(codigo), { ok: true, code: '', restantes: null });
+  assert.deepEqual(tentarCodigo(codigo), { ok: true, classe: '', code: '', restantes: null });
 });
 
 test('errado com código pendente: diz quantas tentativas sobraram', () => {

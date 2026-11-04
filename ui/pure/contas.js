@@ -359,6 +359,16 @@ export const POLITICA_DA_CONTA_TEXTOS = Object.freeze({
   },
 });
 
+// A frase do aviso depois de mudar um dos quatro campos da política (com o Desfazer ao lado).
+// Vazia para campo que não é política, porque aviso só existe onde a mudança tem efeito no GitHub.
+export function textoDaMudancaDePolitica({ user, campo, para }) {
+  const def = POLITICA_DA_CONTA_TEXTOS[campo];
+  if (!def) return '';
+  const opcao = def.opcoes.find(([valor]) => valor === para);
+  const nova = opcao ? opcao[1] : String(para);
+  return `Política de @${user} alterada: ${def.rotulo}, ${nova}.`;
+}
+
 // O valor que a conta tem em cada campo, por extenso. O servidor grava os quatro em toda
 // conta (lib/engine/contas-migracao.js); a leitura tolerante é para o retrato otimista da
 // tela entre o clique e a resposta, e ela devolve o mesmo padrão da conta nova.
@@ -369,6 +379,13 @@ export function politicaDaContaNaTela(a) {
   const onCaveats = onClean === 'approve' && c.onCaveats !== 'wait' ? 'approve' : 'wait';
   const onReject = c.onReject === 'wait' ? 'wait' : 'request_changes';
   return { autoReview: c.autoReview !== false, onClean, onCaveats, onReject };
+}
+
+// O que devolve a conta ao estado de antes da mudança. Trocar "sem ressalvas" para aguardar também
+// leva o "com ressalvas" junto (aplicarEdicao, lib/engine/contas-config.js): desfazer só o campo
+// mexido deixaria a aprovação com ressalvas desligada sem ninguém ter pedido.
+export function politicaParaDesfazer(antes, campo) {
+  return campo === 'onClean' ? { onClean: antes.onClean, onCaveats: antes.onCaveats } : { [campo]: antes[campo] };
 }
 
 function opcoesDaPolitica(campo, atual) {

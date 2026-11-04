@@ -1,7 +1,7 @@
 /* Farol · UI: paleta de comando (Ctrl+K / Cmd+K). Ir a qualquer lugar rápido:
    abas, seções do Radar, ou colar/digitar URL/key de PR (org/repo#NN) pra abrir a
    conversa salva, sem precisar do mouse. Não é aba (não passa por registrarTela):
-   o bootstrap (ui/app.js) chama initPaleta(switchTab) no mesmo ponto em que a
+   o bootstrap (ui/app.js) chama initPaleta(switchTab, switchRadarSub) no mesmo ponto em que a
    ligação do #btnCmdK e o listener de Ctrl+K moravam. */
 
 import { esc } from '../pure.js';
@@ -22,6 +22,13 @@ import { comandosDasPendencias } from '../pure/paleta-decisoes.js';
    initPaleta faz só duas coisas: guarda a dependência e registra os
    handlers nomeados abaixo. */
 let _switchTab = null;
+let _switchRadarSub = null;
+
+// vai para uma sub-aba do Radar e, se houver, rola até a seção dela
+function irParaSubDoRadar(sub, secaoId) {
+  _switchTab('radar'); _switchRadarSub(sub);
+  if (secaoId) document.getElementById(secaoId)?.scrollIntoView({ behavior: 'smooth' });
+}
 
 /* Era `const`: o array era montado UMA vez, no load. As decisões pendentes mudam a cada
    evento SSE, então nunca entravam na paleta. Como função, ela é remontada a cada
@@ -29,17 +36,18 @@ let _switchTab = null;
    rota principal pra tudo que não cabe na tira de abas. */
 function cmdStatic() { return [
   ...comandosDasPendencias(estado()?.decisions?.pending, { scopeVisible, decide, decideComConfirmacao }),
-  ...[...document.querySelectorAll('.nav-item')].filter(b => !b.hidden).map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => _switchTab(b.dataset.tab) })),
+  ...[...document.querySelectorAll('.nav-item:not(.cmd-open)')].filter(b => !b.hidden).map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => _switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
   // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.
-  ...[...document.querySelectorAll('.sys-nav-item')].map(b => ({
+  ...[...document.querySelectorAll('.sys-nav-item')].filter(b => !b.hidden).map(b => ({
     kind: 'section', label: `Sistema: ${b.textContent.trim()}`, hint: 'sistema',
     run: () => { _switchTab('sistema'); switchSistemaSection(b.dataset.section); }
   })),
-  { kind: 'section', label: 'Ir para Precisa de você', hint: 'seção', run: () => { _switchTab('radar'); document.getElementById('decisionsWrap')?.scrollIntoView({ behavior: 'smooth' }); } },
-  { kind: 'section', label: 'Ir para Sua fila', hint: 'seção', run: () => { _switchTab('radar'); document.getElementById('queueSection')?.scrollIntoView({ behavior: 'smooth' }); } },
-  { kind: 'section', label: 'Ir para Meus PRs', hint: 'seção', run: () => { _switchTab('radar'); document.getElementById('myPRsWrap')?.scrollIntoView({ behavior: 'smooth' }); } },
-  { kind: 'section', label: 'Ir para Panorama', hint: 'seção', run: () => { _switchTab('radar'); document.getElementById('panoramaSection')?.scrollIntoView({ behavior: 'smooth' }); } },
+  { kind: 'section', label: 'Ir para Pra mim', hint: 'seção', run: () => irParaSubDoRadar('mim') },
+  { kind: 'section', label: 'Ir para Precisa de você', hint: 'seção', run: () => irParaSubDoRadar('mim', 'decisionsWrap') },
+  { kind: 'section', label: 'Ir para Sua fila', hint: 'seção', run: () => irParaSubDoRadar('mim', 'queueSection') },
+  { kind: 'section', label: 'Ir para Meus PRs', hint: 'seção', run: () => irParaSubDoRadar('meus') },
+  { kind: 'section', label: 'Ir para Panorama', hint: 'seção', run: () => irParaSubDoRadar('pano') },
   { kind: 'action', label: 'Verificar agora', hint: 'ação', run: () => $('#btnCheck').click() },
   { kind: 'action', label: 'Alternar tema', hint: 'ação', run: () => $('#btnTheme').click() },
   { kind: 'action', label: 'Atalhos de teclado', hint: '?', run: () => kbdHelp() },
@@ -124,8 +132,8 @@ function rotularBtnCmdK() {
 // do botão moravam, pra não mudar a ordem dos handlers de click/keydown do
 // document. switchTab é a navegação que a paleta precisa pra levar às abas e
 // seções do próprio app; guardada em _switchTab pros handlers de cima lerem.
-function initPaleta(switchTab) {
-  _switchTab = switchTab;
+function initPaleta(switchTab, switchRadarSub) {
+  _switchTab = switchTab; _switchRadarSub = switchRadarSub;
   $('#btnCmdK').addEventListener('click', onBtnCmdKClick);
   document.addEventListener('keydown', onCtrlKKeydown);
 }

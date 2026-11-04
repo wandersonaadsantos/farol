@@ -79,14 +79,14 @@ function renderAutomationSettings(c) {
   } else if (codex) {
     $('#reviewModelHint').textContent = 'Escolher um modelo atualiza o equivalente no Claude. O Auto mantém a faixa de qualidade da revisão nos dois provedores e eleva o raciocínio em repositório crítico, caminho sensível ou PR muito grande. Equivalência é por perfil de uso, não desempenho idêntico. Modelos personalizados sem par conhecido permanecem fixos.';
     $('#effortHint').textContent = codexAuto
-      ? 'No Auto, o esforço fixo e o modo rápido não entram: a revisão usa o raciocínio padrão do modelo e sobe para xhigh quando o contexto pede.'
-      : 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
+      ? 'No Auto, o esforço fixo e o modo rápido não entram: a revisão usa o raciocínio padrão do modelo e sobe para Muito alto (esforço máximo) quando o contexto pede.'
+      : 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita mínimo, baixo, médio, alto e Muito alto (esforço máximo); o último depende do modelo.';
   } else {
     // sem nome de modelo escrito aqui: cada opção já diz o que é, e o Auto diz quais usa
-    $('#reviewModelHint').textContent = 'Escolher um modelo atualiza o equivalente no Codex. O Auto revisa todo PR na faixa de qualidade do Opus e sobe o raciocínio para xhigh em repositório crítico, caminho sensível ou PR muito grande, só na revisão headless. Equivalência é por perfil de uso, não desempenho idêntico. Modelos personalizados sem par conhecido permanecem fixos.';
+    $('#reviewModelHint').textContent = 'Escolher um modelo atualiza o equivalente no Codex. O Auto revisa todo PR na faixa de qualidade do Opus e sobe o raciocínio para Muito alto (esforço máximo) em repositório crítico, caminho sensível ou PR muito grande, só na revisão em segundo plano. Equivalência é por perfil de uso, não desempenho idêntico. Modelos personalizados sem par conhecido permanecem fixos.';
     let effortHint = 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
     if (selecao && selecao.auto) {
-      effortHint = 'No modo Auto a revisão usa o Opus no raciocínio padrão dele e sobe para xhigh quando o contexto do PR pede; o nível fixo desta seção e o modo rápido não entram.';
+      effortHint = 'No modo Auto a revisão usa o Opus no raciocínio padrão dele e sobe para Muito alto (esforço máximo) quando o contexto do PR pede; o nível fixo desta seção e o modo rápido não entram.';
     } else if (semEsforco) {
       effortHint = `O ${(selecao && selecao.nome) || 'modelo escolhido'} não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.`;
     }

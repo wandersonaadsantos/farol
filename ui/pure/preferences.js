@@ -28,7 +28,7 @@ const FIELD_LABELS = {
   databaseUrl: 'Banco', projectId: 'Projeto', id: 'Identificador', baseUrl: 'Endereço', projectKeys: 'Projetos',
   dir: 'Diretório', email: 'E-mail esperado', budgetDaily: 'Orçamento diário', budgetTotal: 'Orçamento total',
   budgetSince: 'Início do orçamento', budgetByWeekday: 'Orçamento por dia da semana', budgetDates: 'Orçamento por data',
-  ativo: 'Ativo na cadeia', papel: 'Papel', dominios: 'Conhecimentos',
+  ativo: 'Ativo na ordem de uso', papel: 'Papel', dominios: 'Conhecimentos',
 };
 const VALUE_LABELS = {
   decision: 'Decisão', access: 'Acesso', failure: 'Falha', operational: 'Operacional',

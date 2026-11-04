@@ -1,0 +1,408 @@
+[
+  {
+    "nome": "new-prs um na fila automática",
+    "evento": "new-prs",
+    "payload": {
+      "items": [
+        {
+          "key": "o/r#1",
+          "title": "T",
+          "url": "u"
+        }
+      ],
+      "total": 1,
+      "auto": true
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · PR novo, na fila da revisão automática",
+      "corpo": "o/r#1: T",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "new-prs um pedindo revisão",
+    "evento": "new-prs",
+    "payload": {
+      "items": [
+        {
+          "key": "o/r#1",
+          "title": "T",
+          "url": "u"
+        }
+      ],
+      "total": 1,
+      "auto": false
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · PR aguardando sua revisão",
+      "corpo": "o/r#1: T",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "new-prs vários pedindo revisão",
+    "evento": "new-prs",
+    "payload": {
+      "items": [
+        {
+          "key": "o/r#1",
+          "title": "A",
+          "url": "u1"
+        },
+        {
+          "key": "o/r#2",
+          "title": "B",
+          "url": "u2"
+        }
+      ],
+      "total": 2,
+      "auto": false
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · 2 PRs aguardando sua revisão",
+      "corpo": "o/r#1  ·  o/r#2",
+      "url": null,
+      "pr": null,
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "new-prs vários na fila automática",
+    "evento": "new-prs",
+    "payload": {
+      "items": [
+        {
+          "key": "o/r#1",
+          "title": "A",
+          "url": "u1"
+        },
+        {
+          "key": "o/r#2",
+          "title": "B",
+          "url": "u2"
+        }
+      ],
+      "total": 2,
+      "auto": true
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · 2 PRs novos, na fila da revisão automática",
+      "corpo": "o/r#1  ·  o/r#2",
+      "url": null,
+      "pr": null,
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "auto-approved sem ressalvas",
+    "evento": "auto-approved",
+    "payload": {
+      "pr": {
+        "key": "o/r#1",
+        "url": "u"
+      },
+      "result": {
+        "card": "CARD-1"
+      },
+      "points": []
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · aprovado sem ressalvas ✅",
+      "corpo": "o/r#1 (CARD-1): revisão completa, nenhum ponto de atenção. APPROVE postado.",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "auto-approved sem card",
+    "evento": "auto-approved",
+    "payload": {
+      "pr": {
+        "key": "o/r#1",
+        "url": "u"
+      },
+      "result": {}
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · aprovado sem ressalvas ✅",
+      "corpo": "o/r#1 (sem card): revisão completa, nenhum ponto de atenção. APPROVE postado.",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "auto-approved com 2 ressalvas",
+    "evento": "auto-approved",
+    "payload": {
+      "pr": {
+        "key": "o/r#1",
+        "url": "u"
+      },
+      "result": {},
+      "points": [
+        {
+          "text": "cobertura parcial",
+          "kind": "caveat"
+        },
+        "outra"
+      ]
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · aprovado com ressalvas ⚠️",
+      "corpo": "o/r#1: APPROVE postado. Ressalva: cobertura parcial (+1). Detalhes em Revisões recentes.",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "auto-rejected com motivo",
+    "evento": "auto-rejected",
+    "payload": {
+      "pr": {
+        "key": "o/r#1",
+        "url": "u"
+      },
+      "result": {
+        "reasons": [
+          {
+            "text": "teste quebrado",
+            "kind": "bloqueio"
+          }
+        ]
+      }
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · reprovado 🔴",
+      "corpo": "o/r#1: mudanças pedidas. Motivo: teste quebrado",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "auto-rejected sem reasons",
+    "evento": "auto-rejected",
+    "payload": {
+      "pr": {
+        "key": "o/r#1",
+        "url": "u"
+      },
+      "result": {}
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · reprovado 🔴",
+      "corpo": "o/r#1: mudanças pedidas. Motivo: ver relatório",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "auto-commented",
+    "evento": "auto-commented",
+    "payload": {
+      "pr": {
+        "key": "o/r#1",
+        "url": "u"
+      }
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · comentado 💬",
+      "corpo": "o/r#1: o PR é da própria conta que revisa, então a revisão saiu como comentário.",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "tool-done kudos",
+    "evento": "tool-done",
+    "payload": {
+      "name": "kudos",
+      "label": "Kudos"
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · Kudos",
+      "corpo": "Kudos prontos pra copiar na aba Destaques.",
+      "url": null,
+      "pr": null,
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "tool-done diagnóstico",
+    "evento": "tool-done",
+    "payload": {
+      "name": "pr-health",
+      "label": "Diagnóstico do Farol"
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · Diagnóstico do Farol",
+      "corpo": "Relatório disponível na aba Sistema.",
+      "url": null,
+      "pr": null,
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "intervention de PR fora do silêncio",
+    "evento": "intervention",
+    "payload": {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kind": "decision",
+      "title": "Decisão",
+      "body": "o/r#1 espera você",
+      "speech": "fala",
+      "target": {
+        "type": "pr",
+        "url": "https://github.com/o/r/pull/1",
+        "account": "eu"
+      },
+      "notifiedAt": 1
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · Decisão",
+      "corpo": "o/r#1 espera você",
+      "url": null,
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "intervention de sistema no silêncio",
+    "evento": "intervention",
+    "payload": {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kind": "access",
+      "title": "Acesso",
+      "body": "token",
+      "speech": "fala",
+      "target": {
+        "type": "system",
+        "section": "accounts"
+      },
+      "notifiedAt": 1
+    },
+    "config": {
+      "voiceQuietEnabled": true,
+      "voiceQuietStart": "11:00",
+      "voiceQuietEnd": "13:00"
+    },
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Farol · Acesso",
+      "corpo": "token",
+      "url": null,
+      "pr": null,
+      "silencioso": true
+    }
+  },
+  {
+    "nome": "intervention inválida",
+    "evento": "intervention",
+    "payload": {
+      "id": "x"
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": null
+  },
+  {
+    "nome": "meu-pr-base um PR",
+    "evento": "meu-pr-base",
+    "payload": {
+      "titulo": "PR em conflito",
+      "tituloSistema": "PR em conflito",
+      "url": "u1",
+      "corpo": "o/r#1: em conflito com main. Atualize a branch antes do merge.",
+      "itens": [
+        {
+          "key": "o/r#1",
+          "url": "u1",
+          "texto": "t"
+        }
+      ]
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "PR em conflito",
+      "corpo": "o/r#1: em conflito com main. Atualize a branch antes do merge.",
+      "url": "u1",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "meu-pr-base agrupado",
+    "evento": "meu-pr-base",
+    "payload": {
+      "titulo": "2 PRs seus",
+      "tituloSistema": "2 PRs precisam de você por causa da base",
+      "url": "",
+      "corpo": "r#1 em conflito com main; r#2 superado pela base.",
+      "itens": [
+        {
+          "key": "o/r#1",
+          "url": "u1",
+          "texto": "a"
+        },
+        {
+          "key": "o/r#2",
+          "url": "u2",
+          "texto": "b"
+        }
+      ]
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "2 PRs precisam de você por causa da base",
+      "corpo": "r#1 em conflito com main; r#2 superado pela base.",
+      "url": "u1",
+      "pr": "o/r#1",
+      "silencioso": false
+    }
+  },
+  {
+    "nome": "evento desconhecido",
+    "evento": "state",
+    "payload": {},
+    "config": {},
+    "hora": "12:00",
+    "esperado": null
+  }
+]

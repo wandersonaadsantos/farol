@@ -125,7 +125,7 @@ export function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metri
 // _resto e a fatia reconciliada de um dia sem detalhamento (registro anterior aos
 // buckets cruzados da v2.38.0, ou sessao gravada por versao antiga no meio do dia):
 // o engine garante que soma(camadas) == serie do dia, e essa camada e a diferenca.
-export const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Pushback', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro', _resto: 'Sem detalhamento' };
+export const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Contestação', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro', _resto: 'Sem detalhamento' };
 
 // Desfecho da sessão. Status desconhecido (registro de uma versão futura, arquivo
 // editado à mão) cai em 'ok' na leitura, que é o comportamento que sempre valeu.
@@ -346,7 +346,7 @@ export function usageBudgetHtml(u) {
     // ganhava quando mais de um parecia valer.
     const NOTA_ASSINATURA = '<span class="usage-budget-note">O gasto em tokens não vira fatura por sessão neste perfil, mas o teto vale como ritmo do dia a dia.</span>';
     const NOTA_CODEX = '<span class="usage-budget-note">O Codex informa os tokens das sessões autônomas. O Farol registra esse volume, mas mantém US$ 0,00 porque o plano ChatGPT não expõe uma fatura por sessão.</span>';
-    const NOTA_PAUSADO = '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>';
+    const NOTA_PAUSADO = '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e busca de contestações).</span>';
     const notaPrevisto = `<span class="usage-budget-note">A próxima revisão (${esc(fmtMoney(p.tipicoReview || 0))} em média) não caberia no teto, então a automação parou antes de gastar. O clique manual continua liberado.</span>`;
     const notaSemTeto = `<span class="usage-budget-note">Nenhum teto definido pra este perfil (<span class="is-goto" data-goto="${esc(irAoTeto)}" role="button" tabindex="0">definir em Sistema → Plano e chaves</span>).</span>`;
     let nota = '';

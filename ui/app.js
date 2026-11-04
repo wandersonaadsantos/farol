@@ -1,7 +1,7 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  safeJsonParse, parseGoto,
+  safeJsonParse, parseGoto, avisoDeAbaDesligada,
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
 import { tokenLocal, FonteDeEventosAutenticada, OCIOSO_MS, recusaDeLoginExterno } from './transporte.js';
@@ -65,9 +65,13 @@ if (isElectron) document.body.classList.add('electron');
    O estado (PLATAFORMA) e as duas funções moram em telas/estado.js desde a Task 10a (Fase
    1b): telas/sistema-perfis.js também precisa perguntar "é Windows?" pro editor de perfis
    Claude, e um módulo de tela não pode importar o bootstrap de volta. */
-function aplicaPlataforma(p) {
+function aplicaPlataforma(p, casca) {
   definirPlataforma(p);
   document.body.classList.toggle('mac', ehMac());
+  // A casca nativa em que a página roda (snapshot.casca do motor): o CSS dá o recuo dos
+  // semáforos da casca Mac por <html data-casca>, o mesmo do Electron no macOS.
+  if (casca === 'mac' || casca === 'win') document.documentElement.dataset.casca = casca;
+  else delete document.documentElement.dataset.casca;
   renderPlatformSettings();
   rotularBtnCmdK();   // o botão é da paleta; quem sabe rotulá-lo é telas/paleta.js
 }
@@ -167,8 +171,12 @@ window.addEventListener('resize', () => {
 });
 
 function switchTab(name) {
-  if (name === 'destaques' && !teamHighlightsEnabled()) name = 'radar';
-  if (name === 'entregas' && !deliveriesEnabled()) name = 'radar';
+  const desligada = (name === 'destaques' && !teamHighlightsEnabled()) || (name === 'entregas' && !deliveriesEnabled());
+  if (desligada) {
+    toast('info', avisoDeAbaDesligada(name));
+    name = 'radar';
+    switchRadarSub('mim');   // senão o Radar abre na sub-aba que estava, e o aviso não faz sentido
+  }
   definirAba(name);
   document.body.dataset.tab = name;   // largura útil por aba (ver body[data-tab] no app.css)
   // aria-selected junto com a classe: a classe pinta, o aria é o que o leitor de tela lê
@@ -307,7 +315,7 @@ function focusPr(url, tentativa = 0) {
    mesmo ponto relativo em que a ligação do #btnCmdK e o listener de Ctrl+K
    moravam, pra não mudar a ordem dos handlers de keydown do document (o Ctrl+K
    registra ANTES do listener de atalhos, logo abaixo). */
-initPaleta(switchTab);
+initPaleta(switchTab, switchRadarSub);
 
 /* Atalhos de teclado do Radar: mora em telas/atalhos.js. Chamada aqui, no mesmo
    ponto relativo em que o listener morava, pra não mudar a ordem dos handlers de
@@ -344,7 +352,7 @@ function pintarTelaRegistrada(id) {
 const preservarConfiguracao = criarPreservacaoDeFormulario();
 const pinturas = criarAgendaVisual({
   grupos: gruposDaPintura({
-    plataforma: () => aplicaPlataforma(estado().app?.platform),
+    plataforma: () => aplicaPlataforma(estado().app?.platform, estado().casca),
     contas: () => { rebuildAccounts(); renderAccountBar(); renderIdentity(); },
     status: renderStatus, sessoes: renderActive, decisoes: renderDecisions, fila: renderQueue,
     meus: () => { renderMyPRs(); syncAnalysisOps(); }, panorama: renderPanorama,

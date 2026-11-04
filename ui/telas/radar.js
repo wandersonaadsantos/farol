@@ -9,7 +9,7 @@ import { roundSummaryHtml } from '../pure/round-summary.js';
 import {
   esc, fmtStamp, fmtWhenDay, personMention, papelPicker, reasonGroupsHtml, chatBadge,
   resolvedRow, listViewState, queueEmptyOkHtml, aprovadosHoje, orgsMonitoradas,
-  automacaoPausadaPor, queueCardHtml, panoramaRowHtml, staleCardMeta, separarPendentes,
+  automacaoPausadaPor, pedidosAntesDoInicio, queueCardHtml, panoramaRowHtml, staleCardMeta, separarPendentes,
   contasNoLimiteDaFila, queueLimitHtml, queueWaitingCardHtml,
 } from '../pure.js';
 import { estado, escopo, peopleOf } from './estado.js';
@@ -105,6 +105,7 @@ document.addEventListener('click', (e) => {
 // atalhos do estado vazio: levar pro que foi feito, ou forçar uma checagem
 document.addEventListener('click', (e) => {
   if (e.target.closest('.eo-check-now')) $('#btnCheck').click();
+  if (e.target.closest('.eo-panorama')) switchRadarSub('pano');
   const r = e.target.closest('.eo-resolved');
   if (r) { const alvo = $('#resolvedWrap'); if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 });
@@ -234,6 +235,8 @@ function renderQueue() {
   const { q, aguardando, distribuindo, total } = dadosDaFila();
   const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   $('#queueCount').hidden = total === 0;
+  // sem itens não há o que agrupar: o seletor some junto com a fila
+  $('#queueGroupingBox').hidden = total === 0;
   $('#queueCount').textContent = total;
   const btnAll = $('#btnReviewAll');
   btnAll.hidden = q.length < 2;
@@ -259,6 +262,12 @@ function renderQueue() {
       // fila vazia com a automação pausada por teto não é "está tudo em dia":
       // é "nada vai ser revisado sozinho até liberar" (ver automacaoPausadaPor)
       pausado: automacaoPausadaPor(estado().accounts, estado().config, estado().usage),
+      // PRs que já pediam minha revisão antes do baseline: a fila vazia diz quantos ficaram de fora
+      antesDoInicio: pedidosAntesDoInicio({
+        panorama: estado().panorama || [],
+        queueKeys: new Set((estado().queue || []).map(p => p.key)),
+        baseline: estado().baseline,
+      }),
     });
     return;
   }

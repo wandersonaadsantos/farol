@@ -6,15 +6,13 @@ import { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage } from
 import path from 'node:path';
 
 import farol from './server.js';
-import { interventionEvent, quietNow } from './ui/pure/interventions.js';
+import { interventionEvent } from './ui/pure/interventions.js';
+import { avisoDe, badgeDe, coresDe } from './lib/engine/avisos-nativos.js';
 import { consumirReaberturaSilenciosa } from './lib/engine/update.js';
 
 // fonte única do branch de plataforma (lib/paths.js), como no resto do app
 import { IS_MAC } from './lib/paths.js';
 import { aplicarAutostartMac } from './lib/autostart-mac.js';
-// motivo viaja como { text, kind } desde a v2.48.0; interpolar o objeto cru
-// escreve "[object Object]" na notificação (achado do Wanderson em 20/08/2026)
-import { reasonText } from './lib/format.js';
 import { identificarAplicativo, identificarJanela, instalarMenuMac } from './lib/desktop-identity.js';
 
 let win = null;
@@ -68,10 +66,7 @@ if (!gotLock) {
 }
 
 function themeColors() {
-  const light = engine && engine.config.theme === 'light';
-  return light
-    ? { bg: '#f4f6f9', symbol: '#1c2536' }
-    : { bg: '#0b0e14', symbol: '#e7ecf5' };
+  return coresDe(engine?.config);
 }
 
 function createWindow() {
@@ -239,11 +234,9 @@ function overlayDot() {
   return nativeImage.createFromBitmap(buf, { width: S, height: S });
 }
 function updateBadge(snapshot) {
-  // pendência que espera o CI não é "esperando você": o Farol aprova sozinho (30/09/2026)
-  const count = ((snapshot.decisions || {}).pending || []).filter(d => d && !d.esperaCi && !d.esperaProva).length;
+  const { contador: count, rotulo: label } = badgeDe(snapshot);
   if (count === lastBadgeCount) return;
   lastBadgeCount = count;
-  const label = count === 1 ? '1 decisão esperando você' : `${count} decisões esperando você`;
   try {
     if (IS_MAC) { app.dock && app.dock.setBadge(count ? String(count) : ''); }
     else if (win && !win.isDestroyed()) { win.setOverlayIcon(count ? overlayDot() : null, count ? label : ''); }
@@ -256,52 +249,32 @@ function balloon(title, content, onOpen, silent) {
   try { tray && tray.displayBalloon({ title, content, noSound: !!silent, icon: trayIcon() }); } catch { }
 }
 
-function tituloDePrsNovos(n, auto) {
-  if (auto) return n === 1 ? 'PR novo, na fila da revisão automática' : `${n} PRs novos, na fila da revisão automática`;
-  return n === 1 ? 'PR aguardando sua revisão' : `${n} PRs aguardando sua revisão`;
-}
-
 function wireEngine() {
   if (!engine) return;
-  engine.on('new-prs', ({ items, total, auto }) => {
-    const n = items.length;
-    const title = tituloDePrsNovos(n, auto);
-    const body = n === 1 ? `${items[0].key}: ${items[0].title}` : items.map(i => i.key).join('  ·  ');
-    notify(`Farol · ${title}`, body, n === 1 ? items[0].url : null);
-  });
-  // alertas dizem o DESFECHO e o MOTIVO (aprovado sem/com ressalvas, reprovado,
-  // precisa da sua atenção): transparência em vez de "sem você"
-  engine.on('auto-approved', ({ pr, result, points }) => {
-    const ressalvas = points || [];
-    if (ressalvas.length) {
-      const extra = ressalvas.length > 1 ? ` (+${ressalvas.length - 1})` : '';
-      notify('Farol · aprovado com ressalvas ⚠️', `${pr.key}: APPROVE postado. Ressalva: ${reasonText(ressalvas[0])}${extra}. Detalhes em Revisões recentes.`, pr.url);
-    } else {
-      notify('Farol · aprovado sem ressalvas ✅', `${pr.key} (${result.card || 'sem card'}): revisão completa, nenhum ponto de atenção. APPROVE postado.`, pr.url);
-    }
-  });
-  engine.on('auto-rejected', ({ pr, result }) => {
-    const motivo = reasonText((result.reasons || [])[0]) || 'ver relatório';
-    notify('Farol · reprovado 🔴', `${pr.key}: mudanças pedidas. Motivo: ${motivo}`, pr.url);
-  });
+  // título e corpo moram em lib/engine/avisos-nativos.js, a mesma fonte das cascas nativas
+  const notificar = (evento) => (payload) => {
+    const aviso = avisoDe(evento, payload);
+    if (aviso) notify(aviso.titulo, aviso.corpo, aviso.url);
+  };
+  engine.on('new-prs', notificar('new-prs'));
+  engine.on('auto-approved', notificar('auto-approved'));
+  engine.on('auto-rejected', notificar('auto-rejected'));
   // PR da própria conta que revisa: o GitHub não aceita a revisão decisiva do autor, e ela sai
   // como comentário (lib/engine/desfecho-da-revisao.js e espera-pr-proprio.js, v2.72.12)
-  engine.on('auto-commented', ({ pr }) => {
-    notify('Farol · comentado 💬', `${pr.key}: o PR é da própria conta que revisa, então a revisão saiu como comentário.`, pr.url);
-  });
-  engine.on('tool-done', ({ name, label }) => {
-    notify(`Farol · ${label}`, name === 'kudos' ? 'Kudos prontos pra copiar na aba Destaques.' : 'Relatório disponível na aba Sistema.');
-  });
+  engine.on('auto-commented', notificar('auto-commented'));
+  engine.on('tool-done', notificar('tool-done'));
   engine.on('intervention', raw => {
     const event = interventionEvent(raw); if (!event) return;
-    notify(`Farol · ${event.title}`, event.body, null, () => engine.emit('focus-intervention', event.target), quietNow(engine.config));
+    const aviso = avisoDe('intervention', raw, { config: engine.config });
+    notify(aviso.titulo, aviso.corpo, null, () => engine.emit('focus-intervention', event.target), aviso.silencioso);
     if (win && !win.isDestroyed() && !win.isFocused()) win.flashFrame(true);
   });
   // PR meu em conflito ou já absorvido pela base (lib/engine/meus-prs-base.js), uma vez por head
-  // o título não repete "Farol": o sistema já mostra o nome do app no cabeçalho. No aviso
-  // agrupado o clique leva ao card do primeiro PR, que fica em Meus PRs.
-  engine.on('meu-pr-base', (a) => {
-    notify(a.tituloSistema, a.corpo, a.url || ((a.itens || [])[0] || {}).url);
+  engine.on('meu-pr-base', notificar('meu-pr-base'));
+  // release de ponte (desenho 4.7 do Farol nativo): a 3.x não roda nesta casca; o engine emite
+  // uma vez por processo e versão, e o clique só abre a janela (o aviso fica em Sistema)
+  engine.on('update-ponte', (p) => {
+    notify('Farol · última versão nesta casca', `A ${p.versao} é o Farol nativo. Baixe o instalador em Sistema > Visão geral.`, null);
   });
   engine.on('state', updateBadge);
   engine.on('settings-changed', (cfg) => {

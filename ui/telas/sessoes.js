@@ -94,7 +94,7 @@ function tickCountdown() {
   const last = estado().lastCheckAt ? `Última checagem ${fmtClock(estado().lastCheckAt)}` : 'Primeira checagem em andamento';
   // Engine fora do ar: contar para a próxima checagem seria prometer uma coisa que não
   // vai acontecer. A contagem some e fica só quando foi a última vez que soubemos algo.
-  if (document.body.classList.contains('sem-engine')) { el.textContent = `${last} · sem conexão com o engine`; }
+  if (document.body.classList.contains('sem-engine')) { el.textContent = `${last} · sem conexão com o Farol neste computador`; }
   else if (estado().status === 'checking') { el.textContent = `${last} · verificando…`; }
   else if (!estado().nextCheckAt) { el.textContent = last; }
   else {

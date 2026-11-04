@@ -10,7 +10,8 @@ async function request(body) {
   if (!result?.ok) { message(result?.error || 'Operação indisponível; tente novamente.'); return null; }
   return result;
 }
-function invalidate() { generation++; pending = null; $('#preferencesApply').disabled = true; $('#preferencesPreview').replaceChildren(); }
+function habilitarAplicar(on) { const b = $('#preferencesApply'); b.disabled = !on; b.classList.toggle('primary', on); }
+function invalidate() { generation++; pending = null; habilitarAplicar(false); $('#preferencesPreview').replaceChildren(); }
 function preferenceRow(change) {
   const disabled = change.blocked ? ' disabled' : '';
   const explanation = change.blocked || change.note;
@@ -50,13 +51,13 @@ async function act(operation) {
   finally {
     busy = false; $('#preferencesTransfer').setAttribute('aria-busy', 'false');
     for (const id of ['preferencesInspect', 'preferencesExport', 'preferencesFile']) $('#' + id).disabled = false;
-    $('#preferencesApply').disabled = !pending || !document.querySelector('[data-preference-key]:checked');
+    habilitarAplicar(Boolean(pending) && Boolean(document.querySelector('[data-preference-key]:checked')));
   }
 }
 function initPreferencesTransfer() {
   $('#preferencesFile').onchange = () => { invalidate(); message('Arquivo selecionado; gere a prévia antes de aplicar.'); };
   $('#preferencesInspect').onclick = () => act(preview);
-  $('#preferencesPreview').onchange = () => { $('#preferencesApply').disabled = !document.querySelector('[data-preference-key]:checked'); };
+  $('#preferencesPreview').onchange = () => { habilitarAplicar(Boolean(document.querySelector('[data-preference-key]:checked'))); };
   $('#preferencesApply').onclick = () => act(apply);
   $('#preferencesExport').onclick = () => act(async () => {
     const result = await request({ action: 'export' });

@@ -68,7 +68,7 @@ test('primeiro acesso ao Sistema mantém autostart Linux oculto e consome config
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(consultas.has('/api/log/triage'));
   assert.ok(consultas.has('/api/diagnostics'));
-  assert.equal(doc.querySelector('#logBox').textContent, 'Nenhuma falha registrada. Bom sinal.');
+  assert.equal(doc.querySelector('#logBox').textContent, 'Log vazio.');
   assert.equal(doc.querySelector('#logResumo').hidden, true);
   assert.equal(doc.body.dataset.tab, 'sistema');
   assert.ok(configuracoes > 0);

@@ -1078,7 +1078,7 @@ test('pushback confirmado NÃO mostra o botão Confirmar', () => {
 
 test('pushbackControl sem autor devolve vazio e sem registro rende o convite padrão', () => {
   assert.equal(P.pushbackControl({ key: 'a/b#1' }, {}), '');
-  assert.match(P.pushbackControl({ key: 'a/b#1', pr: { author: 'dev' } }, {}), /pushback\?/);
+  assert.match(P.pushbackControl({ key: 'a/b#1', pr: { author: 'dev' } }, {}), /contestação\?/);
 });
 
 test('pushbackControl escapa a nota vinda do classificador', () => {
@@ -2536,6 +2536,46 @@ test('vazio da fila: sem aprovação hoje, não inventa contagem', () => {
   const html = P.queueEmptyOkHtml({ aprovados: 0, owners: ['acme'], intervalSeconds: 300 });
   assert.match(html, /O Farol monitora/);
   assert.doesNotMatch(html, /aprovou/, 'zero não vira "aprovou 0"');
+});
+
+test('pedidosAntesDoInicio conta só mine, fora da fila e anteriores ao baseline', () => {
+  const baseline = { at: Date.parse('2026-10-10T12:00:00Z'), marcados: 3 };
+  const antes = '2026-10-01T00:00:00Z';
+  const depois = '2026-10-20T00:00:00Z';
+  const panorama = [
+    { key: 'a', mine: true, updatedAt: antes },
+    { key: 'b', mine: true, updatedAt: depois },
+    { key: 'c', mine: false, updatedAt: antes },
+    { key: 'd', mine: true, updatedAt: antes },
+  ];
+  assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(['d']), baseline }), 1);
+  assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(['d']), baseline: null }), 0);
+});
+
+test('pedidosAntesDoInicio: baseline legado e PR já revisado por mim não contam', () => {
+  const antes = '2026-10-01T00:00:00Z';
+  const panorama = [{ key: 'a', mine: true, updatedAt: antes }, { key: 'r', mine: true, reviewedByMe: true, updatedAt: antes }];
+  const at = Date.parse('2026-10-10T12:00:00Z');
+  assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(), baseline: { at, marcados: null } }), 0);
+  assert.equal(P.pedidosAntesDoInicio({ panorama, queueKeys: new Set(), baseline: { at, marcados: 2 } }), 1);
+});
+
+test('vazio da fila com PRs anteriores ao baseline diz quantos e leva ao Panorama', () => {
+  const html = P.queueEmptyOkHtml({ aprovados: 0, owners: ['biudtech'], intervalSeconds: 300, antesDoInicio: 14 });
+  assert.match(html, /14 PRs já pediam sua revisão antes do Farol começar a vigiar/);
+  assert.match(html, /class="btn sm eo-panorama"/);
+  assert.doesNotMatch(html, /Nada esperando por você/);
+});
+
+test('vazio da fila sem aprovados não oferece "Ver o que foi aprovado"', () => {
+  assert.doesNotMatch(P.queueEmptyOkHtml({ aprovados: 0, owners: [], intervalSeconds: 300, antesDoInicio: 0 }), /eo-resolved/);
+  assert.match(P.queueEmptyOkHtml({ aprovados: 2, owners: [], intervalSeconds: 300, antesDoInicio: 0 }), /eo-resolved/);
+});
+
+test('vazio da fila com antesDoInicio 0 é o vazio bom de sempre', () => {
+  const html = P.queueEmptyOkHtml({ aprovados: 0, owners: ['acme'], intervalSeconds: 300, antesDoInicio: 0 });
+  assert.match(html, /Nada esperando por você/);
+  assert.doesNotMatch(html, /eo-panorama/);
 });
 
 test('vazio da fila: singular e plural de PR e de minuto', () => {

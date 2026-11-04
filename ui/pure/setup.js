@@ -9,7 +9,7 @@ function setupSteps(state = {}) {
   return [
     { id: 'accounts', label: 'Conta e organizações', detail: accountDetail, checked: authenticated, goto: 'sys:accounts:#accountsManager' },
     { id: 'plans', label: 'Perfil e ambiente de IA', detail: profileDetail, checked: profileReady, goto: 'sys:plans:#claudeProfilesManager' },
-    { id: 'automation', label: 'Política de automação', detail: 'Confira o comportamento de cada conta, limites e gates antes de usar. Este roteiro não ativa revisões.', checked: false, goto: 'sys:automation:#sys-automation' },
+    { id: 'automation', label: 'Política de automação', detail: 'Confira o comportamento de cada conta, limites e regras de segurança da postagem antes de usar. Este roteiro não ativa revisões.', checked: false, goto: 'sys:automation:#sys-automation' },
   ];
 }
 function setupHtml(state, selected) {
