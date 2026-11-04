@@ -19,6 +19,7 @@ Reprovação só com sentido técnico palpável, sem afrouxar o que protege comp
 - Segurança, validação de entrada, isolamento, rastro de falha, prova de comportamento, supressão, regra de negócio duplicada, dívida agravada e qualquer regra nova do catálogo continuam bloqueando.
 - A revisão confere os casos irmãos de cada bloqueio na mesma rodada e avisa quando um achado já estava no commit anterior.
 - O texto público fala do código, sem narrar o que a revisão rodou ou deixou de rodar.
+- O card deixa de repetir "Critérios técnicos comprovados" quando o veredito já diz isso; o bloco só aparece quando informa algo a mais.
 - A revisão passa a ler a conversa do PR depois de formar opinião sobre o código: thread aberta com defeito real é adotada sem comentário repetido, e thread resolvida não prova nada por si só.
 - A verificação empírica procura primeiro o que derrubaria a afirmação, em vez de confirmar lendo só a linha citada.
 - O Jira não segue mais redirecionamento para outro host, e um arquivo de PR com caminho de controle do git nunca é gravado no disco da análise.

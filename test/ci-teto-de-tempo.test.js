@@ -22,6 +22,17 @@ import assert from 'node:assert/strict';
 const CI = path.join(import.meta.dirname, '..', '.github', 'workflows', 'ci.yml');
 const PKG = path.join(import.meta.dirname, '..', 'package.json');
 
+// O prazo do job conta a fila por máquina (04/11/2026): só o macOS tem folga para esperar, e o teto contra
+// trava desce para o passo. Devolve o teto de cada sistema, nunca o maior como se valesse para todos.
+const TETO_COM_FILA_DE_MACOS = /^ {4}timeout-minutes:\s*\$\{\{ matrix\.os == 'macos-latest' && (\d+) \|\| (\d+) \}\}\s*$/m;
+const TETO_FIXO = /^ {4}timeout-minutes:\s*(\d+)\s*$/m;
+function tetosDoJob(corpo) {
+  const fila = TETO_COM_FILA_DE_MACOS.exec(corpo);
+  if (fila) return { macos: Number(fila[1]), demais: Number(fila[2]) };
+  const fixo = TETO_FIXO.exec(corpo);
+  return fixo ? { macos: Number(fixo[1]), demais: Number(fixo[1]) } : null;
+}
+
 /** Nome de cada job e o corpo dele, lendo a indentação do bloco `jobs:`. */
 function jobsDo(texto) {
   const linhas = texto.split(/\r?\n/);
@@ -42,9 +53,10 @@ test('todo job do CI declara timeout-minutes', () => {
   const jobs = jobsDo(texto);
   assert.ok(jobs.length >= 2, `esperava achar os jobs do ci.yml, achei ${jobs.length}`);
   for (const job of jobs) {
-    const m = /^ {4}timeout-minutes:\s*(\d+)\s*$/m.exec(job.corpo);
-    assert.ok(m, `job "${job.nome}" sem timeout-minutes: sem teto ele roda ate o default de 360 min do GitHub`);
-    const min = Number(m[1]);
+    const tetos = tetosDoJob(job.corpo);
+    assert.ok(tetos, `job "${job.nome}" sem timeout-minutes: sem teto ele roda ate o default de 360 min do GitHub`);
+    const min = tetos.demais;
+    assert.ok(tetos.macos <= 60, `job "${job.nome}" esperando ${tetos.macos} min pela fila do macOS`);
     assert.ok(min > 0 && min <= 30, `job "${job.nome}" com teto de ${min} min: a suite roda em segundos, teto alto nao protege de nada`);
   }
 });
@@ -81,7 +93,16 @@ test('a suite declara teto de tempo POR TESTE, para trava virar falha com nome',
 test('o teto por teste cabe dentro do teto do job, senao o job mata antes de a trava se nomear', () => {
   const ms = Number(TETO_DO_RUNNER.exec(fonteDoExecutor())[1]);
   const jobs = jobsDo(fs.readFileSync(CI, 'utf8'));
-  const tetos = jobs.map(j => Number(/^ {4}timeout-minutes:\s*(\d+)\s*$/m.exec(j.corpo)[1]) * 60000);
+  const tetos = jobs.map(j => tetosDoJob(j.corpo).demais * 60000);
   const menor = Math.min(...tetos);
   assert.ok(ms < menor, `teto por teste (${ms}ms) precisa ser menor que o do job mais curto (${menor}ms)`);
+});
+
+test('job com folga para a fila do macOS mantém teto de 15 minutos no passo que pode travar', () => {
+  const jobs = jobsDo(fs.readFileSync(CI, 'utf8'));
+  const gate = jobs.find(j => j.corpo.includes('- name: Testes'));
+  const electron = jobs.find(j => j.corpo.includes('abrir o Farol no macOS'));
+  assert.ok(gate && electron);
+  assert.match(gate.corpo, /- name: Testes\n {8}timeout-minutes: 15\n/);
+  assert.match(electron.corpo, /abrir o Farol no macOS\n {8}timeout-minutes: 15\n/);
 });

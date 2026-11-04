@@ -43,6 +43,14 @@ const REASON_GROUPS = [
   ['content', '🧭', 'ponto que a revisão levantou'],
 ];
 
+// Comprovado sem mais nada a dizer repete o veredito ao lado, então o bloco só aparece quando informa:
+// violação, pendência, ressalva, dívida anterior ou regra de organização que seguiu como sugestão.
+const CRITERIOS_SO_COMPROVADOS = 'Critérios técnicos comprovados.';
+export function criterioTecnicoHtml(technical) {
+  if (!technical || technical.message === CRITERIOS_SO_COMPROVADOS) return '';
+  return `<div class="review-box-context"><strong>Critério técnico</strong><p>${esc(technical.message)}</p></div>`;
+}
+
 export function reasonGroups(reasons) {
   const porKind = new Map();
   for (const r of (Array.isArray(reasons) ? reasons : [])) {
@@ -292,7 +300,7 @@ export function reviewBoxHtml(d) {
     </div>
     ${d.pr && d.pr.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
     ${autor ? `<div class="dec-author">PR de ${personMention(autor, 'xs')}</div>` : ''}
-    ${d.technical ? `<div class="review-box-context"><strong>Critério técnico</strong><p>${esc(d.technical.message)}</p></div>` : ''}
+    ${criterioTecnicoHtml(d.technical)}
     ${d.status === 'pending' && razoes.length
       ? `<div class="review-box-context"><strong>${titulo}</strong>${reasonGroupsHtml(razoes, d.postRetry)}</div>`
       : ''}

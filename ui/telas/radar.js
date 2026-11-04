@@ -1,5 +1,6 @@
 import { safeJsonParse, safeJsonStringify } from '../pure/comum.js';
 import { roundSummaryHtml } from '../pure/round-summary.js';
+import { criterioTecnicoHtml } from '../pure/review.js';
 /* Farol · UI: a aba Radar (fila, decisões pendentes, pushback e panorama). Não é uma
    aba registrável (é a aba padrão, e hoje não reage a entrar de aba nem a chegar
    estado): renderDecisions, renderQueue, renderPanorama e renderRadarNav são
@@ -158,7 +159,7 @@ function renderDecisions() {
       ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, people)}</div>` : ''}
       ${meta.reasons.length ? reasonGroupsHtml(meta.reasons, d.postRetry) : ''}
       ${meta.statusHtml}
-      ${d.technical ? `<div class="review-box-context"><strong>Critério técnico</strong><p>${esc(d.technical.message)}</p></div>` : ''}
+      ${criterioTecnicoHtml(d.technical)}
       ${roundSummaryHtml(d.rounds, ` data-abre="${esc(`${d.id}|rodada`)}"${radarAbertos.has(`${d.id}|rodada`) ? ' open' : ''}`)}
       <details class="dec-report" data-abre="${esc(`${d.id}|relatorio`)}"${radarAbertos.has(`${d.id}|relatorio`) ? ' open' : ''}><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">

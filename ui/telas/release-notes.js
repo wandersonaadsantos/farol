@@ -18,6 +18,7 @@ const RELEASE_NOTES_RECENTES = [
     'Regra só de organização vira sugestão e não reprova o PR sozinha.',
     'Segurança, entrada, isolamento e prova de comportamento continuam bloqueando.',
     'A revisão confere os casos irmãos na mesma rodada e avisa quando o achado já existia.',
+    'O card só mostra o critério técnico quando ele informa algo além do veredito.',
     'Status de CI ainda rodando não é mais lido como falha, e o review não diz que o check está falhando.',
     'Notebook fechado não libera de uma vez os PRs que um colega está revisando.',
     'Mais formatos de credencial mascarados e recusados na postagem, incluindo chave privada em qualquer embalagem.',
