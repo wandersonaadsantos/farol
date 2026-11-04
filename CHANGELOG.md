@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.33
+
+Medições de bastidor para decidir próximas melhorias, sem mudar nenhuma revisão.
+
+### Melhorias
+
+- Registro local de leitura de credenciais do home durante a revisão e de divergência na cobertura por trecho, em arquivo próprio, sem afetar aprovação, postagem nem Diagnóstico.
+
 ## v2.78.32
 
 O Farol recusa postar texto com credencial, e o git da revisão deixa de herdar a configuração da máquina.

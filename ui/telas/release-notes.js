@@ -14,6 +14,9 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.33', [
+    'Medições internas de leitura e cobertura, sem nenhuma mudança nas revisões.',
+  ]],
   ['2.78.32', [
     'Review com credencial reconhecida no texto não é postado: vai para você, com o motivo e sem repetir o valor.',
     'O git da revisão não herda mais a configuração da máquina, mantendo proxy e CA declarados.',
