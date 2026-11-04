@@ -41,6 +41,10 @@ O caminho depende da afirmação:
 - **presença ou ausência no código**: `grep`/`glob` com o padrão exato, e diga onde
   procurou, porque "não achei" só vale se o lugar estiver certo.
 
+Antes de confirmar, procure o que derrubaria a afirmação: guarda no chamador, validação
+anterior, configuração que muda o comportamento. Ler só a linha citada não confirma nada.
+Afirmação com mais de uma parte: confira cada parte, e use `parcial` quando só alguma se sustentar.
+
 Uma afirmação por vez. Se ao verificar você tropeçar em outra coisa relevante, registre
 como observação, não misture no veredito.
 

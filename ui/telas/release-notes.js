@@ -14,6 +14,17 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.34', [
+    'Regra só de organização vira sugestão e não reprova o PR sozinha.',
+    'Segurança, entrada, isolamento e prova de comportamento continuam bloqueando.',
+    'A revisão confere os casos irmãos na mesma rodada e avisa quando o achado já existia.',
+    'O card só mostra o critério técnico quando ele informa algo além do veredito.',
+    'Status de CI ainda rodando não é mais lido como falha, e o review não diz que o check está falhando.',
+    'Notebook fechado não libera de uma vez os PRs que um colega está revisando.',
+    'Mais formatos de credencial mascarados e recusados na postagem, incluindo chave privada em qualquer embalagem.',
+    'Cache do git se recupera de reinício no meio de uma gravação e libera espaço de repositórios parados.',
+    'A revisão lê a conversa do PR depois de formar opinião, e a verificação procura primeiro o que derruba a afirmação.',
+  ]],
   ['2.78.33', [
     'Medições internas de leitura e cobertura, sem nenhuma mudança nas revisões.',
   ]],

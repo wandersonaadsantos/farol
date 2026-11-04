@@ -296,6 +296,7 @@ class Engine extends EventEmitter {
     // porque a label não carrega hora nenhuma e uma sessão que morreu deixa a
     // label presa pra sempre, calando a frota naquele PR (ver marcarLabelsVistas).
     this.labelVistaDesde = readJson(path.join(STATE_DIR, 'label-vista.json'), {}, warn);
+    this.labelVistaObservadaEm = readJson(path.join(STATE_DIR, 'label-vista-observada.json'), 0, warn);
     // { key: epoch do sinal } do destrave por estado novo (lib/engine/destrava.js): o mesmo
     // commit ou pedido de revisão nunca destrava duas vezes, nem depois de reinício
     this.destravados = destravaMod.loadDestravados(warn);
@@ -1309,6 +1310,10 @@ class Engine extends EventEmitter {
   saveLabelVistaDesde() {
     try { writeJsonAtomic(path.join(STATE_DIR, 'label-vista.json'), this.labelVistaDesde); }
     catch { /* best-effort: perder o relógio só reinicia a contagem de validade da label */ }
+  }
+  saveLabelVistaObservada() {
+    try { writeJsonAtomic(path.join(STATE_DIR, 'label-vista-observada.json'), this.labelVistaObservadaEm); }
+    catch { /* best-effort: sem o instante, o carimbo antigo segue valendo como antes */ }
   }
   // sinal invisível de "revisando" por ref git (lib/engine/review-signal.js)
   refreshReviewSignals() { return signalMod.refreshReviewSignals(this); }

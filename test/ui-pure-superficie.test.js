@@ -295,6 +295,7 @@ const CONGELADA = [
   "reRoundBoxHtml",
   "reRoundStatus",
   "reasonGroups",
+  "criterioTecnicoHtml",
   "reasonGroupsHtml",
   "reasonText",
   "reciboEstado",

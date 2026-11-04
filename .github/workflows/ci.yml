@@ -26,7 +26,10 @@ jobs:
     # 30/08/2026 o job de macOS ficou preso no passo de testes duas vezes no
     # mesmo dia, segurando PR em BLOCKED enquanto queimava runner. Job eterno
     # nao informa nada; job vermelho informa.
-    timeout-minutes: 15
+    # macOS tem 60: o prazo conta a espera por maquina, e em 04/11/2026 a falta de
+    # capacidade do GitHub cancelou o job quatro vezes aos 15 minutos, sem rodar teste.
+    # O teto contra job preso continua nos 15 minutos do passo que pode travar.
+    timeout-minutes: ${{ matrix.os == 'macos-latest' && 60 || 15 }}
     strategy:
       fail-fast: false
       matrix:
@@ -48,6 +51,7 @@ jobs:
         run: npm run lint
 
       - name: Testes
+        timeout-minutes: 15
         shell: bash
         run: |
           # O encerramento forçado pode truncar o protocolo dos filhos no macOS.
@@ -62,7 +66,7 @@ jobs:
   electron:
     name: electron
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.os == 'macos-latest' && 60 || 15 }}
     strategy:
       fail-fast: false
       matrix:
@@ -120,6 +124,7 @@ jobs:
       # A identidade efemera viabiliza UNNotifications, como no CI do Electron;
       # nao altera permissoes/TCC e nao representa assinatura de distribuicao.
       - name: Assinar o runtime de teste e abrir o Farol no macOS
+        timeout-minutes: 15
         if: runner.os == 'macOS'
         shell: bash
         run: bash tools/electron-smoke-macos-sign.sh

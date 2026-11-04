@@ -9,6 +9,29 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.34
+
+Reprovação só com sentido técnico palpável, sem afrouxar o que protege comportamento e segurança, e cache que se recupera sozinho depois de reinício ou de disco no limite.
+
+### Melhorias
+
+- Regra de organização, como responsabilidade de arquivo, ternário aninhado, alias de import e lugar de um helper, não reprova mais o PR sozinha: vira sugestão. Quando ela causa defeito de verdade, a revisão aponta o cenário e o bloqueio continua.
+- Segurança, validação de entrada, isolamento, rastro de falha, prova de comportamento, supressão, regra de negócio duplicada, dívida agravada e qualquer regra nova do catálogo continuam bloqueando.
+- A revisão confere os casos irmãos de cada bloqueio na mesma rodada e avisa quando um achado já estava no commit anterior.
+- O texto público fala do código, sem narrar o que a revisão rodou ou deixou de rodar.
+- O card deixa de repetir "Critérios técnicos comprovados" quando o veredito já diz isso; o bloco só aparece quando informa algo a mais.
+- A revisão passa a ler a conversa do PR depois de formar opinião sobre o código: thread aberta com defeito real é adotada sem comentário repetido, e thread resolvida não prova nada por si só.
+- A verificação empírica procura primeiro o que derrubaria a afirmação, em vez de confirmar lendo só a linha citada.
+- O Jira não segue mais redirecionamento para outro host, e um arquivo de PR com caminho de controle do git nunca é gravado no disco da análise.
+
+### Correções
+
+- Status de CI externo ainda rodando não é mais lido como falha: a conta que reprova sozinha não publica que o check está falhando quando ele só não terminou.
+- Notebook fechado ou app parado não liberam mais de uma vez a revisão dos PRs que um colega está revisando: a validade da label pausa enquanto ninguém a observa.
+- Chave privada em qualquer embalagem (string concatenada, JSON, comentário por linha, diff, RSA cifrada e PGP), tokens da AWS, do Slack e da Atlassian são mascarados em log e na fonte lida pela revisão, e o review que os trouxer não é postado.
+- Trava do git deixada por reinício no meio de uma gravação é removida sozinha depois do prazo, em vez de prender o repositório na análise técnica.
+- Repositórios parados que somam o teto do cache liberam espaço para os outros, do uso mais antigo para o mais novo, e só quando isso resolve.
+
 ## v2.78.33
 
 Medições de bastidor para decidir próximas melhorias, sem mudar nenhuma revisão.

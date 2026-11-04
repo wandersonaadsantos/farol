@@ -2,7 +2,7 @@
 
 A admissibilidade técnica vem antes da preferência de publicar. Atender ao card,
 ter CI verde, melhorar parte do código ou repetir um precedente não dispensa uma
-regra obrigatória aplicável. Uma violação comprovada impede APPROVE; uma avaliação
+regra obrigatória aplicável. Uma violação comprovada impede APPROVE, salvo de regra de organização sem cenário concreto de falha, que vira sugestão; uma avaliação
 necessária inconclusiva também impede APPROVE, sem virar acusação de defeito.
 
 Regras verificáveis por ferramenta e regras de julgamento são igualmente
