@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.32', [
+    'Review com credencial reconhecida no texto não é postado: vai para você, com o motivo e sem repetir o valor.',
+    'O git da revisão não herda mais a configuração da máquina, mantendo proxy e CA declarados.',
+  ]],
   ['2.78.31', [
     'Reinício da máquina no meio de uma atualização não deixa mais o Farol sem abrir: a versão anterior continua inteira até a nova estar conferida.',
     'Instalar de novo conserta arquivo danificado, e a instalação só termina com o conteúdo igual ao do pacote.',
