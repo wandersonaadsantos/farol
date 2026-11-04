@@ -74,8 +74,8 @@ test('a seção Conexões saiu inteira, e o bloco novo está em Automação com 
   }
   const telas = ler('ui/telas/acoes.js') + ler('ui/telas/sistema.js');
   assert.doesNotMatch(telas, /'ghUser'|'owners'|#setUser|#setOwners|#setMergeBlocked|sec: 'connections'/, 'nada lê nem grava os campos que saíram');
-  assert.match(ler('ui/telas/sistema.js'), /sec: 'automation', at: '#sys-row-mergeblocked'/, 'a busca acha a lista no lugar novo');
-  assert.match(ler('ui/telas/sistema.js'), /title: 'Organizações monitoradas \(por conta\)'/, 'e acha as organizações em Contas');
+  assert.match(ler('ui/pure/sistema-busca.js'), /sec: 'automation', at: '#sys-row-mergeblocked'/, 'a busca acha a lista no lugar novo');
+  assert.match(ler('ui/pure/sistema-busca.js'), /title: 'Organizações monitoradas \(por conta\)'/, 'e acha as organizações em Contas');
 });
 
 test('o card de Meus PRs testa o bloqueio antes de tudo e mostra a linha com o atalho', () => {

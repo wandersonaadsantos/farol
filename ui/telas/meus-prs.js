@@ -224,7 +224,7 @@ function renderMyPRs() {
         </div>
         <div class="pr-actions">
           <button class="btn primary sm act-self" data-url="${esc(pr.url)}" ${running || queued ? 'disabled' : ''}>${btnLabel}</button>
-          <button class="btn sm ghost act-set-reviewers" data-url="${esc(pr.url)}" title="Atribui você e pede review dos reviewers configurados deste repo (aba Sistema). Aplica na hora, sem confirmação.">👥 Reviewers</button>
+          <button class="btn sm ghost act-set-reviewers" data-url="${esc(pr.url)}" title="Atribui você e pede review dos reviewers configurados deste repo (aba Sistema). Aplica na hora, sem confirmação.">👥 Pedir reviewers no GitHub</button>
           ${mergeBtns}
           ${a ? `<button class="btn sm ghost act-self-visibility" data-key="${esc(pr.key)}" data-hidden="${vis.alvo ? '1' : '0'}" title="${esc(vis.title)}">${esc(vis.label)}</button>` : ''}
           ${escondido
@@ -353,7 +353,7 @@ $('#myPRs').addEventListener('click', (e) => {
     confirmModal({
       title: `Merge como ADMIN de ${key}`, danger: true, confirmLabel: 'Merge como admin', cancelLabel: 'Cancelar',
       body: `<p>Isso <b>bypassa a proteção da branch</b> e mergeia <b>agora</b>, ignorando revisões e checks obrigatórios. Só funciona se você for admin do repo.</p>
-        <p><b>Você está passando por cima do gate de review do time.</b> Use com consciência. Quando der, prefira o <b>Auto-merge</b>: ele espera os requisitos passarem, sem furar nada.</p>`
+        <p><b>Você está passando por cima da regra de revisão do time.</b> Use com consciência. Quando der, prefira o <b>Auto-merge</b>: ele espera os requisitos passarem, sem furar nada.</p>`
     }).then(ok => {
       if (!ok) return;
       mAdmin.disabled = true; mAdmin.textContent = 'Mergeando…';
@@ -462,7 +462,7 @@ function onMyPRsReviewersClick(e) {
   rev.disabled = true; rev.textContent = 'Setando…';
   api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
     if (!r?.ok) toast('error', r?.error || 'não consegui setar os reviewers');
-    rev.disabled = false; rev.textContent = '👥 Reviewers';
+    rev.disabled = false; rev.textContent = '👥 Pedir reviewers no GitHub';
   });
 }
 

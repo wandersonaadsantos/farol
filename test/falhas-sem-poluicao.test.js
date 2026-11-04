@@ -134,6 +134,6 @@ test('o resumo não repete o identificador de sessão que já está no corpo', (
 
 test('os três estados da seção continuam distintos', () => {
   assert.match(P.falhasSecaoHtml({ estado: 'carregando', falhas: [] }), /Lendo as falhas/);
-  assert.match(P.falhasSecaoHtml({ estado: 'pronto', falhas: [] }), /Nenhuma falha registrada/);
+  assert.match(P.falhasSecaoHtml({ estado: 'pronto', falhas: [] }), /Nenhuma falha de sessão de IA registrada/);
   assert.match(P.falhasSecaoHtml({ estado: 'erro', falhas: [] }), /Não deu para ler/);
 });

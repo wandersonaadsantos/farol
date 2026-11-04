@@ -105,6 +105,9 @@ button { font: inherit; }
 .tabs-row { display: contents; }
 body.electron .topbar-main { padding-right: 150px; }
 body.electron.mac .topbar-main { padding-right: 22px; padding-left: 84px; }
+/* A casca Mac também tem a barra "hidden inset": o mesmo recuo, pelo atributo que a ui/app.js
+   escreve a partir do snapshot.casca do motor. */
+html[data-casca="mac"] .topbar-main { padding-right: 22px; padding-left: 84px; }
 .topbar button, .topbar nav, .topbar .account-bar { -webkit-app-region: no-drag; }
 .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .logo { width: 24px; height: 24px; flex: none; }
@@ -482,7 +485,8 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .pw-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .pw-ref { font-weight: 600; color: var(--text); }
 .prow.mine .pw-ref { color: var(--ac); }
-.pw-head .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; flex: none; }
+.pw-head .badge { font-size: 10.5px; font-weight: 700; color: var(--accent-text); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; flex: none; }
+:root[data-theme="light"] .prow.mine .pw-ref, :root[data-theme="light"] .pr-ref a { color: var(--accent-text); }
 .pw-head .badge.rev-ok { color: var(--ok); background: var(--ok-soft); }
 .pw-head .badge.rev-rc { color: var(--danger); background: var(--danger-soft); }
 .pw-head .badge.rev-cm, .pw-head .badge.rev-pend { color: var(--accent); background: var(--accent-soft); }
@@ -505,7 +509,13 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
   .pw-side { grid-column: 1 / -1; grid-row: auto; flex-direction: row; align-items: center; justify-content: space-between; margin-top: 6px; }
 }
 @media (max-width: 420px) {
-  .pw-title { white-space: normal; overflow: visible; }
+  /* título em até duas linhas, autor na linha de baixo e alvos de toque de 40 px */
+  .pw-title { flex-wrap: wrap; }
+  .pw-title-txt { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .pw-title .person-mention { flex-basis: 100%; margin-left: 0; }
+  .pw-sep { display: none; }
+  .pw-acts { gap: 8px; }
+  .pw-acts .btn { min-width: 40px; min-height: 40px; justify-content: center; }
 }
 
 /* consulta de um PR por URL (abre a conversa salva); discreta, não compete com o resto */
@@ -1383,12 +1393,16 @@ body.electron .chat-head { padding-right: 150px; }
   body.electron .topbar-main { padding-right: 146px; }
   main { padding: 14px 18px 48px; }
 }
+/* Em 768 px as abas não cabem com o rótulo de "Verificar agora" (Sistema era cortada),
+   então ele vira só o ícone já aqui. */
+@media (max-width: 900px) {
+  #btnCheck span { display: none; }     /* Verificar agora vira so o icone */
+  #btnCheck { padding: 7px 9px; gap: 0; }
+}
 @media (max-width: 620px) {
   .topbar-main { gap: 8px; padding: 8px 12px; }
   .tabs { margin: 0; }                 /* alinha e rola a partir da esquerda */
   .nav-item { padding: 6px 10px; }
-  #btnCheck span { display: none; }     /* Verificar agora vira so o icone */
-  #btnCheck { padding: 7px 9px; gap: 0; }
   .ver { display: none; }
   .brand-name { font-size: 15px; }
   main { padding: 12px 12px 40px; }

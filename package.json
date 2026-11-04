@@ -1,12 +1,13 @@
 {
   "name": "farol",
   "productName": "Farol",
-  "version": "2.78.27",
+  "version": "2.78.28",
   "description": "Radar de Pull Requests: monitora o GitHub e revisa com Claude Code ou Codex CLI.",
   "main": "main.js",
   "type": "module",
   "engines": {
-    "node": ">=24.22.1 <25"
+    "node": ">=24.22.1 <25",
+    "farolShell": ">=3.0.0 <4"
   },
   "author": "Wanderson Santos",
   "license": "MIT",

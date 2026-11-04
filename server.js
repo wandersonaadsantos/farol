@@ -13,16 +13,14 @@ import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
 import { tick as tickReviewAudits } from './lib/review-audit/commands.js';
-import { pararManutencaoMaterial } from './lib/technical-review/cleanup.js';
 import { iniciarManutencaoDoEngine } from './lib/technical-review/material-session-proof.js';
 import { snapshotDecisions } from './lib/engine/snapshot-decisions.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
-  executadoDireto, rodandoComoRoot, sinaisDoModoCelular,
-  APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
+  executadoDireto, rodandoComoRoot, sinaisDoModoCelular, modoCasca, APP_VERSION, APP_NAME, IS_WIN, IS_MAC, IS_LINUX,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
-  INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR, CLAUDE_JSON_DA_CONFIANCA,
+  INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, CLAUDE_JSON_DA_CONFIANCA,
 } from './lib/paths.js';
 
 // Helpers puros e utilitários movidos pra lib/ (Onda 1 do refactor, ver docs/QUALITY.md).
@@ -34,11 +32,10 @@ import { gravarLinhaDeLog } from './lib/log-arquivo.js';
 import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
 import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
-  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, workspaceTrust,
-  applyClaudeAuthEnv, claudeAuthShellLines,
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, workspaceTrust, applyClaudeAuthEnv, claudeAuthShellLines,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
-  sanitizeParallelReviews, sanitizeGlobalParallelReviews
-} from './lib/parse.js';
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews, sanearBind } from './lib/parse.js';
+import { loopback } from './lib/http-guard.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs, priorizarNoPath } from './lib/io.js';
 import updateMod from './lib/engine/update.js';
 import chatMod from './lib/engine/chat.js';
@@ -64,6 +61,7 @@ import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import meusPrsBase from './lib/engine/meus-prs-base.js';
 import labelsATirar from './lib/engine/labels-a-tirar.js';
+import { registrarBaseline, lerBaseline } from './lib/engine/baseline.js';
 import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
 import retomadaMod from './lib/engine/retomada-duravel.js';
@@ -99,6 +97,9 @@ import acesso from './lib/local-auth/acesso.js';
 import credMod from './lib/jira/credentials.js';
 import jiraMod from './lib/engine/jira.js';
 import { startServer } from './lib/http-server.js';
+import { publicarCasca } from './lib/engine/casca-arquivo.js';
+import { registrarSaidaOrdenada } from './lib/engine/saida-ordenada.js';
+import { bootstrapDaCasca } from './lib/engine/casca-bootstrap.js';
 
 function codexWindowsPathDirs() {
   const root = path.join(os.homedir(), 'AppData', 'Local', 'OpenAI', 'Codex', 'bin');
@@ -150,10 +151,9 @@ const DEFAULTS = settingsDefaults(DEFAULT_PORT);
 // continua puro (sem importar meio mundo) e existe UM lugar só onde a lista de
 // parsers usada por preferência é montada.
 const PARSERS = {
-  parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
-  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
+  parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople, sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
-  sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites, parseSyncConfig,
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites, parseSyncConfig, sanearBind,
   normalizarCadeia: cadeiaMod.normalizarCadeia,
 };
 
@@ -178,6 +178,8 @@ class Engine extends EventEmitter {
     const warn = (m) => this.log('WARN', m); // corrupção de estado precisa aparecer no farol.log
     const configSalva = readJson(CONFIG_FILE, {}, warn);
     this.config = { ...DEFAULTS, ...configSalva };
+    // bind é só de arquivo e chega ao listen e à allowlist: saneia aqui, uma vez, para todo leitor
+    this.config.bind = sanear('bind', this.config.bind, this.config, PARSERS);
     delete this.config.autoOpenReview; // chave antiga (terminal); o modo autonomo tem semantica nova
     this.config.accounts = parseAccounts(this.config.accounts); // normaliza (array de {user,owners})
     // idem accounts/people acima: config.json pode estar malformado (editado à mão,
@@ -578,7 +580,7 @@ class Engine extends EventEmitter {
     ]);
     this.ignorados = new Set([...this.seen].filter(k => !comDecisao.has(k)));
     this.saveIgnorados();
-    this.log('WARN', `migração: ${this.ignorados.size} PR(s) já vistos sem decisão tratados como descarte deliberado`);
+    if (this.ignorados.size > 0) this.log('WARN', `migração: ${this.ignorados.size} PR(s) já vistos sem decisão tratados como descarte deliberado`);
   }
 
   // Devolve à fila o que foi marcado como visto por uma revisão que NUNCA decidiu:
@@ -1066,11 +1068,7 @@ class Engine extends EventEmitter {
       panorama.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
 
       // primeira execucao da vida: baseline silencioso (nao notifica o estoque)
-      if (!fs.existsSync(BASELINE_FILE)) {
-        for (const pr of mineList) { this.markSeen(pr.key); this.marcarIgnorado(pr.key); }
-        fs.writeFileSync(BASELINE_FILE, new Date().toISOString() + '\n');
-        this.emit('toast', { kind: 'info', text: 'Primeira checagem: PRs atuais marcados como vistos (baseline).' });
-      }
+      if (!fs.existsSync(BASELINE_FILE)) registrarBaseline(this, BASELINE_FILE, mineList);
 
       // devolve à fila o que foi marcado visto por revisão que nunca decidiu, ANTES
       // do filtro abaixo (o `seen` é justamente o que o filtro usa)
@@ -1269,16 +1267,16 @@ class Engine extends EventEmitter {
   // nulos (stdio ignore) e o console nasce sem stdin: pause/claude morrem na hora.
   // Sessão/stream (terminal + headless): colaborador lib/engine/session.js (Onda 2).
   buildSessionScript(slash, account, reviewCap = '') { return sessionMod.buildSessionScript(this, slash, account, reviewCap); }
-  buildSessionScriptMac(slash, id, user, reviewCap = '') { return sessionMod.buildSessionScriptMac(this, slash, id, user, reviewCap); }
+  buildSessionScriptMac(slash, id, user, reviewCap = '', segredo = '') { return sessionMod.buildSessionScriptMac(this, slash, id, user, reviewCap, segredo); }
   spawnConsoleMac(slash, label, keys = [], account) { return sessionMod.spawnConsoleMac(this, slash, label, keys, account); }
   spawnConsoleLinux(slash, label, keys = [], account) { return sessionMod.spawnConsoleLinux(this, slash, label, keys, account); }
   sessionExit(id) { return sessionMod.sessionExit(this, id); }
   spawnConsole(slash, label, keys = [], account) { return sessionMod.spawnConsole(this, slash, label, keys, account); }
   handleSessionExit(opts) { return sessionMod.handleSessionExit(this, opts); }
   buildLoginScript(dir) { return sessionMod.buildLoginScript(this, dir); }
-  buildLoginScriptMac(dir, id) { return sessionMod.buildLoginScriptMac(this, dir, id); }
+  buildLoginScriptMac(dir, id, segredo = '') { return sessionMod.buildLoginScriptMac(this, dir, id, [], segredo); }
   buildCodexLoginScript() { return sessionMod.buildCodexLoginScript(this); }
-  buildCodexLoginScriptMac(id) { return sessionMod.buildCodexLoginScriptMac(this, id); }
+  buildCodexLoginScriptMac(id, segredo = '') { return sessionMod.buildCodexLoginScriptMac(this, id, segredo); }
   spawnLoginConsoleMac(dir) { return sessionMod.spawnLoginConsoleMac(this, dir); }
   spawnLoginConsoleLinux(dir) { return sessionMod.spawnLoginConsoleLinux(this, dir); }
   spawnLoginConsole(dir) { return sessionMod.spawnLoginConsole(this, dir); }
@@ -1503,13 +1501,16 @@ class Engine extends EventEmitter {
   // capacidade implementada que ainda não está valendo (adendo, item 5): os sinais reais
   // do aparelho, para a tela nunca anunciar proteção que o engine não está aplicando
   estadoDasCapacidades() {
+    // a seção sync, mais o localAuth do TOPO da config, que é de onde o porteiro o lê
+    const config = { ...this.config.sync, localAuth: this.config.localAuth };
     return capacidadesMod.estadoDasCapacidades({
       modoCelular: detectarModoCelular(sinaisDoModoCelular()),
       ativacaoA4: ATIVACAO_AUTOMATICA_A4,
       ativacaoTetoGrupo: ATIVACAO_TETO_GRUPO_C4B,
-      config: this.config.sync || {},
+      config,
       bloqueio: this.syncBloqueioCompartilhamento || '',
       grupoConfigurado: Object.keys((this.sync && this.sync.grupos) || {}).length > 0,
+      modoCasca: modoCasca(), bindForaDoLoopback: !loopback(this.config.bind),
     });
   }
   claudeTestarPerfil(dados) { return perfilMod.testarPerfil(this, dados); }
@@ -1865,7 +1866,8 @@ class Engine extends EventEmitter {
       // `app` é a IDENTIDADE do app, e o smoke do Electron confere o objeto inteiro: o
       // catálogo de seleções (lib/modelos.js), de onde a tela monta os seletores, é outra coisa
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
-      modelos: catalogoDeModelos(this.claudeVersao || null),
+      // `casca`: a casca nativa em que o motor roda (modoCasca), para a UI dar o recuo dos semáforos
+      modelos: catalogoDeModelos(this.claudeVersao || null), casca: modoCasca() || null,
       cadeiaPerfis: cadeiaMod.cadeiaParaTela(this), provedores: provedoresParaTela(this.config),
       // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
@@ -1873,6 +1875,7 @@ class Engine extends EventEmitter {
       capacidades: this.estadoDasCapacidades(),
       status: this.status, interventions: interventionMod.forUi(this),
       error: this.lastError,
+      baseline: this.baseline ??= lerBaseline(BASELINE_FILE),   // desde quando vigia (lido uma vez)
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
       // a projecao de cada conta pra tela mora em lib/engine/contas-gh.js, junto do resto
       // do que este app sabe sobre conta: o snapshot aqui so junta as pecas
@@ -2179,20 +2182,6 @@ class Engine extends EventEmitter {
 
 // --- bootstrap ---------------------------------------------------------------
 
-// Saída ORDENADA devolve os leases que este aparelho segura, para outro aparelho não
-// esperar até o TTL por um trabalho que já morreu. `once` nos dois sinais porque o
-// handler não pode correr duas vezes, e o `stopSync` é síncrono (os aborts saem em
-// best effort, sem await): pendurar a saída do processo em rede seria pior que o
-// lease preso que ela evita. Queda dura continua coberta só pelo TTL.
-function registrarSaidaOrdenada(engine) {
-  if (engine.saidaRegistrada) return;
-  engine.saidaRegistrada = true;
-  const sair = () => { pararManutencaoMaterial(); try { engine.syncStop(); } catch { /* encerrando: nada a fazer */ } };
-  process.once('SIGINT', () => { sair(); process.exit(0); });
-  process.once('SIGTERM', () => { sair(); process.exit(0); });
-  process.once('beforeExit', sair);
-}
-
 function start(onReady) {
   const engine = new Engine();
   let began = false;
@@ -2203,6 +2192,10 @@ function start(onReady) {
     // em dobro e escreveria seen/inflight/usage sem lock (A7). Por isso o
     // monitoramento só começa DEPOIS do listen dar certo.
     if (!err && !began) { began = true; engine.schedule(); engine.start(); registrarSaidaOrdenada(engine); }
+    // Sidecar de uma casca nativa: só agora, com o socket escutando, a casca pode achar o
+    // motor. Porta EFETIVA do socket. Com a porta ocupada nada é gravado: a casca reconhece
+    // o Farol vivo pelo GET /api/auth/status.
+    if (!err && modoCasca()) publicarCasca(engine, server.address().port);
     if (onReady) onReady(url, err);
   });
   return { engine, server, port: engine.config.port };
@@ -2211,11 +2204,12 @@ function start(onReady) {
 const farol = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, applyClaudeAuthEnv, claudeAuthShellLines };
 export default farol;
-export { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
+export { start, registrarSaidaOrdenada, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, applyClaudeAuthEnv, claudeAuthShellLines };
 
-// execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
-if (executadoDireto(import.meta.url)) {
+// execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento). Como sidecar de
+// casca nativa, antes do engine existir, o motor semeado pode se reexecutar de ~/.farol/engine.
+if (executadoDireto(import.meta.url) && !bootstrapDaCasca()) {
   start((url, err) => {
     if (err) { console.error('[farol] erro ao subir o servidor:', err.message); process.exit(1); }
     console.log(`[farol] monitorando · UI em ${url}`);

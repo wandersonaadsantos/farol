@@ -8,6 +8,10 @@
 
 ## Anexos
 
+- `Farol-{VERSION}.dmg` (quando anexado): Farol nativo para macOS 14 ou mais novo.
+- `appcast.xml` (junto do dmg): feed de atualização do Farol nativo no macOS (não precisa baixar à mão).
+- `Farol-{VERSION}.msix` (quando anexado): Farol nativo para Windows 10 1809 ou mais novo e Windows 11.
+- `Farol.appinstaller` (junto do msix): instala o msix e mantém o Farol nativo do Windows atualizado.
 - `Farol-Setup-v{VERSION}.exe`: instalação no Windows (Electron embutido).
 - `Farol-Instalar-mac.command` (quando anexado): instalação no macOS, Apple Silicon (Electron embutido).
 - `Farol-Instalar-mac-x64.command` (quando anexado): instalação no macOS, Intel (Electron embutido).

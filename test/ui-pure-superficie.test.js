@@ -25,6 +25,10 @@ const CONGELADA = [
   "escreverRota",
   "lerRota",
   "mudancaDeRota",
+  // o aviso de quando a rota pede uma aba opcional desligada e a tela cai no Radar
+  "avisoDeAbaDesligada",
+  // o período padrão da aba Consumo, que a URL omite e a tela aplica quando ela não diz
+  "JANELA_PADRAO_DO_CONSUMO",
   // conflito e PR superado pela base, no card de Meus PRs: a nota provisória da v2.71.10
   // (notaDaBaseHtml) saiu com o desenho do Claude Design de 10/10/2026
   "avisoDaBaseNoCard",
@@ -61,6 +65,9 @@ const CONGELADA = [
   // entraram as palavras únicas da política e a leitura por extenso dela
   "POLITICA_DA_CONTA_TEXTOS",
   "politicaDaContaNaTela",
+  "politicaParaDesfazer",
+  // a frase do aviso (com Desfazer) depois de mudar um campo da política da conta
+  "textoDaMudancaDePolitica",
   "VERSAO_DO_CONTROLE",
   "VIVO_MS",
   "avisoDoAparelhoHtml",
@@ -266,11 +273,14 @@ const CONGELADA = [
   "parkedNoteHtml",
   "pareamentoHtml",
   "parseGoto",
+  // o estoque que o baseline deixou fora da fila (30/10/2026, ui/pure/radar.js)
+  "pedidosAntesDoInicio",
   "perfilProblemasHtml",
   "perfilTesteHtml",
   "personMention",
   "personOf",
   "plural",
+  "pontePainelHtml",
   "prCoordNoteHtml",
   "prIdentificado",
   "prIdentificadoHtml",
@@ -355,6 +365,7 @@ const CONGELADA = [
   "transferenciaConfirmacao",
   "transferenciaDialogo",
   "updateAdiadoHtml",
+  "updateIndisponivelHtml",
   "usageBudgetHtml",
   "usageColorsFor",
   "usageConsolidadoEnvelopeHtml",
@@ -376,6 +387,9 @@ const CONGELADA = [
   "contasGhHtml",
   "contasGhVazio",
   "secoesDaFrota",
+  "SYS_INDEX", // o índice da busca do Sistema
+  "buscarNoSistema", // itens do índice que casam com a consulta
+  "secoesOcultasDoSistema", // seções do Sistema que somem com a sincronização desligada
 ];
 
 test('o ui/pure.js exporta exatamente a superficie congelada', async () => {

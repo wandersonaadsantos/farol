@@ -30,7 +30,7 @@ const CLARO = {
   model: /modelo/i, profileId: /perfil/i, costUsd: /custo/i,
   inputTokens: /tokens/i, outputTokens: /tokens/i, cacheReadTokens: /tokens/i, cacheCreationTokens: /tokens/i,
 };
-const RESUMO = { accountHash: /resumo SHA-256 sem chave/i, refHash: /resumo SHA-256 sem chave/i };
+const RESUMO = { accountHash: /resumo (criptográfico \(SHA-256\) sem segredo|SHA-256 sem chave)/i, refHash: /resumo (criptográfico \(SHA-256\) sem segredo|SHA-256 sem chave)/i };
 const TECNICOS = [
   'leaseId', 'deviceId', 'operationKind', 'acquiredAt', 'heartbeatAt', 'expiresAt', 'completedAt', 'lastVerifiedAt',
   'outcome', 'publicationState', 'reviewId', 'lastSeenAt', 'at', 'day', 'kind', 'costSource', 'status', 'localId',

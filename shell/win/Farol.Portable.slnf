@@ -1,0 +1,10 @@
+{
+  "solution": {
+    "path": "Farol.sln",
+    "projects": [
+      "Farol.Contrato\\Farol.Contrato.csproj",
+      "Farol.Sidecar\\Farol.Sidecar.csproj",
+      "Farol.Tests\\Farol.Tests.csproj"
+    ]
+  }
+}

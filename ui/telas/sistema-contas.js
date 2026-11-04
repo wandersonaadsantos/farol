@@ -1,9 +1,9 @@
 /* Farol · UI: gerenciador de contas do GitHub (Sistema). */
 import { configurarRegrasDeReview } from './review-scope.js';
 
-import { esc, accountsManagerHtml, contasGhHtml, camposDaEdicao } from '../pure.js';
+import { esc, textoDaMudancaDePolitica, politicaDaContaNaTela, politicaParaDesfazer, accountsManagerHtml, contasGhHtml, camposDaEdicao } from '../pure.js';
 import { estado, escopo, definirEscopo } from './estado.js';
-import { $, api, toast, confirmModal } from './infra.js';
+import { $, api, toast, toastRich, confirmModal } from './infra.js';
 import { ACCT, rebuildAccounts, renderAccountBar, renderIdentity, guardarEscopo } from './contas.js';
 
 /* ---------- gerenciador/editor de contas (Sistema) ----------
@@ -49,6 +49,26 @@ export function renderAccountsManager() {
 
 configurarRegrasDeReview(renderAccountsManager);
 
+/* mudar um campo da política grava na hora e avisa com Desfazer (8 s): o seletor muda o que
+   o Farol posta no GitHub sozinho, e antes a mudança era silenciosa */
+function mudarPolitica(user, campo, para) {
+  const conta = (estado().accounts || []).find(a => a.user === user) || {};
+  const antes = politicaDaContaNaTela(conta), de = antes[campo];
+  editAccount(user, { [campo]: para });
+  const texto = textoDaMudancaDePolitica({ user, campo, de, para });
+  let desfazer;
+  const aviso = toastRich('ok', (el) => {
+    const msg = document.createElement('span');
+    msg.textContent = texto;
+    desfazer = document.createElement('button');
+    desfazer.className = 'undo';
+    desfazer.textContent = 'Desfazer';
+    el.appendChild(msg);
+    el.appendChild(desfazer);
+  }, 8000);
+  desfazer.onclick = () => { editAccount(user, politicaParaDesfazer(antes, campo)); aviso.remove(); };
+}
+
 /* editor de contas: mudar cor / rótulo / tipo / orgs */
 $('#accountsManager').addEventListener('change', (e) => {
   const t = e.target, user = t.dataset && t.dataset.user;
@@ -58,16 +78,20 @@ $('#accountsManager').addEventListener('change', (e) => {
   if (t.classList.contains('acct-kind')) return editAccount(user, { kind: (t.value || '').trim() });
   if (t.classList.contains('acct-owners')) return editAccount(user, { owners: (t.value || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean) });
   // política de automação da conta: cada seletor grava o valor por extenso, sem herança
-  if (t.classList.contains('acct-autoreview')) return editAccount(user, { autoReview: t.value === 'true' });
-  if (t.classList.contains('acct-onclean')) return editAccount(user, { onClean: t.value === 'wait' ? 'wait' : 'approve' });
-  if (t.classList.contains('acct-oncaveats')) return editAccount(user, { onCaveats: t.value === 'approve' ? 'approve' : 'wait' });
-  if (t.classList.contains('acct-onreject')) return editAccount(user, { onReject: t.value === 'request_changes' ? 'request_changes' : 'wait' });
+  if (t.classList.contains('acct-autoreview')) return mudarPolitica(user, 'autoReview', t.value === 'true');
+  if (t.classList.contains('acct-onclean')) return mudarPolitica(user, 'onClean', t.value === 'wait' ? 'wait' : 'approve');
+  if (t.classList.contains('acct-oncaveats')) return mudarPolitica(user, 'onCaveats', t.value === 'approve' ? 'approve' : 'wait');
+  if (t.classList.contains('acct-onreject')) return mudarPolitica(user, 'onReject', t.value === 'request_changes' ? 'request_changes' : 'wait');
   if (t.classList.contains('acct-claudeprofile')) return editAccount(user, { claudeProfileId: t.value || undefined });
   // peso na cota do perfil (Politica 2): vazio = igual as outras, que e o padrao e
   // nao guarda campo nenhum (o parseAccounts do servidor so persiste peso positivo).
   if (t.classList.contains('acct-budgetweight')) return editAccount(user, { budgetWeight: Number(t.value) || undefined });
   // padrões do time que a revisão desta conta considera; vazio tira o campo
-  if (t.classList.contains('acct-padroes')) return editAccount(user, { padroesRevisao: (t.value || '').trim() || undefined });
+  if (t.classList.contains('acct-padroes')) {
+    editAccount(user, { padroesRevisao: (t.value || '').trim() || undefined });
+    toast('ok', `Padrões do time de @${user} salvos.`, 2500);
+    return;
+  }
 });
 /* remover conta, com a confirmação que diz o que muda (gerenciador e bloco do gh) */
 function pedirRemocao(user) {

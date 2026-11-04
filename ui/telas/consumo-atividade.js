@@ -26,7 +26,7 @@ function optionsHtml(values, label, selected) {
 }
 
 function shell() {
-  return `<div class="activity-filters"><label>Repositório<select id="activityRepo" data-activity-filter="repo" aria-label="Repositório"></select></label><label>Provedor<select data-activity-filter="provider" aria-label="Provedor"></select></label><label>Modelo principal<select data-activity-filter="model" aria-label="Modelo principal"></select></label><label>Tipo<select data-activity-filter="kind" aria-label="Tipo"></select></label><button data-activity-clear>Limpar filtros</button></div><details id="activityCustom" class="disc"><summary>Datas personalizadas</summary><div class="activity-dates"><label>Início<input id="activityStart" type="date"></label><label>Fim<input id="activityEnd" type="date"></label></div></details><details class="disc activity-rules">${activityRulesHtml()}</details><div id="activityBody" aria-live="polite"></div><div class="card usage-chart-card" id="activityHistoryPanel" tabindex="-1"><div class="usage-chart-head"><h3>Histórico de operações</h3><input type="search" id="activitySearch" aria-label="Buscar no histórico" placeholder="Buscar referência, tipo ou modelo"></div><div id="activityFocus" class="usage-caption"></div><div id="activityHistory"></div></div>`;
+  return `<div class="activity-filters"><label>Repositório<select id="activityRepo" data-activity-filter="repo" aria-label="Repositório"></select></label><label>Provedor<select data-activity-filter="provider" aria-label="Provedor"></select></label><label>Modelo principal<select data-activity-filter="model" aria-label="Modelo principal"></select></label><label>Tipo<select data-activity-filter="kind" aria-label="Tipo"></select></label><button data-activity-clear>Limpar filtros</button></div><details id="activityCustom" class="disc"><summary>Datas personalizadas</summary><div class="activity-dates"><label>Início<input id="activityStart" type="date"></label><label>Fim<input id="activityEnd" type="date"></label></div></details><details class="disc activity-rules">${activityRulesHtml()}</details><div id="activityBody" aria-live="polite"></div><div class="card usage-chart-card" id="activityHistoryPanel" tabindex="-1"><div class="usage-chart-head"><h3>Histórico de execuções</h3><input type="search" id="activitySearch" aria-label="Buscar no histórico" placeholder="Buscar referência, tipo ou modelo"></div><div id="activityFocus" class="usage-caption"></div><div id="activityHistory"></div></div>`;
 }
 
 function init() {
@@ -83,8 +83,8 @@ function paint(report) {
   paintTimeline();
   $('#activityHistory').innerHTML = report?.ok ? activityHistoryHtml(report) : '';
   for (const el of document.querySelectorAll('[data-activity-key]')) el.open = expanded.has(el.dataset.activityKey);
-  const focusLabels = { review: 'Reviews concluídas', self: 'Autoanálises concluídas', pr: 'PRs únicos revisados' };
-  $('#activityFocus').textContent = filters.focus === 'all' ? 'Todas as operações do recorte · tentativas agrupadas' : `Detalhes do indicador: ${focusLabels[filters.focus]} · limpar filtros para voltar`;
+  const focusLabels = { review: 'Revisões concluídas', self: 'Autoanálises concluídas', pr: 'PRs únicos revisados' };
+  $('#activityFocus').textContent = filters.focus === 'all' ? 'Todas as execuções do recorte · tentativas agrupadas' : `Detalhes do indicador: ${focusLabels[filters.focus]} · limpar filtros para voltar`;
   if (!report?.ok) return;
   const labels = { account: 'Todas as contas', repo: 'Todos os repositórios', provider: 'Todos os provedores', model: 'Todos os modelos', kind: 'Todos os tipos' };
   for (const [key, label] of Object.entries(labels)) {

@@ -43,6 +43,11 @@ test('com a exigência ligada pelo arquivo, a autenticação sai da lista de ind
   assert.equal(capacidadesIndisponiveis(e).some((i) => i.id === 'autenticacao-local'), false);
 });
 
+test('no modo casca e com bind fora do loopback o retrato diz que a autenticação é exigida', () => {
+  assert.equal(estadoDasCapacidades({ ...DESKTOP, modoCasca: 'mac' }).autenticacaoLocal.exigida, true);
+  assert.equal(estadoDasCapacidades({ ...DESKTOP, bindForaDoLoopback: true }).autenticacaoLocal.exigida, true);
+});
+
 test('compartilhamento ligado na config e desligado pelo engine aparece como bloqueado, nunca como ligado', () => {
   const e = estadoDasCapacidades({
     ...DESKTOP, modoCelular: true,
@@ -106,6 +111,18 @@ test('o snapshot do engine leva o estado das capacidades, com as ativações rea
   assert.equal(s.capacidades.tetoGrupo.aplicado, true, 'o teto do grupo passa a valer quando houver grupo');
   assert.equal(s.capacidades.tetoGrupo.configurado, false, 'esta máquina não tem grupo nenhum configurado');
   assert.equal(s.capacidades.autenticacaoLocal.modoCelular, false, 'esta máquina não é celular');
+});
+
+test('localAuth exigir no topo da config: o retrato do engine diz exigida, como o porteiro', () => {
+  const e = new Engine();
+  e.log = () => { };
+  e.pushState = () => { };
+  e.config.localAuth = 'exigir';
+  try {
+    assert.equal(e.estadoDasCapacidades().autenticacaoLocal.exigida, true, 'o porteiro lê o topo da config, e o retrato também');
+    assert.equal(e.snapshot().capacidades.autenticacaoLocal.exigida, true);
+  } finally { delete e.config.localAuth; }
+  assert.equal(e.estadoDasCapacidades().autenticacaoLocal.exigida, false, 'sem a chave, no desktop, não é exigida');
 });
 
 test('a proteção só é anunciada como ativa quando o engine está mesmo aplicando', () => {

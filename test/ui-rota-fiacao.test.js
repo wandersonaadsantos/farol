@@ -114,10 +114,18 @@ test('trocar de lugar pela tela empilha; trocar de conta substitui', () => {
   assert.equal(escopo(), 'all', 'sem conta no endereço, numa aba com a barra, é Todas');
 });
 
-test('aba opcional desligada cai no Radar e o endereço diz isso', () => {
+test('aba opcional desligada cai no Radar, na sub-aba Pra mim, avisa e o endereço diz isso', () => {
+  switchRadarSub('pano');
+  const toasts = document.querySelector('#toasts').children;
+  const antes = toasts.length;
   irPara('/entregas?dias=30');
   disparar('popstate');
   assert.equal(abaAtual(), 'radar');
+  assert.equal(radarSubAtual(), 'mim');
+  const novos = toasts.slice(antes);
+  assert.equal(novos.length, 1);
+  assert.equal(novos[0].textContent, 'Entregas está desligada. Ligue em Sistema > Preferências.');
+  assert.match(novos[0].className, /info/);
   assert.match(ultima()[1], /^\/radar\//);
 });
 
@@ -176,4 +184,32 @@ test('Codex 6: caixa de revisão cuja busca termina depois de a rota mudar não 
     assert.equal(caixaAberta(), '', 'a busca velha não abre a caixa');
     assert.equal(history.chamadas.slice(n).some(([tipo]) => tipo === 'push'), false, 'e não empilha nada');
   } finally { globalThis.fetch = real; }
+});
+
+test('período do Consumo: o clique escreve ?janela= (substituindo) e o endereço aplica a janela e marca o botão', async () => {
+  const { janelaDoConsumo, escolherJanelaDoConsumo } = await import('../ui/telas/consumo.js');
+  // o stub não tem os botões: dá à caixa do período quatro botões que lembram a classe
+  const caixa = document.querySelector('#usageWindow');
+  const botoes = [1, 7, 30, 90].map((n) => {
+    const b = document.createElement('button');
+    b.dataset.window = String(n);
+    return b;
+  });
+  caixa.querySelectorAll = () => botoes;
+  const ativo = () => botoes.filter((b) => b.classList.contains('active')).map((b) => b.dataset.window);
+  irPara('/consumo');
+  disparar('popstate');
+  assert.equal(abaAtual(), 'consumo');
+  assert.equal(janelaDoConsumo(), 30);
+  const n = history.chamadas.length;
+  escolherJanelaDoConsumo(7);
+  disparar('click');
+  assert.deepEqual(history.chamadas.slice(n), [['replace', '/consumo?janela=7']]);
+  irPara('/consumo?janela=90');
+  disparar('popstate');
+  assert.equal(janelaDoConsumo(), 90);
+  assert.deepEqual(ativo(), ['90']);
+  escolherJanelaDoConsumo(30);
+  disparar('click');
+  assert.deepEqual(ultima(), ['replace', '/consumo']);
 });

@@ -128,8 +128,15 @@ function renderFilaJusta() {
   card.hidden = !html;
 }
 
+/* O orçamento mora fora do details: pinta ao entrar na aba, em qualquer escopo. */
+function renderOrcamento() {
+  const budget = $('#usageBudget');
+  if (budget) budget.innerHTML = usageBudgetHtml(estado()?.usage ?? {});
+}
+
 function renderUsage() {
   renderFilaJusta();
+  renderOrcamento();
   renderUsageDeviceSeg();
   renderActivity({ window: usageState.window, scope: usageDeviceState.escopo === 'todos' ? 'all' : 'local' });
   const consolidado = usageDeviceState.escopo === 'todos';
@@ -141,8 +148,8 @@ function renderUsage() {
   const u = estado() && estado().usage;
   const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
   const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
-  const budget = $('#usageBudget'), sessions = $('#usageSessions');
-  if (!kpisEl || !tl || !legend || !matrix || !matrixCap || !budget || !sessions) return;
+  const sessions = $('#usageSessions');
+  if (!kpisEl || !tl || !legend || !matrix || !matrixCap || !sessions) return;
   // cada painel decide a PROPRIA vaziez, lendo a PROPRIA fonte: u.totals vem de
   // usage.json, mas a matriz/sessões leem usage-sessions.json e daysByKindModel
   // (arquivos diferentes). Gatear a aba inteira num campo agregado só deixava a
@@ -156,7 +163,6 @@ function renderUsage() {
   drawUsageTimeline(tl, legend, u || {}, usageState.metric, usageState.window, usageState.dim);
   const mtx = usageMatrixHtml(u || {}, usageState.metric, usageState.window);
   matrix.innerHTML = mtx.html; matrixCap.textContent = mtx.caption;
-  budget.innerHTML = usageBudgetHtml(u || {});
   sessions.innerHTML = usageSessionsHtml(u || {});
 }
 
@@ -238,6 +244,16 @@ async function renderUsageConsolidado() {
   alvo.innerHTML = usageConsolidadoEnvelopeHtml(r);
 }
 
+// O período do Consumo, também endereçável (?janela=7): a rota e o clique passam por aqui.
+function janelaDoConsumo() { return usageState.window; }
+function escolherJanelaDoConsumo(n) {
+  usageState.window = n;
+  const caixa = document.querySelector('#usageWindow');
+  if (caixa) marcarSeg(caixa.querySelectorAll('.seg-btn'), x => Number(x.dataset.window) === n);
+  usageHoverIdx = null;
+  renderUsage();
+}
+
 function wireUsageControls() {
   const advanced = $('#usageAdvanced');
   advanced?.addEventListener('toggle', () => { if (advanced.open) renderUsage(); });
@@ -251,7 +267,7 @@ function wireUsageControls() {
     }));
   };
   bind('#usageMetric', 'metric', 'metric');
-  bind('#usageWindow', 'window', 'window', Number);
+  document.querySelectorAll('#usageWindow .seg-btn').forEach(b => b.addEventListener('click', () => escolherJanelaDoConsumo(Number(b.dataset.window))));
   bind('#usageStack', 'dim', 'dim');
   const dev = document.querySelector('#usageDevice');
   if (dev) {
@@ -282,4 +298,4 @@ function registrarTelaConsumo() {
   });
 }
 
-export { revisarUrls, registrarTelaConsumo, renderUsage };
+export { revisarUrls, registrarTelaConsumo, renderUsage, janelaDoConsumo, escolherJanelaDoConsumo };

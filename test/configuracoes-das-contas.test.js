@@ -102,8 +102,8 @@ test('a leitura da tela e a do engine dão o mesmo valor para toda combinação 
 
 test('a tela de Contas grava o valor por extenso em cada seletor', () => {
   const fonte = ler('ui', 'telas', 'sistema-contas.js');
-  assert.match(fonte, /autoReview: t\.value === 'true'/);
-  assert.match(fonte, /onReject: t\.value === 'request_changes' \? 'request_changes' : 'wait'/);
+  assert.match(fonte, /'autoReview', t\.value === 'true'/);
+  assert.match(fonte, /'onReject', t\.value === 'request_changes' \? 'request_changes' : 'wait'/);
   assert.doesNotMatch(fonte, /herda o global|alcanceDasChavesGerais/);
 });
 
@@ -203,4 +203,21 @@ test('Automação: nenhuma chave promete o que o engine não faz', () => {
   assert.match(HTML, /Não vale no modelo Auto/, 'o Auto fixa fast:false em toda faixa');
   assert.doesNotMatch(HTML, /org que está esperando há mais tempo/, 'o escalonador escolhe a org atendida há mais tempo');
   assert.doesNotMatch(HTML, /APPROVE destacando as ressalvas/);
+});
+
+test('textoDaMudancaDePolitica diz o campo e a opção nova com as palavras da tela', () => {
+  assert.equal(
+    P.textoDaMudancaDePolitica({ user: 'alex', campo: 'onClean', de: 'wait', para: 'approve' }),
+    'Política de @alex alterada: quando fica aprovável sem ressalvas, aprova sozinho.');
+  assert.equal(
+    P.textoDaMudancaDePolitica({ user: 'alex', campo: 'autoReview', de: false, para: true }),
+    'Política de @alex alterada: quando chega um PR pra você, revisa sozinho.');
+  assert.equal(P.textoDaMudancaDePolitica({ user: 'alex', campo: 'color', de: 'a', para: 'b' }), '');
+});
+
+test('desfazer "sem ressalvas" devolve também o "com ressalvas" que a mudança levou junto', () => {
+  const antes = P.politicaDaContaNaTela({ onClean: 'approve', onCaveats: 'approve' });
+  assert.deepEqual(P.politicaParaDesfazer(antes, 'onClean'), { onClean: 'approve', onCaveats: 'approve' });
+  assert.deepEqual(P.politicaParaDesfazer(antes, 'onCaveats'), { onCaveats: 'approve' });
+  assert.deepEqual(P.politicaParaDesfazer({ ...antes, onReject: 'wait' }, 'onReject'), { onReject: 'wait' });
 });

@@ -186,6 +186,16 @@ test('claudeAuthPosixPrefix: perfil de chave remove só o token OAuth (a chave c
   assert.doesNotMatch(prefixo, /sk-ant-1/);
 });
 
+test('scripts POSIX: o segredo de saída é variável de shell, nunca exportada ao claude', () => {
+  const sessao = buildSessionScriptMac(engineMac({ kind: 'dir', dir: '' }), '/pr-review x', 'id1', 'bob', '', 'segredo1');
+  const login = buildLoginScriptMac(engineMac({ kind: 'dir', dir: '' }), '', 'id1', [], 'segredo2');
+  for (const [script, segredo] of [[sessao, 'segredo1'], [login, 'segredo2']]) {
+    assert.match(script, new RegExp(`^FAROL_SESSION_SECRET='${segredo}'$`, 'm'));
+    assert.equal(script.includes('export FAROL_SESSION_SECRET'), false);
+    assert.match(script, /-H "x-farol-session: \$FAROL_SESSION_SECRET"/);
+  }
+});
+
 test('buildSessionScriptMac (assinatura): unset vem antes da linha do claude', () => {
   const script = buildSessionScriptMac(engineMac({ kind: 'dir', dir: '/tmp/perfil' }), '/pr-review x', 'id1', 'bob');
   const [iUnset, iDir, iClaude] = ordem(script, UNSET, 'export CLAUDE_CONFIG_DIR', '\nclaude ');

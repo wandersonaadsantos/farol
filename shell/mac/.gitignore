@@ -1,0 +1,5 @@
+Farol.xcodeproj/
+.build/
+DerivedData/
+*.xcuserstate
+.swiftpm/
