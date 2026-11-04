@@ -172,3 +172,11 @@ test('o painel do aparelho só diz "em dia" quando a versão alcança a última 
   const semReferencia = P.painelDoAparelhoHtml(AP, {});
   assert.doesNotMatch(semReferencia, /em dia/, 'sem a última release não há como afirmar');
 });
+
+test('troca: sobra de atualização interrompida sai antes da cópia e não entra no app', () => {
+  const raiz = instalacao();
+  escrever(raiz, 'lib.novo-111/lixo.js', 'zerado');
+  escrever(raiz, 'assets.velho-222/antigo.js', 'x');
+  servidor.trocarArquivos(pacote(), raiz, 333);
+  assert.deepEqual(fs.readdirSync(raiz).filter(n => /\.(?:novo|velho)-\d+$/.test(n)), []);
+});

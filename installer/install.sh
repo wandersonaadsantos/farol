@@ -161,6 +161,9 @@ pkill -f '/Applications/Farol[.]app/Contents/MacOS/(Electron|Farol)' 2>/dev/null
 sleep 1
 
 # Cada estágio fica no volume do respectivo destino. Falhas devolvem a versão anterior.
+# O rename é do diário do sistema de arquivos; o conteúdo ainda pode estar só no cache, então
+# vai para o disco antes de a versão anterior sair do lugar.
+sync
 [ ! -e "$LIVE_APP" ] || mv "$LIVE_APP" "$STAGE/anterior"
 NEW_APP=1
 mv "$APP" "$LIVE_APP"

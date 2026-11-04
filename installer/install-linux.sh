@@ -44,24 +44,45 @@ sleep 1
 
 # --- copia do app -------------------------------------------------------------
 step "Copiando o app para $APP"
+# Pasta nova, conferida e no disco antes de trocar: reinício no meio deixa a versão anterior
+# inteira (medido no Windows em 03/11/2026; o rm -rf + cp no lugar tinha a mesma janela aqui).
+NOVO="$APP.novo"
+ANTIGO="$APP.antigo"
 mkdir -p "$APP"
+# Troca interrompida: app.antigo pode ter a única cópia de um item; volta antes de limpar.
+if [ -d "$ANTIGO" ]; then
+  for item in "$ANTIGO"/*; do
+    [ -e "$item" ] || continue
+    [ -e "$APP/${item##*/}" ] || mv "$item" "$APP/${item##*/}" || die "Falha ao recuperar ${item##*/}"
+  done
+fi
+rm -rf "${NOVO:?}" "${ANTIGO:?}"
+mkdir -p "$NOVO" "$ANTIGO"
 for f in main.js server.js package.json README.md CLAUDE.md; do
-  [ -f "$SRC/$f" ] && cp "$SRC/$f" "$APP/$f"
+  [ ! -f "$SRC/$f" ] || cp "$SRC/$f" "$NOVO/$f" || die "Falha ao copiar $f"
 done
 # tools/ carrega runtime (jira-mcp.js); ver o mesmo comentário em install.sh.
 for d in lib ui assets workspace-template installer tools; do
   [ -d "$SRC/$d" ] || continue
-  rm -rf "${APP:?}/$d"
-  cp -R "$SRC/$d" "$APP/$d"
+  cp -R "$SRC/$d" "$NOVO/$d" || die "Falha ao copiar a pasta $d"
+  diff -r "$SRC/$d" "$NOVO/$d" >/dev/null || die "Cópia diferente do pacote na pasta $d"
 done
 # Guias distribuídos: allowlist explícita (decisão de 15/09/2026). A pasta é recriada para
 # um guia que saia da lista não ficar para sempre na cópia instalada.
-rm -rf "${APP:?}/docs"
-mkdir -p "$APP/docs"
+mkdir -p "$NOVO/docs"
 for doc in CONFIGURATION.md REVIEW-GATES.md MACOS.md RELEASE.md; do
   [ -f "$SRC/docs/$doc" ] || die "Guia ausente na origem: docs/$doc"
-  cp "$SRC/docs/$doc" "$APP/docs/$doc"
+  cp "$SRC/docs/$doc" "$NOVO/docs/$doc" || die "Falha ao copiar docs/$doc"
 done
+sync
+# package.json por último: é ele que diz a versão no próximo boot, e troca interrompida não anuncia
+# a versão nova. Falha no meio deixa app.antigo no lugar, e a próxima instalação o recupera.
+for nome in $(ls -A "$NOVO" | grep -vx package.json) package.json; do
+  [ -e "$NOVO/$nome" ] || continue
+  [ ! -e "$APP/$nome" ] || mv "$APP/$nome" "$ANTIGO/$nome" || die "Falha ao trocar $nome"
+  mv "$NOVO/$nome" "$APP/$nome" || die "Falha ao trocar $nome"
+done
+rm -rf "${NOVO:?}" "${ANTIGO:?}"
 
 # --- dependencias (Electron) --------------------------------------------------
 instalar_runtime

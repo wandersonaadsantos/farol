@@ -1,4 +1,6 @@
 # Preparar o runtime antes de encerrar processos ou alterar a instalacao atual.
+. (Join-Path $PSScriptRoot 'copia-transacional.ps1')
+
 function Clear-ElectronRuntimeStage([string]$Stage) {
   if ([string]::IsNullOrWhiteSpace($Stage)) { return }
   $full = [IO.Path]::GetFullPath($Stage)
@@ -29,6 +31,12 @@ function Copy-ElectronRuntime([string]$Source, [string]$App) {
   if ($LASTEXITCODE -ge 8) {
     Remove-Item -LiteralPath $novo -Recurse -Force -ErrorAction SilentlyContinue
     throw "robocopy $LASTEXITCODE"
+  }
+  # O mesmo zeramento do app vale aqui (Setup.exe): conferido e no disco antes de trocar o nome.
+  try { Assert-CopiaIgual $Source $novo; Write-PastaNoDisco $novo }
+  catch {
+    Remove-Item -LiteralPath $novo -Recurse -Force -ErrorAction SilentlyContinue
+    throw
   }
   $tinha = Test-Path -LiteralPath $atual
   if ($tinha) { Rename-Item -LiteralPath $atual -NewName 'node_modules.antigo' }

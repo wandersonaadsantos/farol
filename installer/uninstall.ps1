@@ -28,6 +28,9 @@ Get-Item $run | Select-Object -ExpandProperty Property | ForEach-Object {
 
 Write-Host '  -> Removendo o app'
 Remove-Item $App -Recurse -Force
+foreach ($sobra in @("$App.novo", "$App.antigo")) {
+  if (Test-Path -LiteralPath $sobra) { Remove-Item -LiteralPath $sobra -Recurse -Force }
+}
 Remove-Item (Join-Path $env:LOCALAPPDATA 'Farol') -Recurse -Force
 
 if ($RemoveData) {
