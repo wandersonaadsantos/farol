@@ -65,6 +65,7 @@ const CONGELADA = [
   // entraram as palavras únicas da política e a leitura por extenso dela
   "POLITICA_DA_CONTA_TEXTOS",
   "politicaDaContaNaTela",
+  "politicaParaDesfazer",
   // a frase do aviso (com Desfazer) depois de mudar um campo da política da conta
   "textoDaMudancaDePolitica",
   "VERSAO_DO_CONTROLE",
