@@ -6,6 +6,7 @@ import { criteriaFixture } from './helpers/criteria-fixture.js';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 
 const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-credencial-'));
 process.env.FAROL_HOME = FAROL_HOME;
@@ -46,7 +47,7 @@ io.run = async (_cmd, args) => {
 const { Engine } = await import('../server.js');
 const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
 isolateTechnicalTool();
-const { hasCredential, replaceCredentials, maskSecrets } = await import('../lib/sensitive-text.js');
+const { hasCredential, replaceCredentials, maskSecrets, secretRanges } = await import('../lib/sensitive-text.js');
 const { BLOQUEIO_CREDENCIAL, MARCA_RETIRADA, camposComCredencial, retirarCredenciais } = await import('../lib/engine/credencial-no-texto.js');
 const { classify } = await import('../lib/log-taxonomy.js');
 const { postRetryFor } = await import('../lib/engine/desfecho-da-revisao.js');
@@ -127,6 +128,55 @@ test('texto normal de review passa, inclusive o que a máscara dos logs pegaria'
   ];
   for (const texto of normais) assert.equal(hasCredential(texto), false, texto);
   assert.notEqual(maskSecrets(normais[3]), normais[3], 'a régua dos logs é mais larga de propósito');
+});
+
+test('citação de placeholder e nome de classe não recusam a postagem, e o mascaramento segue largo', () => {
+  const falsos = [
+    `sk-${'animationcontainerwrapper'}-2`,
+    `${'gh'}p_1234567890abc...`,
+    `${'gh'}p_1234567890abcdefghijklmnop...`,
+    `${'gh'}p_1234567890abcdefghijklmnopqrstuvwxyz`,
+    `${'gh'}p_abcd1234efgh5678ijkl****`,
+    `${'gh'}p_abcd1234efgh5678ijkl`,
+    `${'gh'}p_${CORPO}…`,
+    `${'gh'}p_${CORPO}...`,
+    `sk-1234567890abcdefghijklmnop...`,
+    `sk-1234...`,
+    `sk-${CORPO}****`,
+  ];
+  for (const valor of falsos) {
+    assert.equal(hasCredential(`Exemplo citado: \`${valor}\`.`), false, valor);
+    assert.equal(replaceCredentials(valor, '[x]'), valor, valor);
+  }
+  // nada disso muda a máscara dos logs: o que ela já pegava, continua pegando
+  for (const valor of [`sk-${'animationcontainerwrapper'}-2`, `${'gh'}p_abcd1234efgh5678ijkl****`, `${'gh'}p_${CORPO}...`, `sk-${CORPO}****`]) {
+    assert.notEqual(maskSecrets(valor), valor, valor);
+    assert.ok(secretRanges(valor).length > 0, valor);
+  }
+});
+
+test('token sintético de alta entropia em cada formato continua recusado', () => {
+  // derivados de hash: deterministas, e sem padrão que a régua de sequência reconheça
+  const entropia = (semente, tamanho) => {
+    let saida = '';
+    for (let i = 0; saida.length < tamanho; i++) saida += createHash('sha512').update(`${semente}:${i}`).digest('base64').replace(/[^A-Za-z0-9]/g, '');
+    return saida.slice(0, tamanho);
+  };
+  for (let n = 0; n < 40; n++) {
+    const formatos = [
+      ...['p', 'o', 'u', 's', 'r'].map(letra => `${'gh'}${letra}_${entropia(`gh${letra}${n}`, 36)}`),
+      `github_${'pat'}_${entropia(`pat${n}`, 22)}_${entropia(`pat2${n}`, 59)}`,
+      `sk-${'ant'}-api03-${entropia(`ant${n}`, 93)}`,
+      `sk-${'or'}-v1-${entropia(`or${n}`, 64)}`,
+      `sk-${'proj'}-${entropia(`proj${n}`, 80)}`,
+      `sk-${entropia(`sk${n}`, 48)}`,
+      `${'AI'}za${entropia(`aiza${n}`, 35)}`,
+    ];
+    for (const token of formatos) {
+      assert.equal(hasCredential(`Valor: ${token}.`), true, token.slice(0, 8));
+      assert.equal(replaceCredentials(token, '[x]'), '[x]', token.slice(0, 8));
+    }
+  }
 });
 
 test('o motivo não vira falha transitória: nada de reenvio automático', () => {

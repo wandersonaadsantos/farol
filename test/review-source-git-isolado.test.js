@@ -17,6 +17,7 @@ const barra = caminho => caminho.replaceAll('\\', '/');
 const VARIAVEIS_MEXIDAS = ['HOME', 'USERPROFILE', 'XDG_CONFIG_HOME', 'GIT_CONFIG_GLOBAL', 'GIT_SSH_COMMAND', 'GIT_ASKPASS', 'GIT_ALLOW_PROTOCOL', 'GIT_TEMPLATE_DIR', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0'];
 const envAntes = Object.fromEntries(VARIAVEIS_MEXIDAS.map(nome => [nome, process.env[nome]]));
 const ORIGEM_FALSA = 'https://hostil.invalid/repo.git';
+const argsDoFetch = [];
 let raiz, origin, canario, runReal, gitconfig, scope, store, source, materiais, base, head;
 
 const canarioLido = async () => (await fs.readFile(canario, 'utf8').catch(() => ''));
@@ -37,6 +38,7 @@ async function montarConfigHostil() {
   await fs.mkdir(path.dirname(gitconfig));
   await fs.writeFile(gitconfig, [
     '[core]', `\tfsmonitor = ${barra(script)}`, `\thooksPath = ${barra(hooks)}`, `\tsshCommand = ${comando}`, `\tgitProxy = ${comando}`, `\tattributesFile = ${barra(atributos)}`,
+    '[http]', '	proxy = http://proxy.example.test:3128',
     '[init]', `\ttemplateDir = ${barra(path.dirname(template))}`,
     `[url "${barra(origin)}"]`, `\tinsteadOf = ${ORIGEM_FALSA}`,
     '[filter "mal"]', `\tsmudge = ${comando}`, '\trequired = true',
@@ -59,13 +61,21 @@ before(async () => {
   await fs.writeFile(path.join(origin, '.gitattributes'), 'grande.bin filter=lfs\nfiltrado.txt filter=mal\n');
   await fs.writeFile(path.join(origin, 'grande.bin'), 'version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 3\n');
   await fs.writeFile(path.join(origin, 'filtrado.txt'), 'texto cru\n');
-  git(['add', '.']); git(['commit', '--quiet', '-m', 'base']); base = git(['rev-parse', 'HEAD']);
+  // caminho acima de 260 caracteres dentro do material: sem core.longpaths o `status` acusa ` D`
+  if (process.platform === 'win32') {
+    const fundo = path.join(origin, ...Array.from({ length: 6 }, (_, i) => `pasta-bem-comprida-numero-${i}-${'x'.repeat(30)}`));
+    await fs.mkdir(fundo, { recursive: true });
+    await fs.writeFile(path.join(fundo, 'arquivo-no-fundo.txt'), 'fundo\n');
+  }
+  execFileSync('git', ['-c', 'core.longpaths=true', 'add', '.'], { cwd: origin, env: envGitLimpo(), windowsHide: true });
+  execFileSync('git', ['-c', 'core.longpaths=true', 'commit', '--quiet', '-m', 'base'], { cwd: origin, env: envGitLimpo(), windowsHide: true });
+  base = git(['rev-parse', 'HEAD']);
   await fs.writeFile(path.join(origin, 'source.js'), 'export const x = 2;\n');
   git(['add', '.']); git(['commit', '--quiet', '-m', 'head']); head = git(['rev-parse', 'HEAD']);
 
   await montarConfigHostil();
   runReal = io.run;
-  io.run = async (cmd, args, opts) => runReal(cmd, ['-c', 'protocol.file.allow=always', ...args.map(arg => (arg === 'https://github.com/org/repo.git' ? origin : arg))], opts);
+  io.run = async (cmd, args, opts) => { if (args.includes('fetch')) argsDoFetch.push(...args); return runReal(cmd, ['-c', 'protocol.file.allow=always', ...args.map(arg => (arg === 'https://github.com/org/repo.git' ? origin : arg))], opts); };
   scope = { host: 'github.com', account: 'fixture', repo: 'org/repo', repositoryId: 123 };
   store = await new SourceStore(scope, { root: path.join(raiz, 'cache'), limits: { reserveBytes: 1 } }).initialize();
   const lease = await store.acquire({ H: head, B: base, M: base });
@@ -106,6 +116,8 @@ test('materializar com o config hostil não executa nada e entrega os bytes crus
   await fs.mkdir(destino);
   await source.materialize(destino);
   assert.equal(await canarioLido(), '', 'nada do config da máquina rodou');
+  assert.ok(argsDoFetch.includes('http.proxy=http://proxy.example.test:3128'), 'a rede da máquina chega ao fetch');
+  assert.equal(argsDoFetch.some(arg => /fsmonitor=(?!false)|sshCommand|gitProxy|insteadOf/.test(arg)), false, 'e só ela');
   assert.equal(await fs.readFile(path.join(destino, 'source.js'), 'utf8'), 'export const x = 2;\n');
   assert.equal(await fs.readFile(path.join(destino, 'filtrado.txt'), 'utf8'), 'texto cru\n');
   assert.match(await fs.readFile(path.join(destino, 'grande.bin'), 'utf8'), /^version https:\/\/git-lfs/, 'LFS fica como ponteiro');
@@ -119,6 +131,7 @@ test('materializar com o config hostil não executa nada e entrega os bytes crus
 test('o git da fonte não enxerga o config hostil', async () => {
   const lista = await source.run(['config', '--list', '--show-origin']);
   assert.equal(lista.includes(barra(gitconfig)), false);
+  assert.equal(lista.includes('proxy.example.test'), false, 'fora do fetch nem a rede passa');
   assert.equal(/hostil|canario|insteadof/i.test(lista), false, lista);
   assert.equal(/\bfile:.*gitconfig/.test(lista), false, 'nem global nem system');
   await assert.rejects(source.run(['ls-remote', ORIGEM_FALSA]), 'insteadOf não troca o servidor');
