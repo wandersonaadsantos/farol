@@ -11,7 +11,7 @@ echo '  Farol . desinstalador (Linux)'
 pkill -f '\.farol/app' 2>/dev/null || true
 sleep 1
 
-rm -rf "$ROOT/app" "$ROOT/bin"
+rm -rf "$ROOT/app" "$ROOT/app.novo" "$ROOT/app.antigo" "$ROOT/bin"
 rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/applications/farol.desktop"
 
 if [ "${1:-}" = '--remove-data' ]; then

@@ -51,8 +51,16 @@ preparar_runtime() {
 instalar_runtime() {
   if [ "$RUNTIME_SOURCE" != "$APP/node_modules" ]; then
     step 'Copiando o Electron validado'
-    rm -rf "${APP:?}/node_modules"
-    cp -R "$RUNTIME_SOURCE" "$APP/node_modules"
+    # Pasta nova e troca de nome: cp que falha depois do rm deixava o app sem Electron.
+    rm -rf "${APP:?}/node_modules.novo" "${APP:?}/node_modules.antigo"
+    cp -R "$RUNTIME_SOURCE" "$APP/node_modules.novo"
+    if command -v sync >/dev/null 2>&1; then sync; fi
+    [ ! -e "$APP/node_modules" ] || mv "$APP/node_modules" "$APP/node_modules.antigo" || die 'Falha ao trocar o Electron'
+    if ! mv "$APP/node_modules.novo" "$APP/node_modules"; then
+      [ ! -e "$APP/node_modules.antigo" ] || mv "$APP/node_modules.antigo" "$APP/node_modules"
+      die 'Falha ao trocar o Electron'
+    fi
+    rm -rf "${APP:?}/node_modules.antigo"
   fi
 }
 

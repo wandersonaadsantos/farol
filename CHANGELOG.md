@@ -9,6 +9,26 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.32
+
+O Farol recusa postar texto com credencial, e o git da revisão deixa de herdar a configuração da máquina.
+
+### Correções
+
+- Review com credencial reconhecida no texto público não é postado: vai para você com o motivo, sem repetir o valor.
+- O git da fonte de revisão roda isolado da configuração global e de sistema, sem LFS nem submódulo, e só com HTTPS. Proxy e CA declarados no `~/.gitconfig` continuam valendo.
+
+## v2.78.31
+
+Reinício da máquina no meio de uma atualização não deixa mais o Farol sem abrir, e instalar de novo conserta o que estiver danificado.
+
+### Correções
+
+- A atualização no Windows e no Ubuntu prepara o app numa pasta nova, confere o conteúdo com o pacote, grava no disco e só então troca. Se a máquina reiniciar durante a cópia, a versão anterior continua no lugar, e a troca interrompida se resolve na instalação seguinte.
+- Instalar de novo substitui todos os arquivos. Antes, um arquivo danificado com o mesmo tamanho e a mesma data continuava no lugar, com a instalação terminando como sucesso.
+- No Windows, a instalação só se declara concluída com o conteúdo igual ao do pacote. Se a cópia falhar, o app fica como estava e o erro aparece.
+- No macOS e no servidor hospedado, os dados vão para o disco antes da troca, e o hospedado também confere o conteúdo com o pacote e limpa sobra de troca interrompida.
+
 ## v2.78.30
 
 O card só promete conclusão automática quando outra tentativa pode resolver.

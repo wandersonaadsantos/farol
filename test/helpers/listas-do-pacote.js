@@ -12,10 +12,11 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 
 export const RE_PS = {
-  f: /foreach \(\$f in @\(([\s\S]*?)\)\)/g,
-  d: /foreach \(\$d in @\(([\s\S]*?)\)\)/g,
+  // O install.ps1 passa as listas como parâmetro da cópia transacional; o resto usa foreach.
+  f: /(?:foreach \(\$f in|-Arquivos) @\(([\s\S]*?)\)/g,
+  d: /(?:foreach \(\$d in|-Pastas) @\(([\s\S]*?)\)/g,
   t: /foreach \(\$t in @\(([\s\S]*?)\)\)/g,
-  doc: /foreach \(\$doc in @\(([\s\S]*?)\)\)/g,
+  doc: /(?:foreach \(\$doc in|-Guias) @\(([\s\S]*?)\)/g,
 };
 
 export function listaPowershell(texto, variavel, arquivo) {
