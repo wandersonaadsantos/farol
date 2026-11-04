@@ -14,6 +14,11 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.35', [
+    'Regra só de organização vira sugestão e não reprova o PR sozinha.',
+    'Segurança, entrada, isolamento e prova de comportamento continuam bloqueando.',
+    'A revisão confere os casos irmãos na mesma rodada e avisa quando o achado já existia.',
+  ]],
   ['2.78.34', [
     'Status de CI ainda rodando não é mais lido como falha, e o review não diz que o check está falhando.',
     'Notebook fechado não libera de uma vez os PRs que um colega está revisando.',

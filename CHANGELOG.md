@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.35
+
+Reprovação só com sentido técnico palpável, sem afrouxar o que protege comportamento e segurança.
+
+### Melhorias
+
+- Regra de organização, como responsabilidade de arquivo, ternário aninhado, alias de import e lugar de um helper, não reprova mais o PR sozinha: vira sugestão. Quando ela causa defeito de verdade, a revisão aponta o cenário e o bloqueio continua.
+- Segurança, validação de entrada, isolamento, rastro de falha, prova de comportamento, supressão, regra de negócio duplicada, dívida agravada e qualquer regra nova do catálogo continuam bloqueando.
+- A revisão confere os casos irmãos de cada bloqueio na mesma rodada e avisa quando um achado já estava no commit anterior.
+- O texto público fala do código, sem narrar o que a revisão rodou ou deixou de rodar.
+
 ## v2.78.34
 
 Revisão menos sujeita a falso alarme e a vazamento, e cache que se recupera sozinho depois de reinício ou de disco no limite.
