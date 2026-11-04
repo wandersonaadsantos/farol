@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 // portas.js importa lib/paths.js (executadoDireto); com FAROL_HOME definido antes da
 // carga, nada cai no diretório provisório de teste nem emite o aviso dele
@@ -152,4 +153,27 @@ test('CLI recusa repetição sem tocar o arquivo e devolve código de erro', () 
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// A checagem da unidade é a mesma leitura do motor: chave no topo de um JSON válido. A versão com
+// busca por texto subia o serviço sem autenticação e com o Caddy entregando a API à internet.
+test('farol.service: só sobe com localAuth exigir no topo de um JSON válido', () => {
+  const unidade = fs.readFileSync(path.join(import.meta.dirname, '..', 'tools', 'web', 'farol.service.template'), 'utf8');
+  const script = /^ExecStartPre=@NODE@ -e "(.*)"$/m.exec(unidade)?.[1];
+  assert.ok(script, 'ExecStartPre em node');
+  assert.ok(!/[$%]/.test(script), 'o systemd expandiria $ e %');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-unidade-'));
+  const sobe = (conteudo) => {
+    if (conteudo === null) fs.rmSync(path.join(home, 'config.json'), { force: true });
+    else fs.writeFileSync(path.join(home, 'config.json'), conteudo);
+    return spawnSync(process.execPath, ['-e', script], { env: { ...process.env, FAROL_HOME: home }, stdio: 'ignore' }).status === 0;
+  };
+  try {
+    assert.equal(sobe('{"port":47170,"localAuth":"exigir"}'), true);
+    assert.equal(sobe('{"port":47170,"sync":{"localAuth":"exigir"}}'), false);
+    assert.equal(sobe('"localAuth": "exigir" {quebrado'), false);
+    assert.equal(sobe('{"localAuth":"nao"}'), false);
+    assert.equal(sobe('null'), false);
+    assert.equal(sobe(null), false);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });

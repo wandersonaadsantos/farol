@@ -214,3 +214,10 @@ test('textoDaMudancaDePolitica diz o campo e a opção nova com as palavras da t
     'Política de @alex alterada: quando chega um PR pra você, revisa sozinho.');
   assert.equal(P.textoDaMudancaDePolitica({ user: 'alex', campo: 'color', de: 'a', para: 'b' }), '');
 });
+
+test('desfazer "sem ressalvas" devolve também o "com ressalvas" que a mudança levou junto', () => {
+  const antes = P.politicaDaContaNaTela({ onClean: 'approve', onCaveats: 'approve' });
+  assert.deepEqual(P.politicaParaDesfazer(antes, 'onClean'), { onClean: 'approve', onCaveats: 'approve' });
+  assert.deepEqual(P.politicaParaDesfazer(antes, 'onCaveats'), { onCaveats: 'approve' });
+  assert.deepEqual(P.politicaParaDesfazer({ ...antes, onReject: 'wait' }, 'onReject'), { onReject: 'wait' });
+});

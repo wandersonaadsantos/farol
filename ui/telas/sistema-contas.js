@@ -1,7 +1,7 @@
 /* Farol · UI: gerenciador de contas do GitHub (Sistema). */
 import { configurarRegrasDeReview } from './review-scope.js';
 
-import { esc, textoDaMudancaDePolitica, politicaDaContaNaTela, accountsManagerHtml, contasGhHtml, camposDaEdicao } from '../pure.js';
+import { esc, textoDaMudancaDePolitica, politicaDaContaNaTela, politicaParaDesfazer, accountsManagerHtml, contasGhHtml, camposDaEdicao } from '../pure.js';
 import { estado, escopo, definirEscopo } from './estado.js';
 import { $, api, toast, toastRich, confirmModal } from './infra.js';
 import { ACCT, rebuildAccounts, renderAccountBar, renderIdentity, guardarEscopo } from './contas.js';
@@ -53,7 +53,7 @@ configurarRegrasDeReview(renderAccountsManager);
    o Farol posta no GitHub sozinho, e antes a mudança era silenciosa */
 function mudarPolitica(user, campo, para) {
   const conta = (estado().accounts || []).find(a => a.user === user) || {};
-  const de = politicaDaContaNaTela(conta)[campo];
+  const antes = politicaDaContaNaTela(conta), de = antes[campo];
   editAccount(user, { [campo]: para });
   const texto = textoDaMudancaDePolitica({ user, campo, de, para });
   let desfazer;
@@ -66,7 +66,7 @@ function mudarPolitica(user, campo, para) {
     el.appendChild(msg);
     el.appendChild(desfazer);
   }, 8000);
-  desfazer.onclick = () => { editAccount(user, { [campo]: de }); aviso.remove(); };
+  desfazer.onclick = () => { editAccount(user, politicaParaDesfazer(antes, campo)); aviso.remove(); };
 }
 
 /* editor de contas: mudar cor / rótulo / tipo / orgs */

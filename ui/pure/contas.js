@@ -381,6 +381,13 @@ export function politicaDaContaNaTela(a) {
   return { autoReview: c.autoReview !== false, onClean, onCaveats, onReject };
 }
 
+// O que devolve a conta ao estado de antes da mudança. Trocar "sem ressalvas" para aguardar também
+// leva o "com ressalvas" junto (aplicarEdicao, lib/engine/contas-config.js): desfazer só o campo
+// mexido deixaria a aprovação com ressalvas desligada sem ninguém ter pedido.
+export function politicaParaDesfazer(antes, campo) {
+  return campo === 'onClean' ? { onClean: antes.onClean, onCaveats: antes.onCaveats } : { [campo]: antes[campo] };
+}
+
 function opcoesDaPolitica(campo, atual) {
   return POLITICA_DA_CONTA_TEXTOS[campo].opcoes
     .map(([v, texto]) => `<option value="${esc(String(v))}"${sel(v === atual)}>${esc(texto)}</option>`).join('');

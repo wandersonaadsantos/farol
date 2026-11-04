@@ -130,8 +130,9 @@ public final class WebViewController: NSObject, WKNavigationDelegate, WKUIDelega
         case .allow:
             decisionHandler(.allow)
         case .openExternally:
-            // Só o quadro principal leva ao navegador: um iframe navegando não abre nada.
-            if navigationAction.targetFrame?.isMainFrame == true {
+            // Só o quadro principal e o link de janela nova (target="_blank", sem targetFrame) levam
+            // ao navegador: um iframe navegando não abre nada.
+            if navigationAction.targetFrame?.isMainFrame != false {
                 NSWorkspace.shared.open(url)
             }
             decisionHandler(.cancel)
