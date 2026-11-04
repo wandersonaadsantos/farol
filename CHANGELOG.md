@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.30
+
+O card só promete conclusão automática quando outra tentativa pode resolver.
+
+### Correções
+
+- PR com arquivo protegido que a revisão não pode ler vai direto para a pessoa, com o motivo, em vez de repetir tentativas que nunca concluiriam.
+- Com a revisão automática da conta desligada, ou outra pausa, o card e o aviso dizem o que falta, sem "concluo sozinho".
+- A falha da verificação técnica deixa de afirmar nova tentativa. O card mostra quando ela existe.
+
 ## v2.78.29
 
 O cache de código deixa de travar análises por acúmulo: o Farol compacta o repositório antes de adiar ou descartar.

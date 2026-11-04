@@ -648,6 +648,48 @@ test('fila, sessão e retry existentes impedem uma recuperação concorrente', a
   }
 });
 
+// O card não promete o que a pausa impede (03/11/2026): dizia "concluo sozinho" com a automação da
+// conta desligada, em que nenhuma tentativa roda até alguém religar.
+test('automação desligada: o card diz o que falta, sem prometer conclusão sozinho', async () => {
+  const e = motor();
+  const antes = await revisado(e, SEM_PROTOCOLO);
+  assert.match(antes.reasons[0].text, /concluo a revisão sozinho/, 'com a automação ligada a promessa vale');
+  e.autoReviewFor = () => false;
+  await esperaProva.reverQuandoAProvaMudar(e);
+  assert.doesNotMatch(antes.reasons[0].text, /sozinho/);
+  assert.match(antes.reasons[0].text, /desativada/);
+  assert.equal(antes.reasons.filter(r => r.espera).length, 1);
+  e.autoReviewFor = () => true;
+  await esperaProva.reverQuandoAProvaMudar(e);
+  assert.doesNotMatch(antes.reasons[0].text, /desativada/);
+});
+
+test('revisão que termina com a automação já desligada nasce pausada, sem promessa no card nem no aviso', async () => {
+  const e = motor();
+  e.autoReviewFor = () => false;
+  const d = await revisado(e, SEM_PROTOCOLO);
+  assert.match(d.esperaProva.impedimento, /desativada/);
+  assert.doesNotMatch(d.reasons[0].text, /sozinho/);
+  const avisos = e.toasts.join(' | ');
+  assert.match(avisos, /desativada/);
+  assert.doesNotMatch(avisos, /continua automaticamente/);
+});
+
+test('pendência com caminho protegido não rearma na varredura: segue com a pessoa, sem nova sessão', async () => {
+  const e = motor();
+  const d = await revisado(e, SEM_PROTOCOLO);
+  delete d.esperaProva;
+  d.analysisStatus = 'incomplete';
+  d.inventarioDiff = { status: 'complete', files: [{ path: 'secrets/a.json' }] };
+  d.reasons = [{ text: 'decisão da pessoa', kind: 'gate' }];
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.equal(d.esperaProva, undefined);
+  assert.deepEqual(d.reasons, [{ text: 'decisão da pessoa', kind: 'gate' }]);
+  d.inventarioDiff = { status: 'complete', files: [{ path: 'src/a.js' }] };
+  await esperaProva.reverQuandoAProvaMudar(e);
+  assert.ok(d.esperaProva, 'sem caminho protegido a mesma pendência volta a recuperar');
+});
+
 test('automação desligada pausa a recuperação sem descartar a pendência', async () => {
   const e = motor();
   const d = await revisado(e, SEM_PROTOCOLO);
