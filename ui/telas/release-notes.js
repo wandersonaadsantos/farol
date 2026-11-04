@@ -14,6 +14,13 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.34', [
+    'Status de CI ainda rodando não é mais lido como falha, e o review não diz que o check está falhando.',
+    'Notebook fechado não libera de uma vez os PRs que um colega está revisando.',
+    'Mais formatos de credencial mascarados e recusados na postagem, incluindo chave privada em qualquer embalagem.',
+    'Cache do git se recupera de reinício no meio de uma gravação e libera espaço de repositórios parados.',
+    'A revisão lê a conversa do PR depois de formar opinião, e a verificação procura primeiro o que derruba a afirmação.',
+  ]],
   ['2.78.33', [
     'Medições internas de leitura e cobertura, sem nenhuma mudança nas revisões.',
   ]],

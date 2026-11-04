@@ -9,6 +9,24 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.34
+
+Revisão menos sujeita a falso alarme e a vazamento, e cache que se recupera sozinho depois de reinício ou de disco no limite.
+
+### Melhorias
+
+- A revisão passa a ler a conversa do PR depois de formar opinião sobre o código: thread aberta com defeito real é adotada sem comentário repetido, e thread resolvida não prova nada por si só.
+- A verificação empírica procura primeiro o que derrubaria a afirmação, em vez de confirmar lendo só a linha citada.
+- O Jira não segue mais redirecionamento para outro host, e um arquivo de PR com caminho de controle do git nunca é gravado no disco da análise.
+
+### Correções
+
+- Status de CI externo ainda rodando não é mais lido como falha: a conta que reprova sozinha não publica que o check está falhando quando ele só não terminou.
+- Notebook fechado ou app parado não liberam mais de uma vez a revisão dos PRs que um colega está revisando: a validade da label pausa enquanto ninguém a observa.
+- Chave privada em qualquer embalagem (string concatenada, JSON, comentário por linha, diff, RSA cifrada e PGP), tokens da AWS, do Slack e da Atlassian são mascarados em log e na fonte lida pela revisão, e o review que os trouxer não é postado.
+- Trava do git deixada por reinício no meio de uma gravação é removida sozinha depois do prazo, em vez de prender o repositório na análise técnica.
+- Repositórios parados que somam o teto do cache liberam espaço para os outros, do uso mais antigo para o mais novo, e só quando isso resolve.
+
 ## v2.78.33
 
 Medições de bastidor para decidir próximas melhorias, sem mudar nenhuma revisão.

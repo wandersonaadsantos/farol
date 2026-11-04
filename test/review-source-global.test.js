@@ -243,3 +243,52 @@ test('reserva de dono vivo, de término não confirmado e lease deste processo n
   assert.equal(prova, null, 'nada a recuperar: dono de outro PID vivo, término não confirmado e Git pendente deste processo');
   assert.equal(JSON.parse(await fs.readFile(path.join(first.root, 'leases', lease + '.json'), 'utf8')).gitProcessPending, true);
 });
+
+async function cacheGitParado(store, bytes, usadoEm) {
+  const gitDir = path.join(store.root, 'repository.git');
+  await fs.mkdir(gitDir, { recursive: true });
+  await fs.writeFile(path.join(gitDir, 'HEAD'), 'ref: refs/heads/main\n');
+  await fs.writeFile(path.join(gitDir, 'pack'), Buffer.alloc(bytes));
+  await fs.writeFile(path.join(store.root, 'git-usage.json'), JSON.stringify({ bytes, measuredAt: usadoEm }));
+  return gitDir;
+}
+const existe = alvo => fs.access(alvo).then(() => true, () => false);
+
+test('repositórios parados no teto global: despeja só o mais antigo que baste, e o terceiro adquire', async t => {
+  const { base, materialRoot, limits, first, second } = await fixture(t);
+  const third = await new SourceStore({ host: 'github.com', account: 'third', repo: 'org/repo', repositoryId: 1 }, { root: base, materialRoot, limits }).initialize();
+  const antigo = await cacheGitParado(first, 140000, 100), recente = await cacheGitParado(second, 140000, 200);
+  const reserva = await third.budget.reserve('git-acquisition', 100000);
+  assert.ok(reserva);
+  assert.equal(await existe(antigo), false, 'o de uso mais antigo saiu');
+  assert.equal(await existe(recente), true, 'o que já bastava não despeja o outro');
+});
+
+test('escopo com consumidor ativo não é despejado: a aquisição segue adiada', async t => {
+  const { base, materialRoot, limits, first, second } = await fixture(t);
+  const third = await new SourceStore({ host: 'github.com', account: 'third', repo: 'org/repo', repositoryId: 1 }, { root: base, materialRoot, limits }).initialize();
+  await first.acquire({}); await second.acquire({});
+  const a = await cacheGitParado(first, 140000, 100), b = await cacheGitParado(second, 140000, 200);
+  await assert.rejects(third.budget.reserve('git-acquisition', 100000), /Quota global/);
+  assert.equal(await existe(a), true);
+  assert.equal(await existe(b), true);
+});
+
+test('despejar não resolve: nenhum cache parado é apagado, e o pedido segue recusado', async t => {
+  const { base, materialRoot, limits, first, second } = await fixture(t);
+  const third = await new SourceStore({ host: 'github.com', account: 'third', repo: 'org/repo', repositoryId: 1 }, { root: base, materialRoot, limits }).initialize();
+  const a = await cacheGitParado(first, 140000, 100), b = await cacheGitParado(second, 140000, 200);
+  await assert.rejects(third.budget.reserve('git-acquisition', 400000), /Quota global/);
+  assert.equal(await existe(a), true);
+  assert.equal(await existe(b), true);
+});
+
+test('disco cheio por causa alheia: despejar não alcança a reserva, e os caches ficam', async t => {
+  const { base, materialRoot, limits, first, second } = await fixture(t);
+  const third = await new SourceStore({ host: 'github.com', account: 'third', repo: 'org/repo', repositoryId: 1 }, { root: base, materialRoot, limits }).initialize();
+  const a = await cacheGitParado(first, 1000, 100), b = await cacheGitParado(second, 1000, 200);
+  third.budget.diskFree = async () => 0;
+  await assert.rejects(third.budget.reserve('git-acquisition', 5000), /Reserva global/);
+  assert.equal(await existe(a), true);
+  assert.equal(await existe(b), true);
+});
