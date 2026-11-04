@@ -100,6 +100,15 @@ function motivoDeFicarFora(decisao) {
   return '';
 }
 
+// Os limites do cabeçalho, nas duas saídas: sem eles a contagem parece dizer mais do que mede.
+const UNIVERSO = 'só decisões que já saíram sozinhas (auto_approved e auto_rejected); as outras não entram nos números';
+const NAO_MEDIDO = Object.freeze([
+  'o que a alternativa passaria a postar entre as decisões que ficaram para a pessoa: o motivo da espera não é gravado, então "passariam a sair" só conta o que já saiu sozinho um dia',
+  'revisão, comentário de PR próprio e clique do dono',
+  'reprovação que saiu de veredito de aprovar, pelo caminho do defeito',
+  'travas que mudaram desde a decisão: a testemunha prova que passou na época, não que passaria hoje',
+]);
+
 // {"onClean":"wait"} vale para toda conta; {"conta":{"onClean":"wait"}} só para ela.
 function lerAlternativa(texto) {
   const valor = parseJson(texto, null);
@@ -165,22 +174,22 @@ function simular(decisoes, config, alternativa = { todas: {}, porConta: {} }) {
     somar(lado, portaoDeixa(d.status, atuais, d, ressalvas).posta, portaoDeixa(d.status, alternativas, d, ressalvas).posta);
   }
   const semDecisao = Object.keys(alternativa.porConta).filter(c => !linhas.has(c));
-  return { lidas: lista.length, contas: [...linhas.values()], fora, contasDaAlternativaSemDecisao: semDecisao };
+  return { lidas: lista.length, universo: UNIVERSO, contas: [...linhas.values()], fora, naoMedido: NAO_MEDIDO, contasDaAlternativaSemDecisao: semDecisao };
 }
 
 function textoDoLado(nome, l) {
-  return `  ${nome}: ${l.total} registrada(s); com a política atual ${l.postaAtual} sairiam, com a alternativa ${l.postaAlternativa}; deixariam de sair ${l.deixaDeSair}, passariam a sair ${l.passaASair}`;
+  return `  ${nome}: ${l.total} registrada(s); com a política atual ${l.postaAtual} sairiam, com a alternativa ${l.postaAlternativa}; deixariam de sair ${l.deixaDeSair}, voltariam a sair ${l.passaASair}`;
 }
 
 function relatorio(r) {
-  const linhas = [`decisões lidas: ${r.lidas}`];
+  const linhas = [`decisões lidas: ${r.lidas}`, `universo: ${r.universo}`];
   for (const c of r.contas) {
     linhas.push(`${c.conta}${c.naConfig ? '' : ' (fora da config: política padrão de conta nova)'}`, textoDoLado('aprovações automáticas', c.aprovacoes), textoDoLado('reprovações automáticas', c.reprovacoes));
   }
   for (const conta of r.contasDaAlternativaSemDecisao) linhas.push(`aviso: a alternativa cita ${conta}, sem nenhuma decisão simulável`);
   linhas.push('fora da conta (sem resultado inventado):');
   for (const [motivo, n] of Object.entries(r.fora).sort((a, b) => b[1] - a[1])) linhas.push(`  ${motivo}: ${n}`);
-  linhas.push('não medido: o que a alternativa passaria a postar entre as decisões que ficaram para a pessoa (o motivo da espera não é gravado).');
+  linhas.push('não medido:', ...r.naoMedido.map(item => `  ${item}`));
   return linhas.join('\n');
 }
 

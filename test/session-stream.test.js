@@ -593,10 +593,13 @@ test('runClaudeStream: quatro Reads na mesma mensagem só contam após cada cont
   assert.deepEqual([...review.filesRead].sort(), names.slice(0, 3));
 });
 
-test('runClaudeStream: no modo padrão o Read parcial credita como antes e a divergência vai ao log ao fim da sessão', async () => {
+test('runClaudeStream: no modo padrão o Read parcial credita como antes e a divergência vai ao arquivo próprio ao fim da sessão', async () => {
   const scopeRoot = fs.mkdtempSync(path.join(FAROL_HOME, 'scope-'));
   const review = { scopeRoot, filesRead: new Set(), keys: ['o/r#3'] };
   const linhas = [];
+  const { ARQUIVO_DE_MEDICOES } = await import('../lib/engine/medicoes-leitura.js');
+  fs.rmSync(ARQUIVO_DE_MEDICOES, { force: true });
+  const lidas = () => (fs.existsSync(ARQUIVO_DE_MEDICOES) ? fs.readFileSync(ARQUIVO_DE_MEDICOES, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : []);
   const engine = engineFalso(); engine.activeReviews = new Map([['sombra', review]]);
   engine.log = (nivel, texto) => linhas.push(`${nivel} ${texto}`);
   fs.writeFileSync(path.join(scopeRoot, 'a.js'), 'one\ntwo\nthree\n');
@@ -609,10 +612,10 @@ test('runClaudeStream: no modo padrão o Read parcial credita como antes e a div
     message: { content: [{ type: 'tool_result', tool_use_id: 'r', content: ' 1→one' }] } });
   send({ type: 'result', result: 'done' });
   await new Promise(resolve => setTimeout(resolve, 20));
-  assert.equal(linhas.filter(l => l.includes('leitura em sombra')).length, 0, 'antes do fim a leitura ainda pode se completar');
+  assert.equal(lidas().length, 0, 'antes do fim a leitura ainda pode se completar');
   child.stdout.once('end', () => child.emit('close', 0)); child.stdout.end(); await pending;
   assert.deepEqual([...review.filesRead], ['a.js']);
-  const sombra = linhas.filter(l => l.includes('leitura em sombra'));
-  assert.equal(sombra.length, 1);
-  assert.match(sombra[0], /^INFO .*o\/r#3.*a\.js.*entregues 1; faltantes 2-3/);
+  const [m] = lidas();
+  assert.deepEqual([m.pr, m.arquivo, m.entregues, m.faltantes], ['o/r#3', 'a.js', [[1, 1]], [[2, 3]]]);
+  assert.equal(linhas.filter(l => /sombra|a\.js/.test(l)).length, 0, 'nada de medição no log');
 });

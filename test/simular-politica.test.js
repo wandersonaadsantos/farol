@@ -93,7 +93,7 @@ test('conta fora da config cai na política padrão e a saída diz isso', () => 
   const r = simular(decisoes(aprovada([], 'antiga')), CONFIG);
   assert.equal(linha(r, 'antiga').naConfig, false);
   assert.match(relatorio(r), /antiga \(fora da config/);
-  assert.match(relatorio(r), /não medido/);
+  for (const trecho of ['universo: só decisões', 'não medido:', 'passaria a postar', 'caminho do defeito', 'clique do dono', 'passou na época', 'voltariam a sair']) assert.ok(relatorio(r).includes(trecho), trecho);
 });
 
 test('alternativa inválida é recusada, sem cair em política padrão', () => {
@@ -119,7 +119,11 @@ test('linha de comando: lê, imprime a contagem e não grava nada no home', () =
   const rodar = (...args) => spawnSync(process.execPath, [path.join(RAIZ, 'tools', 'simular-politica.js'), ...args], { encoding: 'utf8', env: { ...process.env, FAROL_HOME: home } });
   const r = rodar('--politica', '{"onClean":"wait"}', '--json');
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(JSON.parse(r.stdout).contas[0].aprovacoes.deixaDeSair, 1);
+  const saida = JSON.parse(r.stdout);
+  assert.equal(saida.contas[0].aprovacoes.deixaDeSair, 1);
+  assert.match(saida.universo, /já saíram sozinhas/);
+  assert.equal(saida.naoMedido.length, 4, 'o --json carrega os limites');
+  assert.match(saida.naoMedido[0], /passaria a postar/);
   assert.equal(r.stdout.includes(tituloSecreto) || r.stdout.includes('valor-que-nao-pode-sair'), false);
   assert.equal(rodar().status, 0);
   assert.equal(rodar('--politica', '{"onClean":"talvez"}').status, 2);
