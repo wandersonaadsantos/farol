@@ -79,14 +79,15 @@ function Restore-ItensGuardados([string]$App, [string]$Antigo) {
   }
 }
 
-# Desfaz os itens trocados, do ultimo para o primeiro. $false: nem tudo voltou, e app.antigo fica.
-function Undo-TrocaDoApp([string]$App, [string]$Antigo, [System.Collections.ArrayList]$Trocados) {
+# Desfaz os itens trocados, do ultimo para o primeiro, so com rename: apagar o item novo aqui podia
+# parar no meio com um arquivo em uso e deixar a pasta pela metade. $false: nem tudo voltou, e app.antigo fica.
+function Undo-TrocaDoApp([string]$App, [string]$Novo, [string]$Antigo, [System.Collections.ArrayList]$Trocados) {
   $completo = $true
   for ($i = $Trocados.Count - 1; $i -ge 0; $i--) {
     $feito = $Trocados[$i]
     $atual = Join-Path $App $feito.Item
     try {
-      if (Test-Path -LiteralPath $atual) { Remove-Item -LiteralPath $atual -Recurse -Force }
+      if (Test-Path -LiteralPath $atual) { Move-ItemDoApp $atual (Join-Path $Novo $feito.Item) }
       if ($feito.Tinha) { Move-ItemDoApp (Join-Path $Antigo $feito.Item) $atual }
     } catch { $completo = $false }
   }
@@ -148,15 +149,15 @@ function Install-AppTransacional {
   $deTopo = @($Arquivos) + @($Avulsos)
   New-Item -ItemType Directory -Force -Path $App | Out-Null
   Restore-ItensGuardados $App $Antigo
-  foreach ($sobra in @($Novo, $Antigo)) {
-    if (Test-Path -LiteralPath $sobra) { Remove-Item -LiteralPath $sobra -Recurse -Force }
-  }
+  if (Test-Path -LiteralPath $Novo) { Remove-Item -LiteralPath $Novo -Recurse -Force }
   New-Item -ItemType Directory -Force -Path $Novo | Out-Null
   try { New-PastaNovaDoApp $Src $Novo $Pastas $deTopo $Guias }
   catch {
     Remove-Item -LiteralPath $Novo -Recurse -Force -ErrorAction SilentlyContinue
     throw
   }
+  # So agora: pacote recusado acima nao pode custar o que uma troca interrompida deixou guardado.
+  if (Test-Path -LiteralPath $Antigo) { Remove-Item -LiteralPath $Antigo -Recurse -Force }
   New-Item -ItemType Directory -Force -Path $Antigo | Out-Null
   $itens = @(Get-ChildItem -LiteralPath $Novo -Force | ForEach-Object { $_.Name } | Sort-Object { $_ -eq 'package.json' })
   $trocados = New-Object System.Collections.ArrayList
@@ -166,7 +167,7 @@ function Install-AppTransacional {
     Assert-AppIgualAoPacote $Src $App $Pastas $deTopo $Guias
   } catch {
     $erro = $_
-    if (Undo-TrocaDoApp $App $Antigo $trocados) {
+    if (Undo-TrocaDoApp $App $Novo $Antigo $trocados) {
       Remove-Item -LiteralPath $Antigo -Recurse -Force -ErrorAction SilentlyContinue
     } else {
       # Nunca apagar aqui: pode ser a unica copia. A proxima instalacao devolve o que faltar.

@@ -27,7 +27,7 @@ test('o install.ps1 copia o app pela transação, sem robocopy no lugar definiti
 test('o install.sh manda os dados ao disco antes da troca de nome', () => {
   const troca = INSTALL_SH.indexOf('mv "$APP" "$LIVE_APP"');
   assert.ok(troca > 0);
-  assert.ok(INSTALL_SH.lastIndexOf('\nsync', troca) > 0, 'sem sync, o reinício pode zerar o que o rename já expôs');
+  assert.ok(INSTALL_SH.lastIndexOf('then sync; fi', troca) > 0, 'sem sync, o reinício pode zerar o que o rename já expôs');
 });
 
 function escrever(raiz, arquivos) {
@@ -234,4 +234,24 @@ test('install-linux: item só em app.antigo volta antes da limpeza', { skip: BAS
   const r = cp.spawnSync('bash', [barra(file)], { env: { ...process.env, SRC: barra(c.src), APP: barra(c.app) }, encoding: 'utf8', timeout: 60000 });
   assert.notEqual(r.status, 0, 'sem os guias a cópia é recusada');
   assert.equal(ler(c, 'lib/a.js'), 'velho');
+});
+
+test('desfazer não apaga: arquivo em uso no item novo não deixa pasta pela metade', SO_WINDOWS, () => {
+  const c = cenario();
+  // A prova final reprova depois da troca completa, e o app tem de voltar inteiro.
+  const r = instalarComFalha(c, `function Assert-AppIgualAoPacote { throw 'prova final reprovada' }`);
+  assert.notEqual(r.status, 0);
+  assert.equal(ler(c, 'main.js'), 'main velho');
+  assert.equal(ler(c, 'lib/a.js'), 'velho');
+  assert.equal(ler(c, 'lib/removido.js'), 'sobra');
+  assert.equal(ler(c, 'ui/b.js'), 'b velho');
+  semSobras(c);
+});
+test('pacote recusado depois de troca interrompida conserva o que ficou guardado', SO_WINDOWS, () => {
+  const c = cenario();
+  escrever(`${c.app}.antigo`, { 'ui/so-aqui.js': 'guardado' });
+  fs.rmSync(path.join(c.src, 'docs/GUIA.md'));
+  const r = instalar(c);
+  assert.notEqual(r.status, 0);
+  assert.equal(fs.readFileSync(path.join(`${c.app}.antigo`, 'ui/so-aqui.js'), 'utf8'), 'guardado');
 });

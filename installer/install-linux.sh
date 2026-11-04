@@ -56,16 +56,20 @@ if [ -d "$ANTIGO" ]; then
     [ -e "$APP/${item##*/}" ] || mv "$item" "$APP/${item##*/}" || die "Falha ao recuperar ${item##*/}"
   done
 fi
-rm -rf "${NOVO:?}" "${ANTIGO:?}"
-mkdir -p "$NOVO" "$ANTIGO"
+rm -rf "${NOVO:?}"
+mkdir -p "$NOVO"
 for f in main.js server.js package.json README.md CLAUDE.md; do
-  [ ! -f "$SRC/$f" ] || cp "$SRC/$f" "$NOVO/$f" || die "Falha ao copiar $f"
+  [ -f "$SRC/$f" ] || continue
+  cp "$SRC/$f" "$NOVO/$f" || die "Falha ao copiar $f"
+  cmp -s "$SRC/$f" "$NOVO/$f" || die "Cópia diferente do pacote: $f"
 done
 # tools/ carrega runtime (jira-mcp.js); ver o mesmo comentário em install.sh.
 for d in lib ui assets workspace-template installer tools; do
   [ -d "$SRC/$d" ] || continue
   cp -R "$SRC/$d" "$NOVO/$d" || die "Falha ao copiar a pasta $d"
-  diff -r "$SRC/$d" "$NOVO/$d" >/dev/null || die "Cópia diferente do pacote na pasta $d"
+  if command -v diff >/dev/null 2>&1; then
+    diff -r "$SRC/$d" "$NOVO/$d" >/dev/null || die "Cópia diferente do pacote na pasta $d"
+  fi
 done
 # Guias distribuídos: allowlist explícita (decisão de 15/09/2026). A pasta é recriada para
 # um guia que saia da lista não ficar para sempre na cópia instalada.
@@ -74,13 +78,19 @@ for doc in CONFIGURATION.md REVIEW-GATES.md MACOS.md RELEASE.md; do
   [ -f "$SRC/docs/$doc" ] || die "Guia ausente na origem: docs/$doc"
   cp "$SRC/docs/$doc" "$NOVO/docs/$doc" || die "Falha ao copiar docs/$doc"
 done
-sync
+if command -v sync >/dev/null 2>&1; then sync; fi
+# Só agora: pacote recusado acima não pode custar o que uma troca interrompida deixou guardado.
+rm -rf "${ANTIGO:?}"
+mkdir -p "$ANTIGO"
 # package.json por último: é ele que diz a versão no próximo boot, e troca interrompida não anuncia
 # a versão nova. Falha no meio deixa app.antigo no lugar, e a próxima instalação o recupera.
 for nome in $(ls -A "$NOVO" | grep -vx package.json) package.json; do
   [ -e "$NOVO/$nome" ] || continue
   [ ! -e "$APP/$nome" ] || mv "$APP/$nome" "$ANTIGO/$nome" || die "Falha ao trocar $nome"
-  mv "$NOVO/$nome" "$APP/$nome" || die "Falha ao trocar $nome"
+  if ! mv "$NOVO/$nome" "$APP/$nome"; then
+    [ ! -e "$ANTIGO/$nome" ] || mv "$ANTIGO/$nome" "$APP/$nome"
+    die "Falha ao trocar $nome"
+  fi
 done
 rm -rf "${NOVO:?}" "${ANTIGO:?}"
 

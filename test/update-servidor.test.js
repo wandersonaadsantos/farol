@@ -180,3 +180,14 @@ test('troca: sobra de atualização interrompida sai antes da cópia e não entr
   servidor.trocarArquivos(pacote(), raiz, 333);
   assert.deepEqual(fs.readdirSync(raiz).filter(n => /\.(?:novo|velho)-\d+$/.test(n)), []);
 });
+
+test('troca: item só na pasta velha volta antes de qualquer cópia, mesmo com o pacote recusado', () => {
+  const raiz = instalacao();
+  fs.renameSync(path.join(raiz, 'lib'), path.join(raiz, 'lib.velho-111'));
+  const semServer = pacote();
+  fs.rmSync(path.join(semServer, 'server.js'));
+  assert.throws(() => servidor.trocarArquivos(semServer, raiz, 333));
+  servidor.trocarArquivos(pacote(), raiz, 444);
+  assert.ok(fs.existsSync(path.join(raiz, 'lib')));
+  assert.equal(fs.existsSync(path.join(raiz, 'lib.velho-111')), false);
+});

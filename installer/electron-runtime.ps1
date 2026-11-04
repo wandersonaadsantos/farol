@@ -39,10 +39,10 @@ function Copy-ElectronRuntime([string]$Source, [string]$App) {
     throw
   }
   $tinha = Test-Path -LiteralPath $atual
-  if ($tinha) { Rename-Item -LiteralPath $atual -NewName 'node_modules.antigo' }
-  try { Rename-Item -LiteralPath $novo -NewName 'node_modules' }
+  if ($tinha) { Move-ItemDoApp $atual $antigo }
+  try { Move-ItemDoApp $novo $atual }
   catch {
-    if ($tinha) { Rename-Item -LiteralPath $antigo -NewName 'node_modules' }
+    if ($tinha) { Move-ItemDoApp $antigo $atual }
     throw
   }
   if ($tinha) { Remove-Item -LiteralPath $antigo -Recurse -Force -ErrorAction SilentlyContinue }
