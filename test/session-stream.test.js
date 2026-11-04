@@ -592,3 +592,27 @@ test('runClaudeStream: quatro Reads na mesma mensagem só contam após cada cont
   child.stdout.once('end', () => child.emit('close', 0)); child.stdout.end(); await pending;
   assert.deepEqual([...review.filesRead].sort(), names.slice(0, 3));
 });
+
+test('runClaudeStream: no modo padrão o Read parcial credita como antes e a divergência vai ao log ao fim da sessão', async () => {
+  const scopeRoot = fs.mkdtempSync(path.join(FAROL_HOME, 'scope-'));
+  const review = { scopeRoot, filesRead: new Set(), keys: ['o/r#3'] };
+  const linhas = [];
+  const engine = engineFalso(); engine.activeReviews = new Map([['sombra', review]]);
+  engine.log = (nivel, texto) => linhas.push(`${nivel} ${texto}`);
+  fs.writeFileSync(path.join(scopeRoot, 'a.js'), 'one\ntwo\nthree\n');
+  const child = filhoStream(); spawnImpl = () => child;
+  const pending = runClaudeStream(engine, 'prompt', { id: 'sombra' }); spawnImpl = null;
+  const send = event => child.stdout.write(JSON.stringify(event) + '\n');
+  send({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', id: 'r', input: { file_path: path.join(scopeRoot, 'a.js'), limit: 1 } }] } });
+  send({ type: 'user',
+    tool_use_result: { type: 'text', file: { filePath: path.join(scopeRoot, 'a.js'), content: 'one', startLine: 1, numLines: 1, totalLines: 3 } },
+    message: { content: [{ type: 'tool_result', tool_use_id: 'r', content: ' 1→one' }] } });
+  send({ type: 'result', result: 'done' });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(linhas.filter(l => l.includes('leitura em sombra')).length, 0, 'antes do fim a leitura ainda pode se completar');
+  child.stdout.once('end', () => child.emit('close', 0)); child.stdout.end(); await pending;
+  assert.deepEqual([...review.filesRead], ['a.js']);
+  const sombra = linhas.filter(l => l.includes('leitura em sombra'));
+  assert.equal(sombra.length, 1);
+  assert.match(sombra[0], /^INFO .*o\/r#3.*a\.js.*entregues 1; faltantes 2-3/);
+});

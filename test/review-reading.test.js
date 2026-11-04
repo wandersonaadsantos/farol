@@ -5,7 +5,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-read-evidence-'));
 process.env.FAROL_HOME = home;
-const { observeReadEvent, observarLeitura } = await import('../lib/engine/read-evidence.js');
+const { observeReadEvent, observarLeitura, relatarCoberturaEmSombra } = await import('../lib/engine/read-evidence.js');
 const { batchedReadBlock } = await import('../lib/engine/review-reading.js');
 const { scopeBlock } = await import('../lib/engine/pr-scope.js');
 const settings = await import('../lib/settings.js');
@@ -86,4 +86,97 @@ test('formato nativo inclui linha vazia final e aceita separador tab sem apagar 
   const truncated = fixture(); request(truncated, 'a.js', 'native');
   response(truncated, 'a.js', 'native', { lines: ['first', 'second', 'third', ''], display: '1\tfirst\n3\tthird\n4\t' });
   assert.equal(truncated.review.filesRead.size, 0);
+});
+
+function medir(enabled, roteiro) {
+  const e = fixture(enabled), linhas = [];
+  e.review.keys = ['o/r#9'];
+  e.log = (nivel, texto) => linhas.push({ nivel, texto });
+  roteiro(e);
+  relatarCoberturaEmSombra(e, opts);
+  return { credito: [...e.review.filesRead].sort(), linhas: linhas.map(l => l.texto), niveis: linhas.map(l => l.nivel) };
+}
+
+test('sombra: o crédito segue a regra do Read, com qualquer retorno', () => {
+  const roteiros = [
+    e => request(e, 'a.js', 'r'),
+    e => { request(e, 'a.js', 'r'); response(e, 'a.js', 'r'); },
+    e => { request(e, 'a.js', 'r'); response(e, 'a.js', 'r', { lines: ['first'] }); },
+    e => { request(e, 'a.js', 'r'); response(e, 'a.js', 'r', { error: true }); },
+    e => { request(e, 'a.js', 'r'); response(e, 'a.js', 'r', { lines: ['adulterado', 'second', 'third'] }); },
+  ];
+  for (const roteiro of roteiros) assert.deepEqual(medir(false, roteiro).credito, ['a.js']);
+});
+
+test('sombra: retorno comprovado sem o bloco que credita não vira crédito', () => {
+  const e = fixture(false);
+  const block = { type: 'tool_use', name: 'Read', id: 'r', input: { file_path: path.join(root, 'a.js') } };
+  observeReadEvent(e, opts, { type: 'assistant', parent_tool_use_id: null, message: { content: [block] } });
+  response(e, 'a.js', 'r');
+  relatarCoberturaEmSombra(e, opts);
+  assert.equal(e.review.filesRead.size, 0);
+});
+
+test('sombra: com a prova valendo, o crédito segue a prova e a divergência também é medida', () => {
+  const r = medir(true, (e) => { request(e, 'a.js', 'r1'); response(e, 'a.js', 'r1'); request(e, 'b.js', 'r2'); response(e, 'b.js', 'r2', { lines: ['first'] }); });
+  assert.deepEqual(r.credito, ['a.js']);
+  assert.equal(r.linhas.length, 1);
+  assert.match(r.linhas[0], /b\.js/);
+});
+
+test('sombra: divergência registra arquivo, linhas entregues e faltantes, sem conteúdo', () => {
+  const parcial = medir(false, (e) => { request(e, 'a.js', 'r'); response(e, 'a.js', 'r', { lines: ['first'] }); });
+  assert.deepEqual(parcial.niveis, ['INFO']);
+  assert.match(parcial.linhas[0], /o\/r#9/);
+  assert.match(parcial.linhas[0], /a\.js: .*motivo parcial; entregues 1; faltantes 2-3\)/);
+  assert.doesNotMatch(parcial.linhas[0], /first|second|third/);
+
+  const buraco = medir(false, (e) => {
+    request(e, 'a.js', 'r1'); response(e, 'a.js', 'r1', { start: 3, lines: ['third'] });
+    request(e, 'a.js', 'r2'); response(e, 'a.js', 'r2', { start: 1, lines: ['first'] });
+  });
+  assert.match(buraco.linhas[0], /entregues 1,3; faltantes 2\)/);
+
+  const semRetorno = medir(false, e => request(e, 'a.js', 'r'));
+  assert.match(semRetorno.linhas[0], /motivo sem-retorno; entregues nenhuma; faltantes 1-3\)/);
+
+  const erro = medir(false, (e) => { request(e, 'a.js', 'r'); response(e, 'a.js', 'r', { error: true }); });
+  assert.match(erro.linhas[0], /motivo erro-do-read; entregues nenhuma; faltantes 1-3\)/);
+
+  const adulterado = medir(false, (e) => { request(e, 'a.js', 'r'); response(e, 'a.js', 'r', { lines: ['segredo-adulterado', 'second', 'third'] }); });
+  assert.match(adulterado.linhas[0], /motivo conteudo-divergente/);
+  assert.doesNotMatch(adulterado.linhas[0], /segredo-adulterado/);
+});
+
+test('sombra: as duas regras concordando não registram nada, nem leitura em partes completa', () => {
+  assert.deepEqual(medir(false, (e) => { request(e, 'a.js', 'r'); response(e, 'a.js', 'r'); }).linhas, []);
+  assert.deepEqual(medir(false, (e) => {
+    request(e, 'a.js', 'r1'); response(e, 'a.js', 'r1', { lines: ['first'] });
+    request(e, 'a.js', 'r2'); response(e, 'a.js', 'r2', { start: 2, lines: ['second', 'third'] });
+  }).linhas, []);
+  assert.deepEqual(medir(false, () => {}).linhas, []);
+});
+
+test('sombra: relatório repetido não duplica, e o log tem teto por sessão', () => {
+  const e = fixture(false), linhas = [];
+  e.log = (_n, texto) => linhas.push(texto);
+  request(e, 'a.js', 'r');
+  relatarCoberturaEmSombra(e, opts); relatarCoberturaEmSombra(e, opts);
+  assert.equal(linhas.length, 1);
+  const muitos = fixture(false), saida = [];
+  muitos.log = (_n, texto) => saida.push(texto);
+  for (let i = 0; i < 40; i++) request(muitos, `f${i}.js`, `r${i}`);
+  relatarCoberturaEmSombra(muitos, opts);
+  assert.equal(saida.length, 31);
+  assert.match(saida.at(-1), /mais 10 arquivo/);
+  assert.match(saida[0], /faltantes desconhecidas/);
+});
+
+test('sombra: engine sem log e arquivo sumido não derrubam a sessão', () => {
+  const e = fixture(false);
+  request(e, 'nao-existe.js', 'r');
+  response(e, 'nao-existe.js', 'r');
+  assert.doesNotThrow(() => relatarCoberturaEmSombra(e, opts));
+  assert.doesNotThrow(() => relatarCoberturaEmSombra({ config: {} }, opts));
+  assert.deepEqual([...e.review.filesRead], ['nao-existe.js']);
 });
