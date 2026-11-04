@@ -430,6 +430,33 @@ test('Panorama: o CSS que impede o título de empurrar o autor pra fora', () => 
     'a menção do autor não encolhe junto com o título');
 });
 
+// Corpos de todos os `@media (max-width: N px)` concatenados (chaves equilibradas).
+function corposDaMedia(largura) {
+  const marca = `@media (max-width: ${largura}px)`;
+  const corpos = [];
+  for (let abre = CSS.indexOf(marca); abre >= 0; abre = CSS.indexOf(marca, abre + 1)) {
+    const i = CSS.indexOf('{', abre);
+    let prof = 0;
+    for (let j = i; j < CSS.length; j += 1) {
+      if (CSS[j] === '{') prof += 1;
+      if (CSS[j] === '}') { prof -= 1; if (!prof) { corpos.push(CSS.slice(i + 1, j)); break; } }
+    }
+  }
+  return corpos.join('\n');
+}
+
+test('topbar em 768 px: Verificar agora vira só o ícone até 900 px', () => {
+  assert.match(corposDaMedia(900), /#btnCheck span\s*\{\s*display:\s*none/,
+    'o rótulo some até 900 px, senão a aba Sistema é cortada em 768 px');
+});
+
+test('Panorama no celular: título em duas linhas, autor embaixo e alvos de 40 px', () => {
+  const m = corposDaMedia(420);
+  assert.match(m, /\.pw-title-txt\s*\{[^}]*white-space:\s*normal[^}]*-webkit-line-clamp:\s*2/);
+  assert.match(m, /\.pw-title \.person-mention\s*\{[^}]*flex-basis:\s*100%/);
+  assert.match(m, /\.pw-acts \.btn\s*\{[^}]*min-width:\s*40px[^}]*min-height:\s*40px/);
+});
+
 test('navegação interna tem UM handler só, delegado, e entende os 3 tipos', () => {
   const fn = APPJS.match(/function goTo\(spec\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'goTo existe');
@@ -549,4 +576,25 @@ test('card da fila: o ponto da conta fica na linha do PR, e a grade tem só avat
   const colunasLargas = CSS.match(/@media \(min-width: 820px\) \{\s*\.pr-card \{ grid-template-columns: ([^;]+);/)[1].trim().split(/\s+(?![^(]*\))/);
   assert.equal(colunasLargas.length, filhos.length, 'cada filho do card precisa da própria coluna na janela larga');
   assert.match(html, /<div class="pr-ref"><span class="acct-dot"><\/span><a /, 'o ponto abre a linha do PR');
+});
+
+test('Visão geral abre pelos checks de saúde e o aplicar só realça com diferença selecionada', () => {
+  const pos = (id) => HTML.indexOf(`id="${id}"`);
+  assert.ok(pos('doctor') > 0 && pos('doctor') < pos('updateBox'), 'doctor antes do updateBox');
+  assert.ok(pos('updateBox') < pos('setupManager'), 'updateBox antes do setupManager');
+  assert.ok(pos('setupManager') < pos('reviewLabels'), 'setupManager antes do reviewLabels');
+  assert.ok(pos('reviewLabels') < pos('preferencesTransfer'), 'reviewLabels antes do preferencesTransfer');
+  assert.match(HTML, /<button class="btn sm" type="button" id="preferencesApply"/, 'aplicar nasce sem primary');
+  const atualizacao = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'telas', 'sistema-atualizacao.js'), 'utf8');
+  assert.doesNotMatch(atualizacao, /O botão abaixo/);
+});
+
+test('atalhos A/M/C passam pela confirmação e o botão de reviewers diz o que faz', () => {
+  const raiz = path.join(import.meta.dirname, '..');
+  const atalhos = fs.readFileSync(path.join(raiz, 'ui/telas/atalhos.js'), 'utf8');
+  assert.match(atalhos, /sempre: true/);
+  assert.match(atalhos, /decideComConfirmacao/);
+  assert.deepEqual(atalhos.match(/.*\.click\(\).*/g), ["  if (btn.dataset.action === 'skip') { btn.click(); return; }"], 'só o pular clica no botão');
+  const meus = fs.readFileSync(path.join(raiz, 'ui/telas/meus-prs.js'), 'utf8');
+  assert.match(meus, /Pedir reviewers no GitHub/);
 });

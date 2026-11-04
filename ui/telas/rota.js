@@ -20,7 +20,7 @@
    Quem chega em `/` (o login do Google, quando não guarda o caminho pedido) vê a tela como
    sempre (o que estava guardado), e o endereço passa a dizer onde ela está. */
 
-import { enderecoDaPagina, lerRota, escreverRota, mudancaDeRota, accountBarVisible, validScope } from '../pure.js';
+import { enderecoDaPagina, lerRota, escreverRota, mudancaDeRota, accountBarVisible, validScope, JANELA_PADRAO_DO_CONSUMO } from '../pure.js';
 import { estado, abaAtual, escopo, definirEscopo } from './estado.js';
 import { $ } from './infra.js';
 import { aoNavegar } from './registro.js';
@@ -29,6 +29,7 @@ import { radarSubAtual, switchRadarSub } from './radar.js';
 import { aparelhoSelecionado, selecionarAparelho } from './radar-aparelhos.js';
 import { secaoDoSistema, sysGoTo } from './sistema.js';
 import { filtrosDeEntregas, aplicarFiltrosDeEntregas } from './entregas.js';
+import { janelaDoConsumo, escolherJanelaDoConsumo } from './consumo.js';
 import { caixaAberta, abrirCaixaRevisao, fecharCaixaRevisao } from './caixa-revisao.js';
 
 let _switchTab = null;
@@ -57,6 +58,7 @@ function capturarRota() {
   const rota = { aba, sub: radarSubAtual(), aparelho: aparelhoSelecionado(), secao: secaoDoSistema(), pr: caixaAberta() };
   if (accountBarVisible(nContas(), aba) && escopo() !== 'all') rota.conta = escopo();
   if (aba === 'entregas') Object.assign(rota, filtrosDeEntregas());
+  if (aba === 'consumo') rota.janela = janelaDoConsumo();
   return rota;
 }
 
@@ -113,12 +115,19 @@ function aplicarCaixa(pr) {
   if (!pr) fecharCaixaRevisao();
 }
 
+// janela ausente no endereço é o padrão (30), que o endereço não escreve
+function aplicarJanela(janela) {
+  const alvo = janela === null || janela === undefined ? JANELA_PADRAO_DO_CONSUMO : janela;
+  if (alvo !== janelaDoConsumo()) escolherJanelaDoConsumo(alvo);
+}
+
 function aplicarRota(rota) {
   APLICANDO = true;
   try {
     aplicarConta(rota);
     if (rota.aba === 'entregas') aplicarFiltrosDeEntregas(rota, _switchTab);
     else if (abaAtual() !== rota.aba) _switchTab(rota.aba);
+    if (rota.aba === 'consumo') aplicarJanela(rota.janela);
     if (rota.aba === 'radar') aplicarRadar(rota);
     if (rota.aba === 'sistema' && secaoDoSistema() !== rota.secao) sysGoTo(rota.secao, null);
     aplicarCaixa(rota.pr);

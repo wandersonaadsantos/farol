@@ -26,7 +26,7 @@ function engineComUpdate() {
   return engine;
 }
 
-const NUNCA = { applyUpdate: async () => { throw new Error('não podia aplicar ocupado'); } };
+const NUNCA = { checkoutGit: false, applyUpdate: async () => { throw new Error('não podia aplicar ocupado'); } };
 
 /* ---------- o que segura, em palavras ---------- */
 
@@ -94,7 +94,7 @@ test('quando fica livre e aplica, o adiamento some', async () => {
   e.headlessBusyAccounts.set('conta', 1);
   await update.maybeAutoUpdate(e, NUNCA);
   e.headlessBusyAccounts.clear();
-  const r = await update.maybeAutoUpdate(e, { applyUpdate: async () => ({ ok: true, from: '0.0.1', to: '9.9.9' }) });
+  const r = await update.maybeAutoUpdate(e, { checkoutGit: false, applyUpdate: async () => ({ ok: true, from: '0.0.1', to: '9.9.9' }) });
   assert.equal(r.ok, true);
   assert.equal(e.update.adiado, undefined);
   assert.equal(e.updateAdiadoDesde, 0);
@@ -125,4 +125,53 @@ test('a linha da tela diz o que segura e desde quando, escapada', () => {
   assert.match(html, /desde 11:10/);
   assert.equal(P.updateAdiadoHtml({}), '');
   assert.equal(P.updateAdiadoHtml(null), '');
+});
+
+/* ---------- checkout git é indisponibilidade declarada, não falha ---------- */
+
+test('checkout git: não tenta, não loga, não arma backoff e declara a indisponibilidade', async () => {
+  const e = engineComUpdate();
+  e.log = () => { e.logou = true; };
+  const r = await update.maybeAutoUpdate(e, { ...NUNCA, checkoutGit: true, externa: false });
+  assert.deepEqual(r, { ok: false, skipped: 'checkout-git' });
+  assert.equal(e.autoUpdateFailedAt || 0, 0);
+  assert.equal(e.logou, undefined);
+  assert.equal(e.update.indisponivel, 'checkout-git');
+});
+
+// O Electron aplica o pacote baixado com o installer e nunca recusou checkout git; só o
+// servidor e a casca recusam. No Electron o checkout não pode desligar o update.
+test('checkout git no Electron: o update segue e nada é declarado indisponível', async () => {
+  const e = engineComUpdate();
+  let aplicou = false;
+  const r = await update.maybeAutoUpdate(e, { checkoutGit: true, externa: false, electronVersion: '33.0.0', applyUpdate: async () => { aplicou = true; return { ok: true, from: '0.0.1', to: '9.9.9' }; } });
+  assert.equal(aplicou, true);
+  assert.equal(r.ok, true);
+  assert.equal(e.update.indisponivel, undefined);
+});
+
+test('checkUpdateRemote no Electron em checkout git não grava indisponibilidade', async () => {
+  const e = engineComUpdate();
+  e.ghEnv = () => ({});
+  const run = async () => ({ ok: true, stdout: JSON.stringify({ tagName: 'v9.9.9', assets: [] }) });
+  await update.checkUpdateRemote(e, 'x/y', { run, checkoutGit: true, externa: false, electronVersion: '33.0.0' });
+  assert.equal(e.update.indisponivel, null);
+});
+
+test('motivoDeIndisponibilidade: externo vence checkout git, e sem nenhum é null', () => {
+  assert.equal(update.motivoDeIndisponibilidade({ externo: true, checkoutGit: true }), 'externo');
+  assert.equal(update.motivoDeIndisponibilidade({ externo: false, checkoutGit: true }), 'checkout-git');
+  assert.equal(update.motivoDeIndisponibilidade({ externo: false, checkoutGit: false }), null);
+});
+
+test('checkUpdateRemote grava o motivo no estado do update', async () => {
+  const e = engineComUpdate();
+  e.ghEnv = () => ({});
+  const run = async () => ({ ok: true, stdout: JSON.stringify({ tagName: 'v9.9.9', assets: [] }) });
+  await update.checkUpdateRemote(e, 'x/y', { run, checkoutGit: true, externa: false });
+  assert.equal(e.update.indisponivel, 'checkout-git');
+  await update.checkUpdateRemote(e, 'x/y', { run, checkoutGit: true, externa: true });
+  assert.equal(e.update.indisponivel, 'externo');
+  await update.checkUpdateRemote(e, 'x/y', { run, checkoutGit: false, externa: false });
+  assert.equal(e.update.indisponivel, null);
 });

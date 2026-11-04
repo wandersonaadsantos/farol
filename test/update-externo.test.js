@@ -47,6 +47,6 @@ test('administrada por fora: o automático pula sem baixar nada e o botão expli
 test('sem a variável o caminho de sempre continua (aqui, nada a atualizar)', async () => {
   const engine = engineFalso();
   engine.update.available = false;
-  const deps = { externa: false, checkUpdate: async () => {} };
+  const deps = { externa: false, checkoutGit: false, checkUpdate: async () => {} };
   assert.deepEqual(await update.maybeAutoUpdate(engine, deps), { ok: false, skipped: 'nada' });
 });

@@ -14,6 +14,14 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.29', [
+    'Repositórios muito analisados não travam mais a análise por acúmulo no cache: o Farol compacta antes de adiar ou descartar.',
+  ]],
+  ['2.78.28', [
+    'As teclas A e C pedem confirmação antes de postar, e mudar a política da conta mostra um aviso com Desfazer.',
+    'Aba desligada avisa e volta para o Radar, e a fila vazia diz quantos PRs ficaram fora por serem anteriores à primeira checagem.',
+    'Consumo com o orçamento no topo, Sistema abrindo pelos checks de saúde, e nomes de produto no lugar do jargão interno.',
+  ]],
   ['2.78.27', [
     'PR que altera arquivo de ambiente é revisado pelo fluxo normal: a sessão recebe só as linhas alteradas, com valores ocultos quando podem ser credencial.',
     'Valor oculto segura a aprovação automática e vai para a pessoa, salvo com autor Tech Lead. Patch truncado e arquivo protegido não lido vão sempre para a pessoa.',

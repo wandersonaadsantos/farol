@@ -9,6 +9,36 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.29
+
+O cache de código deixa de travar análises por acúmulo: o Farol compacta o repositório antes de adiar ou descartar.
+
+### Correções
+
+- Repositórios analisados muitas vezes acumulavam arquivos até o limite do cache, e as análises paravam em "Materialização adiada". Agora o Farol compacta sozinho quando há fragmentação ou o limite é atingido. No caso medido, o cache caiu de 1,5 GB para 186 MB em 4 segundos.
+- Com o limite atingido, compactar vem antes de descartar o cache, que custava buscar todo o histórico de novo.
+
+## v2.78.28
+
+Interface mais clara e mais segura nos atalhos que postam, e a base dos apps nativos entra no código, ainda sem nada nativo publicado.
+
+### Melhorias
+
+- As teclas A e C pedem confirmação antes de postar, e A, M e C respeitam o botão desligado do card.
+- Mudar a política da conta mostra um aviso com **Desfazer**.
+- A aba que está desligada avisa e volta para o Radar, e a paleta de comandos troca a sub-aba do Radar.
+- A fila vazia diz quantos PRs ficaram fora por serem anteriores à primeira checagem.
+- O Consumo traz o orçamento no topo, estado vazio na tabela e guarda o período na URL.
+- Em Sistema, a Visão geral abre pelos checks de saúde, e Aparelhos e Grupos somem com a sincronização desligada.
+- Rótulos e títulos do app e do Diagnóstico trocam o jargão interno por nomes de produto, com um nome só para cada conceito.
+- No tema claro, o link do PR e o selo "sua revisão" ficam legíveis. No celular, as abas aparecem inteiras em 768 px e os alvos do Panorama têm 40 px.
+
+### Correções
+
+- Só conta como anterior à primeira checagem o PR criado antes dela e não revisado por você.
+- Mensagem de log desconhecida volta a contar no Diagnóstico, sem ser tratada como falha.
+- A primeira checagem com a fila vazia não mostra mais o aviso de "0 PRs".
+
 ## v2.78.27
 
 PR que altera arquivo de ambiente agora é revisado e aprovado pelo fluxo normal, sem expor credencial.

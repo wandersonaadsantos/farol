@@ -15,6 +15,7 @@ document.createElement = tag => {
   };
   return element;
 };
+const P = await import('../ui/pure.js');
 const { definirEstado } = await import('../ui/telas/estado.js');
 const { renderUpdate } = await import('../ui/telas/sistema-atualizacao.js');
 
@@ -46,4 +47,18 @@ test('botão indica preparação, bloqueia repetição e libera nova tentativa a
     else assert.match(document.querySelector('#updateBox').innerHTML, /disabled/);
   }
   assert.equal(requests, 3);
+});
+
+test('instalação indisponível para atualizar mostra o motivo no lugar do botão', () => {
+  const { updateIndisponivelHtml } = P;
+  const html = updateIndisponivelHtml({ indisponivel: 'checkout-git' });
+  assert.match(html, /Atualização automática indisponível nesta instalação/);
+  assert.match(html, /git pull/);
+  assert.match(updateIndisponivelHtml({ indisponivel: 'externo' }), /administrada por fora/);
+  assert.equal(updateIndisponivelHtml({}), '');
+  definirEstado({ config: {}, update: { channel: 'remote', available: true, current: '1.0.0', sourceVersion: '2.0.0', repo: 'owner/farol', indisponivel: 'checkout-git' } });
+  renderUpdate();
+  const box = document.querySelector('#updateBox').innerHTML;
+  assert.doesNotMatch(box, /btnUpdateNow/);
+  assert.match(box, /git pull/);
 });

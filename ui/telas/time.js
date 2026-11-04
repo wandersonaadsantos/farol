@@ -140,7 +140,7 @@ $('#team').addEventListener('click', async (e) => {
         <li>o dossiê com o histórico de reviews (todos os grupos, inclusive "Geral");</li>
         <li>os destaques registrados nos reviews dessa pessoa;</li>
         <li>o papel e a matriz de competência configurados;</li>
-        <li>os registros de contestação (pushback).</li>
+        <li>os registros de contestação.</li>
       </ul>
       <p>Nada é alterado no GitHub, e a remoção não desfaz. Se um PR dessa pessoa for revisado de novo, um dossiê novo começa do zero.</p>`,
     confirmLabel: 'Remover'

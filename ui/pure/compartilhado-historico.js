@@ -60,7 +60,7 @@ function faltaParaRepetir(i) {
 export function repetirConfirmacao({ aparelho, pr }) {
   return {
     title: `Repetir a análise no ${aparelho}?`,
-    body: `<p>${esc(pr || 'A análise')} é refeita no <b>${esc(aparelho)}</b>, sobre o mesmo commit que ele analisou. Se o PR ganhou commit novo desde então, ele recusa o pedido e a lista de comandos mostra a recusa.</p><p>Nada é postado por causa deste comando: ele lança a análise, e os gates de postagem de lá continuam valendo.</p>`,
+    body: `<p>${esc(pr || 'A análise')} é refeita no <b>${esc(aparelho)}</b>, sobre o mesmo commit que ele analisou. Se o PR ganhou commit novo desde então, ele recusa o pedido e a lista de comandos mostra a recusa.</p><p>Nada é postado por causa deste comando: ele lança a análise, e as regras de segurança da postagem de lá continuam valendo.</p>`,
   };
 }
 

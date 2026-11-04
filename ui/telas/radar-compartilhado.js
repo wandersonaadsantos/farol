@@ -257,7 +257,7 @@ async function marcarVisto(itemId) {
 function perguntarDecisao(aparelho, acoes) {
   return escolherModal({
     titulo: `Decidir no ${aparelho}`,
-    corpo: `<p>A decisão vai como comando ao <b>${esc(aparelho)}</b>, que é o dono desta pendência. Ele confere os próprios gates antes de postar, e o resultado aparece quando ele responder.</p>`,
+    corpo: `<p>A decisão vai como comando ao <b>${esc(aparelho)}</b>, que é o dono desta pendência. Ele confere as próprias regras de segurança antes de postar, e o resultado aparece quando ele responder.</p>`,
     opcoes: opcoesDaDecisao(acoes),
   });
 }

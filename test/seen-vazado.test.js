@@ -102,6 +102,22 @@ test('migração é conservadora: visto-sem-decisão antigo vira descarte delibe
   assert.equal(e.reconciliarVistos([PR('o/r#7')]), 0, 'e por isso não é ressuscitado');
 });
 
+test('migração sem nenhum PR a tratar não escreve linha no log (invariante 3)', () => {
+  const e = engine();
+  const linhas = [];
+  e.log = (nivel, msg) => linhas.push([nivel, msg]);
+  e.ignorados = null;
+  e.seen = new Set(['o/r#8']);
+  e.decisions.resolved.push({ key: 'o/r#8' });
+  e.migrarIgnorados();
+  assert.equal(e.ignorados.size, 0);
+  assert.deepEqual(linhas, [], 'nada aconteceu, então nada vai ao farol.log');
+  e.ignorados = null;
+  e.seen.add('o/r#9');
+  e.migrarIgnorados();
+  assert.equal(linhas.length, 1, 'com PR tratado a linha continua saindo');
+});
+
 test('migração roda uma vez só', () => {
   const e = engine();
   e.ignorados = new Set(['ja-existe']);

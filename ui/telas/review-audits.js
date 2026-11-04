@@ -20,7 +20,7 @@ async function load() {
   $('#auditLimit').value = result.policy.dailyLimit;
   $('#auditBudget').value = result.policy.budgetUsd;
   $('#auditReserve').value = result.policy.reserveUsd;
-  message(result.admission.reason || 'Amostragem habilitada e dentro dos limites de admissão.');
+  message(result.admission.reason || 'Amostragem habilitada e dentro dos limites do controle de cota.');
 }
 async function mutate(action, value) {
   if (busy) return;
