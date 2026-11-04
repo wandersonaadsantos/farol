@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.32
+
+O Farol recusa postar texto com credencial, e o git da revisão deixa de herdar a configuração da máquina.
+
+### Correções
+
+- Review com credencial reconhecida no texto público não é postado: vai para você com o motivo, sem repetir o valor.
+- O git da fonte de revisão roda isolado da configuração global e de sistema, sem LFS nem submódulo, e só com HTTPS. Proxy e CA declarados no `~/.gitconfig` continuam valendo.
+
 ## v2.78.31
 
 Reinício da máquina no meio de uma atualização não deixa mais o Farol sem abrir, e instalar de novo conserta o que estiver danificado.
