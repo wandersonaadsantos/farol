@@ -14,6 +14,9 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.29', [
+    'Repositórios muito analisados não travam mais a análise por acúmulo no cache: o Farol compacta antes de adiar ou descartar.',
+  ]],
   ['2.78.28', [
     'As teclas A e C pedem confirmação antes de postar, e mudar a política da conta mostra um aviso com Desfazer.',
     'Aba desligada avisa e volta para o Radar, e a fila vazia diz quantos PRs ficaram fora por serem anteriores à primeira checagem.',
