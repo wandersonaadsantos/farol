@@ -27,7 +27,8 @@ async function gitFixture(t) {
     if (cmd !== 'git') throw new Error('Nenhuma rede externa permitida na fixture.');
     const localArgs = args.map(arg => arg === 'https://github.com/org/repo.git' ? origin : arg);
     if (args.includes('fetch')) fetches++;
-    return original(cmd, localArgs, { ...opts, env: envGitLimpo() });
+    // o ambiente é o de produção, e só a origem local precisa do protocolo que produção não abre
+    return original(cmd, ['-c', 'protocol.file.allow=always', ...localArgs], opts);
   };
   t.after(async () => { io.run = original; await fs.rm(root, { recursive: true, force: true }); });
   const scope = { host: 'github.com', account: 'fixture', repo: 'org/repo', repositoryId: 123 };

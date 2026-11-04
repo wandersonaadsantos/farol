@@ -229,7 +229,7 @@ test('material técnico usa lease próprio e liberar sua árvore mantém a fonte
   io.run = async (command, args, options) => {
     if (command !== 'git') return original(command, args, options);
     if (args.includes('fetch')) fetches++;
-    return original(command, args.map(a => a === 'https://github.com/org/repo.git' ? origin : a), { ...options, env: envGitLimpo() });
+    return original(command, ['-c', 'protocol.file.allow=always', ...args.map(a => a === 'https://github.com/org/repo.git' ? origin : a)], options);
   };
   try {
     const parentGit = new GitSource(engine, store, parentLease, { head, base, mergeBase: base });
