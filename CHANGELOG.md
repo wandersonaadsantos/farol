@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.29
+
+O cache de código deixa de travar análises por acúmulo: o Farol compacta o repositório antes de adiar ou descartar.
+
+### Correções
+
+- Repositórios analisados muitas vezes acumulavam arquivos até o limite do cache, e as análises paravam em "Materialização adiada". Agora o Farol compacta sozinho quando há fragmentação ou o limite é atingido. No caso medido, o cache caiu de 1,5 GB para 186 MB em 4 segundos.
+- Com o limite atingido, compactar vem antes de descartar o cache, que custava buscar todo o histórico de novo.
+
 ## v2.78.28
 
 Interface mais clara e mais segura nos atalhos que postam, e a base dos apps nativos entra no código, ainda sem nada nativo publicado.
