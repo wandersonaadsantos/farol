@@ -159,6 +159,15 @@ test('trava recente é de outro git em curso: fica, e o comando falha', async (t
   assert.equal(fs.existsSync(trava), true);
 });
 
+test('sobra de despejo do próprio escopo sai quando o repositório volta a ser usado', async (t) => {
+  const { fonte } = fonteComTrava(t, 1000);
+  const sobra = path.join(fonte.store.root, 'repository.git.despejado.tmp');
+  fs.mkdirSync(sobra);
+  Object.assign(fonte.store, { base: path.dirname(fonte.store.root), transaction: async fn => fn(), usage: async () => { throw new Error('parou aqui'); } });
+  await assert.rejects(fonte.prepare(), /parou aqui/);
+  assert.equal(fs.existsSync(sobra), false);
+});
+
 test('a repetição depois de trava tem teto', async (t) => {
   const { fonte, commit } = fonteComTrava(t, 1000);
   let chamadas = 0;
@@ -211,6 +220,32 @@ test('sobra de um despejo interrompido não sobrevive à passada seguinte', asyn
   fs.writeFileSync(path.join(sobra, 'pack'), 'x');
   assert.equal(await reclaimScopeGit(base, root), true);
   assert.equal(fs.existsSync(sobra), false);
+});
+
+test('sobra sem repository.git, de queda entre renomear e apagar, é candidata e sai', async (t) => {
+  const base = pasta(t);
+  const root = escopo(base, 'caiu', { usadoEm: 1 });
+  const sobra = path.join(root, 'repository.git.despejado.tmp');
+  fs.renameSync(path.join(root, 'repository.git'), sobra);
+  const inventario = { caiu: { gitBytes: 0, acquisitionTemporaryBytes: 7 } };
+  assert.deepEqual(await scopesWithIdleGit(base, inventario, 'outro', 10 * HORA), [{ scope: 'caiu', usedAt: 1, gitBytes: 7 }]);
+  assert.equal(await reclaimScopeGit(base, root), true);
+  assert.equal(fs.existsSync(sobra), false);
+});
+
+test('escopo sem Git nem sobra não conta como liberado', async (t) => {
+  const base = pasta(t);
+  const root = escopo(base, 'nada');
+  fs.rmSync(path.join(root, 'repository.git'), { recursive: true });
+  assert.equal(await reclaimScopeGit(base, root), false);
+});
+
+test('consumidor ativo fica fora da lista de candidatos', async (t) => {
+  const base = pasta(t);
+  escopo(base, 'ativo', { lease: 'prepared', usadoEm: 1 });
+  escopo(base, 'parado', { usadoEm: 1 });
+  const inventario = { ativo: { gitBytes: 5 }, parado: { gitBytes: 5 } };
+  assert.deepEqual((await scopesWithIdleGit(base, inventario, 'outro', 10 * HORA)).map(i => i.scope), ['parado']);
 });
 
 test('escopo com consumidor ativo preserva o Git', async (t) => {

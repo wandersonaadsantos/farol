@@ -292,3 +292,13 @@ test('disco cheio por causa alheia: despejar não alcança a reserva, e os cache
   assert.equal(await existe(a), true);
   assert.equal(await existe(b), true);
 });
+
+test('com um consumidor ativo o espaço não bastaria: o cache parado fica', async t => {
+  const { base, materialRoot, limits, first, second } = await fixture(t);
+  const third = await new SourceStore({ host: 'github.com', account: 'third', repo: 'org/repo', repositoryId: 1 }, { root: base, materialRoot, limits }).initialize();
+  await first.acquire({});
+  const ativo = await cacheGitParado(first, 140000, 100), parado = await cacheGitParado(second, 140000, 200);
+  await assert.rejects(third.budget.reserve('git-acquisition', 180000), /Quota global/);
+  assert.equal(await existe(ativo), true);
+  assert.equal(await existe(parado), true, 'despejar não resolveria, então não despeja');
+});
