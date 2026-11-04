@@ -55,37 +55,19 @@ Start-Sleep -Milliseconds 600
 
 # --- copia do app -------------------------------------------------------------
 Step "Copiando o app para $App"
-New-Item -ItemType Directory -Force -Path $App | Out-Null
-foreach ($f in @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md')) {
-  if (Test-Path (Join-Path $Src $f)) { Copy-Item (Join-Path $Src $f) (Join-Path $App $f) -Force }
-}
-# /MIR e nao /E: como o rm -rf + cp do install.sh, espelha a fonte e APAGA no
-# destino arquivo que a versao nova removeu; /E era aditivo e um lib/engine/foo.js
-# deletado sobrevivia pra sempre em ~/.farol/app, update apos update.
+# /MIR de efeito: a pasta nova so tem o que veio no pacote, entao arquivo que a versao nova removeu
+# some, como no rm -rf + cp do install.sh.
 # 'installer' entra na copia (paridade com o mac): sem ele, quem instalou pelo
 # Setup.exe e apagou o download nao tinha como desinstalar.
 # 'tools' carrega runtime (jira-mcp.js): sem ela, revisao com Jira cadastrado
 # dispara o dialogo do Electron "Unable to find Electron app at .../tools/jira-mcp.js".
-foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer', 'tools')) {
-  $srcDir = Join-Path $Src $d
-  if (-not (Test-Path $srcDir)) { continue }
-  # /IS /IT: copia tambem o que o robocopy julga igual ou ajustado (mesmo tamanho e data).
-  # Estas pastas vem do zip com a data da release, entao o caso e raro aqui; no Electron,
-  # onde a data e fixa, a copia e para pasta vazia (Copy-ElectronRuntime).
-  robocopy $srcDir (Join-Path $App $d) /MIR /IS /IT /NFL /NDL /NJH /NJS /NP | Out-Null
-  if ($LASTEXITCODE -ge 8) { Die "Falha ao copiar a pasta '$d' (robocopy $LASTEXITCODE)." }
-}
-if (Test-Path (Join-Path $Src 'Desinstalar.cmd')) { Copy-Item (Join-Path $Src 'Desinstalar.cmd') (Join-Path $App 'Desinstalar.cmd') -Force }
-# Guias distribuídos: allowlist explícita (decisão de 15/09/2026). A pasta é recriada para
-# um guia que saia da lista não ficar para sempre na cópia instalada.
-$docsDst = Join-Path $App 'docs'
-if (Test-Path -LiteralPath $docsDst) { Remove-Item -LiteralPath $docsDst -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $docsDst | Out-Null
-foreach ($doc in @('CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md')) {
-  $origem = Join-Path (Join-Path $Src 'docs') $doc
-  if (-not (Test-Path -LiteralPath $origem)) { Die "Guia ausente na origem: docs/$doc" }
-  Copy-Item -LiteralPath $origem -Destination (Join-Path $docsDst $doc) -Force
-}
+try {
+  Install-AppTransacional -Src $Src -App $App `
+    -Pastas @('lib', 'ui', 'assets', 'workspace-template', 'installer', 'tools') `
+    -Arquivos @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md') `
+    -Avulsos @('Desinstalar.cmd') `
+    -Guias @('CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md')
+} catch { Die ("Falha ao copiar o app: " + $_.Exception.Message) }
 
 # --- dependencias (Electron) ---------------------------------------------------
 $electronExe = Join-Path $App 'node_modules\electron\dist\electron.exe'

@@ -89,6 +89,9 @@ function listaEspelhada(fonte) {
   for (const m of fonte.matchAll(/for d in ([^;\n]+);\s*do\n([\s\S]*?)\ndone/g)) {
     if (m[2].includes('$SRC/$d')) return m[1];
   }
+  // PowerShell: a cópia transacional recebe a lista em `-Pastas @(<lista>)`
+  const transacional = /Install-AppTransacional[\s\S]*?-Pastas @\(([^)]*)\)/.exec(fonte);
+  if (transacional) return transacional[1];
   // PowerShell: `foreach ($d in @(<lista>)) { ... robocopy ... }`
   for (const m of fonte.matchAll(/foreach \(\$d in @\(([^)]*)\)\) \{\n([\s\S]*?)\n\}/g)) {
     if (m[2].includes('robocopy')) return m[1];

@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.31', [
+    'Reinício da máquina no meio de uma atualização não deixa mais o Farol sem abrir: a versão anterior continua inteira até a nova estar conferida.',
+    'Instalar de novo conserta arquivo danificado, e a instalação só termina com o conteúdo igual ao do pacote.',
+  ]],
   ['2.78.30', [
     'PR com arquivo protegido que a revisão não lê vai direto para você, com o motivo, sem repetir tentativas.',
     'Com a automação da conta desligada, o card diz o que falta em vez de prometer conclusão sozinho.',
