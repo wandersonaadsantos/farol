@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.30', [
+    'PR com arquivo protegido que a revisão não lê vai direto para você, com o motivo, sem repetir tentativas.',
+    'Com a automação da conta desligada, o card diz o que falta em vez de prometer conclusão sozinho.',
+  ]],
   ['2.78.29', [
     'Repositórios muito analisados não travam mais a análise por acúmulo no cache: o Farol compacta antes de adiar ou descartar.',
   ]],
