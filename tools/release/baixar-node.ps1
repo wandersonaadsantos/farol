@@ -88,9 +88,9 @@ try {
       [IO.Compression.ZipFileExtensions]::ExtractToFile($entrada, $alvo, $true)
     } finally { $zip.Dispose() }
   } else {
-    # Pelo nome, da pasta do pacote: o tar do Git Bash lê o `C:` de um caminho absoluto como host remoto.
-    Push-Location -LiteralPath (Split-Path -Parent $pacote)
-    try { & tar -xzf (Split-Path -Leaf $pacote) -C $extraido $membro }
+    # Tudo relativo a $tmp: o tar do Git Bash lê o `C:` de um caminho absoluto como host remoto.
+    Push-Location -LiteralPath $tmp
+    try { & tar -xzf $arquivo -C (Split-Path -Leaf $extraido) $membro }
     finally { Pop-Location }
     if ($LASTEXITCODE -ne 0) { Falhar "Node v${versao}: $membro ausente dentro de $arquivo" }
     $alvo = Join-Path $extraido $membro
