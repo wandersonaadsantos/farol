@@ -8,6 +8,7 @@ const home=fs.mkdtempSync(path.join(os.tmpdir(),'farol-label-controls-')); proce
 const {command}=await import('../lib/engine/review-label-control.js');
 const {addInProgressLabel}=await import('../lib/engine/review.js');
 const {tirarPendentes,ARQUIVO}=await import('../lib/engine/labels-a-tirar.js');
+const vigia=(await import('../lib/engine/vigia-sessao.js')).default;
 const {Engine}=await import('../server.js');
 const io=(await import('../lib/io.js')).default, originalRun=io.run;
 const URL_PR='https://github.com/acme/app/pull/7';
@@ -34,10 +35,27 @@ test('remove tag de outro login usando a conta autorizada, preserva demais tags 
 test('remoção repetida é idempotente e não deleta a definição da label',async()=>{
  assert.equal((await request('remove','me:revisando')).ok,true);assert.equal((await request('remove','me:revisando')).ok,true);assert.equal(calls.filter(args=>args[1]==='edit').length,1);assert.equal(calls.some(args=>args[0]==='label'),false);
 });
-test('remover tag de revisão ativa não cancela nem reinsere o marcador na mesma sessão',async()=>{
+test('remover tag de revisão ativa (sem cancelSession no motor) não reinsere o marcador na mesma sessão',async()=>{
  const session={keys:[PR.key],mode:'auto',cancelled:false};engine.activeReviews.set('s',session);
  assert.equal((await request('remove','me:revisando')).ok,true);assert.equal(session.cancelled,false);
  const before=calls.length;assert.equal(await addInProgressLabel(engine,PR,run),'');assert.equal(calls.length,before);assert.equal(engine.activeReviews.size,1);
+});
+test('remover a própria label com sessão viva cancela a sessão antes de tocar o GitHub',async()=>{
+ const ordem=[];let motivo='';
+ engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});
+ engine.cancelSession=id=>{motivo=vigia.abandonoDe(engine,PR.key);ordem.push('cancel:'+id);};
+ const comOrdem=async(c,a,o)=>{if(a[1]==='edit')ordem.push('remove');return run(c,a,o);};
+ const r=await command(engine,{action:'remove',url:URL_PR,label:'me:revisando'},comOrdem);
+ assert.equal(r.ok,true,r.error);assert.deepEqual(ordem,['cancel:a-1','remove']);assert.equal(r.sessaoCancelada,'a-1');assert.equal(motivo,'label-retirada');
+});
+test('label de outra conta não cancela nada',async()=>{
+ let chamou=false;engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});engine.cancelSession=()=>{chamou=true;};
+ const r=await request('remove','colleague:revisando');
+ assert.equal(r.ok,true,r.error);assert.equal(chamou,false);assert.equal(r.sessaoCancelada,null);
+});
+test('autoanálise (mode self) não é cancelada pela remoção da própria label',async()=>{
+ let chamou=false;engine.activeReviews.set('s-1',{id:'s-1',keys:[PR.key],mode:'self'});engine.cancelSession=()=>{chamou=true;};
+ const r=await request('remove','me:revisando');assert.equal(chamou,false);assert.equal(r.sessaoCancelada,null);
 });
 test('erro depois de aplicar a remoção fica durável e retenta com a conta que fez a ação',async()=>{
  const uncertain=async(cmd,args,opts)=>{const result=await run(cmd,args,opts);return args[1]==='edit'?{ok:false,stderr:'network timeout'}:result;};

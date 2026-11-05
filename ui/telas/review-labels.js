@@ -32,7 +32,7 @@ function initReviewLabels() {
     if (!button || !current) return;
     return act(async () => {
       const label = button.dataset.removeReviewLabel;
-      const confirmed = await confirmModal({ title: 'Remover tag de revisão?', body: `<p>Remover <b>${esc(label)}</b> de <b>${esc(current.key)}</b> usando a conta <b>${esc(current.account)}</b>?</p><p>A remoção não cancela a revisão em andamento. Uma nova revisão ou outro aparelho pode adicionar a tag novamente.</p>`, confirmLabel: 'Remover tag' });
+      const confirmed = await confirmModal({ title: 'Remover tag de revisão?', body: `<p>Remover <b>${esc(label)}</b> de <b>${esc(current.key)}</b> usando a conta <b>${esc(current.account)}</b>?</p><p>A remoção encerra a revisão em andamento neste aparelho e deixa o PR parado até clique, commit novo ou pedido novo. Outro aparelho pode adicionar a tag de novo.</p>`, confirmLabel: 'Remover tag' });
       if (confirmed) await request('remove', label);
     });
   };
