@@ -155,6 +155,23 @@ test('a rodada lê labels pela mesma chamada do estado e cancela com o motivo no
   assert.equal((await vigia.conferir(vazia, PR, 'sess-l2', HEAD, () => '')).abandonar, false, 'label ainda não posta nunca encerra');
 });
 
+test('label que entra durante as leituras não encerra a sessão', async () => {
+  const e = engineVigiado({ head: HEAD, estados: [], labels: [] });
+  let chamadas = 0;
+  const getter = () => (chamadas++ === 0 ? '' : 'eu:revisando');
+  const d = await vigia.conferir(e, PR, 'sess-l3', HEAD, getter);
+  assert.equal(d.abandonar, false);
+  assert.deepEqual(e.cancelados, []);
+});
+
+test('vigia parado durante as leituras não cancela nem carimba', async () => {
+  const e = engineVigiado({ head: HEAD_NOVO, estados: [] });
+  const d = await vigia.conferir(e, PR, 'sess-p1', HEAD, () => '', () => false);
+  assert.equal(d.abandonar, false);
+  assert.deepEqual(e.cancelados, []);
+  assert.equal(vigia.abandonoDe(e, PR.key), '');
+});
+
 test('parado, o vigia não consulta mais nada', async () => {
   const e = engineVigiado({ head: HEAD_NOVO, estados: [] });
   let consultas = 0;
