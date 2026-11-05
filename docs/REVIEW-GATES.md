@@ -125,6 +125,7 @@ invariantes continuam lá.
 - [Um Farol por PR (v2.50.1): a lição do marcador transitório](#um-farol-por-pr-v2501-a-lição-do-marcador-transitório)
 - [Dedup é por ROUND, não por "alguma vez" (v2.40.5)](#dedup-é-por-round-não-por-alguma-vez-v2405)
 - [Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho](#re-revisão-automática-pós-push-v2410-o-round-2-fecha-sozinho)
+- [O pedido de mudanças sai quando o problema foi resolvido (05/11/2026, v2.78.35)](#o-pedido-de-mudanças-sai-quando-o-problema-foi-resolvido-05112026-v27835)
 - [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
 - [Checkpoint de verificação (memória entre passadas da revisão, v2.36.0)](#checkpoint-de-verificação-memória-entre-passadas-da-revisão-v2360)
 
@@ -1133,6 +1134,19 @@ vira ação**, e poda errada não pode custar sessão paga.
   `sessions/update-dl-<ts>` e nada apagava. Toda tentativa começa apagando os que têm
   mais de 24h, best-effort com try/catch por entrada (lixo que não sai hoje sai
   amanhã; falhar o update por causa de um diretório travado seria pior).
+
+## O pedido de mudanças sai quando o problema foi resolvido (05/11/2026, v2.78.35)
+
+O caso medido (biud-frontend#1779): o Farol postou CHANGES_REQUESTED com dois blockers, o autor corrigiu os dois, e o pedido ficou lá. O GitHub não ajuda: `dismiss_stale_reviews_on_push` só derruba aprovação, e o Farol não tinha nenhuma escrita em `/dismissals`, então a única saída de uma rodada era postar um veredito novo. No PR irmão (#1778) essa saída foi um APPROVE, o que misturava duas decisões. A regra do dono: resolvido o problema, o pedido sai sozinho, e **isso não quer dizer aprovação automática**.
+
+`lib/engine/retirada-de-pedido.js` é a peça, e a ordem no `concluirRevisao` é: retira, e o desfecho segue igual (aprova só se os gates e a política da conta mandarem; com a conta em "espera você", sai só a retirada).
+
+- **O que é "resolvido" é evidência, não texto da sessão** (`provaDaRetirada`, pura): análise completa concluindo aprovar, memória de rodadas com rodada anterior e sem blocker nem inconsistência (a régua do `enforce` em QUALQUER modo: sem memória não há como afirmar que o pedido foi respondido), nenhum defeito do PR, e o gate da aprovação sem outra recusa além da política da conta e do CI. Prova esgotada segura, porque ela dispensa lacunas não duras. Commit que chegou durante a sessão (`headAndou`) também segura.
+- **O que sai é só o pedido AUTOMÁTICO desta conta** (`status: auto_rejected`, mesma conta, no commit do review): o feito à mão é decisão de uma pessoa e o de outro revisor não é nosso. Mais de um review meu no mesmo commit, contando o já dispensado, é indistinguível pelo histórico e segura; pedido meu sem decisão automática ou sem rodada gravada também. Pela rodada, saem todos os automáticos ativos; pela marca do CI, só o do próprio commit, porque os antigos dependem da prova da rodada.
+- **O que fica para depois** (`retiradaPendente` na decisão, varrido por `varrerRetiradas` em todo ciclo, com qualquer política da conta e antes da aprovação): CI que ainda não fechou verde ao fim da rodada, falha passageira de leitura ou de envio (até 5 tentativas), e o pedido feito pelo CI vermelho, que sai se o check fechar verde no MESMO commit, sem commit novo. Commit novo ou PR fora do estado aberto limpam a marca.
+- **Falha ao retirar não segura o desfecho:** vai para o log e para a marca, e a aprovação que os gates liberaram substitui o pedido do mesmo jeito.
+- **Rastro:** `pedidoRetirado` na decisão, fora de `reasons`, porque motivo em aprovação limpa viraria ressalva e alvo de pushback.
+- **Limites conhecidos:** o histórico de decisões é local, então pedido postado por outro aparelho não é reconhecido como automático aqui e fica até sair aprovação ou até o aparelho dono retirar. Pedido sem rodada gravada (análise incompleta, ou anterior a 23/10/2026) também fica. A varredura não confere a posse do PR entre aparelhos, só a coordenação fora do ar: o caso que sobra é um pedido do próprio head saindo enquanto outro aparelho revisa o mesmo commit.
 
 ## Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)
 

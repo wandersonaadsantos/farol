@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.35
+
+O pedido de mudanças que o Farol postou agora sai sozinho quando o problema foi resolvido, e isso não aprova o PR.
+
+### Correções
+
+- Quando a re-revisão comprova que os pontos pedidos foram resolvidos e o CI fecha verde no commit, o Farol retira o próprio pedido de mudanças, citando o commit. Antes ele ficava lá até sair uma aprovação.
+- O pedido feito por CI vermelho sai sozinho se o check ficar verde no mesmo commit.
+- Retirar não é aprovar: a aprovação continua dependendo dos mesmos gates e da política da conta. Com a conta em "espera você", sai só a retirada.
+- Pedido de mudanças feito à mão e o de outros revisores ficam. Se houver dúvida sobre quem fez o pedido, ele fica.
+
 ## v2.78.34
 
 Reprovação só com sentido técnico palpável, sem afrouxar o que protege comportamento e segurança, e cache que se recupera sozinho depois de reinício ou de disco no limite.
