@@ -929,10 +929,18 @@ Peças:
 - **`explicaReRound`** (`review.js`) substitui o miolo do `classificaReRound`, que virou
   fachada do contrato antigo ('relanca' | null). Cada uma das saídas silenciosas tem nome:
   `sem_gatilho` | `revisando` | `parado` com `motivo` (rascunho, auto_desligado,
-  conta_silenciada, sem_token, orcamento, estacionado, outros_revisando, saiu_de_cena,
+  conta_silenciada, sem_token, orcamento, estacionado, outros_revisando, saiu_de_cena, conflito,
   coordenacao, pendencia_viva, ancora) | `aguardando`/`espera_longa` com `aPartirDe` |
   `relanca`. A ordem das travas não muda desfecho (todas seguram), só qual motivo a tela
   vê primeiro.
+- **PR em conflito com a base não abre sessão automática** (C2, 05/11/2026,
+  `lib/engine/espera-conflito.js`): `seguraPorConflito` lê `mergeable` (`gh pr view --json
+  mergeable`) antes de o caminho automático abrir a sessão (lançamento e re-round), uma vez
+  por `key` + `updatedAt`. Só `CONFLICTING` segura: `UNKNOWN` e falta de dado nunca seguram,
+  `MERGEABLE` apaga a marca, e o clique manual atravessa. A marca `esperaConflito[key] =
+  { at, head }` vai ao snapshot, vira o motivo `conflito` e a nota do card; sem sessão, sem
+  label e sem texto no PR (toast uma vez por PR e head). Desliga com
+  `aguardarMergeavelParaRevisar: false` (ligado por padrão).
 - **`reRoundParaUi`** vai no snapshot como `reRounds` (mesmo padrão do `parkedParaUi`):
   só pendências `stale_head`. `relanca` vira `aguardando` com `nextCheckAt` (quem dispara
   é o ciclo), ou `parado`/`consciencia` quando o `bloqueioConsultado` barrou este head.

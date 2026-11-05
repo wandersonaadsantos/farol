@@ -287,6 +287,7 @@ function renderQueue() {
   const rows = q.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: queueCardHtml(pr, {
     people, mark: acctMark(pr), parked, sync: estado().sync,
     revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)],
+    esperaConflito: estado().esperaConflito,
   }) })).concat(aguardando.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: queueWaitingCardHtml(pr, {
     mark: acctMark(pr), sync: estado().sync, distribuindo: distribuindo.has(pr.key),
     espera: (estado().headlessWaitingDetails || {})[pr.key],
