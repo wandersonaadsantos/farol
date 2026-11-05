@@ -20,12 +20,16 @@ let gh;
 let sessoes;
 let postados;
 let envios = [];
+let leiturasDaComparacao = 0;
 io.run = async (_cmd, args) => {
   const sub = (args || []).join(' ');
   if (/pulls\/\d+\/reviews --input/.test(sub)) { postados += 1; envios.push(JSON.parse(fs.readFileSync(args[args.indexOf('--input') + 1], 'utf8')).event); return { ok: true, code: 0, stdout: '{"id":1}', stderr: '' }; }
+  if (/pulls\/\d+ --jq \{base: \.base\.ref\}/.test(sub)) return { ok: true, code: 0, stdout: JSON.stringify({ base: gh.base }), stderr: '' };
   if (/compare\/production\.\.\./.test(sub)) {
+    leiturasDaComparacao += 1;
     if (gh.compareFalha) return { ok: false, code: 1, stdout: '', stderr: 'HTTP 404' };
-    return { ok: true, code: 0, stdout: JSON.stringify(gh.diferentes), stderr: '' };
+    if (sub.includes(`production...${HEAD}`)) return { ok: true, code: 0, stdout: JSON.stringify({ behind: gh.behind, files: gh.diferentes.map((f) => ({ filename: f })) }), stderr: '' };
+    return { ok: true, code: 0, stdout: JSON.stringify({ files: gh.mexidosNaBase.map((f) => ({ filename: f })) }), stderr: '' };
   }
   if (sub.includes('--json reviewRequests,reviews')) {
     if (gh.leituraFalha) return { ok: false, code: 1, stdout: '', stderr: 'HTTP 502' };
@@ -53,8 +57,9 @@ after(() => {
 beforeEach(() => {
   sessoes = 0;
   postados = 0;
-  gh = { pedidos: [{ __typename: 'User', login: 'eu' }], meusReviews: [], alheios: [], leituraFalha: false, diferentes: [], compareFalha: false };
+  gh = { pedidos: [{ __typename: 'User', login: 'eu' }], meusReviews: [], alheios: [], leituraFalha: false, diferentes: [], compareFalha: false, base: 'development', behind: 0, mexidosNaBase: [] };
   envios = [];
+  leiturasDaComparacao = 0;
 });
 
 const PR = (n, marcas = { requested: true }) => ({ key: `acme/app#${n}`, repo: 'acme/app', number: n, url: `https://github.com/acme/app/pull/${n}`, title: 'PR', author: 'dev', account: 'eu', ...marcas });
@@ -91,62 +96,85 @@ function motor() {
 
 
 const ARQ = 'src/lib/aviso/aviso.test.tsx';
-const BLOCKER = { ...criteriaFixture('request_changes').findings[0], title: 'Falta teste da posição', summary: 'Nenhum teste passa por definirPosicaoDosAvisos.', file: ARQ, line: 1 };
+const BLOCKER = { ...criteriaFixture('request_changes').findings[0], causa: 'defeito_codigo', title: 'Falta teste da posição', summary: 'Nenhum teste passa por definirPosicaoDosAvisos.', file: ARQ, line: 1 };
+const HERDADO = { ...BLOCKER, herdadoDaProducao: true, evidence: 'O mesmo arquivo de teste está assim na production desde 31/10.' };
+const APROVA = { event: 'APPROVE', body: 'Conteúdo trazido da production sem defeito próprio.' };
 
-function comSessaoQuePede(e) {
+function comSessao(e, { achados = [HERDADO], aprova = APROVA } = {}) {
   e.fetchPrInventory = async () => ({ status: 'complete', headSha: HEAD, baseSha: 'b'.repeat(40), changedFiles: 1, files: [{ path: ARQ, sha: HEAD, status: 'modified', additions: 1, deletions: 0, changes: 1, lines: 1 }] });
   e.runClaudeStream = async () => {
     sessoes += 1;
     return { sessionId: 's1', text: JSON.stringify({
       protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('request_changes'), analysisStatus: 'complete', verdict: 'request_changes', decision: 'auto_reject', cardMet: true,
-      reasons: ['Falta teste.'], findings: [BLOCKER],
+      reasons: ['Falta teste.'], findings: achados,
       coverage: { total: 1, reviewed: [ARQ], missing: [] },
       alcance: [{ alterado: ARQ, chamadores: [], semChamador: 'teste' }],
-      payloads: { approve: { event: 'APPROVE', body: 'Conteúdo igual ao que já está em produção.' }, request_changes: { event: 'REQUEST_CHANGES', body: 'Falta o teste da posição.' }, comment: { event: 'COMMENT', body: 'Leitura.' } },
+      payloads: { ...(aprova ? { approve: aprova } : {}), request_changes: { event: 'REQUEST_CHANGES', body: 'Falta o teste da posição.' }, comment: { event: 'COMMENT', body: 'Leitura.' } },
       reportMarkdown: '# ok',
     }) };
   };
   return e;
 }
+const decisao = (e, n) => [...e.decisions.pending, ...e.decisions.resolved].find((x) => x.key === `acme/app#${n}`);
 
-test('backmerge: bloqueio em arquivo idêntico à production não vira pedido de mudanças', async () => {
-  gh.diferentes = [];
-  const e = comSessaoQuePede(motor());
+test('backmerge: ponto declarado herdado, em arquivo herdado de verdade, não vira pedido de mudanças', async () => {
+  const e = comSessao(motor());
   await e.runOneHeadless(PR(1), 'eu');
-  assert.equal(sessoes, 1);
   assert.equal(envios.includes('REQUEST_CHANGES'), false);
-  const d = [...e.decisions.pending, ...e.decisions.resolved].find((x) => x.key === 'acme/app#1');
-  assert.ok((d.reasons || []).some((r) => /dívida herdada/.test(r.text || r)), 'o motivo fica visível');
-  assert.equal(d.verdict, 'approve', 'sem bloqueio próprio, o veredito volta a ser da política da conta');
+  const d = decisao(e, 1);
+  assert.equal(d.verdict, 'approve');
+  assert.ok((d.reasons || []).some((r) => /dívida que já estava em produção/.test(r.text || r)));
 });
 
-test('arquivo que difere da production continua bloqueando', async () => {
-  gh.diferentes = [ARQ];
-  const e = comSessaoQuePede(motor());
-  await e.runOneHeadless(PR(2), 'eu');
-  assert.deepEqual(envios, ['REQUEST_CHANGES']);
+const SEGUE_BLOQUEANDO = [
+  ['sem a declaração da sessão', () => ({ achados: [BLOCKER] })],
+  ['arquivo em que a base tinha trabalho próprio (resolução de conflito)', () => { gh.mexidosNaBase = [ARQ]; return {}; }],
+  ['arquivo que difere da ponta da production', () => { gh.diferentes = [ARQ]; return {}; }],
+  ['head que não contém a ponta da production (não é merge-back)', () => { gh.behind = 3; return {}; }],
+  ['PR para a própria production', () => { gh.base = 'production'; return {}; }],
+  ['repositório sem production', () => { gh.compareFalha = true; return {}; }],
+];
+SEGUE_BLOQUEANDO.forEach(([nome, preparar], i) => {
+  test(`segue bloqueando: ${nome}`, async () => {
+    const opcoes = preparar();
+    const e = comSessao(motor(), opcoes);
+    await e.runOneHeadless(PR(10 + i), 'eu');
+    assert.deepEqual(envios, ['REQUEST_CHANGES']);
+  });
 });
 
-test('sem conseguir comparar com a production nada é rebaixado', async () => {
+test('sem texto de aprovação nada é rebaixado: a decisão fica como estava', async () => {
+  const e = comSessao(motor(), { aprova: null });
+  await e.runOneHeadless(PR(20), 'eu');
+  assert.equal(decisao(e, 20).verdict, 'request_changes');
+  assert.equal(decisao(e, 20).roundReview?.unresolvedCount, 1, 'o bloqueio segue vivo na memória: nada foi rebaixado');
+});
+
+test('causa de estado do PR declarada herdada não é rebaixada nem vira aprovar', async () => {
+  const e = comSessao(motor(), { achados: [{ ...HERDADO, causa: 'ci' }] });
+  await e.runOneHeadless(PR(21), 'eu');
+  assert.notEqual(decisao(e, 21).verdict, 'approve');
+});
+
+test('repositório sem production não paga a comparação de novo', async () => {
   gh.compareFalha = true;
-  const e = comSessaoQuePede(motor());
-  await e.runOneHeadless(PR(3), 'eu');
-  assert.deepEqual(envios, ['REQUEST_CHANGES']);
+  const e = comSessao(motor());
+  await e.runOneHeadless(PR(22), 'eu');
+  const depoisDaPrimeira = leiturasDaComparacao;
+  await e.runOneHeadless(PR(23), 'eu');
+  assert.equal(leiturasDaComparacao, depoisDaPrimeira);
 });
 
-test('comparação no teto de 300 arquivos não rebaixa: não dá para saber o que ficou de fora', async () => {
-  gh.diferentes = Array.from({ length: 300 }, (_, i) => `x/${i}.ts`);
-  const e = comSessaoQuePede(motor());
-  await e.runOneHeadless(PR(4), 'eu');
-  assert.deepEqual(envios, ['REQUEST_CHANGES']);
-});
-
-test('ponto de rodada anterior em arquivo herdado sai como retirado, com a evidência', async () => {
+test('ponto de rodada anterior sai como retirado e a memória não o conta como resolvido em arquivo inalterado', async () => {
   const { rebaixarHeranca } = await import('../lib/engine/heranca-de-producao.js');
-  const result = { findings: [{ ...BLOCKER, ref: 'r1:f1', status: 'persiste' }, { ...BLOCKER, file: 'src/novo.ts' }] };
+  const { classifyFindings, normalizeFindings } = await import('../lib/engine/review-findings.js');
+  const result = { findings: [{ ...HERDADO, ref: 'r1:f1', status: 'persiste' }, { ...BLOCKER, file: 'src/novo.ts' }] };
   assert.equal(rebaixarHeranca(result, [ARQ]), 1);
-  assert.equal(result.findings[0].severity, 'suggestion');
   assert.equal(result.findings[0].status, 'retirado');
-  assert.match(result.findings[0].evidence, /idêntico ao da production/);
+  assert.match(result.findings[0].evidence, /conferido pelo app/);
   assert.equal(result.findings[1].severity, 'blocking', 'o arquivo que o PR cria segue bloqueando');
+  const anterior = { id: 'r1', baseSha: 'b', files: [{ path: ARQ, sha: 'x' }], findings: [{ id: 'r1:f1', severity: 'blocking', file: ARQ }], unresolved: [{ id: 'r1:f1', severity: 'blocking', file: ARQ }] };
+  const c = classifyFindings({ parents: [anterior], baseSha: 'b' }, normalizeFindings([result.findings[0]]), [{ path: ARQ, sha: 'x' }]);
+  assert.equal(c.resolvedOnUnchanged.length, 0);
+  assert.equal(c.unresolved.length, 0);
 });

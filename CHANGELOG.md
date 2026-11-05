@@ -26,7 +26,7 @@ A label de revisão passa a valer como contrato, a reprovação automática fica
 ### Correções
 
 - A reprovação automática só sai por defeito provado no código ou no card. Conflito, CI que não rodou, dependência e arquivo fora do diff esperam ou ficam com você.
-- Ponto bloqueante em arquivo idêntico ao da production vira sugestão: é dívida herdada, não criada pelo PR. O que o próprio PR cria, como resolução de conflito e linha nova, continua podendo bloquear. Isso destrava backmerges.
+- Em backmerge da production, ponto que já estava em produção vira sugestão: é dívida herdada, não criada pelo PR. O que o próprio PR cria, como resolução de conflito e linha nova, continua podendo bloquear.
 - O Revisar tudo deixa de relançar PR com aprovação ou recusa de uma pessoa no commit atual, ou cujo pedido de revisão saiu. O botão Revisar de um PR específico continua valendo.
 - O mesmo PR não abre mais duas revisões ao mesmo tempo.
 - Instância de teste fora da pasta padrão não escreve no GitHub sem permissão explícita.

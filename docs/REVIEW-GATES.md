@@ -1195,12 +1195,15 @@ vira ação**, e poda errada não pode custar sessão paga.
 
 O caso medido: biud-frontend#1822, backmerge da production na development, reprovado pela falta de um teste em `aviso.test.tsx`. O arquivo era idêntico ao da production, e a lacuna estava em produção desde 31/10. Segurar o backmerge não melhorava nada no que roda e travava a development. A primeira reprovação do mesmo PR, pelo hash do manifest que a resolução de conflito deixou errado, procedia, e continua valendo.
 
-`heranca-de-producao.js` roda antes da memória de rodadas e do desfecho:
+`heranca-de-producao.js` roda antes da memória de rodadas e do desfecho. A sessão produz a evidência e o app decide, e o rebaixamento exige as duas metades:
 
-- **O que é herança:** arquivo do diff idêntico ao da `production` no head, medido por uma chamada à comparação `production...head` do GitHub. Achado bloqueante nesse arquivo vira sugestão; o que vinha de rodada anterior sai como retirado, com a evidência, para a memória não guardá-lo vivo.
-- **O que continua bloqueando:** tudo o que o próprio PR cria, como resolução de conflito, linha nova e arquivo que difere da production.
-- **Veredito:** sem bloqueio próprio, o pedido de mudanças da sessão vira aprovar com o texto de aprovação que ela já escreveu, e a decisão volta à política da conta, com o motivo visível como ressalva. Defeito técnico e CI seguem pelos caminhos de sempre.
-- **Falta de dado não rebaixa nada:** repositório sem branch `production`, comparação no teto de 300 arquivos ou leitura que falha deixam o resultado como veio.
+- **A sessão declara:** o achado vem com `herdadoDaProducao: true` e a evidência de que o ponto já estava na production (regra no `pr-review-auto.md`). Só causa `defeito_codigo` ou `card`; estado do PR já segue outro caminho.
+- **O app confere que é merge-back:** a base do PR não é a `production` e o head contém a ponta dela (`behind_by` 0 na comparação `production...head`). Task cuja réplica já foi para a production não entra: o head dela não contém a ponta.
+- **O app confere que o arquivo é herdado de verdade:** idêntico à ponta da production e sem mudança própria da base desde o ancestral comum. Arquivo em que a base tinha trabalho é resolução de conflito, e o que o PR criou ali continua bloqueando, como o hash do manifest no #1822.
+- **Efeito:** o achado vira sugestão; o que vinha de rodada anterior sai como retirado, e a memória não o conta como "resolvido em arquivo inalterado". Sem bloqueio próprio, o veredito vira aprovar com o texto de aprovação da sessão, e a política da conta decide, com o motivo como ressalva. Sem esse texto, nada é rebaixado.
+- **Falta de dado não rebaixa nada:** comparação no teto de 300 arquivos ou leitura que falha deixam o resultado como veio, e repositório sem `production` fica guardado para não pagar a consulta de novo.
+
+**Limite:** quebra causada pela base num arquivo herdado depende de a sessão não declarar o ponto como herdado; o prompt pede para não marcar na dúvida.
 
 ## Conferência na boca da sessão (05/11/2026, v2.78.36)
 
