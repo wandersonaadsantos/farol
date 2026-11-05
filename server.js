@@ -800,6 +800,7 @@ class Engine extends EventEmitter {
   async searchPRs(extraArgs, user, agora = Date.now()) { return ghMod.searchPRs(this, extraArgs, user, agora); }
   async myAuthoredPRs(user) { return ghMod.myAuthoredPRs(this, user); }
   async prState(pr) { return ghMod.prState(this, pr); }
+  async prEstadoELabels(pr) { return ghMod.prEstadoELabels(this, pr); }
   async headSha(pr) { return ghMod.headSha(this, pr); }
   async prCardSources(pr) { return ghMod.prCardSources(this, pr); }
   async fetchPrFiles(pr) { return fileProofMod.fetchPrFiles(this, pr); }

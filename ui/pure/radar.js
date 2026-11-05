@@ -161,6 +161,7 @@ function comMotivo(base, motivo, rotulo = '') {
 const PARKED_FRASE = {
   cancelado: () => 'cancelada por você',
   autenticacao: () => 'a credencial usada na revisão expirou; renove o login do perfil em Sistema > Plano e chaves antes de clicar em Revisar',
+  'label-retirada': () => 'a label de revisão foi retirada do PR; a revisão volta por clique, commit novo ou pedido novo',
   orcamento: (motivo) => comMotivo('o orçamento estourou', motivo),
   esgotado: (motivo) => comMotivo('falhou várias vezes seguidas', motivo, 'último erro: '),
   falha: (motivo) => comMotivo('falhou', motivo),
