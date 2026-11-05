@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.36
+
+O Farol deixa de reanalisar PR já decidido e confere o pedido de revisão na hora de começar.
+
+### Correções
+
+- PR com aprovação ou recusa de uma pessoa no commit atual não é mais reanalisado sozinho. O botão Revisar continua valendo. Decisão só do Acrity não conta.
+- Se o seu pedido de mudanças ainda está aberto de um commit anterior, a revisão roda mesmo com uma aprovação de outra pessoa, para poder retirá-lo.
+- Se uma pessoa decidir enquanto a aprovação espera o CI, a aprovação automática não sai.
+- Se o autor tirar o pedido de revisão enquanto o PR espera na fila, a revisão não começa. O mesmo vale para pedido feito só a um time.
+
 ## v2.78.35
 
 O pedido de mudanças que o Farol postou agora sai sozinho quando o problema foi resolvido, e isso não aprova o PR.

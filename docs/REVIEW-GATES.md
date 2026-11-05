@@ -125,6 +125,7 @@ invariantes continuam lá.
 - [Um Farol por PR (v2.50.1): a lição do marcador transitório](#um-farol-por-pr-v2501-a-lição-do-marcador-transitório)
 - [Dedup é por ROUND, não por "alguma vez" (v2.40.5)](#dedup-é-por-round-não-por-alguma-vez-v2405)
 - [Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho](#re-revisão-automática-pós-push-v2410-o-round-2-fecha-sozinho)
+- [Conferência na boca da sessão (05/11/2026, v2.78.36)](#conferência-na-boca-da-sessão-05112026-v27836)
 - [O pedido de mudanças sai quando o problema foi resolvido (05/11/2026, v2.78.35)](#o-pedido-de-mudanças-sai-quando-o-problema-foi-resolvido-05112026-v27835)
 - [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
 - [Checkpoint de verificação (memória entre passadas da revisão, v2.36.0)](#checkpoint-de-verificação-memória-entre-passadas-da-revisão-v2360)
@@ -222,7 +223,7 @@ em automático na classe do resultado:
 | origem (`approval-policy.js`, desfecho) | revisão não pedida a mim (`requested !== true`): clique no Panorama, URL colada, "Revisar agora" do admin (`viaAdmin`), comandos repetir, tomar e transferir (`viaComando`), distribuição (`viaDistribuicao`) | mesa, "revisão iniciada por você" | posta pela política: são todos o dono mandando revisar (`origemDoDono`). Só o objeto sem marca nenhuma é origem desconhecida e segue sem postar sozinho (nenhum caminho de hoje o produz; a guarda falha fechado) |
 | defeito do PR (desfecho) | veredito aprovar com violação técnica confirmada, achado técnico não resolvido ou `cardParteDestePr === false` | mesa (ou busca da prova, que acabava na mesa) | com `onReject: request_changes`, REQUEST_CHANGES na hora: a seção do defeito (com as regras reprovadas pela causa e os achados por arquivo e linha) e, depois, o pedido que a própria sessão escreveu (`payloads.request_changes`), tudo pela trava de linguagem; status `auto_rejected`. Com `wait`, mesa |
 | CI vermelho (desfecho e `espera-ci.js`) | resultado aprovável com check obrigatório em FAILURE no commit revisado | espera do CI para sempre | com `onReject: request_changes`, REQUEST_CHANGES citando os checks, uma vez por head (marca `esperaCi.rcHead`), e a espera continua: com a pipe verde no MESMO commit o APPROVE sai por cima. CI só rodando nunca vira pedido de mudanças. Com `wait`, só espera, como antes |
-| gate de consciência (`skip-review.js`, `espera-ci.js`) | pessoa pediu mudanças no head, ou duas pessoas aprovaram, durante ou depois da revisão | espera largada, mesa | duas aprovações de gente, haja ou não pedido de mudanças de outra pessoa: resolve como `approval_not_needed` ("aprovação automática não necessária"), nada é postado. Pedido de mudanças de gente não segura: a revisão do Farol sai pela política e o pedido fica registrado no GitHub. No lançamento automático vale a mesma régua (`bloqueadoPorHistorico` só devolve `bloqueado` com as duas aprovações) |
+| gate de consciência (`skip-review.js`, `espera-ci.js`) | pessoa aprovou ou pediu mudanças no head enquanto a aprovação esperava o CI, ou numa rodada liberada só para retirar o meu pedido | espera largada, mesa | decisão de gente no head: resolve como `approval_not_needed`, sem postar (`bloqueadoPorHistorico`, campo `decidido`). |
 | PR da própria conta (desfecho e `espera-pr-proprio.js`) | autor é a conta que revisa (o GitHub recusa APPROVE e REQUEST_CHANGES do autor) | mesa, "outra pessoa precisa aprovar" | a revisão sai como COMMENT (`payloads.comment`, ou o texto do veredito), ancorada no commit lido, e a pendência é resolvida como `commented_own_pr`. Vale também para as esperas que já existiam. Falha passageira arma o reenvio do evento `comment` |
 | resultado incompleto (`espera-prova.js`, `recuperacao-prova.js`) | `analise_incompleta`, `sem_texto`, `nao_aprovavel` (aprovar sem o APPROVE pronto, ou pedir mudanças sem texto) | mesa | a recuperação durável do PR #253 relança a revisão no MESMO commit: duas tentativas rápidas e depois recuo de 15 minutos até seis horas, com o motivo da pausa (login, ferramenta, orçamento, cancelamento) no card, quando a origem é do dono |
 | trava de linguagem (desfecho e `espera-ci.js`) | o texto público foi barrado (`internal_language`) | mesa como falha ao postar | reconstrução UMA vez (`reconstruirPayload`: sai cada parágrafo e cada comentário de linha barrado) e nova postagem; sem texto sobrando, mesa com o motivo de infra |
@@ -542,9 +543,11 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   não fazemos review a menos que haja ação manual"): antes de gastar sessão, o
   caminho automático consulta o head ATIVO (`bloqueadoPorHistorico`,
   no máximo 2 chamadas gh e SÓ na boca do lançamento, nunca por ciclo em todo
-  PR). Segura: CHANGES_REQUESTED de gente (a primeira já basta) ou
-  `APROVACOES_QUE_SEGURAM` (2) aprovações humanas, o "(máximo 2)" da regra: com
-  UMA aprovação a automática ainda vale como a segunda (calibração da v2.54.1).
+  PR). Segura, desde 05/11/2026, QUALQUER aprovação ou recusa de gente no head:
+  medido, 81 de 225 revisões rodavam em head já decidido. Substitui o teto de duas
+  aprovações da v2.54.1 e a decisão sem mesa de 18/10/2026. A exceção é o meu pedido de
+  mudanças aberto em commit anterior, sem recusa de gente: só a rodada consegue retirá-lo, e
+  sem ela ele prenderia um PR já aprovado. Decisão só do Acrity não segura.
   Cada pessoa conta pelo ÚLTIMO estado decisivo dela no head (pediu mudanças e
   depois aprovou = aprovação); DISMISSED/COMMENTED não contam e FERRAMENTA nunca
   conta. **Quem decide se é ferramenta é `ehFerramenta`, e não a lista crua**
@@ -1134,6 +1137,17 @@ vira ação**, e poda errada não pode custar sessão paga.
   `sessions/update-dl-<ts>` e nada apagava. Toda tentativa começa apagando os que têm
   mais de 24h, best-effort com try/catch por entrada (lixo que não sai hoje sai
   amanhã; falhar o update por causa de um diretório travado seria pior).
+
+## Conferência na boca da sessão (05/11/2026, v2.78.36)
+
+O PR muda enquanto espera a vez. As duas perguntas valem em `bloqueiaAutomatico` (fila, re-revisão, retentativa) e de novo em `runOneHeadless` (`recusaNaBoca`), por onde passa todo caminho automático, antes de abrir a sessão:
+
+- **O pedido à conta ainda vale?** (`pedido-de-revisao.js`.) Medido: 15 de 225 revisões rodaram com o pedido já removido pelo autor; em tenant-company#276 ele saiu às 23:56 e a aprovação às 00:33. Pedido só a um time não é a conta marcada; o do CODEOWNERS é, por decisão do dono. Revisão decisiva anterior da conta é continuação, porque o GitHub tira o pedido quando ela revisa, e pendência viva é rodada já admitida. Clique, admin e comando atravessam; leitura que falha não recusa.
+- **O head já foi decidido?** (`bloqueadoPorHistorico`.) `decidido` é o fato, `bloqueado` é se a rodada não roda. A única diferença entre os dois é o meu pedido AUTOMÁTICO aberto em commit anterior, sem recusa de gente: a rodada roda para poder retirá-lo, e o desfecho e a espera do CI leem `decidido`, então ela não aprova por cima (`approval_not_needed`).
+
+Quem segura na boca solta a âncora e mata a retentativa. PR segurado na fila não paga `gh` a cada ciclo enquanto o `updatedAt` não muda.
+
+**Limites:** decisão que chega com a sessão já aberta numa rodada comum não a interrompe, e a postagem segue pelos gates de sempre. O pedido de mudanças pelo CI vermelho (`reprovarPeloCi`) não consulta a decisão de gente. Pendência em espera da prova segue em espera até commit novo ou clique, mesmo com decisão de gente.
 
 ## O pedido de mudanças sai quando o problema foi resolvido (05/11/2026, v2.78.35)
 

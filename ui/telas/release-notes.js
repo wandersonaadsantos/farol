@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.36', [
+    'PR com aprovação ou recusa de uma pessoa no commit atual não é reanalisado sozinho; o botão Revisar continua valendo',
+    'Se o pedido de revisão sair enquanto o PR espera na fila, a revisão não começa',
+  ]],
   ['2.78.35', [
     'O pedido de mudanças que o Farol postou sai sozinho quando a re-revisão comprova que o problema foi resolvido, citando o commit',
     'Retirar não é aprovar: a aprovação continua dependendo dos gates e da política da conta',
