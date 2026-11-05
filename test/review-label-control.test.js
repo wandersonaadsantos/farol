@@ -43,10 +43,15 @@ test('remover tag de revisão ativa (sem cancelSession no motor) não reinsere o
 test('remover a própria label com sessão viva cancela a sessão antes de tocar o GitHub',async()=>{
  const ordem=[];let motivo='';
  engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});
- engine.cancelSession=id=>{motivo=vigia.abandonoDe(engine,PR.key);ordem.push('cancel:'+id);};
+ engine.cancelSession=id=>{motivo=vigia.abandonoDe(engine,PR.key);ordem.push('cancel:'+id);return {ok:true};};
  const comOrdem=async(c,a,o)=>{if(a[1]==='edit')ordem.push('remove');return run(c,a,o);};
  const r=await command(engine,{action:'remove',url:URL_PR,label:'me:revisando'},comOrdem);
  assert.equal(r.ok,true,r.error);assert.deepEqual(ordem,['cancel:a-1','remove']);assert.equal(r.sessaoCancelada,'a-1');assert.equal(motivo,'label-retirada');
+});
+test('cancelamento recusado não deixa motivo órfão nem informa sessaoCancelada',async()=>{
+ engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});engine.cancelSession=()=>({ok:false});
+ const r=await request('remove','me:revisando');
+ assert.equal(r.ok,true,r.error);assert.equal(r.sessaoCancelada,null);assert.equal(vigia.abandonoDe(engine,PR.key),'');assert.equal(tags.has('me:revisando'),false);
 });
 test('label de outra conta não cancela nada',async()=>{
  let chamou=false;engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});engine.cancelSession=()=>{chamou=true;};
