@@ -518,6 +518,15 @@ PR"): ver a label de outra pessoa faz o Farol **sair de cena naquele head**, de
 forma durável, gravada em `state/skip-comentado.json` com o `head` junto. Ele não
 revisa depois, e é isso que o comentário descreve.
 
+**A label como contrato (05/11/2026).** A label `<conta>:revisando` passou a dizer só a verdade, em três frentes:
+(1) ela espera a sessão provar vida: entra no primeiro evento do provedor ou 15 s depois da admissão
+(`lib/engine/label-tardia.js`), então sessão que morre no spawn não pisca a label no PR;
+(2) retirá-la pelo GitHub ou pela tela encerra a sessão em andamento pelo vigia e estaciona a revisão com
+o motivo `label-retirada`, sem relançar sozinha (quem tirou pediu para parar);
+(3) label própria sem sessão viva aqui, sem pendência de remoção e sem lease vivo de outro aparelho some
+depois de 3 h (`lib/engine/label-propria-orfa.js`), e a pendência de remoção que não sai desiste em 7 dias
+com um aviso. Nada disso muda os gates do invariante 4: é higiene do sinal público.
+
 Três peças que a decisão exige, e nenhuma é opcional:
 
 1. **`coAssinarReview`** (opt-in, default false). Sem ela, "só um Farol aprova"
@@ -1519,6 +1528,10 @@ lado do Farol quando o processo da sessão já saiu e o `close` não veio em
 `ELECTRON_RUN_AS_NODE` NÃO entra no ambiente da sessão de propósito: ela também roda
 ferramentas do repositório revisado, e um `electron .` ou um smoke de app Electron rodaria
 como Node e daria resultado enganoso.
+
+Complemento de 05/11/2026: quando a label é retirada de propósito por outra pessoa, o vigia encerra a sessão e a
+revisão estaciona com o motivo `label-retirada` (ver "Um Farol por PR"); a sessão presa por defeito do ambiente
+continua sendo tratada pelas duas camadas acima.
 
 ### Retomada após falha transitória (v2.57.3)
 
