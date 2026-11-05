@@ -27,7 +27,8 @@ io.run = async (_cmd, args) => {
   if (/pulls\/\d+ --jq \{base: \.base\.ref\}/.test(sub)) return { ok: true, code: 0, stdout: JSON.stringify({ base: gh.base }), stderr: '' };
   if (/compare\/production\.\.\./.test(sub)) {
     leiturasDaComparacao += 1;
-    if (gh.compareFalha) return { ok: false, code: 1, stdout: '', stderr: 'HTTP 404' };
+    if (gh.compareFalha) return { ok: false, code: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)' };
+    if (gh.compareErro) return { ok: false, code: 1, stdout: '', stderr: gh.compareErro };
     if (sub.includes(`production...${HEAD}`)) return { ok: true, code: 0, stdout: JSON.stringify({ behind: gh.behind, files: gh.diferentes.map((f) => ({ filename: f })) }), stderr: '' };
     return { ok: true, code: 0, stdout: JSON.stringify({ files: gh.mexidosNaBase.map((f) => ({ filename: f })) }), stderr: '' };
   }
@@ -57,7 +58,7 @@ after(() => {
 beforeEach(() => {
   sessoes = 0;
   postados = 0;
-  gh = { pedidos: [{ __typename: 'User', login: 'eu' }], meusReviews: [], alheios: [], leituraFalha: false, diferentes: [], compareFalha: false, base: 'development', behind: 0, mexidosNaBase: [] };
+  gh = { pedidos: [{ __typename: 'User', login: 'eu' }], meusReviews: [], alheios: [], leituraFalha: false, diferentes: [], compareFalha: false, base: 'development', behind: 0, mexidosNaBase: [], compareErro: '' };
   envios = [];
   leiturasDaComparacao = 0;
 });
@@ -172,9 +173,50 @@ test('ponto de rodada anterior sai como retirado e a memória não o conta como 
   assert.equal(rebaixarHeranca(result, [ARQ]), 1);
   assert.equal(result.findings[0].status, 'retirado');
   assert.match(result.findings[0].evidence, /conferido pelo app/);
+  assert.equal(result.findings[0].herancaConfirmada, true);
   assert.equal(result.findings[1].severity, 'blocking', 'o arquivo que o PR cria segue bloqueando');
   const anterior = { id: 'r1', baseSha: 'b', files: [{ path: ARQ, sha: 'x' }], findings: [{ id: 'r1:f1', severity: 'blocking', file: ARQ }], unresolved: [{ id: 'r1:f1', severity: 'blocking', file: ARQ }] };
   const c = classifyFindings({ parents: [anterior], baseSha: 'b' }, normalizeFindings([result.findings[0]]), [{ path: ARQ, sha: 'x' }]);
   assert.equal(c.resolvedOnUnchanged.length, 0);
   assert.equal(c.unresolved.length, 0);
+});
+
+test('a declaração da sessão sozinha não isenta a memória: só a herança confirmada pelo app', async () => {
+  const { classifyFindings, normalizeFindings } = await import('../lib/engine/review-findings.js');
+  const { aplicarHerancaDeProducao } = await import('../lib/engine/heranca-de-producao.js');
+  // PR comum (não é merge-back): a sessão tenta pôr a marca do app num ponto retirado em arquivo inalterado
+  gh.behind = 5;
+  const result = { verdict: 'approve', findings: [{ ...HERDADO, ref: 'r1:f1', status: 'retirado', herancaConfirmada: true }] };
+  await aplicarHerancaDeProducao(motor(), PR(29), HEAD, { files: [{ path: ARQ }] }, result, (t) => ({ text: t }));
+  const anterior = { id: 'r1', baseSha: 'b', files: [{ path: ARQ, sha: 'x' }], findings: [{ id: 'r1:f1', severity: 'blocking', file: ARQ }], unresolved: [{ id: 'r1:f1', severity: 'blocking', file: ARQ }] };
+  const c = classifyFindings({ parents: [anterior], baseSha: 'b' }, normalizeFindings(result.findings), [{ path: ARQ, sha: 'x' }]);
+  assert.equal(c.resolvedOnUnchanged.length, 1, 'a sessão não consegue gravar a marca do app');
+});
+
+test('a herança roda antes da memória de rodadas: é ali que a marca da sessão é apagada', () => {
+  const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'review.js'), 'utf8');
+  const heranca = fonte.indexOf('await aplicarHerancaDeProducao(');
+  const memoria = fonte.indexOf('await roundsMod.finishRoundReview(');
+  assert.ok(heranca > 0 && memoria > heranca);
+  assert.equal(fonte.split('finishRoundReview(').length - 1, 1, 'um caminho só até a memória');
+});
+
+test('a marca de herança confirmada vinda da sessão é apagada antes da conferência', async () => {
+  const { aplicarHerancaDeProducao } = await import('../lib/engine/heranca-de-producao.js');
+  const result = { verdict: 'request_changes', findings: [{ ...BLOCKER, herancaConfirmada: true }] };
+  await aplicarHerancaDeProducao(motor(), PR(30), HEAD, { files: [] }, result, (t) => ({ text: t }));
+  assert.equal(result.findings[0].herancaConfirmada, undefined);
+});
+
+test('falha passageira da comparação não desliga a regra para o repositório', async () => {
+  const { arquivosHerdados } = await import('../lib/engine/heranca-de-producao.js');
+  gh.compareFalha = true;
+  const e = motor();
+  await arquivosHerdados(e, PR(31), HEAD, [ARQ]);
+  assert.equal(e.semProducao?.has('acme/app') || false, true, 'o 404 guarda');
+  const e2 = motor();
+  gh.compareFalha = false;
+  gh.compareErro = 'HTTP 502';
+  await arquivosHerdados(e2, PR(32), HEAD, [ARQ]);
+  assert.equal(e2.semProducao?.has('acme/app') || false, false, '502 não guarda');
 });
