@@ -60,7 +60,7 @@
 
 ---
 
-### Tarefa 1: Instância isolada não escreve no GitHub (parte D)
+### Task 1: Instância isolada não escreve no GitHub (parte D)
 
 **Files:**
 - Modify: `lib/paths.js` (ao lado de `homeDoFarol`, linhas 115-128; exportar em 224-228)
@@ -108,7 +108,7 @@ test('servidor filho com FAROL_HOME temporário expõe doctor.instanciaIsolada=t
 
 ---
 
-### Tarefa 2: Pendência de remoção com prazo e sem ruído (A4 e A5)
+### Task 2: Pendência de remoção com prazo e sem ruído (A4 e A5)
 
 **Files:**
 - Modify: `lib/constants.js` (`TEMPOS.LABEL_PENDENCIA_MAX_MS: 7 * DIA_MS`)
@@ -133,7 +133,7 @@ test('pendência com mais de 7 dias é descartada com um WARN e sem chamar gh', 
 
 ---
 
-### Tarefa 3: Tirar a label encerra a sessão, pelo vigia (A2, primeira boca)
+### Task 3: Tirar a label encerra a sessão, pelo vigia (A2, primeira boca)
 
 **Files:**
 - Modify: `lib/engine/gh-queries.js:253-260` (`prState` vira `prEstadoELabels` + `prState` como fachada)
@@ -176,7 +176,7 @@ test('parkedNoteHtml diz que a label foi retirada e como a revisão volta', () =
 
 ---
 
-### Tarefa 4: Remover a própria label pela tela cancela a sessão antes (A2, segunda boca)
+### Task 4: Remover a própria label pela tela cancela a sessão antes (A2, segunda boca)
 
 **Files:**
 - Modify: `lib/engine/review-label-control.js:20-45` (`executar`)
@@ -205,7 +205,7 @@ test('label de outra conta não cancela nada', async () => { /* label 'ela:revis
 
 ---
 
-### Tarefa 5: A label espera a sessão provar vida (A1)
+### Task 5: A label espera a sessão provar vida (A1)
 
 **Files:**
 - Create: `lib/engine/label-tardia.js`
@@ -233,7 +233,7 @@ test('primeiro evento aos 2 s: label entra, e sai no finally', async () => { /* 
 
 ---
 
-### Tarefa 6: Label própria sem dono some sozinha (A3)
+### Task 6: Label própria sem dono some sozinha (A3)
 
 **Files:**
 - Modify: `lib/sync/lease.js` (exportar `leaseVivo`)
@@ -264,7 +264,7 @@ test('leitura do lease que falha conta como vivo', async () => {});
 
 ---
 
-### Tarefa 7: Quem pediu a revisão, e quando (B1)
+### Task 7: Quem pediu a revisão, e quando (B1)
 
 **Files:**
 - Modify: `lib/engine/gh-queries.js` (`ultimoPedidoDeRevisao`)
@@ -293,7 +293,7 @@ test('avisoDe("review-started") monta o aviso silencioso com o pedido', () => {}
 
 ---
 
-### Tarefa 8: PR em conflito com a base não abre sessão automática (C2)
+### Task 8: PR em conflito com a base não abre sessão automática (C2)
 
 **Files:**
 - Modify: `lib/engine/gh-queries.js` (`mergeavelDoPr`)
@@ -324,7 +324,7 @@ test('queueCardHtml mostra a nota de conflito quando há espera', () => {});
 
 ---
 
-### Tarefa 9: Todo bloqueio declara a causa, e só defeito reprova sozinho (C1)
+### Task 9: Todo bloqueio declara a causa, e só defeito reprova sozinho (C1)
 
 **Files:**
 - Modify: `lib/engine/review-findings.js:5-26` (`CAUSAS`, validação, `causasDosBloqueios`)
@@ -363,7 +363,7 @@ test('envelope legado (findings undefined) com verdict request_changes não post
 
 ---
 
-### Tarefa 10: Gate final, mapa e nota de versão
+### Task 10: Gate final, mapa e nota de versão
 
 **Files:**
 - Modify: `CLAUDE.md` (linhas do mapa para `instancia-isolada.js`, `label-tardia.js`, `label-propria-orfa.js`, `espera-conflito.js`; a linha de `vigia-sessao` se existir; a de `review-label-control.js`)
