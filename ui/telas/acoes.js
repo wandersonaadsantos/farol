@@ -64,7 +64,8 @@ $('#btnReviewAll').onclick = () => {
   const urls = filaSemRevisoesAtivas(estado().queue || [], estado().activeSessions || [], prUser)
     .filter(scopeVisible).map(p => p.url);
   if (!urls.length) { toast('info', 'Nada visível pra revisar agora (a fila mudou embaixo do botão).'); return; }
-  revisarUrls(urls);
+  // lote: o head já decidido e o pedido removido seguram, como no automático (05/11/2026)
+  revisarUrls(urls, { lote: true });
 };
 
 /* tweaks de exibição (guardados no navegador, não vão pro engine). `rerenderScope`

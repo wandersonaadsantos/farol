@@ -312,8 +312,8 @@ test('rotas: /api/review repassa os overrides só quando === true, e /api/sync/r
     return JSON.parse(await res.text());
   };
   try {
-    await post('/api/review', { urls: [URL_PR], semCoordenacao: 'true', ignorarRecibo: true });
-    assert.deepEqual(chamadas[0], { urls: [URL_PR], mode: 'auto', origem: 'clique', extras: { semCoordenacao: false, ignorarRecibo: true } });
+    await post('/api/review', { urls: [URL_PR], semCoordenacao: 'true', ignorarRecibo: true, lote: 'true' });
+    assert.deepEqual(chamadas[0], { urls: [URL_PR], mode: 'auto', origem: 'clique', extras: { semCoordenacao: false, ignorarRecibo: true, lote: false } });
     const r = await post('/api/sync/redo', { key: KEY });
     assert.deepEqual(chamadas[1], { redo: KEY });
     assert.deepEqual(r, { ok: false, code: 'conflito', motivo: 'outro aparelho alterou o mesmo registro' });

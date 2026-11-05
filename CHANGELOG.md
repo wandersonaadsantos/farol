@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.37
+
+O Revisar tudo respeita a regra de não reanalisar PR já decidido, e o mesmo PR não abre mais duas revisões ao mesmo tempo.
+
+### Correções
+
+- O Revisar tudo deixa de relançar PR com aprovação ou recusa de uma pessoa no commit atual, ou cujo pedido de revisão saiu. O botão Revisar de um PR específico continua valendo.
+- Um segundo pedido de revisão do mesmo PR, chegando enquanto a primeira revisão começa, não abre outra sessão.
+
 ## v2.78.36
 
 O Farol deixa de reanalisar PR já decidido e confere o pedido de revisão na hora de começar.
