@@ -195,23 +195,40 @@ for (const stage of ['antes da tag', 'preparação', 'modelo', 'fechamento']) {
     if (stage === 'fechamento') { e.shouldAutoApprove = () => ({ ok: true }); e.bloqueadoPorChecks = async () => { cancelarAtiva(e); return { faltando: [] }; }; }
     await comTags(e, async ({ labels, calls }) => {
       await assert.rejects(e.runHeadlessReview({ ...PR }), { cancelled: true });
-      assert.equal(labels.size, 0); assert.equal(calls.some(args => args.includes('--add-label')), stage !== 'antes da tag');
-      assert.equal(calls.some(args => args.includes('--remove-label')), stage !== 'antes da tag');
+      // a label espera a sessão: só cancelamento depois do modelo rodar chegou a pô-la
+      const entrou = stage === 'modelo' || stage === 'fechamento';
+      assert.equal(labels.size, 0); assert.equal(calls.some(args => args.includes('--add-label')), entrou);
+      assert.equal(calls.some(args => args.includes('--remove-label')), entrou);
       semResultado(e);
     });
   });
 }
 for (const reason of ['fetch failed', 'process timeout', 'quota exceeded', 'authentication required']) {
-  test(`falha ${reason}: o encerramento remove a tag aplicada`, async () => {
-    const e = engine(); e.runClaudeStream = async () => { throw new Error(reason); };
+  test(`falha ${reason} antes de qualquer evento: a tag nunca entra nem sai`, async () => {
+    const e = engine(); e.runClaudeStream = async () => { await new Promise(r => setTimeout(r, 50)); throw new Error(reason); };
     await comTags(e, async ({ labels, calls }) => {
       await assert.rejects(e.runHeadlessReview({ ...PR }), new RegExp(reason));
-      assert.equal(calls.filter(args => args.includes('--add-label')).length, 1);
-      assert.equal(calls.filter(args => args.includes('--remove-label')).length, 1);
+      assert.equal(calls.filter(args => args.includes('--add-label')).length, 0);
+      assert.equal(calls.filter(args => args.includes('--remove-label')).length, 0);
       assert.equal(labels.size, 0); semResultado(e);
     });
   });
 }
+test('primeiro evento da sessão: a tag entra e, na falha seguinte, sai depois (ordem add, remove)', async () => {
+  const e = engine();
+  e.runClaudeStream = async (_prompt, opts) => {
+    opts.onEvent({ kind: 'info', text: 'sessão viva' });
+    await new Promise(r => setTimeout(r, 20));
+    throw new Error('fetch failed');
+  };
+  await comTags(e, async ({ labels, calls }) => {
+    await assert.rejects(e.runHeadlessReview({ ...PR }), /fetch failed/);
+    const ordem = calls.filter(args => args.includes('--add-label') || args.includes('--remove-label'))
+      .map(args => (args.includes('--add-label') ? 'add' : 'remove'));
+    assert.deepEqual(ordem, ['add', 'remove']);
+    assert.equal(labels.size, 0); semResultado(e);
+  });
+});
 test('resposta perdida na inclusão da tag ainda permite removê-la ao cancelar', async () => {
   const e = engine(); e.runClaudeStream = async () => { cancelarAtiva(e); return { text: JSON.stringify(envelope) }; };
   await comTags(e, async ({ labels, calls }) => {

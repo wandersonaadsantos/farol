@@ -37,6 +37,7 @@ const CASOS = [
   { nome: 'intervention inválida', evento: 'intervention', payload: { id: 'x' }, config: {} },
   { nome: 'meu-pr-base um PR', evento: 'meu-pr-base', payload: { titulo: 'PR em conflito', tituloSistema: 'PR em conflito', url: 'u1', corpo: 'o/r#1: em conflito com main. Atualize a branch antes do merge.', itens: [{ key: 'o/r#1', url: 'u1', texto: 't' }] }, config: {} },
   { nome: 'meu-pr-base agrupado', evento: 'meu-pr-base', payload: { titulo: '2 PRs seus', tituloSistema: '2 PRs precisam de você por causa da base', url: '', corpo: 'r#1 em conflito com main; r#2 superado pela base.', itens: [{ key: 'o/r#1', url: 'u1', texto: 'a' }, { key: 'o/r#2', url: 'u2', texto: 'b' }] }, config: {} },
+  { nome: 'review-started sem pedido', evento: 'review-started', payload: { pr: { key: 'o/r#1', url: 'u' }, pedido: null }, config: {} },
   { nome: 'evento desconhecido', evento: 'state', payload: {}, config: {} },
 ].map(c => ({ ...c, hora: HORA }));
 

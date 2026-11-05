@@ -8,6 +8,7 @@ const home=fs.mkdtempSync(path.join(os.tmpdir(),'farol-label-controls-')); proce
 const {command}=await import('../lib/engine/review-label-control.js');
 const {addInProgressLabel}=await import('../lib/engine/review.js');
 const {tirarPendentes,ARQUIVO}=await import('../lib/engine/labels-a-tirar.js');
+const vigia=(await import('../lib/engine/vigia-sessao.js')).default;
 const {Engine}=await import('../server.js');
 const io=(await import('../lib/io.js')).default, originalRun=io.run;
 const URL_PR='https://github.com/acme/app/pull/7';
@@ -34,10 +35,64 @@ test('remove tag de outro login usando a conta autorizada, preserva demais tags 
 test('remoção repetida é idempotente e não deleta a definição da label',async()=>{
  assert.equal((await request('remove','me:revisando')).ok,true);assert.equal((await request('remove','me:revisando')).ok,true);assert.equal(calls.filter(args=>args[1]==='edit').length,1);assert.equal(calls.some(args=>args[0]==='label'),false);
 });
-test('remover tag de revisão ativa não cancela nem reinsere o marcador na mesma sessão',async()=>{
+test('remover tag de revisão ativa (sem cancelSession no motor) não reinsere o marcador na mesma sessão',async()=>{
  const session={keys:[PR.key],mode:'auto',cancelled:false};engine.activeReviews.set('s',session);
  assert.equal((await request('remove','me:revisando')).ok,true);assert.equal(session.cancelled,false);
  const before=calls.length;assert.equal(await addInProgressLabel(engine,PR,run),'');assert.equal(calls.length,before);assert.equal(engine.activeReviews.size,1);
+});
+test('remover a própria label com sessão viva cancela a sessão antes de tocar o GitHub',async()=>{
+ const ordem=[];let motivo='';
+ engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});
+ engine.cancelSession=id=>{motivo=vigia.abandonoDe(engine,PR.key);ordem.push('cancel:'+id);return {ok:true};};
+ const comOrdem=async(c,a,o)=>{if(a[1]==='edit')ordem.push('remove');return run(c,a,o);};
+ const r=await command(engine,{action:'remove',url:URL_PR,label:'me:revisando'},comOrdem);
+ assert.equal(r.ok,true,r.error);assert.deepEqual(ordem,['cancel:a-1','remove']);assert.equal(r.sessaoCancelada,'a-1');assert.equal(motivo,'label-retirada');
+});
+test('cancelamento recusado não deixa motivo órfão nem informa sessaoCancelada',async()=>{
+ engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});engine.cancelSession=()=>({ok:false});
+ const r=await request('remove','me:revisando');
+ assert.equal(r.ok,true,r.error);assert.equal(r.sessaoCancelada,null);assert.equal(vigia.abandonoDe(engine,PR.key),'');assert.equal(tags.has('me:revisando'),false);
+});
+test('label de outra conta não cancela nada',async()=>{
+ let chamou=false;engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});engine.cancelSession=()=>{chamou=true;};
+ const r=await request('remove','colleague:revisando');
+ assert.equal(r.ok,true,r.error);assert.equal(chamou,false);assert.equal(r.sessaoCancelada,null);
+});
+test('só a revisão automática é cancelada: a sessão de terminal do mesmo PR antes no mapa não a esconde',async()=>{
+ const cancelados=[];
+ engine.activeReviews.set('t1',{id:'t1',keys:[PR.key],mode:'terminal'});
+ engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});
+ engine.cancelSession=id=>{cancelados.push(id);return id==='a-1'?{ok:true}:{ok:false};};
+ const r=await request('remove','me:revisando');
+ assert.equal(r.ok,true,r.error);assert.deepEqual(cancelados,['a-1']);assert.equal(r.sessaoCancelada,'a-1');
+});
+test('a marca de abandono vale só para a sessão cancelada: terminada sem consumi-la, não contamina o próximo cancelamento',async()=>{
+ engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto'});engine.cancelSession=()=>({ok:true});
+ assert.equal((await request('remove','me:revisando')).sessaoCancelada,'a-1');
+ assert.equal(vigia.abandonoDe(engine,PR.key),'label-retirada','enquanto a sessão existe, o motivo é dela');
+ // a-1 concluiu sem ler o cancelamento: a marca sobrou, e a sessão nova é cancelada por você
+ engine.activeReviews.delete('a-1');
+ engine.activeReviews.set('a-2',{id:'a-2',keys:[PR.key],mode:'auto',cancellable:true});engine.running=new Map();
+ const {cancelSession}=await import('../lib/engine/cancelamento-revisao.js');
+ assert.equal(cancelSession(engine,'a-2').ok,true);
+ assert.equal(vigia.abandonoDe(engine,PR.key),'','a sessão nova cancelada por você não herda o motivo da retirada');
+});
+test('o cancelamento da própria sessão marcada preserva o motivo da retirada',async()=>{
+ engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto',cancellable:true});engine.running=new Map();
+ const {cancelSession}=await import('../lib/engine/cancelamento-revisao.js');
+ engine.cancelSession=id=>cancelSession(engine,id);
+ assert.equal((await request('remove','me:revisando')).sessaoCancelada,'a-1');
+ assert.equal(vigia.abandonoDe(engine,PR.key),'label-retirada');
+});
+test('sessão já cancelada por outro caminho não recebe o motivo da retirada',async()=>{
+ vigia.marcarAbandono(engine,PR.key,'head-novo');
+ engine.activeReviews.set('a-1',{id:'a-1',keys:[PR.key],mode:'auto',cancelled:true});engine.cancelSession=()=>({ok:true});
+ const r=await request('remove','me:revisando');
+ assert.equal(r.ok,true,r.error);assert.equal(vigia.abandonoDe(engine,PR.key),'head-novo');
+});
+test('autoanálise (mode self) não é cancelada pela remoção da própria label',async()=>{
+ let chamou=false;engine.activeReviews.set('s-1',{id:'s-1',keys:[PR.key],mode:'self'});engine.cancelSession=()=>{chamou=true;};
+ const r=await request('remove','me:revisando');assert.equal(chamou,false);assert.equal(r.sessaoCancelada,null);
 });
 test('erro depois de aplicar a remoção fica durável e retenta com a conta que fez a ação',async()=>{
  const uncertain=async(cmd,args,opts)=>{const result=await run(cmd,args,opts);return args[1]==='edit'?{ok:false,stderr:'network timeout'}:result;};

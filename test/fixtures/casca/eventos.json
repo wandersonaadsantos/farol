@@ -398,6 +398,26 @@
     }
   },
   {
+    "nome": "review-started sem pedido",
+    "evento": "review-started",
+    "payload": {
+      "pr": {
+        "key": "o/r#1",
+        "url": "u"
+      },
+      "pedido": null
+    },
+    "config": {},
+    "hora": "12:00",
+    "esperado": {
+      "titulo": "Revisão automática iniciada",
+      "corpo": "o/r#1, pedido não identificado",
+      "url": "u",
+      "pr": "o/r#1",
+      "silencioso": true
+    }
+  },
+  {
     "nome": "evento desconhecido",
     "evento": "state",
     "payload": {},

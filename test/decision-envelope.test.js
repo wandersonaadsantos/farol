@@ -85,7 +85,8 @@ function assertOnlyQueuedPr(number) {
     assert.doesNotMatch(request.route, /evil\/repo/, 'nem leitura nem escrita usa identidade do envelope');
     if (request.mutation) assert.match(request.route, new RegExp(`^repos/acme/app/pulls/${number}/`));
     else assert.ok(request.route === 'user' || request.route === 'repos/acme/app'
-      || request.route.startsWith(`repos/acme/app/pulls/${number}`), `leitura inesperada: ${request.route}`);
+      || request.route.startsWith(`repos/acme/app/pulls/${number}`)
+      || request.route === `repos/acme/app/issues/${number}/timeline?per_page=100`, `leitura inesperada: ${request.route}`);
   }
 }
 // Leituras de autenticação/fontes ficam separadas das mutações; nada sai da fixture.

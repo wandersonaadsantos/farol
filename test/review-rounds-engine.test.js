@@ -18,7 +18,7 @@ const { publicationRefusal } = await import('../lib/engine/review-rounds.js');
 after(() => { restore(); io.run = originalRun; fs.rmSync(home, { recursive: true, force: true }); });
 
 let serial = 0;
-const blocker = { file: 'a.ts', line: 1, severity: 'blocking', title: 'Validação ausente', summary: 'Entrada chega sem conferência.', ref: null, status: null, evidence: 'a.ts:1: a entrada chega sem conferência',
+const blocker = { file: 'a.ts', line: 1, severity: 'blocking', causa: 'defeito_codigo', title: 'Validação ausente', summary: 'Entrada chega sem conferência.', ref: null, status: null, evidence: 'a.ts:1: a entrada chega sem conferência',
   criteria: { key: 'validacao', criterion: 'Conferir entrada', source: 'contrato.js:1', scope: 'Este patch' } };
 
 function motor(mode = 'enforce') {

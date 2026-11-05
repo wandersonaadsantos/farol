@@ -161,6 +161,7 @@ function comMotivo(base, motivo, rotulo = '') {
 const PARKED_FRASE = {
   cancelado: () => 'cancelada por você',
   autenticacao: () => 'a credencial usada na revisão expirou; renove o login do perfil em Sistema > Plano e chaves antes de clicar em Revisar',
+  'label-retirada': () => 'a label de revisão foi retirada do PR; a revisão volta por clique, commit novo ou pedido novo',
   orcamento: (motivo) => comMotivo('o orçamento estourou', motivo),
   esgotado: (motivo) => comMotivo('falhou várias vezes seguidas', motivo, 'último erro: '),
   falha: (motivo) => comMotivo('falhou', motivo),
@@ -199,6 +200,7 @@ export function queueCardHtml(pr, ctx) {
   const coord = av.nota === 'coordenacao' ? prCoordNoteHtml(pr.key, ctx.sync) : '';
   // A política local continua visível mesmo quando outro aparelho já está analisando.
   const manual = automaticaDesativada ? `<div class="pr-coord">Revisão automática desativada para esta conta neste aparelho. Para iniciar aqui, clique em ${esc(av.rotulo)}.</div>` : '';
+  const conflito = (ctx.esperaConflito || {})[pr.key] ? '<div class="pr-coord">Em conflito com a base: a revisão automática abre quando o conflito for resolvido. O botão Revisar não espera.</div>' : '';
   const acaoRevisar = `<button class="btn primary sm act-review" data-url="${esc(pr.url)}">${av.rotulo}</button>`;
   // O ponto da conta abre a linha do PR, e não é filho do card: a grade tem uma coluna
   // por filho (avatar, conteúdo, ações, na anatomia do Claude Design), e um quarto filho
@@ -210,7 +212,7 @@ export function queueCardHtml(pr, ctx) {
         <div class="pr-ref">${m.dot}<a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${seloRascunho}${seloRepedida}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
         <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${papel}</div>
-        ${parked}${pessoas}${limite}${coord}${manual}
+        ${parked}${pessoas}${limite}${coord}${manual}${conflito}
       </div>
       <div class="pr-actions">
         ${acaoRevisar}

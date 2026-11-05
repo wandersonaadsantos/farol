@@ -13,7 +13,7 @@ const { publishedCriteriaParents, relatedCriteriaParents } = await import('../li
 const { finishRoundReview } = await import('../lib/engine/review-rounds.js');
 const { readRounds, roundsPath, scopeFor, saveRound } = await import('../lib/engine/review-round-store.js');
 after(() => fs.rmSync(home, { recursive: true, force: true }));
-const finding = (extra = {}) => ({ id: 'prior', severity: 'suggestion', title: 'Turno', summary: 'Mistura regras',
+const finding = (extra = {}) => ({ id: 'prior', severity: 'suggestion', causa: 'defeito_codigo', title: 'Turno', summary: 'Mistura regras',
   evidence: 'A: turno.js:3', criteria: { key: 'turno', criterion: 'Separar política', source: 'ARCH.md:1', scope: 'Diff do turno' }, ...extra });
 const sources = { completa: false, itens: [] };
 const review = (findings, extra = {}) => ({ headSha: 'B', verdict: 'approve', findings, ...extra });

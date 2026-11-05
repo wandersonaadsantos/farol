@@ -46,6 +46,7 @@ io.run = async (_cmd, args) => {
   if (sub.includes('--json state,headRefOid,author')) {
     return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ state: 'OPEN', headRefOid: gh.head, author: { login: 'dev' } }) };
   }
+  if (sub.includes('--json mergeable')) return { ok: true, code: 0, stdout: JSON.stringify({ mergeable: gh.mergeable }), stderr: '' };
   if (sub.includes('rules/branches/main')) return { ok: true, code: 0, stdout: JSON.stringify(gh.exigidos), stderr: '' };
   if (sub.includes('--json headRefOid')) return { ok: true, code: 0, stdout: gh.headDepois || gh.head, stderr: '' };
   if (sub.includes('--json state')) return { ok: true, code: 0, stdout: JSON.stringify({ state: 'OPEN' }), stderr: '' };
@@ -70,7 +71,7 @@ beforeEach(() => {
   envios = [];
   technicalRuntime.finishTechnicalReview = finishOriginal;
   gh = {
-    head: HEAD, headDepois: '', exigidos: ['test', 'audit'], meusReviews: [], reviewsAlheios: [], postFalha: '',
+    head: HEAD, headDepois: '', exigidos: ['test', 'audit'], meusReviews: [], reviewsAlheios: [], postFalha: '', mergeable: '',
     rollup: [check('test', 'SUCCESS'), check('audit', 'SUCCESS')],
   };
 });
@@ -657,4 +658,188 @@ test('Codex 8: o comentário automático chega à tela (SSE) e à notificação 
   assert.match(http, /function comAviso\(evento\) \{\n\s*engine\.on\(evento, p => \{\n\s*broadcast\(evento, p\);/);
   assert.match(main, /engine\.on\('auto-commented'/);
   assert.match(app, /addEventListener\('auto-commented'/);
+});
+
+// ---------------------------------------------------------------- causa do bloqueio (05/11/2026)
+
+// Medido em 05/11/2026 em três PRs reais: o REQUEST_CHANGES automático se apoiava em conflito com a
+// base e CI que não rodou (tenant-company#293), em seletores de e2e de arquivos fora do diff
+// (biud-frontend#1784) e num critério do card (engine-ai#880). Estado do PR não é defeito do código:
+// todo bloqueio declara a causa, e só `defeito_codigo` e `card` reprovam sozinhos.
+const bloqueio = (causa, extra = {}) => {
+  const f = criteriaFixture('request_changes').findings[0];
+  return { ...f, causa, title: `Bloqueio ${causa}`, criteria: { ...f.criteria, key: `bloqueio-${causa}` }, ...extra };
+};
+const reprovando = (causas) => ({ verdict: 'request_changes', decision: 'needs_decision', findings: causas.map((c) => bloqueio(c)) });
+
+test('shouldAutoReject recusa quando os bloqueios são só de estado', async () => {
+  const { shouldAutoReject } = await import('../lib/engine/approval-policy.js');
+  const e = motor();
+  const base = { analysisStatus: 'complete', headSha: HEAD, payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Revise o tratamento de erro antes do merge.' } } };
+  for (const causas of [['conflito'], ['ci'], ['dependencia'], ['fora_do_diff'], ['ci', 'conflito']]) {
+    assert.equal(shouldAutoReject(e, PR(70), { ...base, ...reprovando(causas) }), false, causas.join('+'));
+    assert.equal(auto.bloqueiosSoDeEstado(reprovando(causas)), true);
+  }
+  assert.equal(auto.bloqueiosSoDeEstado({ findings: [] }), false, 'sem bloqueio não há o que restringir');
+  assert.equal(auto.bloqueiosSoDeEstado({}), false, 'envelope legado segue a regra de antes');
+  assert.equal(auto.causaDaEspera(reprovando(['conflito', 'ci'])), 'ci');
+  assert.equal(auto.causaDaEspera(reprovando(['conflito', 'dependencia'])), 'conflito');
+  assert.equal(auto.causaDaEspera(reprovando(['fora_do_diff'])), 'mesa');
+});
+
+test('shouldAutoReject segue aceitando defeito_codigo e card', async () => {
+  for (const [n, causas] of [[71, ['defeito_codigo']], [72, ['card']], [73, ['ci', 'defeito_codigo']]]) {
+    const e = motor();
+    await revisar(e, n, { extra: reprovando(causas) });
+    assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES'], causas.join('+'));
+    assert.equal(resolvida(e, n).status, 'auto_rejected');
+    envios = [];
+  }
+});
+
+test('violação técnica confirmada continua reprovando sem olhar causa', async () => {
+  const e = motor();
+  technicalRuntime.finishTechnicalReview = violacao();
+  await revisar(e, 74, { extra: reprovando(['fora_do_diff']) });
+  assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES'], 'o que a avaliação técnica provou reprova');
+  assert.equal(resolvida(e, 74).status, 'auto_rejected');
+});
+
+// a marca do conflito precisa do updatedAt do PR para caducar (espera-conflito.js)
+const COM_DATA = { requested: true, updatedAt: '2026-11-05T10:00:00Z' };
+
+test('bloqueio só de conflito vai à espera do conflito, sem postar', async () => {
+  const e = motor();
+  await revisar(e, 75, { marcas: COM_DATA, extra: reprovando(['conflito']) });
+  assert.deepEqual(envios, [], 'nada vai ao PR, nem APPROVE nem REQUEST_CHANGES');
+  const d = pendente(e, 75);
+  assert.equal(d.blockedKind, 'conflito');
+  assert.match(textos(d)[0], /não em defeito do código/);
+  assert.equal(e.esperaConflito['acme/app#75'].head, HEAD);
+  semMesa(e);
+});
+
+// O conflito declarado pelo modelo é conferido no GitHub antes de virar espera (onda final,
+// 05/11/2026): o modelo pode ter lido um conflito que não existe, e a espera do conflito só
+// acaba com commit novo.
+test('conflito declarado com o GitHub dizendo MERGEABLE vai à mesa, sem marca de conflito', async () => {
+  gh.mergeable = 'MERGEABLE';
+  const e = motor();
+  await revisar(e, 84, { extra: reprovando(['conflito']) });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 84);
+  assert.notEqual(d.blockedKind, 'conflito');
+  assert.equal((e.esperaConflito || {})['acme/app#84'], undefined);
+  assert.ok(textos(d).includes('o relatório fala em conflito, mas o GitHub diz que o PR é mesclável: a decisão é sua'), textos(d).join(' | '));
+  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#84']]);
+});
+
+for (const mergeable of ['CONFLICTING', 'UNKNOWN']) {
+  test(`conflito declarado com o GitHub dizendo ${mergeable} segue na espera do conflito`, async () => {
+    gh.mergeable = mergeable;
+    const e = motor();
+    await revisar(e, 85, { marcas: COM_DATA, extra: reprovando(['conflito']) });
+    assert.deepEqual(envios, []);
+    assert.equal(pendente(e, 85).blockedKind, 'conflito');
+    assert.equal(e.esperaConflito['acme/app#85'].head, HEAD);
+    semMesa(e);
+  });
+}
+
+test('bloqueio só de ci arma a espera do CI e nunca aprova o que a revisão reprovou', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
+  await revisar(e, 76, { extra: reprovando(['ci']) });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 76);
+  assert.ok(d.esperaCi, 'a espera do CI de sempre');
+  assert.match(textos(d)[0], /não em defeito do código/);
+  // o card não promete a aprovação que nunca sai, nem quando a varredura troca a linha da espera
+  const semPromessa = (x) => {
+    assert.ok(textos(x).includes('espero o CI obrigatório neste commit; com ele verde, a decisão volta para você'), textos(x).join(' | '));
+    assert.doesNotMatch(textos(x).join(' | '), /a aprovação está esperando o CI|sai sozinha/);
+  };
+  semPromessa(d);
+  semMesa(e);
+  gh.rollup = [check('test', '', 'IN_PROGRESS'), check('audit', '', 'IN_PROGRESS')];
+  assert.equal(await e.varrerEsperas(), 0);
+  semPromessa(pendente(e, 76));
+  gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
+  assert.equal(await e.varrerEsperas(), 0);
+  assert.deepEqual(envios, [], 'CI verde não transforma o pedido de mudanças em APPROVE');
+  assert.ok(pendente(e, 76), 'a decisão volta para você');
+  assert.equal(pendente(e, 76).esperaCi, null);
+});
+
+for (const [lado, opcoes, marcas] of [
+  ['conta que espera você', { reprova: 'wait' }, { requested: true }],
+  ['origem desconhecida', {}, {}],
+]) {
+  test(`bloqueio só de ci com ${lado}: mesa, sem armar a espera do CI`, async () => {
+    const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }], ...opcoes });
+    await revisar(e, 82, { marcas, extra: reprovando(['ci']) });
+    assert.deepEqual(envios, []);
+    const d = pendente(e, 82);
+    assert.equal(d.esperaCi, undefined, 'a espera do CI é da conta que reprova sozinha');
+    assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#82']]);
+  });
+}
+
+test('ci e conflito com o CI já verde: a espera do conflito segura antes da mesa', async () => {
+  const e = motor();
+  await revisar(e, 83, { extra: reprovando(['ci', 'conflito']) });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 83);
+  assert.equal(d.esperaCi, undefined);
+  assert.equal(d.blockedKind, 'conflito');
+  semMesa(e);
+});
+
+test('bloqueio só de ci com o CI vermelho: o pedido pelo CI segue a regra de 18/10/2026', async () => {
+  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }] });
+  await revisar(e, 77, { extra: reprovando(['ci']) });
+  assert.deepEqual(envios, [], 'o texto da revisão não sai sozinho');
+  assert.ok(pendente(e, 77).esperaCi);
+  gh.rollup = [check('test', 'SUCCESS'), check('audit', 'FAILURE')];
+  assert.equal(await e.varrerEsperas(), 1);
+  assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES']);
+  assert.match(envios[0].body, /`audit` estão falhando/);
+});
+
+for (const causa of ['dependencia', 'fora_do_diff']) {
+  test(`bloqueio só de ${causa} vai à mesa com o motivo dito`, async () => {
+    const e = motor();
+    await revisar(e, 78, { extra: reprovando([causa]) });
+    assert.deepEqual(envios, []);
+    const d = pendente(e, 78);
+    assert.equal(d.esperaCi, undefined);
+    assert.equal(d.blockedKind, undefined);
+    assert.match(textos(d)[0], /não em defeito do código/);
+    assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#78']]);
+  });
+}
+
+test('bloqueio sem causa é envelope fora do contrato: recuperação, nunca o PR', async () => {
+  const e = motor();
+  await revisar(e, 79, { extra: { ...reprovando(['defeito_codigo']), findings: [bloqueio(undefined)] } });
+  assert.deepEqual(envios, []);
+  assert.ok(pendente(e, 79).esperaProva, 'cai na recuperação durável');
+});
+
+test('envelope legado (findings undefined) com verdict request_changes não posta e não aprova', async () => {
+  const e = motor();
+  await revisar(e, 80, { extra: { verdict: 'request_changes', decision: 'needs_decision', findings: undefined } });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 80);
+  assert.notEqual(d.blockedKind, 'conflito');
+  assert.doesNotMatch(textos(d).join(' | '), /não em defeito do código/, 'a regra nova só vale com findings');
+});
+
+test('pendência do conflito vira revisão nova quando chega commit', async () => {
+  const e = motor();
+  await revisar(e, 81, { extra: reprovando(['conflito']) });
+  e.headSha = async () => HEAD_NOVO;
+  const { marcarCommitNovo } = await import('../lib/engine/pendencia-commit-novo.js');
+  assert.equal(await marcarCommitNovo(e), 1);
+  assert.equal(pendente(e, 81).blockedKind, 'stale_head');
+  assert.equal(pendente(e, 81).blockedHead, HEAD_NOVO);
 });
