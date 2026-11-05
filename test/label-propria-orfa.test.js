@@ -34,7 +34,7 @@ test('carimba a primeira vez que vê a própria label sem sessão e sem pendênc
   assert.equal(e.labelPropriaVistaDesde[PR.key], T0);
   await carimbarEPodar(e, [PR], T0 + 5000);
   assert.equal(e.labelPropriaVistaDesde[PR.key], T0);
-  assert.equal(JSON.parse(fs.readFileSync(ARQUIVO, 'utf8'))[PR.key], T0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(ARQUIVO, 'utf8')), { observadaEm: T0 + 5000, vistas: { [PR.key]: T0 } });
 });
 
 test('label que sumiu ou PR que saiu do panorama perde o carimbo', async () => {
@@ -55,9 +55,10 @@ test('com sessão viva deste aparelho no PR, não carimba', async () => {
 
 test('passado o TTL de 3 h, entra em labels-a-tirar e remove', async () => {
   const e = motor();
-  await carimbarEPodar(e, [PR], T0);
   const chamadas = [];
   const run = async (_c, args) => { chamadas.push(args.join(' ')); return { ok: true, stderr: '' }; };
+  // observação contínua: uma rodada a cada 5 min (o limite sem intervalo configurado é a folga de 10 min)
+  for (let t = T0; t < T0 + TEMPOS.SINAL_REVISAO_TTL_MS; t += 5 * 60 * 1000) await tirarOrfas(e, [PR], { agora: t, run });
   await tirarOrfas(e, [PR], { agora: T0 + TEMPOS.SINAL_REVISAO_TTL_MS - 1, run });
   assert.deepEqual(chamadas, []);
   await tirarOrfas(e, [PR], { agora: T0 + TEMPOS.SINAL_REVISAO_TTL_MS, run });
@@ -91,4 +92,104 @@ test('leaseVivo: ausente e expirado são false; vigente e sem expiresAt são tru
   assert.equal(await leaseVivo(com({ leaseId: 'x', expiresAt: T0 - 1 }), ids, T0), false);
   assert.equal(await leaseVivo(com({ leaseId: 'x', expiresAt: T0 + 1 }), ids, T0), true);
   assert.equal(await leaseVivo(com({ leaseId: 'x' }), ids, T0), true);
+});
+
+// Observação contínua (onda final, 05/11/2026): o relógio da label própria só corre enquanto este
+// aparelho olha o PR a cada ciclo. Notebook fechado ou Farol parado por mais de alguns intervalos de
+// polling recomeçam a contagem, senão o B que viu a label do A, dormiu e acordou depois de 3 h
+// apagaria na hora a label de uma sessão nova do A.
+const PASSO = 10 * 60 * 1000;
+const comIntervalo = (extra = {}) => motor({ config: { intervalSeconds: 60 }, ...extra });
+async function observar(e, de, ate, opcoes) {
+  for (let t = de; t <= ate; t += PASSO) await tirarOrfas(e, [PR], { ...opcoes, agora: t });
+}
+
+test('intervalo sem observação maior que o limite recomeça o relógio, sem remover', async () => {
+  const e = comIntervalo();
+  const chamadas = [];
+  const run = async (_c, args) => { chamadas.push(args.join(' ')); return { ok: true, stderr: '' }; };
+  await tirarOrfas(e, [PR], { agora: T0, run });
+  await tirarOrfas(e, [PR], { agora: T0 + TEMPOS.SINAL_REVISAO_TTL_MS, run });
+  assert.deepEqual(chamadas, [], 'o salto de 3 h não conta como 3 h de label órfã');
+  assert.equal(e.labelPropriaVistaDesde[PR.key], T0 + TEMPOS.SINAL_REVISAO_TTL_MS);
+});
+
+test('observação contínua por 3 h remove a label', async () => {
+  const e = comIntervalo();
+  const chamadas = [];
+  const run = async (_c, args) => { chamadas.push(args.join(' ')); return { ok: true, stderr: '' }; };
+  await observar(e, T0, T0 + TEMPOS.SINAL_REVISAO_TTL_MS, { run });
+  assert.deepEqual(chamadas, [`pr edit ${PR.url} --remove-label eu:revisando`]);
+});
+
+test('reiniciar depois de um intervalo longo descarta o carimbo gravado', async () => {
+  const e = comIntervalo();
+  await tirarOrfas(e, [PR], { agora: T0, run: async () => ({ ok: true }) });
+  const reiniciado = comIntervalo({ labelPropriaVistaDesde: undefined });
+  const chamadas = [];
+  await tirarOrfas(reiniciado, [PR], { agora: T0 + TEMPOS.SINAL_REVISAO_TTL_MS, run: async (...a) => { chamadas.push(a); return { ok: true }; } });
+  assert.deepEqual(chamadas, []);
+  assert.equal(reiniciado.labelPropriaVistaDesde[PR.key], T0 + TEMPOS.SINAL_REVISAO_TTL_MS);
+});
+
+test('reiniciar logo depois preserva o carimbo gravado', async () => {
+  const e = comIntervalo();
+  await tirarOrfas(e, [PR], { agora: T0, run: async () => ({ ok: true }) });
+  const reiniciado = comIntervalo({ labelPropriaVistaDesde: undefined });
+  await tirarOrfas(reiniciado, [PR], { agora: T0 + 60_000, run: async () => ({ ok: true }) });
+  assert.equal(reiniciado.labelPropriaVistaDesde[PR.key], T0);
+});
+
+test('ao carregar, carimbo com mais de 2 x TTL é descartado', async () => {
+  const agora = T0 + 3 * TEMPOS.SINAL_REVISAO_TTL_MS;
+  fs.writeFileSync(ARQUIVO, JSON.stringify({ observadaEm: agora - 60_000, vistas: { [PR.key]: T0 } }));
+  const e = comIntervalo({ labelPropriaVistaDesde: undefined });
+  const chamadas = [];
+  await tirarOrfas(e, [PR], { agora, run: async (...a) => { chamadas.push(a); return { ok: true }; } });
+  assert.deepEqual(chamadas, []);
+  assert.equal(e.labelPropriaVistaDesde[PR.key], agora);
+});
+
+// Com a coordenação ligada a remoção passa pelo mesmo CAS de lease da pendência comum: entre ler o
+// lease ausente e remover, outro aparelho da mesma conta pode ter aberto uma revisão no PR.
+function rtdb({ recusa = false } = {}) {
+  let no = null, versao = 0;
+  const ops = [];
+  const client = {
+    get: async () => ({ ok: true, data: no, etag: `e${versao}` }),
+    put: async (_p, v, { ifMatch } = {}) => {
+      ops.push('put');
+      if (recusa || ifMatch !== `e${versao}`) return { ok: false, code: 'indisponivel' };
+      no = v; versao++;
+      return { ok: true, etag: `e${versao}` };
+    },
+    del: async (_p, { ifMatch } = {}) => {
+      ops.push('del');
+      if (ifMatch !== `e${versao}`) return { ok: false, code: 'indisponivel' };
+      no = null; versao++;
+      return { ok: true };
+    },
+  };
+  return { ops, client };
+}
+const coordenado = (client) => ({ syncCoordenacaoAtiva: () => true, sync: { status: 'conectado', uid: 'u', deviceId: 'd', client } });
+
+test('com coordenação, sem a posse do lease a órfã não é removida e fica pendente', async () => {
+  const { client, ops } = rtdb({ recusa: true });
+  const e = comIntervalo(coordenado(client));
+  const chamadas = [];
+  await observar(e, T0, T0 + TEMPOS.SINAL_REVISAO_TTL_MS, { run: async (...a) => { chamadas.push(a); return { ok: true }; } });
+  assert.deepEqual(chamadas, [], 'sem o CAS, nenhum gh');
+  assert.ok(ops.includes('put'), 'a remoção disputou o lease');
+  assert.equal(Object.keys(JSON.parse(fs.readFileSync(PENDENTES, 'utf8'))).length, 1, 'a pendência segue para o próximo ciclo');
+});
+
+test('com coordenação e a posse do lease, remove e solta o lease', async () => {
+  const { client, ops } = rtdb();
+  const e = comIntervalo(coordenado(client));
+  const chamadas = [];
+  await observar(e, T0, T0 + TEMPOS.SINAL_REVISAO_TTL_MS, { run: async (_c, args) => { chamadas.push(args.join(' ')); return { ok: true, stderr: '' }; } });
+  assert.deepEqual(chamadas, [`pr edit ${PR.url} --remove-label eu:revisando`]);
+  assert.deepEqual(ops, ['put', 'del']);
+  assert.deepEqual(e.labelPropriaVistaDesde, {});
 });
