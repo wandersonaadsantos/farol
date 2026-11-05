@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.38
+
+Backmerge não é mais reprovado por dívida que já estava em produção.
+
+### Correções
+
+- Ponto bloqueante em arquivo idêntico ao da production vira sugestão: é dívida herdada, não criada pelo PR, e cabe num follow-up da task de origem. O que o próprio PR cria, como resolução de conflito e linha nova, continua podendo bloquear.
+
 ## v2.78.37
 
 O Revisar tudo respeita a regra de não reanalisar PR já decidido, e o mesmo PR não abre mais duas revisões ao mesmo tempo.

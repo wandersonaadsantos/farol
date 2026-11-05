@@ -14,6 +14,9 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.38', [
+    'Backmerge não é reprovado por dívida que já estava em produção; o que o próprio PR cria continua podendo bloquear',
+  ]],
   ['2.78.37', [
     'O Revisar tudo não relança PR já decidido por uma pessoa nem PR cujo pedido de revisão saiu',
     'O mesmo PR não abre mais duas revisões ao mesmo tempo',
