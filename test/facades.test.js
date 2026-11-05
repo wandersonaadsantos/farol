@@ -59,16 +59,25 @@ const EXCECOES = {
   launchReview: 'os dois lados têm parâmetro com default e a contagem fecha por coincidência; o repasse é provado por teste próprio',
 };
 
-function mapaDeModulos() {
+/* Fachada cujo alvo não existe como função, com o motivo. Vazia de propósito: até
+   05/11/2026 a varredura pulava esse caso em silêncio, e foi assim que `prEstadoELabels`
+   (fachada sem export em gh-queries.js) desligou no vigia a retirada da label e o PR fechado,
+   porque o TypeError caía no catch como "não sei". Só entra aqui o que tem motivo escrito. */
+const ALVO_AUSENTE_PERMITIDO = {};
+
+function mapaDeModulos(fonte) {
   const mods = {};
-  for (const m of FONTE.matchAll(RE_IMPORT)) mods[m[1]] = m[2];
+  for (const m of fonte.matchAll(RE_IMPORT)) mods[m[1]] = m[2];
   return mods;
 }
 
-async function coletarFachadas() {
-  const mods = mapaDeModulos();
-  const achadas = [];
-  for (const m of FONTE.matchAll(RE_FACHADA)) {
+// `quebradas` é a fachada que delega para um módulo que não carrega ou para um nome que o
+// módulo não exporta como função: chamada, ela lança TypeError, que quem chama costuma ler
+// como falta de dado.
+async function coletarFachadas(fonte = FONTE) {
+  const mods = mapaDeModulos(fonte);
+  const achadas = [], quebradas = [];
+  for (const m of fonte.matchAll(RE_FACHADA)) {
     const [, nome, , modKey, implNome, args] = m;
     const modPath = mods[modKey];
     if (!modPath) continue;
@@ -77,18 +86,43 @@ async function coletarFachadas() {
       const modUrl = pathToFileURL(path.resolve(RAIZ, modPath)).href;
       const modNs = await import(modUrl);
       impl = (modNs.default || modNs)[implNome];
-    } catch { continue; }
-    if (typeof impl !== 'function') continue;
+    } catch { impl = undefined; }
+    if (typeof impl !== 'function') { quebradas.push({ nome, modKey, implNome }); continue; }
     achadas.push({
       nome, implNome, modKey, impl,
       // o próprio texto da delegação diz se o engine é repassado
       passaThis: /^\s*this\b/.test(args),
     });
   }
-  return achadas;
+  return { achadas, quebradas };
 }
 
-const FACHADAS = await coletarFachadas();
+const { achadas: FACHADAS, quebradas: QUEBRADAS } = await coletarFachadas();
+
+test('toda fachada aponta para uma função que o módulo exporta', () => {
+  const sem = QUEBRADAS.filter(q => !ALVO_AUSENTE_PERMITIDO[q.nome]);
+  assert.deepEqual(sem, [], 'fachada que delega para nome inexistente lança TypeError na chamada, ' +
+    'e o catch de quem chama lê isso como falta de dado (foi o que desligou o vigia com prEstadoELabels)');
+});
+
+test('a varredura acusa a fachada que aponta para nome inexistente', async () => {
+  const fonte = [
+    "import ghQueriesMod from './lib/engine/gh-queries.js';",
+    'class X {',
+    '  existe(pr) { return ghQueriesMod.prState(this, pr); }',
+    '  sumiu(pr) { return ghQueriesMod.nomeQueNaoExiste(this, pr); }',
+    '}',
+  ].join('\n');
+  const { achadas, quebradas } = await coletarFachadas(fonte);
+  assert.deepEqual(achadas.map(f => f.nome), ['existe']);
+  assert.deepEqual(quebradas, [{ nome: 'sumiu', modKey: 'ghQueries', implNome: 'nomeQueNaoExiste' }]);
+});
+
+test('as permissões de alvo ausente ainda correspondem a uma fachada quebrada', () => {
+  for (const nome of Object.keys(ALVO_AUSENTE_PERMITIDO)) {
+    assert.ok(QUEBRADAS.some(q => q.nome === nome), `ALVO_AUSENTE_PERMITIDO tem "${nome}", que não está mais quebrada. Remova.`);
+  }
+});
 
 /* Guarda contra passar à toa: um teste dirigido por regex que deixa de casar vira um
    laço vazio e fica verde sem verificar nada. O piso é bem abaixo do que existe hoje

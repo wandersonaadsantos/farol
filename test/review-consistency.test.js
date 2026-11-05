@@ -10,7 +10,7 @@ const { lacunasExigidas } = await import('../lib/engine/busca-da-prova.js');
 const { REVIEW_COHERENCE_GAP } = await import('../lib/technical-review/verdict.js');
 after(() => { assert.ok(home.startsWith(os.tmpdir())); fs.rmSync(home, { recursive: true, force: true }); });
 
-const blocker = { severity: 'blocking', title: 'Perda de dados', summary: 'Grava antes de validar.', file: 'src/a.js', line: 2, evidence: 'A gravação antecede o guard.' };
+const blocker = { severity: 'blocking', causa: 'defeito_codigo', title: 'Perda de dados', summary: 'Grava antes de validar.', file: 'src/a.js', line: 2, evidence: 'A gravação antecede o guard.' };
 const suggestion = { ...blocker, severity: 'suggestion', title: 'Mensagem mais clara' };
 const result = (verdict, findings) => ({ verdict, findings, payloads: { [verdict]: {
   event: verdict === 'approve' ? 'APPROVE' : 'REQUEST_CHANGES', body: verdict === 'approve' ? 'Sem defeito bloqueante.' : 'Valide antes de gravar para evitar perda de dados.',

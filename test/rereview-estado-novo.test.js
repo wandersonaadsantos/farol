@@ -302,6 +302,18 @@ test('destrave do estacionado e do pulado: volta pra fila visível e pra fila au
   assert.equal(destrava.candidatosDestrave(p, new Set()).length, 0);
 });
 
+test('estacionado por label retirada é candidato e volta com sinal novo', () => {
+  const e = engineBase();
+  e.seen.add(KEY);
+  e.autoReviewParked.add(KEY);
+  e.parkedMotivos[KEY] = { at: new Date(AGORA - 40 * MIN).toISOString(), motivo: 'a label de revisão foi retirada do PR', tipo: 'label-retirada', head: H1 };
+  const [cand] = destrava.candidatosDestrave(e, new Set());
+  assert.equal(cand.tipo, 'estacionado');
+  destrava.aplicarDestrave(e, cand, { tipo: 'push', at: AGORA - 5 * MIN, head: H2 });
+  assert.equal(e.autoReviewParked.has(KEY), false);
+  assert.deepEqual(e.queue.map(p => p.key), [KEY]);
+});
+
 test('destravarPorEstadoNovo amarra candidato, sinal e ação, e poda marcador de PR que saiu', async () => {
   const e = engineBase();
   e.seen.add(KEY);

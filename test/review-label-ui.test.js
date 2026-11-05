@@ -25,7 +25,7 @@ test('consulta real oferece só as tags gerenciadas e informa a identidade usada
 test('cancelar a confirmação não remove a tag; confirmar remove apenas a selecionada',async()=>{
  await $('#reviewLabelsInspect').onclick();
  const cancel=clickRemove('colleague:revisando'),first=doc.body.children.at(-1);
- assert.match(first.innerHTML,/não cancela a revisão/);assert.equal($('#reviewLabelsUrl').disabled,true);
+ assert.match(first.innerHTML,/encerra a revisão em andamento neste aparelho/);assert.equal($('#reviewLabelsUrl').disabled,true);
  first.querySelector('.modal-cancel').onclick();await cancel;assert.equal(labels.has('colleague:revisando'),true);assert.equal(calls.some(args=>args[1]==='edit'),false);
  const confirm=clickRemove('colleague:revisando'),second=doc.body.children.at(-1);second.querySelector('.modal-ok').onclick();await confirm;
  assert.equal(labels.has('colleague:revisando'),false);assert.equal(labels.has('bug'),true);assert.match($('#reviewLabelsMessage').textContent,/Tag removida/);assert.equal($('#reviewLabelsUrl').disabled,false);

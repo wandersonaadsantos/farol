@@ -18,7 +18,7 @@ import { snapshotDecisions } from './lib/engine/snapshot-decisions.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
-  executadoDireto, rodandoComoRoot, sinaisDoModoCelular, modoCasca, APP_VERSION, APP_NAME, IS_WIN, IS_MAC, IS_LINUX,
+  instanciaIsolada, executadoDireto, rodandoComoRoot, sinaisDoModoCelular, modoCasca, APP_VERSION, APP_NAME, IS_WIN, IS_MAC, IS_LINUX,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, CLAUDE_JSON_DA_CONFIANCA,
 } from './lib/paths.js';
@@ -61,6 +61,7 @@ import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import meusPrsBase from './lib/engine/meus-prs-base.js';
 import labelsATirar from './lib/engine/labels-a-tirar.js';
+import labelPropriaOrfa from './lib/engine/label-propria-orfa.js';
 import { registrarBaseline, lerBaseline } from './lib/engine/baseline.js';
 import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
@@ -800,6 +801,7 @@ class Engine extends EventEmitter {
   async searchPRs(extraArgs, user, agora = Date.now()) { return ghMod.searchPRs(this, extraArgs, user, agora); }
   async myAuthoredPRs(user) { return ghMod.myAuthoredPRs(this, user); }
   async prState(pr) { return ghMod.prState(this, pr); }
+  async prEstadoELabels(pr) { return ghMod.prEstadoELabels(this, pr); }
   async headSha(pr) { return ghMod.headSha(this, pr); }
   async prCardSources(pr) { return ghMod.prCardSources(this, pr); }
   async fetchPrFiles(pr) { return fileProofMod.fetchPrFiles(this, pr); }
@@ -893,6 +895,7 @@ class Engine extends EventEmitter {
       try { await meusPrsBase.refreshBaseDosMeusPRs(this); } catch (e) { this.log('WARN', `base dos meus PRs: ${e.message}`); }
       // label :revisando cuja remoção falhou no fim da revisão (labels-a-tirar.js)
       try { await labelsATirar.tirarPendentes(this); } catch (e) { this.log('WARN', `labels a tirar: ${e.message}`); }
+      try { await labelPropriaOrfa.tirarOrfas(this, panorama); } catch (e) { this.log('WARN', `label própria sem dono: ${e.message}`); }
       // sincronização entre dispositivos: presença e reconexão. Desligada custa zero, e
       // falha dela vira estado da própria sincronização, nunca erro do ciclo.
       sincronizou = true;
@@ -1694,6 +1697,7 @@ class Engine extends EventEmitter {
       // então desligar o toggle não salva ninguém. Sem este campo, o sintoma é
       // um "saiu com código 1" por ciclo, pra sempre, com o doctor todo verde.
       root: rodandoComoRoot(),
+      instanciaIsolada, // FAROL_HOME fora de ~/.farol: não escreve no GitHub sem opt-in por arquivo
       home: HOME,
       workspace: WORKSPACE,
       claudeAuth: this.allClaudeAuthInfo(), // status de cada perfil de assinatura Claude salvo
@@ -1905,6 +1909,8 @@ class Engine extends EventEmitter {
       // exibe panorama velho sem dizer que ele esta velho (lib/engine/limite-gh.js)
       buscasPausadas: limiteGhMod.buscasPausadas(this),
       queue: this.queue,
+      // PRs em conflito com a base: { key: { at, head } }, sem sessão nem label (lib/engine/espera-conflito.js)
+      esperaConflito: Object.fromEntries(Object.entries(this.esperaConflito || {}).map(([k, v]) => [k, { at: v.at, head: v.head, updatedAt: v.updatedAt }])),
       // A fila de espera ja sai em esperaParaTela abaixo. Expor tambem a distribuicao
       // evita que um pedido sem aparelho apto pareca visto.
       headlessDistributing: this.headlessDistribuindo instanceof Map ? [...this.headlessDistribuindo.keys()] : [],

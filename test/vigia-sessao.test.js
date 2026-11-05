@@ -75,13 +75,23 @@ test('falta de dado NUNCA abandona trabalho pago', () => {
     'sem head de partida não há comparação possível');
 });
 
+test('label própria que sumiu do PR manda abandonar', () => {
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [], labelPropria: 'eu:revisando', labelsAgora: ['bug'] }).motivo, 'label-retirada');
+});
+
+test('label ainda no PR, sem label adicionada, ou leitura sem lista: segue', () => {
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [], labelPropria: 'eu:revisando', labelsAgora: ['Eu:Revisando'] }).abandonar, false);
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [], labelPropria: '', labelsAgora: [] }).abandonar, false);
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [], labelPropria: 'eu:revisando', labelsAgora: null }).abandonar, false);
+});
+
 /* ---------- a rodada, contra um engine ---------- */
 
-function engineVigiado({ head, estados, estado = 'OPEN' }) {
+function engineVigiado({ head, estados, estado = 'OPEN', labels = [] }) {
   const e = new Engine();
   e.log = () => { };
   e.headSha = async () => head;
-  e.prState = async () => estado;
+  e.prEstadoELabels = async () => ({ estado, labels });
   e.myReviewStates = async () => estados;
   e.cancelados = [];
   e.cancelSession = (id) => { e.cancelados.push(id); return { ok: true }; };
@@ -117,8 +127,8 @@ test('gh que falha na conferida não cancela nada', async () => {
   const e = engineVigiado({ head: HEAD, estados: [] });
   e.headSha = async () => { throw new Error('fetch failed'); };
   e.myReviewStates = async () => { throw new Error('fetch failed'); };
-  e.prState = async () => { throw new Error('fetch failed'); };
-  await vigia.conferir(e, PR, 'sess-2', HEAD);
+  e.prEstadoELabels = async () => { throw new Error('fetch failed'); };
+  await vigia.conferir(e, PR, 'sess-2', HEAD, () => 'eu:revisando');
   assert.deepEqual(e.cancelados, [], 'queda de rede não pode matar sessão de 10 minutos');
   assert.equal(vigia.abandonoDe(e, PR.key), '');
 });
@@ -129,6 +139,37 @@ test('a rodada encerra a sessão de PR mergeado e carimba o motivo', async () =>
   assert.equal(d.motivo, 'pr-fechado');
   assert.deepEqual(e.cancelados, ['sess-m1']);
   assert.equal(vigia.abandonoDe(e, PR.key), 'pr-fechado');
+});
+
+test('a rodada lê labels pela mesma chamada do estado e cancela com o motivo novo', async () => {
+  const e = engineVigiado({ head: HEAD, estados: [], labels: [] });
+  let leituras = 0;
+  const original = e.prEstadoELabels;
+  e.prEstadoELabels = async (pr) => { leituras++; return original(pr); };
+  const d = await vigia.conferir(e, PR, 'sess-l1', HEAD, () => 'eu:revisando');
+  assert.equal(d.motivo, 'label-retirada');
+  assert.equal(leituras, 1, 'estado e labels vêm de uma leitura só');
+  assert.deepEqual(e.cancelados, ['sess-l1']);
+  assert.equal(vigia.abandonoDe(e, PR.key), 'label-retirada');
+  const vazia = engineVigiado({ head: HEAD, estados: [], labels: [] });
+  assert.equal((await vigia.conferir(vazia, PR, 'sess-l2', HEAD, () => '')).abandonar, false, 'label ainda não posta nunca encerra');
+});
+
+test('label que entra durante as leituras não encerra a sessão', async () => {
+  const e = engineVigiado({ head: HEAD, estados: [], labels: [] });
+  let label = '';
+  e.prEstadoELabels = async () => { label = 'eu:revisando'; return { estado: 'OPEN', labels: ['bug'] }; };
+  const d = await vigia.conferir(e, PR, 'sess-l3', HEAD, () => label);
+  assert.equal(d.abandonar, false);
+  assert.deepEqual(e.cancelados, []);
+});
+
+test('vigia parado durante as leituras não cancela nem carimba', async () => {
+  const e = engineVigiado({ head: HEAD_NOVO, estados: [] });
+  const d = await vigia.conferir(e, PR, 'sess-p1', HEAD, () => '', () => false);
+  assert.equal(d.abandonar, false);
+  assert.deepEqual(e.cancelados, []);
+  assert.equal(vigia.abandonoDe(e, PR.key), '');
 });
 
 test('parado, o vigia não consulta mais nada', async () => {
@@ -193,6 +234,14 @@ test('PR mergeado durante a revisão: sai da fila sem estacionar nem pedir cliqu
   assert.equal(e.autoReviewParked.has(PR.key), false, 'merge por fora não é falha da revisão');
   assert.ok(!e.queue.some(p => p.key === PR.key), 'PR fechado não volta pra fila');
   assert.equal(e.retryAfterNet.has(PR.key), false);
+  assert.equal(vigia.abandonoDe(e, PR.key), '');
+});
+
+test('label-retirada estaciona como tipo próprio, não como cancelado', async () => {
+  const e = engineDeWorker('label-retirada');
+  await e.runOneHeadless({ ...PR }, 'conta');
+  assert.equal(e.autoReviewParked.has(PR.key), true);
+  assert.equal(e.parkedMotivos[PR.key].tipo, 'label-retirada');
   assert.equal(vigia.abandonoDe(e, PR.key), '');
 });
 

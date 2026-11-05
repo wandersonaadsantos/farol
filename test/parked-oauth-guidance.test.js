@@ -26,3 +26,9 @@ test('orientação de login não substitui cancelamento nem atribui 401 genéric
   assert.equal(project('API Error: 401 Unauthorized', 'falha').tipo, 'falha');
   assert.equal(project('fetch failed', 'esgotado').tipo, 'esgotado');
 });
+
+test('label retirada: o card diz o que houve e como a revisão volta', () => {
+  const html = parkedNoteHtml(project('a label de revisão foi retirada do PR', 'label-retirada'));
+  assert.match(html, /label de revisão foi retirada/);
+  assert.match(html, /commit novo/);
+});

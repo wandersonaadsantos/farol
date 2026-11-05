@@ -238,6 +238,39 @@ em automático na classe do resultado:
 - PR da própria conta com a conta em `wait`, ou sem texto para comentar;
 - conta silenciada não inicia novos trabalhos; a revisão já iniciada pode concluir e postar pela conta original. A conclusão adiada pelo CI ou por falha de envio exige o mesmo commit e uma decisão persistida dessa sessão. Silenciar não cancela sessões nem remove credenciais. Sem token ou fora do orçamento, o impedimento continua aparecendo onde sempre apareceu.
 
+### Bloqueio de estado não reprova (05/11/2026)
+
+Medido no dia, três REQUEST_CHANGES automáticos postados sem defeito do código: tenant-company#293
+(conflito com a base e CI que não rodou), biud-frontend#1784 (seletores de e2e em arquivos fora do
+diff) e engine-ai#880 (critério do card e SQL duplicado). O modelo marcava `blocking` e a conta,
+em `onReject: request_changes`, reprovava em público pelo estado do PR.
+
+Desde então todo achado `blocking` vigente do envelope declara `causa`, de lista fechada
+(`CAUSAS` em `lib/engine/review-findings-contract.js`, reexportada por `review-findings.js`):
+
+| causa | significa | efeito no desfecho automático |
+|---|---|---|
+| `defeito_codigo` | regressão, regra de negócio quebrada, segurança, contrato de API, teste que falha pelo diff | pode reprovar sozinho |
+| `card` | a parte do card que cabe a este PR não foi entregue | pode reprovar sozinho |
+| `ci` | check obrigatório vermelho ou sem resultado no head | espera do CI (`espera-ci.js`); o pedido pelo CI vermelho segue a regra de 18/10/2026, e o CI verde não vira APPROVE: a decisão volta para a mesa |
+| `conflito` | PR em conflito com a base, checks não rodaram por isso | espera do conflito (`espera-conflito.js`, `blockedKind: 'conflito'`), que o commit novo destrava |
+| `dependencia` | depende de PR ou card em aberto | mesa, com o texto da revisão no card |
+| `fora_do_diff` | o problema está em arquivo que este PR não toca (base, outra branch) | mesa, com o texto da revisão no card |
+
+Regras, PURAS, em `lib/engine/desfecho-automatico.js`: `bloqueiosSoDeEstado` (há bloqueio e nenhum
+com causa em `CAUSAS_QUE_REPROVAM`), `reprovacaoSoDeEstado` (o mesmo com o veredito
+`request_changes` e sem `defeitosDoPr`) e `causaDaEspera` (`ci`, senão `conflito`, senão `mesa`).
+`shouldAutoReject` recusa a reprovação só de estado e o `registrarPendencia`
+(`desfecho-da-revisao.js`) a leva à espera ou à mesa com o motivo `bloqueio_de_estado` no card.
+O que a avaliação técnica provou (`defeitosDoPr`: violação confirmada, achado não resolvido, a
+parte do card) reprova sem olhar a causa. O motor nunca escreve um APPROVE que a revisão não
+concluiu, e o texto da revisão barrado por causa de estado fica no card, nunca no PR. Bloqueio sem
+causa, ou com causa fora da lista, é envelope fora do contrato (`review_inconsistent`) e vai à
+recuperação durável. Envelope legado, sem `findings`, segue a regra de antes. A memória de rodadas
+gravada antes da causa continua legível (`review-round-store.js` não exige a causa). Vale só para a
+decisão automática: no clique e no chat a pessoa escolhe o que posta. Travado em
+`test/decisao-sem-mesa.test.js`, `test/review-rounds.test.js` e `test/motivo-recusa-visivel.test.js`.
+
 ## Todos os caminhos que produzem parecer ou postagem (26/09/2026)
 
 "Qualidade do review" só tem sentido se for dita por caminho, porque nem todo caminho que escreve no GitHub passou por uma revisão do Farol. O inventário abaixo foi levantado lendo o código em 26/09/2026. **Só o caminho 1 (e os que desembocam nele) produz review qualificado automaticamente**; os outros são decisão humana consciente, endosso, ou nem são review, e a régua de cada um está dita. Todo review que o Farol posta sai por UM funil, `postReview` (`lib/engine/decision.js`): conta dona, schema, linguagem pública, token, PR aberto, e a arbitragem entre aparelhos quando ligada.
@@ -484,6 +517,17 @@ O que vale agora (decisão do Wanderson, 20/08/2026, "só um Farol pode aprovar 
 PR"): ver a label de outra pessoa faz o Farol **sair de cena naquele head**, de
 forma durável, gravada em `state/skip-comentado.json` com o `head` junto. Ele não
 revisa depois, e é isso que o comentário descreve.
+
+**A label como contrato (05/11/2026).** A label `<conta>:revisando` passou a dizer só a verdade, em três frentes:
+(1) ela espera a sessão provar vida: entra no primeiro evento do provedor ou 15 s depois da admissão
+(`lib/engine/label-tardia.js`), então sessão que morre no spawn não pisca a label no PR;
+(2) retirá-la pelo GitHub ou pela tela encerra a sessão em andamento pelo vigia e estaciona a revisão com
+o motivo `label-retirada`, sem relançar sozinha (quem tirou pediu para parar);
+(3) label própria sem sessão viva aqui, sem pendência de remoção e sem lease vivo de outro aparelho some
+depois de 3 h de observação contínua deste aparelho (`lib/engine/label-propria-orfa.js`; intervalo longo sem
+olhar, como notebook fechado ou reinício, recomeça a contagem), removida sob o mesmo CAS de lease da
+pendência comum, e a pendência de remoção que não sai desiste em 7 dias
+com um aviso. Nada disso muda os gates do invariante 4: é higiene do sinal público.
 
 Três peças que a decisão exige, e nenhuma é opcional:
 
@@ -929,10 +973,18 @@ Peças:
 - **`explicaReRound`** (`review.js`) substitui o miolo do `classificaReRound`, que virou
   fachada do contrato antigo ('relanca' | null). Cada uma das saídas silenciosas tem nome:
   `sem_gatilho` | `revisando` | `parado` com `motivo` (rascunho, auto_desligado,
-  conta_silenciada, sem_token, orcamento, estacionado, outros_revisando, saiu_de_cena,
+  conta_silenciada, sem_token, orcamento, estacionado, outros_revisando, saiu_de_cena, conflito,
   coordenacao, pendencia_viva, ancora) | `aguardando`/`espera_longa` com `aPartirDe` |
   `relanca`. A ordem das travas não muda desfecho (todas seguram), só qual motivo a tela
   vê primeiro.
+- **PR em conflito com a base não abre sessão automática** (C2, 05/11/2026,
+  `lib/engine/espera-conflito.js`): `seguraPorConflito` lê `mergeable` (`gh pr view --json
+  mergeable`) antes de o caminho automático abrir a sessão (lançamento e re-round), uma vez
+  por `key` + `updatedAt`. Só `CONFLICTING` segura: `UNKNOWN` e falta de dado nunca seguram,
+  `MERGEABLE` apaga a marca, e o clique manual atravessa. A marca `esperaConflito[key] =
+  { at, head }` vai ao snapshot, vira o motivo `conflito` e a nota do card; sem sessão, sem
+  label e sem texto no PR (toast uma vez por PR e head). Desliga com
+  `aguardarMergeavelParaRevisar: false` (ligado por padrão).
 - **`reRoundParaUi`** vai no snapshot como `reRounds` (mesmo padrão do `parkedParaUi`):
   só pendências `stale_head`. `relanca` vira `aguardando` com `nextCheckAt` (quem dispara
   é o ciclo), ou `parado`/`consciencia` quando o `bloqueioConsultado` barrou este head.
@@ -1478,6 +1530,10 @@ lado do Farol quando o processo da sessão já saiu e o `close` não veio em
 `ELECTRON_RUN_AS_NODE` NÃO entra no ambiente da sessão de propósito: ela também roda
 ferramentas do repositório revisado, e um `electron .` ou um smoke de app Electron rodaria
 como Node e daria resultado enganoso.
+
+Complemento de 05/11/2026: quando a label é retirada de propósito (por outra pessoa, por ferramenta ou pela tela de tags), o vigia encerra a sessão e a
+revisão estaciona com o motivo `label-retirada` (ver "Um Farol por PR"); a sessão presa por defeito do ambiente
+continua sendo tratada pelas duas camadas acima.
 
 ### Retomada após falha transitória (v2.57.3)
 
