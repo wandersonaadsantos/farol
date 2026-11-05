@@ -58,7 +58,7 @@ io.run = async (_cmd, args) => {
 const { Engine } = await import('../server.js');
 const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
 isolateTechnicalTool();
-const { provaDaRetirada, retirarPedidoResolvido, textoDaRetirada } = await import('../lib/engine/retirada-de-pedido.js');
+const { provaDaRetirada, retirarPedidoResolvido, textoDaRetirada, marcaDaRodada, marcaDoCi } = await import('../lib/engine/retirada-de-pedido.js');
 const { publicTextLanguageIssues } = await import('../lib/engine/public-review.js');
 
 after(() => {
@@ -235,6 +235,60 @@ test('pedido pelo CI vermelho sai quando o check fecha verde no mesmo commit, se
   gh.rollup = [check('test', 'SUCCESS')];
   await e.varrerEsperas();
   assert.deepEqual(eventos(), ['DISMISS']);
+});
+
+test('CI vermelho depois da prova da rodada: com o check verde saem o pedido novo e o antigo', async () => {
+  const e = await duasRodadas(14, { checks: () => [{ nome: 'test', estado: 'vermelho' }] });
+  assert.deepEqual(eventos(), ['REQUEST_CHANGES']);
+  envios = [];
+  const pedidoPeloCi = e.decisions.resolved.find((d) => d.key === KEY(14) && d.headSha === HEAD);
+  assert.equal(pedidoPeloCi.status, 'auto_rejected');
+  gh.meus = [pedido({ id: 1 }), pedido({ id: 2, commit: HEAD, at: '2026-11-05T04:00:00Z' })];
+  await e.varrerEsperas();
+  assert.deepEqual(envios.map((x) => x.id), [1, 2]);
+});
+
+test('CI vermelho sem prova da rodada: com o check verde sai só o pedido do commit', async () => {
+  const e = comHistorico(15, [HEAD_VELHO]);
+  e.decisions.resolved.push({ key: KEY(15), id: 'd15', headSha: HEAD, status: 'auto_rejected', pr: PR(15), retiradaPendente: marcaDoCi(HEAD) });
+  gh.head = HEAD;
+  gh.meus = [pedido({ id: 1 }), pedido({ id: 2, commit: HEAD, at: '2026-11-05T04:00:00Z' })];
+  await e.varrerEsperas();
+  assert.deepEqual(envios.map((x) => x.id), [2]);
+});
+
+test('a marca do CI herda a prova da rodada só do mesmo head', () => {
+  assert.equal(marcaDoCi(HEAD, marcaDaRodada(HEAD)).comRodada, true);
+  assert.equal(marcaDoCi(HEAD, marcaDoCi(HEAD, marcaDaRodada(HEAD))).comRodada, true);
+  assert.equal(marcaDoCi(HEAD, marcaDaRodada(HEAD_VELHO)).comRodada, false);
+  assert.equal(marcaDoCi(HEAD).comRodada, false);
+});
+
+test('conta silenciada depois da análise conclui a retirada pelo recibo da revisão admitida', async () => {
+  let checks = [{ nome: 'test', estado: 'rodando' }];
+  const e = await duasRodadas(16, { aprova: 'wait', checks: () => checks });
+  const pendente = e.decisions.pending.find((x) => x.key === KEY(16));
+  assert.ok(pendente.trabalhoIniciado, 'a revisão deixou o recibo');
+  e.config.accounts[0].muted = true;
+  checks = [];
+  await e.varrerEsperas();
+  assert.deepEqual(eventos(), ['DISMISS']);
+});
+
+test('head sem confirmação no fim da rodada adia a retirada para a varredura', async () => {
+  const e = motor({ aprova: 'wait' });
+  await rodadaQuePede(e, 17);
+  sessaoQueResolve(e);
+  const lerHead = e.headSha.bind(e);
+  let leituras = 0;
+  e.headSha = async (pr) => (leituras++ === 0 ? lerHead(pr) : '');
+  await e.runHeadlessReview(PR(17));
+  assert.deepEqual(eventos(), []);
+  const marca = e.decisions.pending.find((x) => x.key === KEY(17)).retiradaPendente;
+  assert.equal(marca.head, HEAD);
+  gh.head = HEAD_NOVO;
+  await e.varrerEsperas();
+  assert.deepEqual(eventos(), [], 'o commit novo nunca revisado não recebe a retirada');
 });
 
 test('falha passageira ao retirar tenta de novo no ciclo seguinte, sem segurar a pendência', async () => {
