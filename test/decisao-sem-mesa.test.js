@@ -46,6 +46,7 @@ io.run = async (_cmd, args) => {
   if (sub.includes('--json state,headRefOid,author')) {
     return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ state: 'OPEN', headRefOid: gh.head, author: { login: 'dev' } }) };
   }
+  if (sub.includes('--json mergeable')) return { ok: true, code: 0, stdout: JSON.stringify({ mergeable: gh.mergeable }), stderr: '' };
   if (sub.includes('rules/branches/main')) return { ok: true, code: 0, stdout: JSON.stringify(gh.exigidos), stderr: '' };
   if (sub.includes('--json headRefOid')) return { ok: true, code: 0, stdout: gh.headDepois || gh.head, stderr: '' };
   if (sub.includes('--json state')) return { ok: true, code: 0, stdout: JSON.stringify({ state: 'OPEN' }), stderr: '' };
@@ -70,7 +71,7 @@ beforeEach(() => {
   envios = [];
   technicalRuntime.finishTechnicalReview = finishOriginal;
   gh = {
-    head: HEAD, headDepois: '', exigidos: ['test', 'audit'], meusReviews: [], reviewsAlheios: [], postFalha: '',
+    head: HEAD, headDepois: '', exigidos: ['test', 'audit'], meusReviews: [], reviewsAlheios: [], postFalha: '', mergeable: '',
     rollup: [check('test', 'SUCCESS'), check('audit', 'SUCCESS')],
   };
 });
@@ -704,9 +705,12 @@ test('violação técnica confirmada continua reprovando sem olhar causa', async
   assert.equal(resolvida(e, 74).status, 'auto_rejected');
 });
 
+// a marca do conflito precisa do updatedAt do PR para caducar (espera-conflito.js)
+const COM_DATA = { requested: true, updatedAt: '2026-11-05T10:00:00Z' };
+
 test('bloqueio só de conflito vai à espera do conflito, sem postar', async () => {
   const e = motor();
-  await revisar(e, 75, { extra: reprovando(['conflito']) });
+  await revisar(e, 75, { marcas: COM_DATA, extra: reprovando(['conflito']) });
   assert.deepEqual(envios, [], 'nada vai ao PR, nem APPROVE nem REQUEST_CHANGES');
   const d = pendente(e, 75);
   assert.equal(d.blockedKind, 'conflito');
@@ -714,6 +718,33 @@ test('bloqueio só de conflito vai à espera do conflito, sem postar', async () 
   assert.equal(e.esperaConflito['acme/app#75'].head, HEAD);
   semMesa(e);
 });
+
+// O conflito declarado pelo modelo é conferido no GitHub antes de virar espera (onda final,
+// 05/11/2026): o modelo pode ter lido um conflito que não existe, e a espera do conflito só
+// acaba com commit novo.
+test('conflito declarado com o GitHub dizendo MERGEABLE vai à mesa, sem marca de conflito', async () => {
+  gh.mergeable = 'MERGEABLE';
+  const e = motor();
+  await revisar(e, 84, { extra: reprovando(['conflito']) });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 84);
+  assert.notEqual(d.blockedKind, 'conflito');
+  assert.equal((e.esperaConflito || {})['acme/app#84'], undefined);
+  assert.ok(textos(d).includes('o relatório fala em conflito, mas o GitHub diz que o PR é mesclável: a decisão é sua'), textos(d).join(' | '));
+  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#84']]);
+});
+
+for (const mergeable of ['CONFLICTING', 'UNKNOWN']) {
+  test(`conflito declarado com o GitHub dizendo ${mergeable} segue na espera do conflito`, async () => {
+    gh.mergeable = mergeable;
+    const e = motor();
+    await revisar(e, 85, { marcas: COM_DATA, extra: reprovando(['conflito']) });
+    assert.deepEqual(envios, []);
+    assert.equal(pendente(e, 85).blockedKind, 'conflito');
+    assert.equal(e.esperaConflito['acme/app#85'].head, HEAD);
+    semMesa(e);
+  });
+}
 
 test('bloqueio só de ci arma a espera do CI e nunca aprova o que a revisão reprovou', async () => {
   const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });

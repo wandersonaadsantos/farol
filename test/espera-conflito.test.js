@@ -31,6 +31,25 @@ test('a leitura é reaproveitada enquanto o updatedAt não muda', async () => {
   assert.equal(ler.n, 2);
 });
 
+// Item sem updatedAt (prFromUrl: admin, comando, distribuição) casaria undefined === undefined, e um
+// CONFLICTING ficaria cacheado e segurando sem fim. Sem updatedAt: relê a cada vez e não grava marca.
+test('sem updatedAt, a leitura não é cacheada nem vira marca; segura só pela leitura do ciclo', async () => {
+  const e = fake(); const ler = leitor('CONFLICTING', 'MERGEABLE');
+  const semData = { ...PR, updatedAt: undefined };
+  assert.equal(await seguraPorConflito(e, semData, { agora: 1, ler }), true);
+  assert.equal(e.esperaConflito?.[PR.key], undefined, 'sem updatedAt a marca não teria como caducar');
+  assert.equal(e.toasts.length, 1, 'o aviso sai mesmo sem a marca');
+  assert.equal(await seguraPorConflito(e, semData, { agora: 2, ler }), false, 'relê e segue o GitHub');
+  assert.equal(ler.n, 2);
+});
+
+test('marca gravada sem updatedAt nunca segura pela trava síncrona', async () => {
+  const { marcaSegura } = await import('../lib/engine/espera-conflito.js');
+  const e = fake();
+  marcarConflito(e, PR.key, 'h1', 1, '');
+  assert.equal(marcaSegura(e, { ...PR, updatedAt: undefined }), false);
+});
+
 test('toast sai uma vez por PR e head', async () => {
   const e = fake(); const ler = leitor('CONFLICTING');
   await seguraPorConflito(e, PR, { agora: 1, ler });
