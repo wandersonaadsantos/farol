@@ -157,9 +157,9 @@ test('a rodada lê labels pela mesma chamada do estado e cancela com o motivo no
 
 test('label que entra durante as leituras não encerra a sessão', async () => {
   const e = engineVigiado({ head: HEAD, estados: [], labels: [] });
-  let chamadas = 0;
-  const getter = () => (chamadas++ === 0 ? '' : 'eu:revisando');
-  const d = await vigia.conferir(e, PR, 'sess-l3', HEAD, getter);
+  let label = '';
+  e.prEstadoELabels = async () => { label = 'eu:revisando'; return { estado: 'OPEN', labels: ['bug'] }; };
+  const d = await vigia.conferir(e, PR, 'sess-l3', HEAD, () => label);
   assert.equal(d.abandonar, false);
   assert.deepEqual(e.cancelados, []);
 });
