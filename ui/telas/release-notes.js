@@ -14,6 +14,12 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.35', [
+    'O pedido de mudanças que o Farol postou sai sozinho quando a re-revisão comprova que o problema foi resolvido, citando o commit',
+    'Retirar não é aprovar: a aprovação continua dependendo dos gates e da política da conta',
+    'O pedido feito por CI vermelho sai se o check ficar verde no mesmo commit',
+    'Pedido feito à mão e o de outros revisores ficam; na dúvida sobre quem fez, fica também',
+  ]],
   ['2.78.34', [
     'Regra só de organização vira sugestão e não reprova o PR sozinha.',
     'Segurança, entrada, isolamento e prova de comportamento continuam bloqueando.',
