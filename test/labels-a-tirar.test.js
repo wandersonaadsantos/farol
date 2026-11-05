@@ -245,3 +245,13 @@ for (const [origem, limpar] of [
   assert.equal(Object.values(lerArquivo()).length, 1);
   assert.equal(e.activeReviews.size, 1);
 });
+
+test("instância isolada não tira label: devolve true sem chamar o gh nem logar", async () => {
+  const { remover } = await import("../lib/engine/labels-a-tirar.js");
+  let chamou = false;
+  const e = motor();
+  const ok = await remover(e, PR, "eu:revisando", async () => { chamou = true; return { ok: true }; }, "eu", { isolada: true });
+  assert.equal(ok, true);
+  assert.equal(chamou, false);
+  assert.deepEqual(e.logs, []);
+});

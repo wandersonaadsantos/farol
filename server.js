@@ -61,6 +61,7 @@ import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import meusPrsBase from './lib/engine/meus-prs-base.js';
 import labelsATirar from './lib/engine/labels-a-tirar.js';
+import labelPropriaOrfa from './lib/engine/label-propria-orfa.js';
 import { registrarBaseline, lerBaseline } from './lib/engine/baseline.js';
 import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
@@ -894,6 +895,7 @@ class Engine extends EventEmitter {
       try { await meusPrsBase.refreshBaseDosMeusPRs(this); } catch (e) { this.log('WARN', `base dos meus PRs: ${e.message}`); }
       // label :revisando cuja remoção falhou no fim da revisão (labels-a-tirar.js)
       try { await labelsATirar.tirarPendentes(this); } catch (e) { this.log('WARN', `labels a tirar: ${e.message}`); }
+      try { await labelPropriaOrfa.tirarOrfas(this, panorama); } catch (e) { this.log('WARN', `label própria sem dono: ${e.message}`); }
       // sincronização entre dispositivos: presença e reconexão. Desligada custa zero, e
       // falha dela vira estado da própria sincronização, nunca erro do ciclo.
       sincronizou = true;
