@@ -263,6 +263,7 @@ function wireEngine() {
   // como comentário (lib/engine/desfecho-da-revisao.js e espera-pr-proprio.js, v2.72.12)
   engine.on('auto-commented', notificar('auto-commented'));
   engine.on('tool-done', notificar('tool-done'));
+  engine.on('review-started', notificar('review-started'));
   engine.on('intervention', raw => {
     const event = interventionEvent(raw); if (!event) return;
     const aviso = avisoDe('intervention', raw, { config: engine.config });

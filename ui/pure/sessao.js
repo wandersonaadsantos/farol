@@ -206,6 +206,14 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
   // autor desconhecido não inventam linha: a menção só existe quando há alguém.
   const autor = String(s.pr?.author || '').trim();
   const quemPR = autor ? `<span class="session-author">PR de ${personMention(autor, 'xs')}</span>` : '';
+  // quem pediu a revisão automática (B1): só sessão que leu a timeline (`pedido` existe, mesmo
+  // null); time é dito sem menção de pessoa; leitura que falhou diz que não identificou
+  const p = s.pedido;
+  const autorDoPedido = p && p.time ? 'um time' : p && personMention(p.por, 'xs');
+  let quemPediu = '';
+  if (p) quemPediu = `pedida por ${autorDoPedido} às ${fmtClock(Date.parse(p.em))}`;
+  else if (p === null) quemPediu = 'pedido não identificado';
+  const pedido = quemPediu ? `<span class="session-requested">${quemPediu}</span>` : '';
   const cancelamentoDisabled = s.cancelled ? ' disabled' : '';
   const cancelamentoTexto = s.cancelled ? 'Cancelando…' : 'Cancelar';
   const cancelar = s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${id}"${cancelamentoDisabled}>${cancelamentoTexto}</button>` : '';
@@ -216,6 +224,7 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
           <span class="session-model" data-id="${id}" hidden></span>
           <span class="session-agents" data-id="${id}" hidden></span>
           ${quemPR}
+          ${pedido}
           ${linkPR}
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${cancelar}
