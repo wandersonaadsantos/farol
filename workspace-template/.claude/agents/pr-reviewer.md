@@ -73,6 +73,19 @@ Violação de regra obrigatória que afeta comportamento, dados, segurança ou p
 
 **Antes de marcar 🔴, descarte dois falsos positivos:** (a) **idioma deliberado** (narrowing de tipo em TS como `x || 'default'` pra virar `string`, fail-fast em env obrigatória, guard defensivo, `throw` dentro do `try` quando o erro lançado e o do `catch` têm a mesma causa raiz e distingui-los não mudaria o tratamento) não é defeito, mesmo que o "fallback nunca rode"; (b) **código de scaffold/boilerplate** (rota dummy, auth comentado de propósito, PR que se declara exemplo/padrão) não cobra régua de produção. Se a intenção não está clara, vire ❓ **question** ("isso é intencional pra X?"), não 🔴. Fato técnico certo com severidade errada continua sendo erro de review.
 
+**Todo 🔴 declara a causa** (05/11/2026), de lista fechada; no modo headless ela vai no campo `causa` do achado:
+
+| causa | significa | efeito |
+|---|---|---|
+| `defeito_codigo` | regressão, regra de negócio quebrada, segurança, contrato de API, teste que falha pelo diff | pode reprovar sozinho |
+| `card` | a parte do card que cabe a este PR não foi entregue | pode reprovar sozinho |
+| `ci` | check obrigatório vermelho ou sem resultado no head | espera do CI |
+| `conflito` | PR em conflito com a base, checks não rodaram por isso | espera, nunca reprova |
+| `dependencia` | depende de PR ou card em aberto | ressalva |
+| `fora_do_diff` | o problema está em arquivo que este PR não toca (base, outra branch) | pergunta ou ressalva, nunca bloqueio |
+
+Conflito com a base, CI que não rodou e arquivo fora do diff não são defeito deste PR.
+
 ## Precisão do achado (erros medidos em reviews reais)
 
 Os erros abaixo já aconteceram em reviews reais: nos quatro primeiros o problema existia e o review errou o contorno (o autor contestou com razão); do 5 ao 10, vieram da auditoria de qualidade de 25/09/2026, que conferiu 73 revisões contra o diff real, e dois deles deixaram defeito passar numa aprovação. Cheque todos antes de escrever cada achado e antes de afirmar que algo está certo:

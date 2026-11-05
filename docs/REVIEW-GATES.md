@@ -238,6 +238,39 @@ em automático na classe do resultado:
 - PR da própria conta com a conta em `wait`, ou sem texto para comentar;
 - conta silenciada não inicia novos trabalhos; a revisão já iniciada pode concluir e postar pela conta original. A conclusão adiada pelo CI ou por falha de envio exige o mesmo commit e uma decisão persistida dessa sessão. Silenciar não cancela sessões nem remove credenciais. Sem token ou fora do orçamento, o impedimento continua aparecendo onde sempre apareceu.
 
+### Bloqueio de estado não reprova (05/11/2026)
+
+Medido no dia, três REQUEST_CHANGES automáticos postados sem defeito do código: tenant-company#293
+(conflito com a base e CI que não rodou), biud-frontend#1784 (seletores de e2e em arquivos fora do
+diff) e engine-ai#880 (critério do card e SQL duplicado). O modelo marcava `blocking` e a conta,
+em `onReject: request_changes`, reprovava em público pelo estado do PR.
+
+Desde então todo achado `blocking` vigente do envelope declara `causa`, de lista fechada
+(`CAUSAS` em `lib/engine/review-findings-contract.js`, reexportada por `review-findings.js`):
+
+| causa | significa | efeito no desfecho automático |
+|---|---|---|
+| `defeito_codigo` | regressão, regra de negócio quebrada, segurança, contrato de API, teste que falha pelo diff | pode reprovar sozinho |
+| `card` | a parte do card que cabe a este PR não foi entregue | pode reprovar sozinho |
+| `ci` | check obrigatório vermelho ou sem resultado no head | espera do CI (`espera-ci.js`); o pedido pelo CI vermelho segue a regra de 18/10/2026, e o CI verde não vira APPROVE: a decisão volta para a mesa |
+| `conflito` | PR em conflito com a base, checks não rodaram por isso | espera do conflito (`espera-conflito.js`, `blockedKind: 'conflito'`), que o commit novo destrava |
+| `dependencia` | depende de PR ou card em aberto | mesa, com o texto da revisão no card |
+| `fora_do_diff` | o problema está em arquivo que este PR não toca (base, outra branch) | mesa, com o texto da revisão no card |
+
+Regras, PURAS, em `lib/engine/desfecho-automatico.js`: `bloqueiosSoDeEstado` (há bloqueio e nenhum
+com causa em `CAUSAS_QUE_REPROVAM`), `reprovacaoSoDeEstado` (o mesmo com o veredito
+`request_changes` e sem `defeitosDoPr`) e `causaDaEspera` (`ci`, senão `conflito`, senão `mesa`).
+`shouldAutoReject` recusa a reprovação só de estado e o `registrarPendencia`
+(`desfecho-da-revisao.js`) a leva à espera ou à mesa com o motivo `bloqueio_de_estado` no card.
+O que a avaliação técnica provou (`defeitosDoPr`: violação confirmada, achado não resolvido, a
+parte do card) reprova sem olhar a causa. O motor nunca escreve um APPROVE que a revisão não
+concluiu, e o texto da revisão barrado por causa de estado fica no card, nunca no PR. Bloqueio sem
+causa, ou com causa fora da lista, é envelope fora do contrato (`review_inconsistent`) e vai à
+recuperação durável. Envelope legado, sem `findings`, segue a regra de antes. A memória de rodadas
+gravada antes da causa continua legível (`review-round-store.js` não exige a causa). Vale só para a
+decisão automática: no clique e no chat a pessoa escolhe o que posta. Travado em
+`test/decisao-sem-mesa.test.js`, `test/review-rounds.test.js` e `test/motivo-recusa-visivel.test.js`.
+
 ## Todos os caminhos que produzem parecer ou postagem (26/09/2026)
 
 "Qualidade do review" só tem sentido se for dita por caminho, porque nem todo caminho que escreve no GitHub passou por uma revisão do Farol. O inventário abaixo foi levantado lendo o código em 26/09/2026. **Só o caminho 1 (e os que desembocam nele) produz review qualificado automaticamente**; os outros são decisão humana consciente, endosso, ou nem são review, e a régua de cada um está dita. Todo review que o Farol posta sai por UM funil, `postReview` (`lib/engine/decision.js`): conta dona, schema, linguagem pública, token, PR aberto, e a arbitragem entre aparelhos quando ligada.

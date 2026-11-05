@@ -7,7 +7,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-rounds-'));
 process.env.FAROL_HOME = home;
-const { normalizeFindings, classifyFindings, roundMemoryBlock, roundGap } = await import('../lib/engine/review-findings.js');
+const { normalizeFindings, classifyFindings, roundMemoryBlock, roundGap, causasDosBloqueios } = await import('../lib/engine/review-findings.js');
 const store = await import('../lib/engine/review-round-store.js');
 after(() => fs.rmSync(home, { recursive: true, force: true }));
 
@@ -28,7 +28,7 @@ test('achados ausentes são legado, formato incorreto é inválido e lista vazia
 });
 
 test('não corta 61 blockers nem resume a memória em 40 itens', () => {
-  const raw = Array.from({ length: 61 }, (_, i) => ({ ...blocker, title: `Achado ${i}` }));
+  const raw = Array.from({ length: 61 }, (_, i) => ({ ...blocker, causa: 'defeito_codigo', title: `Achado ${i}` }));
   const normalized = normalizeFindings(raw);
   assert.equal(normalized.findings.length, 61);
   const r = round({ findings: raw, unresolved: raw.map((f, i) => ({ ...f, id: `f${i}` })) });
@@ -166,4 +166,36 @@ test('resolução feita sem inventário ou com memória inconclusiva não apaga 
   const normalized = normalizeFindings([answer]);
   assert.equal(classifyFindings(context(), normalized, null).unresolved.length, 1);
   assert.equal(classifyFindings({ ...context(), status: 'unavailable' }, normalized, files).unresolved.length, 1);
+});
+
+// Todo bloqueio declara a causa (05/11/2026, C1): o motor decide pelo motivo do bloqueio, e o
+// bloqueio sem causa, ou com causa fora da lista, é envelope fora do contrato.
+test('blocking sem causa é achado inválido; suggestion sem causa é válida', () => {
+  const r = normalizeFindings([blocker]);
+  assert.equal(r.status, 'invalid');
+  assert.deepEqual(r.issues, ['achado bloqueante 1 sem causa declarada']);
+  assert.equal(normalizeFindings([{ ...blocker, causa: 'opiniao' }]).status, 'invalid');
+  const ok = normalizeFindings([{ ...blocker, causa: 'conflito' }]);
+  assert.equal(ok.status, 'complete');
+  assert.equal(ok.findings[0].causa, 'conflito');
+  const sugestao = normalizeFindings([{ ...blocker, severity: 'suggestion' }]);
+  assert.equal(sugestao.status, 'complete');
+  assert.equal(Object.hasOwn(sugestao.findings[0], 'causa'), false, 'achado que não bloqueia ignora a causa');
+  assert.equal(normalizeFindings([{ ...blocker, severity: 'question', causa: 'qualquer' }]).status, 'complete');
+});
+
+test('causasDosBloqueios ignora resolvidos e retirados', () => {
+  const r = { findings: [
+    { ...blocker, causa: 'ci' },
+    { ...blocker, causa: 'defeito_codigo', ref: 'x', status: 'resolvido', evidence: 'b.ts:1' },
+    { ...blocker, causa: 'card', ref: 'y', status: 'retirado', evidence: 'b.ts:2' },
+    { ...blocker, causa: 'conflito', ref: 'z', status: 'persiste' },
+    { ...blocker, severity: 'suggestion' },
+  ] };
+  assert.deepEqual([...causasDosBloqueios(r)].sort(), ['ci', 'conflito']);
+  assert.equal(causasDosBloqueios({}).size, 0, 'envelope legado não tem bloqueio declarado');
+});
+
+test('a memória gravada antes da causa continua legível', () => {
+  assert.equal(store.validRound(round(), scope), true, 'rodada antiga, com bloqueio sem causa, não vira memória corrompida');
 });

@@ -71,6 +71,15 @@ test('envelope incompleto é explicado como envelope, não como achado do códig
   assert.match(DECISION, /não devolveu o APPROVE pronto pra postar/);
 });
 
+// 05/11/2026: a reprovação apoiada só no estado do PR não sai sozinha, e o card diz por quê
+// com o texto que mora junto dos outros motivos, lido pelo desfecho da revisão.
+test('o bloqueio de estado tem texto próprio e o desfecho o lê', async () => {
+  const { textoDaRecusa } = await import('../lib/engine/approval-policy.js');
+  assert.equal(textoDaRecusa({}, {}, 'bloqueio_de_estado', {}),
+    'a reprovação se apoia só no estado do PR (CI, conflito, dependência ou arquivo fora do diff), não em defeito do código: espera, sem reprovar');
+  assert.ok(REVIEW.includes("textoDaRecusa(engine, pr, 'bloqueio_de_estado', result)"));
+});
+
 test('nao_aprovavel só fala quando a revisão concluiu aprovar', () => {
   assert.match(DECISION, /nao_aprovavel: \(_e, _pr, r\) => \(r\.verdict === 'approve' \?/,
     'em request_changes e needs_decision esse motivo é o caminho normal e falar dele seria ruído');

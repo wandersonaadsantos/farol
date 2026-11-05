@@ -280,7 +280,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
    distribuição) posta pela política, e só a origem sem marca nenhuma não posta; defeito do
    PR (violação, achado, parte do card) e CI obrigatório vermelho viram REQUEST_CHANGES com
    a conta reprovando sozinha (o do CI uma vez por head, e o APPROVE sai por cima quando a
-   pipe fechar verde no mesmo commit); decisão de gente no head (aprovação ou recusa) segura a rodada automática e, se chegar
+   pipe fechar verde no mesmo commit); desde 05/11/2026 o bloqueio que o modelo declara com causa de estado (ci, conflito, dependencia, fora_do_diff) não reprova sozinho: espera ou mesa (ver [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md#bloqueio-de-estado-não-reprova-05112026)); decisão de gente no head (aprovação ou recusa) segura a rodada automática e, se chegar
    durante a espera do CI, dispensa a aprovação sem postar; PR da própria conta sai como COMMENT (o GitHub recusa a revisão decisiva do
    autor); resultado incompleto da sessão entra na recuperação durável no mesmo commit; texto
    barrado pela trava de linguagem é reconstruído uma vez. A mesa que sobra tem motivo
