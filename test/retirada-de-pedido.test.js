@@ -475,7 +475,7 @@ const RECUSAS = [
   ['análise incompleta', () => ({ analysisStatus: 'incomplete' })],
   ['veredito de reprovação', () => ({ verdict: 'request_changes' })],
   ['defeito técnico confirmado', () => ({ approvalEvidence: ['violação técnica confirmada'] })],
-  ['prova esgotada', () => ({ provaEsgotada: true })],
+  ['prova esgotada que dispensou lacuna', () => ({ provaEsgotada: true, coverage: { total: 1, reviewed: [], missing: [ARQUIVO] } })],
   ['cobertura com pendência', () => ({ coverage: { total: 1, reviewed: [], missing: [ARQUIVO] } })],
 ];
 RECUSAS.forEach(([nome, mudar], i) => {
@@ -483,6 +483,12 @@ RECUSAS.forEach(([nome, mudar], i) => {
     const { e, base } = await resultadoReal(50 + i);
     assert.equal(provaDaRetirada(e, PR(50 + i), { ...base, ...mudar(base) }), 'nao');
   });
+});
+
+// biud-esg#522: a última tentativa permitida fechou tudo; a marca sozinha não segura o pedido
+test('prova esgotada sem lacuna dispensada retira como qualquer rodada', async () => {
+  const { e, base } = await resultadoReal(60);
+  assert.equal(provaDaRetirada(e, PR(60), { ...base, provaEsgotada: true }), 'sim');
 });
 
 const SO_CI = [
