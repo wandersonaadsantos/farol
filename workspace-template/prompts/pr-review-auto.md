@@ -202,8 +202,8 @@ causa fora da lista, é envelope fora do contrato e nada é publicado):
 - `card`: a parte do card que cabe a este PR não foi entregue; pode reprovar sozinho.
 - `ci`: check obrigatório vermelho ou sem resultado no head; o motor espera o CI.
 - `conflito`: PR em conflito com a base, checks não rodaram por isso; o motor espera, nunca reprova.
-- `dependencia`: depende de PR ou card em aberto; vira ressalva.
-- `fora_do_diff`: o problema está em arquivo que este PR não toca (base, outra branch); pergunta ou ressalva, nunca bloqueio.
+- `dependencia`: depende de PR ou card em aberto; o motor leva à mesa, nunca reprova.
+- `fora_do_diff`: o problema está em arquivo que este PR não toca (base, outra branch); o motor leva à mesa, nunca reprova.
 Achados novos usam ref e status null. Responda cada blocker anterior pelo ID recebido.
 Não rebaixe um blocker para fazê-lo desaparecer: explique a retirada com evidência.
 Não corte a lista para caber num limite de itens; se faltar contexto, conclua com

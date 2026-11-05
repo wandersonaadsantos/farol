@@ -81,8 +81,8 @@ Violação de regra obrigatória que afeta comportamento, dados, segurança ou p
 | `card` | a parte do card que cabe a este PR não foi entregue | pode reprovar sozinho |
 | `ci` | check obrigatório vermelho ou sem resultado no head | espera do CI |
 | `conflito` | PR em conflito com a base, checks não rodaram por isso | espera, nunca reprova |
-| `dependencia` | depende de PR ou card em aberto | ressalva |
-| `fora_do_diff` | o problema está em arquivo que este PR não toca (base, outra branch) | pergunta ou ressalva, nunca bloqueio |
+| `dependencia` | depende de PR ou card em aberto | mesa, nunca reprova |
+| `fora_do_diff` | o problema está em arquivo que este PR não toca (base, outra branch) | mesa, nunca reprova |
 
 Conflito com a base, CI que não rodou e arquivo fora do diff não são defeito deste PR.
 

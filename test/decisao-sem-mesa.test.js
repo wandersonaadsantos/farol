@@ -722,12 +722,45 @@ test('bloqueio só de ci arma a espera do CI e nunca aprova o que a revisão rep
   const d = pendente(e, 76);
   assert.ok(d.esperaCi, 'a espera do CI de sempre');
   assert.match(textos(d)[0], /não em defeito do código/);
+  // o card não promete a aprovação que nunca sai, nem quando a varredura troca a linha da espera
+  const semPromessa = (x) => {
+    assert.ok(textos(x).includes('espero o CI obrigatório neste commit; com ele verde, a decisão volta para você'), textos(x).join(' | '));
+    assert.doesNotMatch(textos(x).join(' | '), /a aprovação está esperando o CI|sai sozinha/);
+  };
+  semPromessa(d);
   semMesa(e);
+  gh.rollup = [check('test', '', 'IN_PROGRESS'), check('audit', '', 'IN_PROGRESS')];
+  assert.equal(await e.varrerEsperas(), 0);
+  semPromessa(pendente(e, 76));
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, [], 'CI verde não transforma o pedido de mudanças em APPROVE');
   assert.ok(pendente(e, 76), 'a decisão volta para você');
   assert.equal(pendente(e, 76).esperaCi, null);
+});
+
+for (const [lado, opcoes, marcas] of [
+  ['conta que espera você', { reprova: 'wait' }, { requested: true }],
+  ['origem desconhecida', {}, {}],
+]) {
+  test(`bloqueio só de ci com ${lado}: mesa, sem armar a espera do CI`, async () => {
+    const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }], ...opcoes });
+    await revisar(e, 82, { marcas, extra: reprovando(['ci']) });
+    assert.deepEqual(envios, []);
+    const d = pendente(e, 82);
+    assert.equal(d.esperaCi, undefined, 'a espera do CI é da conta que reprova sozinha');
+    assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#82']]);
+  });
+}
+
+test('ci e conflito com o CI já verde: a espera do conflito segura antes da mesa', async () => {
+  const e = motor();
+  await revisar(e, 83, { extra: reprovando(['ci', 'conflito']) });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 83);
+  assert.equal(d.esperaCi, undefined);
+  assert.equal(d.blockedKind, 'conflito');
+  semMesa(e);
 });
 
 test('bloqueio só de ci com o CI vermelho: o pedido pelo CI segue a regra de 18/10/2026', async () => {
