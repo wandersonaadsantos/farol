@@ -18,7 +18,7 @@ import { snapshotDecisions } from './lib/engine/snapshot-decisions.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
-  executadoDireto, rodandoComoRoot, sinaisDoModoCelular, modoCasca, APP_VERSION, APP_NAME, IS_WIN, IS_MAC, IS_LINUX,
+  instanciaIsolada, executadoDireto, rodandoComoRoot, sinaisDoModoCelular, modoCasca, APP_VERSION, APP_NAME, IS_WIN, IS_MAC, IS_LINUX,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, CLAUDE_JSON_DA_CONFIANCA,
 } from './lib/paths.js';
@@ -1694,6 +1694,7 @@ class Engine extends EventEmitter {
       // então desligar o toggle não salva ninguém. Sem este campo, o sintoma é
       // um "saiu com código 1" por ciclo, pra sempre, com o doctor todo verde.
       root: rodandoComoRoot(),
+      instanciaIsolada, // FAROL_HOME fora de ~/.farol: não escreve no GitHub sem opt-in por arquivo
       home: HOME,
       workspace: WORKSPACE,
       claudeAuth: this.allClaudeAuthInfo(), // status de cada perfil de assinatura Claude salvo
