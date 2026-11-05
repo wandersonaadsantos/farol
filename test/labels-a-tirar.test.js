@@ -86,14 +86,28 @@ test('conta sem token não chama o gh e não perde a anotação', async () => {
   assert.ok(e.labelsATirar[PR.key]);
 });
 
-test('pendência antiga continua sendo tentada em vez de desaparecer após sete dias', async () => {
+test('falha repetida grava UM WARN, não um por tentativa', async () => {
+  const e = motor();
+  io.run = async () => ({ ok: false, code: 1, stdout: '', stderr: 'rede' });
+  await removeInProgressLabel(e, PR, 'eu:revisando');
+  const falha = async () => ({ ok: false, stderr: 'rede' });
+  await tirarPendentes(e, falha);
+  await tirarPendentes(e, falha);
+  assert.equal(e.logs.filter(l => /não saiu de/.test(l)).length, 1);
+  assert.equal(Object.values(lerArquivo())[0].avisado, true);
+});
+
+test('pendência com mais de 7 dias é descartada com um WARN e sem chamar gh', async () => {
   const e = motor();
   const agora = Date.now();
-  e.labelsATirar = { [PR.key]: { url: PR.url, label: 'eu:revisando', desde: agora - 8 * 24 * 3600 * 1000 } };
+  e.labelsATirar = { [PR.key]: { key: PR.key, url: PR.url, label: 'eu:revisando', desde: agora - 8 * 24 * 3600 * 1000 } };
   let chamou = false;
   await tirarPendentes(e, async () => { chamou = true; return { ok: true }; }, agora);
-  assert.equal(chamou, true);
+  assert.equal(chamou, false);
   assert.deepEqual(e.labelsATirar, {});
+  assert.deepEqual(lerArquivo(), {});
+  assert.equal(e.logs.length, 1);
+  assert.match(e.logs[0], /7 dias/);
 });
 
 test('pendências de duas contas no mesmo PR são preservadas e removidas individualmente', async () => {
