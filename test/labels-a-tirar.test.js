@@ -110,6 +110,28 @@ test('pendência com mais de 7 dias é descartada com um WARN e sem chamar gh', 
   assert.match(e.logs[0], /7 dias/);
 });
 
+test('pendência dentro do prazo (6 dias) ainda é tentada e removida', async () => {
+  const e = motor();
+  const agora = Date.now();
+  e.labelsATirar = { [PR.key]: { key: PR.key, url: PR.url, label: 'eu:revisando', desde: agora - 6 * 24 * 3600 * 1000 } };
+  let chamou = false;
+  await tirarPendentes(e, async () => { chamou = true; return { ok: true }; }, agora);
+  assert.equal(chamou, true);
+  assert.deepEqual(e.labelsATirar, {});
+  assert.equal(e.logs.length, 0);
+});
+
+test('pendência sem desde válido não é descartada: é tentada e reancorada', async () => {
+  const e = motor();
+  const agora = Date.now();
+  e.labelsATirar = { [PR.key]: { key: PR.key, url: PR.url, label: 'eu:revisando' } };
+  let chamou = false;
+  await tirarPendentes(e, async () => { chamou = true; return { ok: false, stderr: 'rede' }; }, agora);
+  assert.equal(chamou, true);
+  assert.equal(Object.values(lerArquivo())[0].desde, agora);
+  assert.ok(!e.logs.some(l => /7 dias/.test(l)));
+});
+
 test('pendências de duas contas no mesmo PR são preservadas e removidas individualmente', async () => {
   const e = motor();
   anotar(e, PR, 'eu:revisando'); anotar(e, PR, 'outra:revisando');
