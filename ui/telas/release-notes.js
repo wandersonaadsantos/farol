@@ -14,6 +14,10 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.37', [
+    'O Revisar tudo não relança PR já decidido por uma pessoa nem PR cujo pedido de revisão saiu',
+    'O mesmo PR não abre mais duas revisões ao mesmo tempo',
+  ]],
   ['2.78.36', [
     'PR com aprovação ou recusa de uma pessoa no commit atual não é reanalisado sozinho; o botão Revisar continua valendo',
     'Se o pedido de revisão sair enquanto o PR espera na fila, a revisão não começa',
