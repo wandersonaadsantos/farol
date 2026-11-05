@@ -373,7 +373,7 @@ const RESOLVED_LABELS = {
   posted: ['📬', 'postado por você'],
   already_reviewed: ['✔', 'já revisado por você (não repostei)'],
   commented_own_pr: ['💬', 'comentado sozinho (PR da própria conta)'],
-  approval_not_needed: ['👥', 'aprovação automática não necessária (duas pessoas aprovaram)'],
+  approval_not_needed: ['👥', 'aprovação automática não necessária (outra pessoa já decidiu)'],
   already_merged: ['🔀', 'já foi mergeado (cancelei a revisão pendente)'],
   already_closed: ['🚫', 'PR fechado sem merge (cancelei a revisão pendente)'],
   skipped: ['⏭', 'pulado'],

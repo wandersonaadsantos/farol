@@ -41,7 +41,7 @@ const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/
 const CORPO = 'Leitura atenta, tudo certo por aqui.';
 const POST = ['api', 'repos/o/r/pulls/1/reviews', '--input', '<arquivo>'];
 const MEUS = ['api', 'repos/o/r/pulls/1/reviews', '--paginate', '--jq', '[.[] | select((.user.login | ascii_downcase) == "eu") | {state, submitted_at, commit_id, body}]'];
-const OUTROS = ['api', 'repos/o/r/pulls/1/reviews', '--jq', '[.[] | select((.user.login | ascii_downcase) != "eu") | {quem: .user.login, tipo: .user.type, state, commit_id}]'];
+const OUTROS = ['api', 'repos/o/r/pulls/1/reviews?per_page=100', '--jq', '[.[] | select((.user.login | ascii_downcase) != "eu") | {quem: .user.login, tipo: .user.type, state, commit_id}]'];
 const VAZIO = { ok: true, code: 0, stdout: '[]', stderr: '' };
 const OK_POST = { ok: true, code: 0, stdout: '{"id":1}', stderr: '' };
 const RECUSA = { ok: false, code: 1, stdout: '{"message":"Unprocessable Entity","errors":["commit_id inválido"]}', stderr: 'gh: Unprocessable Entity (HTTP 422)' };

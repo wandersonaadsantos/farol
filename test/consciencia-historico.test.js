@@ -3,10 +3,9 @@
 // reprovou que não seja o acrity, não fazemos review a menos que haja ação
 // manual. Se ninguém está revisando e não temos histórico de review no head
 // ativo então devemos seguir na revisão automatizada." O que se prova aqui:
-// - bloqueadoPorHistorico bloqueia com reprovação de OUTRA pessoa no head
-//   ATIVO (a primeira já basta) ou com DUAS aprovações humanas (o "(máximo 2)"
-//   da regra: com uma só, a revisão automática ainda vale como a segunda);
-//   cada pessoa conta pelo ÚLTIMO estado decisivo dela; ferramenta (acrity),
+// - bloqueadoPorHistorico bloqueia com qualquer aprovação ou reprovação de
+//   OUTRA pessoa no head ATIVO (05/11/2026), salvo meu pedido aberto em commit
+//   anterior, que só a rodada consegue retirar; cada pessoa conta pelo ÚLTIMO estado decisivo dela; ferramenta (acrity),
 //   DISMISSED, COMMENTED e head antigo nunca bloqueiam; falta de dado (sem
 //   head, sem rede) NUNCA bloqueia, porque o pior caso é revisão redundante,
 //   nunca post errado.
@@ -58,12 +57,43 @@ function engineFalso(extra = {}) {
   };
 }
 
-test('UMA aprovação de outra pessoa NÃO bloqueia (a automática ainda vale como a segunda)', async (t) => {
+test('UMA aprovação de outra pessoa bloqueia: head decidido não é reanalisado (05/11/2026)', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [{ quem: 'ana', state: 'APPROVED', commit_id: 'sha1' }]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, true);
+  assert.deepEqual(r.quem, ['ana']);
+});
+
+const PEDIDO_AUTOMATICO = { resolved: [{ key: PR.key, headSha: 'sha0', status: 'auto_rejected', pr: { account: 'eu' } }], pending: [] };
+
+test('meu pedido automático aberto em commit anterior: aprovação de gente não segura a rodada que retira o pedido', async (t) => {
+  const e = engineFalso({ decisions: PEDIDO_AUTOMATICO, staleInfo: { [PR.key]: { stale: true, head: 'sha1', lastState: 'CHANGES_REQUESTED' } } });
+  t.after(espiaReviews(e, [{ quem: 'ana', state: 'APPROVED', commit_id: 'sha1' }]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
   assert.equal(r.bloqueado, false);
-  assert.deepEqual(r.quem, []);
+  assert.equal(r.decidido, true, 'o fato continua lá: a rodada roda, mas não aprova por cima');
+});
+
+test('pedido feito à mão não libera a rodada: ela não o retiraria', async (t) => {
+  const e = engineFalso({ decisions: { resolved: [], pending: [] }, staleInfo: { [PR.key]: { stale: true, head: 'sha1', lastState: 'CHANGES_REQUESTED' } } });
+  t.after(espiaReviews(e, [{ quem: 'ana', state: 'APPROVED', commit_id: 'sha1' }]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, true);
+});
+
+test('meu pedido aberto não atravessa a recusa de gente: o PR segue parado por ela de qualquer jeito', async (t) => {
+  const e = engineFalso({ decisions: PEDIDO_AUTOMATICO, staleInfo: { [PR.key]: { stale: true, head: 'sha1', lastState: 'CHANGES_REQUESTED' } } });
+  t.after(espiaReviews(e, [{ quem: 'ana', state: 'CHANGES_REQUESTED', commit_id: 'sha1' }]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, true);
+});
+
+test('minha aprovação em commit anterior não é exceção: decisão de gente no head segura', async (t) => {
+  const e = engineFalso({ staleInfo: { [PR.key]: { stale: true, head: 'sha1', lastState: 'APPROVED' } } });
+  t.after(espiaReviews(e, [{ quem: 'ana', state: 'APPROVED', commit_id: 'sha1' }]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, true);
 });
 
 test('DUAS aprovações humanas no head ativo bloqueiam (o teto do fluxo do time)', async (t) => {
@@ -78,14 +108,15 @@ test('DUAS aprovações humanas no head ativo bloqueiam (o teto do fluxo do time
   assert.deepEqual(r.quem, ['ana', 'zoe']);
 });
 
-test('duas aprovações sendo uma do acrity NÃO bloqueiam (ferramenta não conta no teto)', async (t) => {
+test('aprovação de gente junto da do acrity: quem segura é a pessoa, a ferramenta não entra na lista', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [
     { quem: 'ana', state: 'APPROVED', commit_id: 'sha1' },
     { quem: 'acrity', state: 'APPROVED', commit_id: 'sha1' },
   ]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, false);
+  assert.equal(r.bloqueado, true);
+  assert.deepEqual(r.quem, ['ana']);
 });
 
 test('reprovação seguida de aprovação da MESMA pessoa conta como aprovação (último estado vence)', async (t) => {
@@ -95,17 +126,18 @@ test('reprovação seguida de aprovação da MESMA pessoa conta como aprovação
     { quem: 'ana', state: 'APPROVED', commit_id: 'sha1' },
   ]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, false, 'a ressalva dela foi atendida e virou a primeira aprovação');
+  assert.equal(r.bloqueado, true);
+  assert.deepEqual(r.decisivos, [{ quem: 'ana', state: 'APPROVED' }], 'o último estado dela vale, sem contar duas vezes');
+  assert.deepEqual(r.pediramMudancas, []);
 });
 
-// A decisão sem mesa (18/10/2026): pedido de mudanças de gente não segura mais a revisão
-// automática. Ele fica no GitHub, a revisão do Farol sai pela política da conta, e o retorno
-// diz quem pediu (para o log), sem bloquear.
-test('CHANGES_REQUESTED de outra pessoa no head ativo NÃO bloqueia (fica registrado e a política decide)', async (t) => {
+// Regra de 05/11/2026: recusa de gente no head também segura. Substitui a decisão sem mesa de
+// 18/10/2026, em que ela só ficava registrada e a revisão do Farol saía pela política da conta.
+test('CHANGES_REQUESTED de outra pessoa no head ativo bloqueia (05/11/2026)', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [{ quem: 'ana', state: 'CHANGES_REQUESTED', commit_id: 'sha1' }]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, false);
+  assert.equal(r.bloqueado, true);
   assert.deepEqual(r.pediramMudancas, ['ana']);
 });
 
@@ -138,7 +170,8 @@ test('login real do acrity SEM o type (jq antigo, cópia velha) também não blo
   const e = engineFalso();
   t.after(espiaReviews(e, [{ quem: 'acrity-advesarial-code-review[bot]', state: 'APPROVED', commit_id: 'sha1' }, { quem: 'ana', state: 'APPROVED', commit_id: 'sha1' }]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, false, 'uma aprovação humana só não fecha o teto de duas');
+  assert.equal(r.bloqueado, true);
+  assert.deepEqual(r.quem, ['ana'], 'o bot não entra, mesmo sem o type');
 });
 
 // a regra vale pra QUALQUER ferramenta, não só a que doeu: review de bot não
@@ -212,8 +245,8 @@ test('duas aprovações dispensam a automática mesmo com um pedido de mudanças
     { quem: 'zoe', state: 'APPROVED', commit_id: 'sha1' },
   ]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, true, 'duas aprovações de gente: a automática não é necessária');
-  assert.deepEqual(r.quem, ['bia', 'Zoe']);
+  assert.equal(r.bloqueado, true, 'decisão de gente: a automática não é necessária');
+  assert.deepEqual(r.quem, ['ana', 'bia', 'Zoe']);
   assert.deepEqual(r.pediramMudancas, ['ana']);
 });
 

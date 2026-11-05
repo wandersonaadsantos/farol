@@ -363,9 +363,8 @@ test('a postagem falhou depois do CI verde: passageira vai para o reenvio de sem
 const VERDE = () => [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
 const review = (quem, state, extra = {}) => ({ quem, tipo: 'User', state, commit_id: HEAD, ...extra });
 
-// A decisão sem mesa (18/10/2026): o pedido de mudanças de uma pessoa fica registrado no
-// GitHub e não segura a aprovação que a conta mandou sair sozinha; nada vai para a mesa.
-test('uma pessoa pediu mudanças no mesmo commit durante a espera: o APPROVE sai pela política, sem mesa', async () => {
+// Regra de 05/11/2026: decisão de gente no head dispensa a aprovação automática; nada vai para a mesa.
+test('uma pessoa pediu mudanças no mesmo commit durante a espera: nada é postado, sem mesa', async () => {
   const e = await emEspera(20);
   gh.reviewsAlheios = [review('ana', 'CHANGES_REQUESTED')];
   for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await e.varrerEsperas(), 0);
@@ -373,11 +372,9 @@ test('uma pessoa pediu mudanças no mesmo commit durante a espera: o APPROVE sai
   gh.rollup = VERDE();
   assert.equal(await e.varrerEsperas(), 1);
   assert.equal(leiturasDeReviewsAlheios, 1);
-  assert.equal(envios.length, 1);
-  assert.equal(envios[0].event, 'APPROVE');
-  assert.equal(envios[0].commit_id, HEAD, 'no commit que a sessão leu');
+  assert.equal(envios.length, 0);
   assert.equal(pendente(e, 20), undefined);
-  assert.equal(resolvida(e, 20).status, 'auto_approved');
+  assert.equal(resolvida(e, 20).status, 'approval_not_needed');
   assert.equal(e.eventos.some(([tipo]) => tipo === 'needs-decision'), false, 'nada vai para a mesa');
 });
 
@@ -390,29 +387,35 @@ test('review de ferramenta (acrity) durante a espera não é pessoa: a aprovaç�
   assert.equal(resolvida(e, 21).status, 'auto_approved');
 });
 
-test('uma aprovação de pessoa não segura (a automática vale como a segunda); duas dispensam a automática, sem mesa', async () => {
-  const e = await emEspera(22);
+test('uma aprovação de pessoa dispensa a automática, sem mesa', async () => {
+  const f = await emEspera(23);
   gh.rollup = VERDE();
   gh.reviewsAlheios = [review('ana', 'APPROVED')];
-  assert.equal(await e.varrerEsperas(), 1);
-  assert.equal(envios.length, 1);
-
-  const f = await emEspera(23);
-  gh.reviewsAlheios = [review('ana', 'APPROVED'), review('bia', 'APPROVED')];
   assert.equal(await f.varrerEsperas(), 1, 'a espera se resolve');
-  assert.equal(envios.length, 1, 'nada novo postado');
+  assert.equal(envios.length, 0, 'nada postado');
   assert.equal(pendente(f, 23), undefined, 'nada fica pendente');
   const d = resolvida(f, 23);
   assert.equal(d.status, 'approval_not_needed');
-  assert.match(textos(d)[0], /o PR já tem duas aprovações de pessoas neste commit \(@ana, @bia\)/);
+  assert.match(textos(d)[0], /outra pessoa já decidiu este commit \(@ana\)/);
   assert.equal(f.eventos.some(([tipo]) => tipo === 'needs-decision'), false);
   assert.equal(await f.varrerEsperas(), 0, 'e não volta a ler nada');
 });
 
-test('pedido de mudanças em commit ANTERIOR não segura, e quem pediu e depois aprovou conta como aprovação', async () => {
+test('meu pedido automático aberto não faz a aprovação sair por cima de quem decidiu durante a espera', async () => {
+  const e = await emEspera(25);
+  e.decisions.resolved.push({ key: 'acme/app#25', headSha: HEAD_NOVO, status: 'auto_rejected', pr: { account: 'eu' } });
+  e.staleInfo = { 'acme/app#25': { stale: true, head: HEAD, lastState: 'CHANGES_REQUESTED' } };
+  gh.rollup = VERDE();
+  gh.reviewsAlheios = [review('ana', 'APPROVED')];
+  assert.equal(await e.varrerEsperas(), 1);
+  assert.equal(envios.filter((p) => p.event === 'APPROVE').length, 0);
+  assert.equal(resolvida(e, 25).status, 'approval_not_needed');
+});
+
+test('pedido de mudanças em commit ANTERIOR não segura', async () => {
   const e = await emEspera(24);
   gh.rollup = VERDE();
-  gh.reviewsAlheios = [review('ana', 'CHANGES_REQUESTED', { commit_id: HEAD_NOVO }), review('bia', 'CHANGES_REQUESTED'), review('bia', 'APPROVED')];
+  gh.reviewsAlheios = [review('ana', 'CHANGES_REQUESTED', { commit_id: HEAD_NOVO })];
   assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1);
 });
@@ -420,7 +423,7 @@ test('pedido de mudanças em commit ANTERIOR não segura, e quem pediu e depois 
 test('a regra é a de skip-review.js, sem cópia: o espera-ci só chama bloqueadoPorHistorico', () => {
   const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'espera-ci.js'), 'utf8');
   assert.match(fonte, /await engine\.bloqueadoPorHistorico\(pr\)/);
-  assert.doesNotMatch(fonte, /ehFerramenta|APROVACOES_QUE_SEGURAM|reviewsDeOutros\(/, 'nenhuma segunda versão da regra');
+  assert.doesNotMatch(fonte, /ehFerramenta|reviewsDeOutros\(/, 'nenhuma segunda versão da regra');
 });
 
 test('dependência em aberto declarada pela revisão é ressalva: a conta que espera nas ressalvas não posta, e o card nomeia a dependência', async () => {

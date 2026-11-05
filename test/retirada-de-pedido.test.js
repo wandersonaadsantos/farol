@@ -42,6 +42,7 @@ io.run = async (_cmd, args) => {
     if (gh.leituraFalha) return { ok: false, code: 1, stdout: '', stderr: gh.leituraFalha };
     return { ok: true, code: 0, stdout: gh.meus.map((x) => JSON.stringify(x)).join('\n'), stderr: '' };
   }
+  if (/pulls\/\d+\/reviews/.test(sub) && sub.includes('!= "eu"')) return { ok: true, code: 0, stdout: JSON.stringify(gh.alheios || []), stderr: '' };
   if (/pulls\/\d+\/reviews/.test(sub) && sub.includes('--jq')) return { ok: true, code: 0, stdout: '[]', stderr: '' };
   if (sub.includes('--json state,headRefOid,baseRefName,statusCheckRollup')) {
     return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ state: gh.estado, headRefOid: gh.head, baseRefName: 'main', statusCheckRollup: gh.rollup }) };
@@ -304,6 +305,22 @@ test('falha ao retirar não impede a aprovação já liberada', async () => {
   gh.retiradaFalha = 'HTTP 502';
   await duasRodadas(11);
   assert.deepEqual(eventos(), ['DISMISS', 'APPROVE']);
+});
+
+test('retirada que falhou numa rodada dispensada pela decisão de gente fica marcada para a varredura', async () => {
+  const e = motor();
+  await rodadaQuePede(e, 18);
+  sessaoQueResolve(e);
+  gh.alheios = [{ quem: 'ana', tipo: 'User', state: 'APPROVED', commit_id: HEAD }];
+  e.staleInfo = { [KEY(18)]: { stale: true, head: HEAD, lastState: 'CHANGES_REQUESTED' } };
+  gh.retiradaFalha = 'HTTP 502';
+  await e.runHeadlessReview(PR(18));
+  assert.deepEqual(eventos(), ['DISMISS'], 'tentou retirar e não aprovou por cima');
+  const item = e.decisions.resolved.find((d) => d.key === KEY(18) && d.status === 'approval_not_needed');
+  assert.equal(item.retiradaPendente?.head, HEAD);
+  gh.retiradaFalha = '';
+  await e.varrerEsperas();
+  assert.deepEqual(eventos(), ['DISMISS', 'DISMISS']);
 });
 
 test('head que andou durante a sessão segura a retirada', async () => {
