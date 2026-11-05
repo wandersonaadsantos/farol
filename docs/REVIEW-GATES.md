@@ -125,7 +125,7 @@ invariantes continuam lá.
 - [Um Farol por PR (v2.50.1): a lição do marcador transitório](#um-farol-por-pr-v2501-a-lição-do-marcador-transitório)
 - [Dedup é por ROUND, não por "alguma vez" (v2.40.5)](#dedup-é-por-round-não-por-alguma-vez-v2405)
 - [Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho](#re-revisão-automática-pós-push-v2410-o-round-2-fecha-sozinho)
-- [Dívida herdada da production não bloqueia (05/11/2026, v2.78.38)](#dívida-herdada-da-production-não-bloqueia-05112026-v27838)
+- [Dívida herdada da production não bloqueia (05/11/2026, v2.78.37)](#dívida-herdada-da-production-não-bloqueia-05112026-v27837)
 - [Conferência na boca da sessão (05/11/2026, v2.78.36)](#conferência-na-boca-da-sessão-05112026-v27836)
 - [O pedido de mudanças sai quando o problema foi resolvido (05/11/2026, v2.78.35)](#o-pedido-de-mudanças-sai-quando-o-problema-foi-resolvido-05112026-v27835)
 - [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
@@ -1191,7 +1191,7 @@ vira ação**, e poda errada não pode custar sessão paga.
   mais de 24h, best-effort com try/catch por entrada (lixo que não sai hoje sai
   amanhã; falhar o update por causa de um diretório travado seria pior).
 
-## Dívida herdada da production não bloqueia (05/11/2026, v2.78.38)
+## Dívida herdada da production não bloqueia (05/11/2026, v2.78.37)
 
 O caso medido: biud-frontend#1822, backmerge da production na development, reprovado pela falta de um teste em `aviso.test.tsx`. O arquivo era idêntico ao da production, e a lacuna estava em produção desde 31/10. Segurar o backmerge não melhorava nada no que roda e travava a development. A primeira reprovação do mesmo PR, pelo hash do manifest que a resolução de conflito deixou errado, procedia, e continua valendo.
 

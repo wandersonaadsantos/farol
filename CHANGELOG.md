@@ -9,22 +9,27 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.78.38
-
-Backmerge não é mais reprovado por dívida que já estava em produção.
-
-### Correções
-
-- Ponto bloqueante em arquivo idêntico ao da production vira sugestão: é dívida herdada, não criada pelo PR, e cabe num follow-up da task de origem. O que o próprio PR cria, como resolução de conflito e linha nova, continua podendo bloquear.
-
 ## v2.78.37
 
-O Revisar tudo respeita a regra de não reanalisar PR já decidido, e o mesmo PR não abre mais duas revisões ao mesmo tempo.
+A label de revisão passa a valer como contrato, a reprovação automática fica proporcional à causa, e o Revisar tudo e os backmerges deixam de travar o que não deviam.
+
+### Novidades
+
+- A revisão automática mostra quem a pediu e quando.
+- Tirar a label `<conta>:revisando` do PR encerra a revisão automática daquele PR, e ela só volta com commit novo, novo pedido ou clique.
+
+### Melhorias
+
+- A label de revisão só aparece quando a sessão realmente começou, e a label que ficou presa sem dono sai sozinha.
+- PR em conflito com a base espera a resolução antes da revisão automática, sem gastar consultas ao GitHub enquanto o conflito durar.
 
 ### Correções
 
+- A reprovação automática só sai por defeito provado no código ou no card. Conflito, CI que não rodou, dependência e arquivo fora do diff esperam ou ficam com você.
+- Ponto bloqueante em arquivo idêntico ao da production vira sugestão: é dívida herdada, não criada pelo PR. O que o próprio PR cria, como resolução de conflito e linha nova, continua podendo bloquear. Isso destrava backmerges.
 - O Revisar tudo deixa de relançar PR com aprovação ou recusa de uma pessoa no commit atual, ou cujo pedido de revisão saiu. O botão Revisar de um PR específico continua valendo.
-- Um segundo pedido de revisão do mesmo PR, chegando enquanto a primeira revisão começa, não abre outra sessão.
+- O mesmo PR não abre mais duas revisões ao mesmo tempo.
+- Instância de teste fora da pasta padrão não escreve no GitHub sem permissão explícita.
 
 ## v2.78.36
 
