@@ -13,7 +13,7 @@ const leitor = (...vals) => { const f = async () => { f.n++; return vals.length 
 test('CONFLICTING segura, UNKNOWN e null não seguram, MERGEABLE limpa a marca', async () => {
   const e = fake();
   assert.equal(await seguraPorConflito(e, PR, { agora: 5, ler: leitor('CONFLICTING') }), true);
-  assert.deepEqual(e.esperaConflito[PR.key], { at: 5, head: 'h1' });
+  assert.deepEqual(e.esperaConflito[PR.key], { at: 5, head: 'h1', updatedAt: PR.updatedAt });
   for (const v of ['UNKNOWN', null]) {
     const e2 = fake();
     assert.equal(await seguraPorConflito(e2, PR, { agora: 1, ler: leitor(v) }), false);
@@ -50,8 +50,8 @@ test('clique manual atravessa e a chave em false desliga', async () => {
 
 test('marcar e limpar são a via da tarefa seguinte', () => {
   const e = fake();
-  marcarConflito(e, PR.key, 'h1', 3);
-  assert.deepEqual(e.esperaConflito[PR.key], { at: 3, head: 'h1' });
+  marcarConflito(e, PR.key, 'h1', 3, 'u1');
+  assert.deepEqual(e.esperaConflito[PR.key], { at: 3, head: 'h1', updatedAt: 'u1' });
   limparConflito(e, PR.key);
   assert.equal(e.esperaConflito[PR.key], undefined);
 });

@@ -1910,7 +1910,7 @@ class Engine extends EventEmitter {
       buscasPausadas: limiteGhMod.buscasPausadas(this),
       queue: this.queue,
       // PRs em conflito com a base: { key: { at, head } }, sem sessão nem label (lib/engine/espera-conflito.js)
-      esperaConflito: Object.fromEntries(Object.entries(this.esperaConflito || {}).map(([k, v]) => [k, { at: v.at, head: v.head }])),
+      esperaConflito: Object.fromEntries(Object.entries(this.esperaConflito || {}).map(([k, v]) => [k, { at: v.at, head: v.head, updatedAt: v.updatedAt }])),
       // A fila de espera ja sai em esperaParaTela abaixo. Expor tambem a distribuicao
       // evita que um pedido sem aparelho apto pareca visto.
       headlessDistributing: this.headlessDistribuindo instanceof Map ? [...this.headlessDistribuindo.keys()] : [],
