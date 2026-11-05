@@ -524,7 +524,9 @@ revisa depois, e é isso que o comentário descreve.
 (2) retirá-la pelo GitHub ou pela tela encerra a sessão em andamento pelo vigia e estaciona a revisão com
 o motivo `label-retirada`, sem relançar sozinha (quem tirou pediu para parar);
 (3) label própria sem sessão viva aqui, sem pendência de remoção e sem lease vivo de outro aparelho some
-depois de 3 h (`lib/engine/label-propria-orfa.js`), e a pendência de remoção que não sai desiste em 7 dias
+depois de 3 h de observação contínua deste aparelho (`lib/engine/label-propria-orfa.js`; intervalo longo sem
+olhar, como notebook fechado ou reinício, recomeça a contagem), removida sob o mesmo CAS de lease da
+pendência comum, e a pendência de remoção que não sai desiste em 7 dias
 com um aviso. Nada disso muda os gates do invariante 4: é higiene do sinal público.
 
 Três peças que a decisão exige, e nenhuma é opcional:
@@ -1529,7 +1531,7 @@ lado do Farol quando o processo da sessão já saiu e o `close` não veio em
 ferramentas do repositório revisado, e um `electron .` ou um smoke de app Electron rodaria
 como Node e daria resultado enganoso.
 
-Complemento de 05/11/2026: quando a label é retirada de propósito por outra pessoa, o vigia encerra a sessão e a
+Complemento de 05/11/2026: quando a label é retirada de propósito (por outra pessoa, por ferramenta ou pela tela de tags), o vigia encerra a sessão e a
 revisão estaciona com o motivo `label-retirada` (ver "Um Farol por PR"); a sessão presa por defeito do ambiente
 continua sendo tratada pelas duas camadas acima.
 
