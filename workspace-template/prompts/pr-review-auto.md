@@ -196,6 +196,8 @@ Cada item contém `file` (caminho exato ou null), `line` (inteiro positivo ou nu
 `severity` (`blocking`, `suggestion`, `question` ou `nitpick`), `title`, `summary`,
 `ref` (ID fornecido pelo engine ou null), `status` (`persiste`, `resolvido`, `retirado` ou null)
 e `evidence` (prova concreta de resolução ou retirada, incluindo a mudança em outro arquivo).
+**Merge-back da production (backmerge):** num PR que traz a production para outra base, um ponto que já existe na production, igual, e que não foi criado pela resolução de conflito nem pela interação com o código da base, é dívida herdada. Declare-o com `"herdadoDaProducao": true` e diga na `evidence` por que ele já estava na production. O app confere se o arquivo é herdado de verdade e, se for, o rebaixa a sugestão. Na dúvida, não marque: resolução de conflito e quebra causada pela base continuam bloqueando.
+
 Todo achado `blocking` vigente declara `causa`, de lista fechada (bloqueio sem causa, ou com
 causa fora da lista, é envelope fora do contrato e nada é publicado):
 - `defeito_codigo`: regressão, regra de negócio quebrada, segurança, contrato de API, teste que falha pelo diff; pode reprovar sozinho.

@@ -125,6 +125,7 @@ invariantes continuam lá.
 - [Um Farol por PR (v2.50.1): a lição do marcador transitório](#um-farol-por-pr-v2501-a-lição-do-marcador-transitório)
 - [Dedup é por ROUND, não por "alguma vez" (v2.40.5)](#dedup-é-por-round-não-por-alguma-vez-v2405)
 - [Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho](#re-revisão-automática-pós-push-v2410-o-round-2-fecha-sozinho)
+- [Dívida herdada da production não bloqueia (05/11/2026, v2.78.37)](#dívida-herdada-da-production-não-bloqueia-05112026-v27837)
 - [Conferência na boca da sessão (05/11/2026, v2.78.36)](#conferência-na-boca-da-sessão-05112026-v27836)
 - [O pedido de mudanças sai quando o problema foi resolvido (05/11/2026, v2.78.35)](#o-pedido-de-mudanças-sai-quando-o-problema-foi-resolvido-05112026-v27835)
 - [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
@@ -1190,12 +1191,30 @@ vira ação**, e poda errada não pode custar sessão paga.
   mais de 24h, best-effort com try/catch por entrada (lixo que não sai hoje sai
   amanhã; falhar o update por causa de um diretório travado seria pior).
 
+## Dívida herdada da production não bloqueia (05/11/2026, v2.78.37)
+
+O caso medido: biud-frontend#1822, backmerge da production na development, reprovado pela falta de um teste em `aviso.test.tsx`. O arquivo era idêntico ao da production, e a lacuna estava em produção desde 31/10. Segurar o backmerge não melhorava nada no que roda e travava a development. A primeira reprovação do mesmo PR, pelo hash do manifest que a resolução de conflito deixou errado, procedia, e continua valendo.
+
+`heranca-de-producao.js` roda antes da memória de rodadas e do desfecho. A sessão produz a evidência e o app decide, e o rebaixamento exige as duas metades:
+
+- **A sessão declara:** o achado vem com `herdadoDaProducao: true` e a evidência de que o ponto já estava na production (regra no `pr-review-auto.md`). Só causa `defeito_codigo` ou `card`; estado do PR já segue outro caminho.
+- **O app confere que é merge-back:** a base do PR não é a `production` e o head contém a ponta dela (`behind_by` 0 na comparação `production...head`). Task cuja réplica já foi para a production não entra: o head dela não contém a ponta.
+- **O app confere que o arquivo é herdado de verdade:** idêntico à ponta da production e sem mudança própria da base desde o ancestral comum. Arquivo em que a base tinha trabalho é resolução de conflito, e o que o PR criou ali continua bloqueando, como o hash do manifest no #1822.
+- **Efeito:** o achado vira sugestão; o que vinha de rodada anterior sai como retirado, e a memória não o conta como "resolvido em arquivo inalterado". Sem bloqueio próprio, o veredito vira aprovar com o texto de aprovação da sessão, e a política da conta decide, com o motivo como ressalva. Sem esse texto, nada é rebaixado.
+- **Falta de dado não rebaixa nada:** comparação no teto de 300 arquivos ou leitura que falha deixam o resultado como veio, e repositório sem `production` fica guardado para não pagar a consulta de novo.
+
+**Limite:** quebra causada pela base num arquivo herdado depende de a sessão não declarar o ponto como herdado; o prompt pede para não marcar na dúvida.
+
 ## Conferência na boca da sessão (05/11/2026, v2.78.36)
 
 O PR muda enquanto espera a vez. As duas perguntas valem em `bloqueiaAutomatico` (fila, re-revisão, retentativa) e de novo em `runOneHeadless` (`recusaNaBoca`), por onde passa todo caminho automático, antes de abrir a sessão:
 
 - **O pedido à conta ainda vale?** (`pedido-de-revisao.js`.) Medido: 15 de 225 revisões rodaram com o pedido já removido pelo autor; em tenant-company#276 ele saiu às 23:56 e a aprovação às 00:33. Pedido só a um time não é a conta marcada; o do CODEOWNERS é, por decisão do dono. Revisão decisiva anterior da conta é continuação, porque o GitHub tira o pedido quando ela revisa, e pendência viva é rodada já admitida. Clique, admin e comando atravessam; leitura que falha não recusa.
 - **O head já foi decidido?** (`bloqueadoPorHistorico`.) `decidido` é o fato, `bloqueado` é se a rodada não roda. A única diferença entre os dois é o meu pedido AUTOMÁTICO aberto em commit anterior, sem recusa de gente: a rodada roda para poder retirá-lo, e o desfecho e a espera do CI leem `decidido`, então ela não aprova por cima (`approval_not_needed`).
+
+**Revisar tudo não é clique por PR** (05/11/2026, v2.78.37): às 19:20 o botão relançou três PRs com head já decidido, porque mandava a fila inteira como clique, e clique atravessa o gate. Agora ele vai com `lote: true`: atravessa a política da conta como o clique, mas o head decidido e o pedido removido seguram, no lançamento (`seguraNoLote`) e na boca, porque `origemExplicita` não conta o lote. Também não desestaciona, não desfaz a saída de cena e não atravessa limite do plano, orçamento nem a revisão já resolvida no mesmo head: só o clique num PR específico faz isso.
+
+**O mesmo PR não abre duas sessões:** entre sair da fila e registrar a sessão há leituras no GitHub, e um segundo pedido nessa janela não achava o PR em lugar nenhum. `headlessIniciando` marca o PR do momento em que sai da fila até a revisão acabar, e o `enqueueHeadless` recusa como `duplicado`.
 
 Quem segura na boca solta a âncora e mata a retentativa. PR segurado na fila não paga `gh` a cada ciclo enquanto o `updatedAt` não muda.
 

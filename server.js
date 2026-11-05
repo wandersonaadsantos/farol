@@ -1141,6 +1141,7 @@ class Engine extends EventEmitter {
       // que aguardam ação manual) e os em retry de rede (repescados no bloco abaixo).
       const inflight = new Set([
         ...this.headlessQueue.map(p => p.key),
+        ...(this.headlessIniciando || []),
         ...[...this.activeReviews.values()].flatMap(s => s.keys || [])
       ]);
       // UM Farol por PR (desligável por revisarComOutrosRevisando): quem já saiu de cena

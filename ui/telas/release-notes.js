@@ -14,6 +14,16 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.37', [
+    'A revisão automática mostra quem a pediu e quando',
+    'Tirar a label de revisão do PR encerra a revisão automática dele',
+    'A label só aparece quando a sessão começou, e a label presa sem dono sai sozinha',
+    'PR em conflito espera a resolução antes da revisão automática',
+    'Reprovação automática só por defeito provado no código ou no card',
+    'Backmerge não é reprovado por dívida que já estava em produção',
+    'O Revisar tudo não relança PR já decidido nem PR cujo pedido saiu',
+    'O mesmo PR não abre mais duas revisões ao mesmo tempo',
+  ]],
   ['2.78.36', [
     'PR com aprovação ou recusa de uma pessoa no commit atual não é reanalisado sozinho; o botão Revisar continua valendo',
     'Se o pedido de revisão sair enquanto o PR espera na fila, a revisão não começa',
