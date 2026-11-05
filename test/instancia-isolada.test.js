@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import http from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-instancia-isolada-'));
 
@@ -14,6 +15,8 @@ import assert from 'node:assert/strict';
 const { recusaDeIsolada } = await import('../lib/engine/instancia-isolada.js');
 
 const RAIZ = path.join(import.meta.dirname, '..');
+// URL file:// para os imports dos processos filhos: no Windows o ESM recusa caminho absoluto cru
+const RAIZ_URL = pathToFileURL(RAIZ).href;
 const BASE = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-isolada-filhos-'));
 after(() => {
   fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true });
@@ -41,11 +44,11 @@ test('opt-in por arquivo libera; instância normal não recusa', () => {
 test('postReview em isolada não chama gh', () => {
   const home = fs.mkdtempSync(path.join(BASE, 'home-'));
   const script = `
-    const io = (await import('${RAIZ}/lib/io.js')).default;
+    const io = (await import('${RAIZ_URL}/lib/io.js')).default;
     const chamadas = [];
     io.run = async (...a) => { chamadas.push(a); return { ok: true, code: 0, stdout: '', stderr: '' }; };
     io.runShell = io.run;
-    const { postReview } = await import('${RAIZ}/lib/engine/decision.js');
+    const { postReview } = await import('${RAIZ_URL}/lib/engine/decision.js');
     const logs = [];
     const engine = { config: {}, log: (n, m) => logs.push(n + ' ' + m), accountForPr: () => 'eu', ghEnv: () => ({}), tokenFor: () => 'tok', emit() {}, activeReviews: new Map() };
     const pr = { key: 'acme/app#7', url: 'https://github.com/acme/app/pull/7', repo: 'acme/app', number: 7 };
@@ -61,7 +64,7 @@ test('postReview em isolada não chama gh', () => {
 function rodarIsolada(corpo) {
   const home = fs.mkdtempSync(path.join(BASE, 'home-'));
   const script = `
-    const io = (await import('${RAIZ}/lib/io.js')).default;
+    const io = (await import('${RAIZ_URL}/lib/io.js')).default;
     const chamadas = [], cancelados = [];
     io.run = async (...a) => { chamadas.push(a); return { ok: true, code: 0, stdout: '{"labels":[{"name":"eu:revisando"}]}', stderr: '' }; };
     io.runShell = io.run;
@@ -81,7 +84,7 @@ function rodarIsolada(corpo) {
 
 test('gcSignals em isolada não apaga ref no GitHub', () => {
   const r = rodarIsolada(`
-    const { gcSignals } = await import('${RAIZ}/lib/engine/review-signal.js');
+    const { gcSignals } = await import('${RAIZ_URL}/lib/engine/review-signal.js');
     await gcSignals(engine, 'acme/app', 'eu', [{ ref: 'refs/farol/revisando/7/ana/1', number: 7, login: 'ana', epochMs: 1 }], Date.now());
   `);
   assert.equal(r.chamadas, 0);
@@ -89,7 +92,7 @@ test('gcSignals em isolada não apaga ref no GitHub', () => {
 
 test('addInProgressLabel em isolada não chama gh nem devolve label', () => {
   const r = rodarIsolada(`
-    const { addInProgressLabel } = await import('${RAIZ}/lib/engine/review.js');
+    const { addInProgressLabel } = await import('${RAIZ_URL}/lib/engine/review.js');
     return await addInProgressLabel(engine, { key: 'acme/app#7', url: 'https://github.com/acme/app/pull/7' });
   `);
   assert.deepEqual({ r: r.r, chamadas: r.chamadas }, { r: '', chamadas: 0 });
@@ -97,7 +100,7 @@ test('addInProgressLabel em isolada não chama gh nem devolve label', () => {
 
 test('setReviewers em isolada recusa com instancia_isolada, sem gh', () => {
   const r = rodarIsolada(`
-    const { setReviewers } = await import('${RAIZ}/lib/engine/selfpr.js');
+    const { setReviewers } = await import('${RAIZ_URL}/lib/engine/selfpr.js');
     return await setReviewers(engine, 'https://github.com/acme/app/pull/7');
   `);
   assert.equal(r.r.blocked, 'instancia_isolada');
@@ -107,7 +110,7 @@ test('setReviewers em isolada recusa com instancia_isolada, sem gh', () => {
 
 test('executarMerge em isolada recusa com instancia_isolada, sem gh', () => {
   const r = rodarIsolada(`
-    const { executarMerge } = await import('${RAIZ}/lib/engine/self-merge.js');
+    const { executarMerge } = await import('${RAIZ_URL}/lib/engine/self-merge.js');
     return await executarMerge(engine, { url: 'https://github.com/acme/app/pull/7', key: 'acme/app#7', repo: 'acme/app', acc: 'eu', me: 'eu', env: {}, analysis: {}, mode: 'squash' }, {});
   `);
   assert.equal(r.r.blocked, 'instancia_isolada');
@@ -117,7 +120,7 @@ test('executarMerge em isolada recusa com instancia_isolada, sem gh', () => {
 
 test('remover a label pela tela em isolada recusa antes de cancelar a sessão', () => {
   const r = rodarIsolada(`
-    const { command } = await import('${RAIZ}/lib/engine/review-label-control.js');
+    const { command } = await import('${RAIZ_URL}/lib/engine/review-label-control.js');
     return await command(engine, { url: 'https://github.com/acme/app/pull/7', action: 'remove', label: 'eu:revisando' });
   `);
   assert.equal(r.r.ok, false);
@@ -128,7 +131,7 @@ test('remover a label pela tela em isolada recusa antes de cancelar a sessão', 
 });
 
 test('FAROL_HOME igual ao ~/.farol (com barra final) não é isolada', () => {
-  const script = `const p = await import('${RAIZ}/lib/paths.js'); console.log(String(p.instanciaIsolada));`;
+  const script = `const p = await import('${RAIZ_URL}/lib/paths.js'); console.log(String(p.instanciaIsolada));`;
   const home = `${os.homedir()}/.farol/`;
   const saida = execFileSync(process.execPath, ['--input-type=module', '-e', script], { env: envLimpo({ FAROL_HOME: home }), encoding: 'utf8' });
   assert.equal(saida.trim(), 'false');
