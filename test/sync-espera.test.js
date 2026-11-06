@@ -60,7 +60,11 @@ after(async () => {
   await identity.close();
   try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
-beforeEach(() => { fake.setTree(null); fake.requests.length = 0; fixarMemoriaLivre(); });
+beforeEach(t => {
+  // O motivo da espera deve vir do cenário, sem a recusa root do ambiente hospedeiro.
+  if (typeof process.getuid === 'function') t.mock.method(process, 'getuid', () => 1000);
+  fake.setTree(null); fake.requests.length = 0; fixarMemoriaLivre();
+});
 
 async function fetchDosDubles(url, init) {
   const alvo = String(url).replace(ORIGEM_EMULADOR_AUTH, identity.url);

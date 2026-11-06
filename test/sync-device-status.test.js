@@ -47,7 +47,11 @@ after(async () => {
   await identity.close();
   try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
-beforeEach(() => { fake.setTree(null); fake.requests.length = 0; });
+beforeEach(t => {
+  // Não deixa o UID do CI mascarar os casos que medem a capacidade publicada.
+  if (typeof process.getuid === 'function') t.mock.method(process, 'getuid', () => 1000);
+  fake.setTree(null); fake.requests.length = 0;
+});
 
 async function fetchDosDubles(url, init) {
   const alvo = String(url).replace(ORIGEM_EMULADOR_AUTH, identity.url);

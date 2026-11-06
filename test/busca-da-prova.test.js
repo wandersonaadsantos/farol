@@ -297,9 +297,18 @@ const armou = (e, r) => esperaProva.armarEspera(e, { ...PR }, 'prova_tecnica_inc
 test('divergência entre passadas sozinha vira ressalva já, sem nova busca', () => {
   const r = comDivergencia();
   assert.deepEqual(busca.lacunasExigidas(r), []);
-  assert.deepEqual(busca.pontosDaProvaEsgotada(r).map((p) => p.text),
-    [`outra tentativa não desfaz a divergência entre passadas, então segue como ressalva: ${DIVERGENCIA}`]);
+  assert.deepEqual(busca.pontosDaProvaEsgotada(r), [], 'a divergência já é apresentada pelos pontos do app');
   assert.equal(armou(motor(), r), null);
+});
+
+test('divergência aparece uma vez no card, inclusive na rodada esgotada', () => {
+  const e = motor();
+  for (const provaEsgotada of [false, true]) {
+    const r = comDivergencia({ provaEsgotada });
+    r.reasons = busca.pontosDaProvaEsgotada(r);
+    const divergencias = e.attentionPoints(r).filter(p => p.text.includes('divergência de veredito'));
+    assert.equal(divergencias.length, 1);
+  }
 });
 
 test('divergência junto de outra lacuna de prova: a busca continua pela outra', () => {

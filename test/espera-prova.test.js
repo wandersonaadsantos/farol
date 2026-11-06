@@ -52,6 +52,7 @@ const { technicalRuntime } = await import('../lib/technical-review/runtime.js');
 const { technicalPublication } = await import('../lib/technical-review/publication.js');
 const { technicalReport } = await import('./helpers/technical-proof.js');
 const { intervaloDaProva } = await import('../lib/engine/recuperacao-prova.js');
+const { VERSAO_DAS_REGRAS } = await import('../lib/technical-review/verdict.js');
 const finishReal = technicalRuntime.finishTechnicalReview;
 const publicationReal = technicalPublication.approvalRefusal;
 
@@ -128,6 +129,27 @@ async function revisado(e, extra) {
   await e.runHeadlessReview({ ...PR });
   return pendente(e);
 }
+
+test('mudança de regras preserva recuo, não relança fora dele e só conta a sessão que conclui', async () => {
+  const e = motor();
+  const d = await revisado(e, { analysisStatus: 'incomplete', decision: 'needs_decision' });
+  d.esperaProva.regras = VERSAO_DAS_REGRAS - 1;
+  d.esperaProva.tentativas = 4;
+  const proximaEm = Date.now() + intervaloDaProva(5);
+  d.esperaProva.proximaEm = proximaEm;
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.equal(d.esperaProva.proximaEm, proximaEm);
+  assert.equal(d.esperaProva.tentativas, 4);
+  assert.equal(d.esperaProva.regras, VERSAO_DAS_REGRAS - 1, 'não carimba prova antiga como recalculada');
+  d.esperaProva.proximaEm = Date.now() - 1;
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(d.esperaProva.regras, VERSAO_DAS_REGRAS);
+  assert.equal(d.esperaProva.tentativas, 4, 'agendar não conta: conta a rodada que conclui (armar)');
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.deepEqual(envios, [], 'a atualização agenda análise, nunca publica evidência antiga');
+  const depois = await revisado(e, { analysisStatus: 'incomplete', decision: 'needs_decision' });
+  assert.equal(depois.esperaProva.tentativas, 5, 'a rodada relançada pela regra conta ao concluir, como qualquer outra');
+});
 
 test('atualização retoma uma pendência antiga uma vez, sem interromper rodada ativa ou esperar o recuo velho', async () => {
   const e = motor();

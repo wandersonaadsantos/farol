@@ -52,7 +52,9 @@ after(async () => {
   await identity.close();
   try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
-beforeEach(() => {
+beforeEach(t => {
+  // O usuário é parte da fixture de prontidão, como a RAM e o provedor simulado.
+  if (typeof process.getuid === 'function') t.mock.method(process, 'getuid', () => 1000);
   fake.setTree(null);
   vinculo.apagarVinculos();
 });

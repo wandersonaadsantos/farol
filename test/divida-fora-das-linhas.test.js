@@ -3,25 +3,27 @@
 // bloqueando como antes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { linhaDoAchado, trechosDoDiff, trechosDoPatch, classificarPorLinhas, pontoDaDivida } from '../lib/technical-review/divida-fora-das-linhas.js';
-import { technicalGap, technicalSummary, relatorioComViolacao, TOOL } from '../lib/technical-review/verdict.js';
+import { linhaDoAchado, trechosDoDiff, trechosDoPatch, classificarPorLinhas, pontoDaDivida, VERSAO_DAS_LINHAS } from '../lib/technical-review/divida-fora-das-linhas.js';
+import { technicalGap, technicalSummary, relatorioComViolacao, TOOL, VERSAO_DAS_REGRAS, REVIEW_COHERENCE_GAP } from '../lib/technical-review/verdict.js';
 import { relatorioTecnico } from '../lib/technical-review/runtime.js';
 import { attentionPoints } from '../lib/engine/ressalvas.js';
 
 const HEAD = 'd'.repeat(40);
+const BLOB = 'c'.repeat(40);
+const faixa = linha => ({ intervaloVerificado: { inicio: linha, fim: linha, blob: BLOB } });
 const SUPRESSAO = 'core.suppression.declared';
 const UNIDADE = 'frontend.component.scalable-units';
 const DUPLICACAO = 'core.duplication.business-rule';
 const TERNARIO = 'core.javascript.no-nested-ternary';
 
-const supressor = (file, linha) => ({ rule: SUPRESSAO, file,
+const supressor = (file, linha) => ({ rule: SUPRESSAO, file, ...faixa(linha),
   message: `supressor "@ts-expect-error" na linha ${linha} sem motivo; a ficha e "<supressor> <identificador> -- <motivo>"`,
   assinatura: `${SUPRESSAO}|${file}|@ts-expect-error:motivo` });
-const unidade = (file, linha) => ({ rule: UNIDADE, file, message: `unidade fixa escalavel na linha ${linha}: md:max-w-[480px]; use rem ou token escalavel`, assinatura: `${UNIDADE}|${file}|x` });
+const unidade = (file, linha) => ({ rule: UNIDADE, file, ...faixa(linha), message: `unidade fixa escalavel na linha ${linha}: md:max-w-[480px]; use rem ou token escalavel`, assinatura: `${UNIDADE}|${file}|x` });
 const avaliacao = (rule, file, texto) => ({ rule, file, message: `avaliada como violacao: ${texto}`, assinatura: `${rule}|${file}|violacao` });
 
 // o inventário que o engine mede (pr-scope / review-source): patch do GitHub por arquivo
-const arquivo = (path, patch, extra = {}) => ({ path, status: 'modified', patch, patchStatus: 'available',
+const arquivo = (path, patch, extra = {}) => ({ path, sha: BLOB, status: 'modified', patch, patchStatus: 'available',
   patchOrigin: { status: 'available', policy: null }, representation: null, ...extra });
 const TESTE = 'src/lib/auth/index.test.ts';
 const TELA = 'src/features/first-steps/RegisterFlow.tsx';
@@ -82,7 +84,7 @@ test('biud-frontend#1818: supressor e unidade fixa em linha intacta viram dívid
   const r = classificarPorLinhas({
     rules: [fail(SUPRESSAO), fail(UNIDADE), fail(DUPLICACAO), fail(TERNARIO)],
     findings: [supressor(TESTE, 1973), supressor(TESTE, 2394), unidade(TELA, 403), avaliacao(DUPLICACAO, NOVO, 'três fontes'),
-      { rule: TERNARIO, file: TESTE, message: 'ternario aninhado na linha 1148; use fluxo explicito' }],
+      { rule: TERNARIO, file: TESTE, ...faixa(1148), message: 'ternario aninhado na linha 1148; use fluxo explicito' }],
   }, INVENTARIO, HEAD);
   assert.deepEqual(r.findings.map(f => f.foraDasLinhas === true), [true, true, true, false, true]);
   assert.deepEqual(r.rules.filter(x => x.dividaForaDasLinhas).map(x => x.rule), [SUPRESSAO, UNIDADE, TERNARIO]);
@@ -110,6 +112,10 @@ test('falta de dado segue bloqueando: arquivo fora do inventário, inventário d
   assert.equal(outro.resumo, null);
   const semAchado = classificarPorLinhas({ rules: [fail(SUPRESSAO)], findings: [] }, INVENTARIO, HEAD);
   assert.equal(semAchado.rules[0].dividaForaDasLinhas, undefined);
+  for (const intervaloVerificado of [undefined, { inicio: 1973, fim: 1973, blob: 'outro' }, { inicio: 2000, fim: 1973, blob: BLOB }]) {
+    const semFaixa = classificarPorLinhas({ rules: [fail(SUPRESSAO)], findings: [{ ...supressor(TESTE, 1973), intervaloVerificado }] }, INVENTARIO, HEAD);
+    assert.equal(semFaixa.findings[0].foraDasLinhas, undefined, 'linha sozinha ou intervalo de outro blob não concede dívida');
+  }
 });
 
 // ------------------------------------------------------------------ o veredito técnico
@@ -134,6 +140,32 @@ test('sem a marca do app, o mesmo relatório segue violação; com achado no tre
   // achado marcado de regra que bloqueia por outro achado sem marca: o achado sem marca segura
   const misto = relatorio([{ ...fail(SUPRESSAO), dividaForaDasLinhas: true }], [{ ...supressor(TESTE, 1973), foraDasLinhas: true }, { rule: 'backend.output.sanitized', file: 'a.ts', message: 'x' }]);
   assert.equal(relatorioComViolacao(misto), true);
+  assert.equal(technicalGap(misto), 'achados técnicos não resolvidos', 'classificação antiga de outra regra não mascara o achado bloqueante');
+});
+
+test('desconto antigo sem intervalo verificado exige reconferência só da dívida classificada', () => {
+  const c = classificarPorLinhas({ rules: [fail(SUPRESSAO)], findings: [supressor(TESTE, 1973)] }, INVENTARIO, HEAD);
+  assert.equal(c.resumo.versao, VERSAO_DAS_LINHAS);
+  const antigo = relatorio(c.rules, c.findings, { foraDasLinhas: { ...c.resumo, versao: undefined } });
+  assert.equal(technicalGap(antigo), 'classificação da dívida anterior requer reconferência');
+  for (const evidenceVersion of [7, VERSAO_DAS_REGRAS]) {
+    assert.equal(technicalSummary(antigo, [], { provaEsgotada: true, evidenceVersion }).state, 'pending', 'nem a decisão na primeira rodada dispensa reconferir dívida antiga');
+  }
+  assert.equal(technicalGap(relatorio([{ rule: SUPRESSAO, verdict: 'pass' }], [])), '', 'relatório sem desconto continua válido sem versão nova');
+});
+
+test('decidir na primeira rodada não dispensa o texto cuja correção de escopo está pendente ou esgotada', () => {
+  const c = classificarPorLinhas({ rules: [fail(SUPRESSAO)], findings: [supressor(TESTE, 1973)] }, INVENTARIO, HEAD);
+  const r = relatorio(c.rules, c.findings, { foraDasLinhas: c.resumo });
+  const prova = { provaEsgotada: true, evidenceVersion: VERSAO_DAS_REGRAS };
+  assert.equal(technicalSummary(r, [], prova).state, 'pass', 'controle: a dívida medida sozinha não bloqueia');
+  for (const flag of ['escopoSessaoPendente', 'escopoSessaoInconclusivo']) {
+    const pendente = { ...r, [flag]: true };
+    assert.equal(technicalGap(pendente), REVIEW_COHERENCE_GAP);
+    const resumo = technicalSummary(pendente, [], prova);
+    assert.equal(resumo.state, 'pending', flag);
+    assert.equal(resumo.message, REVIEW_COHERENCE_GAP, 'a ressalva técnica não autoriza publicar o texto anterior');
+  }
 });
 
 // ------------------------------------------------------------------ o relatório público

@@ -49,7 +49,12 @@ after(async () => {
   await identity.close();
   try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
-beforeEach(() => { T = Date.now(); fake.setTree(null); fake.requests.length = 0; });
+beforeEach(t => {
+  // Esta bancada simula executor apto, como já faz com RAM e doctorInfo. Só a
+  // medição é substituída neste caso; o usuário real e a guarda de admissão não mudam.
+  if (typeof process.getuid === 'function') t.mock.method(process, 'getuid', () => 1000);
+  T = Date.now(); fake.setTree(null); fake.requests.length = 0;
+});
 
 async function fetchDosDubles(url, init) {
   const alvo = String(url).replace(ORIGEM_EMULADOR_AUTH, identity.url);
@@ -252,6 +257,22 @@ test('o executor aceita: reserva vaga e responde com o id da reserva', async () 
   assert.equal(ack.estado, 'aceita');
   assert.ok(ack.admissaoId, 'a atribuição aceita vira reserva com id');
   assert.equal(admissao.resumo(e).total, 1);
+});
+
+test('executor com uid zero é recusado sem reserva nem enfileiramento', { skip: typeof process.getuid !== 'function' }, async t => {
+  const e = motorFila(await motorDistribuidor());
+  e.enfileirarDaDistribuicao = (pr, id) => reviewMod.enfileirarDaDistribuicao(e, pr, id);
+  const r = await publicarComoExecutor(e, prDe(101), { agora: T });
+  comoExecutor(e);
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  t.mock.method(process, 'getuid', () => 0);
+  const resposta = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
+  assert.deepEqual(resposta.aceitas, []);
+  assert.deepEqual(resposta.recusas, [{ itemId: r.itemId, code: 'inapto', problema: 'root' }]);
+  assert.equal(admissao.resumo(e).total, 0);
+  assert.deepEqual(e.headlessQueue, []);
+  assert.equal(no('live/ack')[r.itemId].estado, 'recusada');
 });
 
 // 28/09/2026: a conta entra na identidade do candidato. Publicado com uma conta, aceito com

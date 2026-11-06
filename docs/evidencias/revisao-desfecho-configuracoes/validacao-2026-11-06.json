@@ -1,0 +1,115 @@
+{
+  "data": "2026-11-06",
+  "base": "34c2d887fa3af8ad393311331f895273ab953a4c",
+  "branch": "fix/revisao-desfecho-configuracoes",
+  "node": "24.22.1",
+  "check": {
+    "exitCode": 0,
+    "arquivosJs": 1254
+  },
+  "lint": {
+    "exitCode": 0
+  },
+  "suiteFinal": {
+    "exitCode": 0,
+    "totalContabilizado": 7695,
+    "aprovados": 7613,
+    "falhas": 0,
+    "cancelados": 0,
+    "skipsCondicionais": 82,
+    "casosExcluidosPorArgumento": 4,
+    "duracaoMs": 145274.009057,
+    "semSaidaForcada": true,
+    "resultadosTap": 7695,
+    "anunciosSemResultado": 0
+  },
+  "casosExcluidos": [
+    {
+      "arquivo": "test/agy-login-linux.test.js",
+      "nome": "Linux: cancelar encerra também o CLI na sessão do pseudoterminal"
+    },
+    {
+      "arquivo": "test/agy-login-linux.test.js",
+      "nome": "Linux: CLI que ignora TERM é forçado e recolhido pelo wrapper"
+    },
+    {
+      "arquivo": "test/agy-login-linux.test.js",
+      "nome": "Linux: kernel sem children usa PPID e recolhe CLI que ignora TERM e EOF"
+    },
+    {
+      "arquivo": "test/capacity.test.js",
+      "nome": "recursos reais incluem um filho Node da sessão e a coleta não muda concorrência"
+    }
+  ],
+  "causaAmbiental": "PIDs locais não correspondem ao /proc montado; ps falha com lookup self. Comportamento reproduzido na base intacta, sem alterar produção/testes para ocultá-lo.",
+  "dirigidos": {
+    "escopoRetomadaHistorico": {
+      "pass": 67,
+      "fail": 0
+    },
+    "migracaoEsperaPrProprio": {
+      "pass": 68,
+      "fail": 0
+    },
+    "fixturesAdmissaoUid": {
+      "pass": 214,
+      "fail": 0
+    },
+    "politicasReaisDaConta": {
+      "pass": 11,
+      "fail": 0
+    },
+    "integracaoPr351": {
+      "alcanceEntrePrs": 86,
+      "decisaoEsperaRetirada": 155,
+      "escopoPublicacao": 65,
+      "gruposPossuemSobreposicao": true,
+      "falhas": 0,
+      "skips": 0
+    }
+  },
+  "engBehaviour": {
+    "exitCode": 0,
+    "version": "0.17.0",
+    "commit": "63c8d65cfec69ecfb173825a48bba6509bd05328",
+    "sourceTree": "19cdf98f903704c261a70d21a307d20b8efefef2",
+    "executado": true,
+    "buildVerificado": true,
+    "regrasAcionadas": 12,
+    "regrasExecutadas": 12,
+    "hard": 2,
+    "julgamento": 10,
+    "avaliacoesEspecificas": 12,
+    "violacoesConhecidasAbsorvidas": 3,
+    "origem": "Objetos Git originais recuperados pelo conector autorizado, hashes conferidos; preparador original fez checkout e build real."
+  },
+  "validacaoNativa": {
+    "electronWindows": false,
+    "causaQuedaReproduzida": false
+  },
+  "metricasPayloadSintetico": {
+    "usage": {
+      "antesBytes": 461784,
+      "depoisBytes": 183834
+    },
+    "reviewActions": {
+      "antesBytes": 142175,
+      "depoisBytes": 2427
+    },
+    "observacao": "JSON sem compressão; não é medição do aparelho nem prova de desempenho ou estabilidade."
+  },
+  "baseInicial": "f2fabc2811b9e9b1b33ef920442e76b585156863",
+  "ambienteDaSuite": {
+    "proxy": "NO_PROXY e no_proxy preservados, acrescentando ::1,[::1] somente ao processo de teste.",
+    "ipv6": "13/13 no arquivo vindo da main, na base intacta e integrada; nenhuma exclusão adicional.",
+    "saidaForcada": "Override --no-test-force-exit: a opção anterior omitia resultados variáveis apesar de retornar zero; runner e testes não foram alterados."
+  },
+  "reviewsDeTestePublicados": false,
+  "integracoes": [
+    "c9aa06f28e2199c967471b2b885796ae8dd4447e",
+    "34c2d887fa3af8ad393311331f895273ab953a4c"
+  ],
+  "versaoApp": "2.78.40",
+  "versaoDasRegras": 8,
+  "pr": "https://github.com/wandersonaadsantos/farol/pull/352"
+}

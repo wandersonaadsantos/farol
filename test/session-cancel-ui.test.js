@@ -109,3 +109,20 @@ test('snapshots atualizam o botão do cartão já montado sem recriar o cartão'
     assert.equal(btn.hidden, true, 'o botão antigo some quando o servidor inicia a publicação');
   } finally { box.querySelector = original; }
 });
+
+test('terminal de revisão pergunta Liberar PR e não promete fechar a janela', async () => {
+  definirEstado({ config: {}, activeSessions: [{ id: 't7', mode: 'terminal', keys: ['org/repo#7'], startedAt: Date.now() }],
+    activity: {}, headlessWaiting: [], panorama: [] });
+  const pedidos = [];
+  doc.querySelector('#toasts').children = [];
+  globalThis.fetch = async (url, opts) => { pedidos.push({ url, body: JSON.parse(opts.body) }); return { json: async () => ({ ok: true, liberado: true }) }; };
+  const btn = { dataset: { id: 't7' }, disabled: false, textContent: 'Liberar PR' };
+  const fim = clique({ target: { closest: () => btn } });
+  const modal = doc.body.children.filter(el => el.className === 'modal-overlay').at(-1);
+  assert.match(modal.innerHTML, /Liberar este PR/);
+  assert.match(modal.innerHTML, /A janela não é fechada/);
+  modal.querySelector('.modal-ok').onclick();
+  await fim;
+  assert.deepEqual(pedidos, [{ url: '/api/cancel', body: { id: 't7' } }]);
+  assert.match(doc.querySelector('#toasts').children.at(-1).textContent, /PR liberado/);
+});

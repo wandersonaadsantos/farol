@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "data": "2026-11-06",
+  "repositorio": "wandersonaadsantos/farol",
+  "metodo": "Consultas somente de leitura ao compare do GitHub, leitura de um blob e git rev-parse na cópia local fixada. Nenhuma sessão de IA do Farol ou escrita no GitHub foi executada.",
+  "commits": {
+    "main": "f2fabc2811b9e9b1b33ef920442e76b585156863",
+    "docs/agy-provedor": "f93c2f2475b3d1d41a2678555dfa94c565f9d4de",
+    "mergeBase": "4f5c1d234c3be3212a25582935882d44398ff79f"
+  },
+  "comparacao": {
+    "baseRef": "main",
+    "headRef": "docs/agy-provedor",
+    "url": "https://github.com/wandersonaadsantos/farol/compare/f2fabc2811b9e9b1b33ef920442e76b585156863...f93c2f2475b3d1d41a2678555dfa94c565f9d4de",
+    "status": "diverged",
+    "aheadBy": 4,
+    "behindBy": 549,
+    "totalCommits": 4,
+    "arquivos": [
+      {
+        "path": "docs/superpowers/specs/2026-10-20-agy-provedor.md",
+        "status": "added",
+        "additions": 723,
+        "deletions": 0,
+        "blobNoMain": "4e4059c5d69443924ed64c8263510c1638759472",
+        "blobNoHead": "4e4059c5d69443924ed64c8263510c1638759472"
+      }
+    ]
+  },
+  "comparacaoInversa": {
+    "baseRef": "docs/agy-provedor",
+    "headRef": "main",
+    "url": "https://github.com/wandersonaadsantos/farol/compare/f93c2f2475b3d1d41a2678555dfa94c565f9d4de...f2fabc2811b9e9b1b33ef920442e76b585156863",
+    "status": "diverged",
+    "aheadBy": 549,
+    "behindBy": 4,
+    "totalCommits": 549,
+    "quantidadeDeArquivosRetornada": 300,
+    "incluiOMesmoArquivoComoAdded": true,
+    "completude": "Não comprovada: a resposta alcançou o teto documentado de 300 arquivos."
+  },
+  "conclusoes": [
+    "O arquivo idêntico nas duas pontas apareceu como adicionado na comparação: a lista representa a mudança desde o ancestral comum até o head, não a diferença direta entre as pontas.",
+    "O endpoint compare aceitou a branch com barra nos dois lados pela operação própria do conector GitHub.",
+    "A implementação passou a comparar SHAs fixos, eliminando tanto a corrida de refs quanto a necessidade de interpolar o nome da base na URL.",
+    "Blob do arquivo principal igual ao da production não prova igualdade semântica de dependências, consumidores ou configuração. Essa análise continua necessária."
+  ],
+  "limiteDoEnsaio": "URLs passadas ao fetch genérico com %2F foram recusadas pelo validador do conector com INVALID_ARGUMENT. Isso não foi uma resposta de erro do GitHub. A operação compare_commits com o nome literal da branch foi bem-sucedida.",
+  "documentacao": "https://docs.github.com/en/rest/commits/commits#compare-two-commits"
+}
