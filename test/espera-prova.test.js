@@ -66,18 +66,21 @@ beforeEach(() => {
   gh = { state: 'OPEN', head: HEAD, updatedAt: '2026-10-17T12:00:00Z', reviewDecision: 'REVIEW_REQUIRED', reviews: [], dependencia: 'OPEN', leituraFalha: false };
 });
 
+// A política é a da conta, gravada por extenso como a tela de Contas grava, e lida pelos métodos
+// reais do motor (contas-config.js), sem substituí-los.
+function conta(e, politica) {
+  Object.assign(e.config.accounts[0], politica);
+  return e;
+}
+
 // `politica` = [limpo, com ressalvas]
 function motor(politica = ['approve', 'approve']) {
   const e = new Engine();
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
-  e.approvePolicyFor = (_conta, limpo) => (limpo ? politica[0] : politica[1]);
   // a conta não reprova sozinha: com ela reprovando, a parte do card deste PR dita não
   // entregue (COM_DEPENDENCIA) vira REQUEST_CHANGES na hora (test/decisao-sem-mesa.test.js)
-  e.rejectPolicyFor = () => 'wait';
-  e.autoReviewFor = () => true;
-  e.rejectPolicyFor = () => 'wait';
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], autoReview: true, onClean: politica[0], onCaveats: politica[1], onReject: 'wait' }];
   e.decisions = { pending: [], resolved: [] };
   e.salvas = 0;
   e.saveDecisions = () => { e.salvas++; };
@@ -396,7 +399,7 @@ test('ciclo: PR fechado é do reconcilePending, leitura que falha espera, coorde
 test('mudança para publicação manual não abandona a análise ainda bloqueada', async () => {
   const e = motor();
   await revisado(e, INCOMPLETA);
-  e.approvePolicyFor = () => 'wait';
+  conta(e, { onClean: 'wait', onCaveats: 'wait' });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.ok(pendente(e).esperaProva);
   assert.deepEqual(e.eventos, []);
@@ -501,7 +504,7 @@ test('análise parcial com avaliação técnica executada também é concluída 
 // mudanças na hora, com o texto que a revisão escreveu, sem nada do catálogo privado.
 test('achado confirmado se transforma em pedido de mudanças fundamentado, sem recuo', async () => {
   const e = motor();
-  e.rejectPolicyFor = () => 'request_changes';
+  conta(e, { onReject: 'request_changes' });
   technicalRuntime.finishTechnicalReview = async ctx => ({ ...technicalReport(ctx.head, ctx.repo), verdict: 'fail', rules: [{ rule: 'privada', verdict: 'fail' }] });
   await revisado(e, { payloads: {
     approve: { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.' },
@@ -543,7 +546,7 @@ for (const origem of ['fila', 'sessao', 'retry']) {
     e.headlessQueue = [];
     e.activeReviews.clear();
     e.retryAfterNet.clear();
-    e.approvePolicyFor = () => 'approve';
+    conta(e, { onClean: 'approve', onCaveats: 'approve' });
     await revisado(e, {});
     assert.equal(pendente(e), undefined, 'a nova decisão substitui a antiga');
     assert.ok(e.decisions.resolved.some(x => x.id === d.id && x.status === 'superseded'));
@@ -562,7 +565,7 @@ test('sessão aparece durante a recuperação e ainda substitui a decisão anter
   e.activeReviews.set('preparando', { keys: [PR.key] });
   assert.equal(await recuperando, 0);
   e.activeReviews.clear();
-  e.approvePolicyFor = () => 'approve';
+  conta(e, { onClean: 'approve', onCaveats: 'approve' });
   await revisado(e, {});
   assert.equal(pendente(e), undefined, 'a sessão em preparação precisa substituir a decisão antiga');
   assert.ok(e.decisions.resolved.some(x => x.id === d.id && x.status === 'superseded'));
@@ -587,7 +590,7 @@ for (const retry of [null, { event: 'approve', attempts: 3, exhausted: true }]) 
     d.blockedKind = 'technical_recheck';
     d.postRetry = retry;
     e.decisions = JSON.parse(JSON.stringify(e.decisions));
-    e.approvePolicyFor = () => 'approve';
+    conta(e, { onClean: 'approve', onCaveats: 'approve' });
     e.eventos = [];
     const tela = e.decisionForUi(pendente(e));
     assert.equal(tela.technical.state, 'pending', 'a prova anterior não continua verde');
@@ -662,19 +665,19 @@ test('automação desligada: o card diz o que falta, sem prometer conclusão soz
   const e = motor();
   const antes = await revisado(e, INCOMPLETA);
   assert.match(antes.reasons[0].text, /concluo a revisão sozinho/, 'com a automação ligada a promessa vale');
-  e.autoReviewFor = () => false;
+  conta(e, { autoReview: false });
   await esperaProva.reverQuandoAProvaMudar(e);
   assert.doesNotMatch(antes.reasons[0].text, /sozinho/);
   assert.match(antes.reasons[0].text, /desativada/);
   assert.equal(antes.reasons.filter(r => r.espera).length, 1);
-  e.autoReviewFor = () => true;
+  conta(e, { autoReview: true });
   await esperaProva.reverQuandoAProvaMudar(e);
   assert.doesNotMatch(antes.reasons[0].text, /desativada/);
 });
 
 test('revisão que termina com a automação já desligada nasce pausada, sem promessa no card nem no aviso', async () => {
   const e = motor();
-  e.autoReviewFor = () => false;
+  conta(e, { autoReview: false });
   const d = await revisado(e, INCOMPLETA);
   assert.match(d.esperaProva.impedimento, /desativada/);
   assert.doesNotMatch(d.reasons[0].text, /sozinho/);
@@ -701,10 +704,10 @@ test('pendência com caminho protegido não rearma na varredura: segue com a pes
 test('automação desligada pausa a recuperação sem descartar a pendência', async () => {
   const e = motor();
   const d = await revisado(e, INCOMPLETA);
-  e.autoReviewFor = () => false;
+  conta(e, { autoReview: false });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
   assert.match(d.esperaProva.impedimento, /desativada/);
-  e.autoReviewFor = () => true;
+  conta(e, { autoReview: true });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]], 'a pausa pela automação avisou uma vez');
 });
@@ -733,7 +736,7 @@ test('clique avulso e PR da própria conta não ganham recuperação com publica
 
 test('reprovação automática também recupera a análise quando a aprovação é manual', async () => {
   const e = motor(['wait', 'wait']);
-  e.rejectPolicyFor = () => 'request_changes';
+  conta(e, { onReject: 'request_changes' });
   const d = await revisado(e, INCOMPLETA);
   assert.ok(d.esperaProva);
   assert.deepEqual(e.eventos, []);

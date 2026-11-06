@@ -78,7 +78,7 @@ test('uma decisão de outro head que chega durante a consulta de CI não é alte
 
 test('re-review comum volta a ser elegível depois do CI mesmo sem pedido de revisão na fila', async () => {
   const e = motor();
-  e.autoReviewFor = () => true;
+  e.config.accounts[0].autoReview = true; // a conta revisa sozinha, lida pelo autoReviewFor real
   e.tokens = { eu: 'token-teste' };
   e.panorama = [{ ...PR, requested: false }];
   e.staleInfo[PR.key] = { stale: true, head: 'head-comum', lastState: 'APPROVED' };

@@ -18,6 +18,7 @@ const { TOOL } = await import('../lib/technical-review/verdict.js');
 const { approvalGaps } = await import('../lib/technical-review/evidence.js');
 const { attentionPoints } = await import('../lib/engine/ressalvas.js');
 const { shouldAutoApprove, textoDaRecusa } = await import('../lib/engine/approval-policy.js');
+const { acaoAoAprovar } = await import('../lib/engine/contas-config.js');
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const head = 'a'.repeat(40);
@@ -37,9 +38,14 @@ function multiRepo(extra = {}) {
     verificationCheckpoint: { total: 0, conflicts: [] }, protocolo: { prReviewer: 'rodou' },
     payloads: { approve: { event: 'APPROVE', body: 'O comportamento foi conferido.' } }, ...extra };
 }
+// A política vem da conta gravada por extenso e é lida pela função real do motor (acaoAoAprovar,
+// contas-config.js); só a lista de contas e o resto do engine são mínimos, porque aqui a unidade
+// é o shouldAutoApprove e não o Engine.
 function engineCom(onCaveats) {
-  return { accountForPr: () => 'reviewer', attentionPoints: (r) => attentionPoints(null, r),
-    approvePolicyFor: (_conta, limpo) => (limpo ? 'approve' : onCaveats) };
+  const e = { accountForPr: () => 'reviewer', attentionPoints: (r) => attentionPoints(null, r),
+    accountList: () => [{ user: 'reviewer', onClean: 'approve', onCaveats }] };
+  e.approvePolicyFor = (user, limpo) => acaoAoAprovar(e, user, limpo);
+  return e;
 }
 const PEDIDO = { requested: true };
 

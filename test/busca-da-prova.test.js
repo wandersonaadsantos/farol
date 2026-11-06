@@ -64,15 +64,19 @@ beforeEach(() => {
   technicalRuntime.reviewSnapshot = snapshotOriginal;
 });
 
+// A política é a da conta, gravada por extenso como a tela de Contas grava, e lida pelos métodos
+// reais do motor (contas-config.js), sem substituí-los.
+function conta(e, politica) {
+  Object.assign(e.config.accounts[0], politica);
+  return e;
+}
+
 // `politica` = [limpo, com ressalvas]
 function motor(politica = ['approve', 'approve']) {
   const e = new Engine();
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
-  e.approvePolicyFor = (_conta, limpo) => (limpo ? politica[0] : politica[1]);
-  e.autoReviewFor = () => true;
-  e.rejectPolicyFor = () => 'wait';
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], autoReview: true, onClean: politica[0], onCaveats: politica[1], onReject: 'wait' }];
   e.decisions = { pending: [], resolved: [] };
   e.saveDecisions = () => { };
   e.saveReReviewLaunched = () => { };
@@ -190,7 +194,7 @@ test('falta de prova que segue exigida não é ressalva que transfere uma decis�
 // (test/decisao-sem-mesa.test.js, 18/10/2026).
 test('a ressalva da rodada não converte CI vermelho: a aprovação espera o CI sozinha, sem postar e sem chamar ninguém', async () => {
   const e = motor();
-  e.rejectPolicyFor = () => 'wait';
+  conta(e, { onReject: 'wait' });
   e.bloqueadoPorChecks = async () => ({ faltando: [{ nome: 'test', estado: 'vermelho' }] });
   const d = await revisado(e, SEM_PROTOCOLO);
   assert.deepEqual(envios, []);
@@ -201,7 +205,7 @@ test('a ressalva da rodada não converte CI vermelho: a aprovação espera o CI 
 
 test('a ressalva da rodada não converte violação técnica confirmada: com a conta sem reprovar sozinha, vai para a mesa', async () => {
   const e = motor();
-  e.rejectPolicyFor = () => 'wait';
+  conta(e, { onReject: 'wait' });
   technicalRuntime.finishTechnicalReview = async (ctx) => ({ ...technicalReport(ctx.head, ctx.repo), verdict: 'fail', rules: [{ rule: 'x', verdict: 'fail' }] });
   const d = await revisado(e, SEM_PROTOCOLO);
   assert.deepEqual(envios, []);
@@ -212,7 +216,7 @@ test('a ressalva da rodada não converte violação técnica confirmada: com a c
 
 test('a ressalva da rodada não converte a parte do card deste PR dita não entregue: com a conta sem reprovar sozinha, vai para a mesa', async () => {
   const e = motor();
-  e.rejectPolicyFor = () => 'wait';
+  conta(e, { onReject: 'wait' });
   const d = await revisado(e, { ...SEM_PROTOCOLO, card: 'CARD-1', cardMet: false, cardParteDestePr: false });
   assert.deepEqual(envios, []);
   assert.equal(d.esperaProva, undefined, 'defeito do PR não é recuperação');
