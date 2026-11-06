@@ -1079,6 +1079,40 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   perder cobertura (biud-esg#522, 91a151c: as duas specs lidas às 19:38 viraram pendência às
   19:46). O clique ou relançamento no mesmo head fora da busca da prova segue cheio, pelo motivo
   do parágrafo acima. Travado em `test/heranca-de-alcance.test.js`.
+- **Leitura herdada entre PRs do mesmo repositório, por conteúdo (06/11/2026)**: medido no
+  estado real, biudtech/biud-frontend#1852 (promoção para homologation) trazia os 21 arquivos
+  com o MESMO caminho, blob e status do #1843, revisado uma hora antes, e gastou uma sessão de
+  ~10 min relendo os 21; as réplicas do GitFlow (task para develop, release_hmg e release_prd)
+  trazem os mesmos blobs. A prova por arquivo era só do PR. Agora
+  `lib/engine/prova-do-repositorio.js` guarda um índice por repositório em
+  `state/file-proof-blobs/<encodeURIComponent(repo)>.json` (`{repo, entradas}`), com chave
+  (caminho, blob SHA) e, em cada entrada, o PR e o head da leitura, quando, a sessão, o status e
+  o alcance conferido para aquele blob. **Gravado** pelo `salvarProvaDaSessao`, no mesmo ponto
+  e depois do `verificarAlcance`, só com o que a sessão LEU: arquivo do diff medido, com blob,
+  em `coverage.reviewed`, fora de `missing` e fora de `inherited` (o herdado mantém a origem de
+  quem leu primeiro); o alcance é o mesmo `alcanceDaProva` da prova do PR (só o que fechou).
+  Teto de 4000 entradas por repositório (ficam as leituras mais recentes) e poda pela idade da
+  prova por arquivo (30 dias), na gravação e no boot (`pruneFileProofs` também apaga o índice
+  sem gravação há mais que isso). Gravações paralelas no mesmo repositório podem perder uma
+  entrada; perder só custa reler o arquivo. **Lido** em `prepareReviewReading`, depois da prova
+  própria do PR, que vence: o índice só cobre o arquivo que ela não herda, e entrada gravada
+  pelo próprio PR nunca serve (o PR responde pela prova dele, inclusive pela regra do mesmo
+  head: relançamento no mesmo head fora da rodada complementar segue cheio, sem índice).
+  Herda o arquivo com o MESMO caminho, o MESMO blob (vazio nunca prova) e status compatível
+  (conteúdo presente, added, modified, renamed e afins, casa entre si; removido só com
+  removido). O herdado entra na mesma lista do `fileProofBlock`, num grupo próprio com a
+  origem por arquivo ("lido em org/repo#N, commit abc1234"), a reconciliação o põe em
+  `coverage.inherited`, o `coverageGap` o aceita como coberto e a origem vai às provas da
+  decisão em `cobertura.entrePrs` (contagem e amostra), a partir de `result.coberturaEntrePrs`,
+  que só o engine escreve. **O que não herda entre PRs**, para não perder qualidade: (a) o
+  alcance com chamador é conferido no head NOVO antes da sessão (`verificarAlcance` e
+  `alcanceConferido` contra o diff do PR novo); não fechou, o arquivo perde a herança e volta à
+  leitura; (b) o alcance "sem uso fora do diff" depende da base e do head do PR novo e não tem
+  como ser conferido pelo engine: a leitura herda e a sessão declara o alcance de novo (o
+  arquivo cai na lista "SEM alcance conferido"); (c) a avaliação técnica e o veredito são do PR
+  novo: herança é só da LEITURA; (d) caminho diferente (renomeado) não herda. Qualquer falha de
+  leitura do índice ou da conferência devolve a herança à da prova do PR. Travado em
+  `test/prova-entre-prs.test.js`.
 - **Retomada de sessão no round 2** (`config.reReviewResume`, default **false**, opt-in;
   toggle em Sistema > Automação, `#setReReviewResume`): o relançamento automático carrega o
   `sessionId` da última decisão do PR (`lastReviewSessionId`, lido das decisões CRUAS porque o
