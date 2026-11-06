@@ -24,6 +24,8 @@ A revisão começa minutos mais cedo: as sessões deixaram de fazer fila na prep
 - Material da análise técnica de uma sessão que morreu antes de decidir (`in-use`, `preparing` ou com Git pendente) ficava para sempre. Agora sai com a mesma prova das leases: dono encerrado, consumidores encerrados e nenhum Git vivo nascido depois. Em 06/11/2026 eram 15.
 - Pastas antigas de material sem registro, com mais de 7 dias e que nenhuma lease cita, passam a ser removidas, com evidência em `technical-review/legacy-removals.json` e no log. Em 06/11/2026 eram 237, com ~850 mil arquivos.
 - A limpeza deixou de gastar o ciclo relendo registros já removidos; material liberado é visto em poucos ciclos, e não em até ~34 min.
+- Arquivo protegido do PR (`.env.example` e parecidos) volta a ser lido pela revisão mesmo com regra de `deny` nas suas configurações do Claude: a cópia redigida ganhou um nome que o `deny` não casa. Protegido só conta como lido com a leitura observada dessa cópia, e a sessão não busca mais o arquivo cru no GitHub.
+- A revisão aberta no terminal passa a reservar o PR durante a preparação, então dois cliques seguidos não abrem duas janelas, e o patch entregue pela metade chega marcado como incompleto.
 
 ## v2.78.41
 
