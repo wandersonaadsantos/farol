@@ -112,6 +112,7 @@ test('a sessão da autoanálise aparece na lista com a classe, vence pelo prazo 
   const agente = emitirSessao('agente', T0, { classe: 'autoanalise' });
   const [linha] = listarSessoes({ agora: T0 + 1 });
   assert.equal(linha.classe, 'autoanalise');
+  assert.equal(linha.ultimoUsoEm, T0);
   assert.equal(verificarSessao(agente, T0 + TEMPOS.SESSAO_LOCAL_ABSOLUTA_MS, 'autoanalise'), false, 'tem prazo');
   const outro = emitirSessao('agente', T0, { classe: 'autoanalise' });
   assert.equal(revogarSessao(listarSessoes({ agora: T0 + 1 }).at(-1).id, T0 + 1), true);

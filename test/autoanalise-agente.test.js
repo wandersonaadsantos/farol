@@ -143,6 +143,16 @@ test('registro antigo sem campos sai com o vazio do mesmo tipo, nunca undefined'
   assert.equal(r.desatualizado, true, 'sem head registrado não prova que vale para o commit atual');
 });
 
+test('revisão oficial do mesmo PR, ou autoanálise de outro PR, não conta como autoanálise em andamento', async () => {
+  const { engine, lancadas } = engineFalso({
+    fila: [{ kind: 'review', key: 'acme/app#7' }, { kind: 'self', key: 'outra/app#1' }],
+    ativas: [{ mode: 'auto', keys: ['acme/app#7'] }, { mode: 'self', keys: ['outra/app#1'] }],
+  });
+  assert.equal(ler(engine, URL_PR).estado, 'sem_analise');
+  assert.equal((await pedir(engine, URL_PR)).ok, true);
+  assert.equal(lancadas.length, 1);
+});
+
 test('ler diz na fila, rodando ou sem análise, e recusa PR fora do escopo', () => {
   assert.equal(ler(engineFalso({ fila: [{ kind: 'self', key: 'acme/app#7' }] }).engine, URL_PR).estado, 'na_fila');
   assert.equal(ler(engineFalso({ ativas: [{ mode: 'self', keys: ['acme/app#7'] }] }).engine, URL_PR).estado, 'rodando');

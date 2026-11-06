@@ -15,6 +15,7 @@ const { consumirCodigo, criarCodigo } = await import('../lib/local-auth/pareamen
 const { emitirSessao, verificarSessao, listarSessoes } = await import('../lib/local-auth/sessoes.js');
 const { LOG_FILE, LOCAL_AUTH_DIR } = await import('../lib/paths.js');
 const { SPAWN_LOG_FILE } = await import('../lib/spawnlog.js');
+const { executar } = await import('../tools/farol-parear.js');
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const CLI = path.join(RAIZ, 'tools', 'farol-parear.js');
@@ -70,19 +71,30 @@ test('argumento desconhecido não gera código nem mexe em nada', () => {
   assert.equal(fs.existsSync(LOCAL_AUTH_DIR), false);
 });
 
+// Em processo (o executar exportado), para a cobertura e o teste de mutação enxergarem o ramo.
+function executarAqui(args) {
+  const saida = []; const erro = [];
+  const codigo = executar(args, { write: (t) => saida.push(t) }, { write: (t) => erro.push(t) });
+  return { codigo, stdout: saida.join(''), stderr: erro.join('') };
+}
+
 test('--autoanalise emite a credencial do agente: só no stdout, só no escopo dela, revogável', () => {
-  const r = rodar(['--autoanalise']);
-  assert.equal(r.status, 0, r.stderr);
-  const m = r.stdout.match(/Credencial do agente da autoanálise: ([A-Za-z0-9_-]{43})\n/);
+  const r = executarAqui(['--autoanalise']);
+  assert.equal(r.codigo, 0, r.stderr);
+  const m = r.stdout.match(/Credencial do agente da autoanálise: ([A-Za-z0-9_-]{43})\nVale só para pedir, ler e listar autoanálises, por até 90 dias\. /);
   assert.ok(m, r.stdout);
   assert.equal(verificarSessao(m[1], Date.now(), 'autoanalise'), true);
   assert.equal(verificarSessao(m[1]), false, 'nunca vale como Bearer geral');
   assert.deepEqual(listarSessoes().map(s => [s.rotulo, s.classe]), [['agente', 'autoanalise']]);
   for (const arquivo of arquivosDe(HOME)) assert.equal(fs.readFileSync(arquivo, 'utf8').includes(m[1]), false, `token em claro em ${arquivo}`);
-  const comRotulo = rodar(['--autoanalise', 'laptop']);
-  assert.equal(comRotulo.status, 0, comRotulo.stderr);
+  assert.equal(executarAqui(['--autoanalise', 'laptop']).codigo, 0);
   assert.ok(listarSessoes().some(s => s.rotulo === 'laptop' && s.classe === 'autoanalise'));
-  assert.equal(rodar(['--revogar-todas']).status, 0);
+  for (const args of [['--autoanalise', 'a', 'b'], ['--outra']]) {
+    const errado = executarAqui(args);
+    assert.equal(errado.codigo, 2, args.join(' '));
+    assert.equal(errado.stdout, '');
+  }
+  assert.equal(executarAqui(['--revogar-todas']).codigo, 0);
   assert.equal(verificarSessao(m[1], Date.now(), 'autoanalise'), false, 'revogar-todas também derruba a do agente');
 });
 

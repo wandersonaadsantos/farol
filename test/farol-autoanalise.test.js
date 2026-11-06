@@ -72,6 +72,13 @@ test('recusa do motor e 401 saem com código 1, e a resposta continua no stdout'
   assert.equal(semAcesso.codigo, 1);
 });
 
+test('corpo que não é objeto sai com código 1, sem confundir com motor fora do ar', async () => {
+  const r = await rodar(['listar'], { resposta: null });
+  assert.equal(r.codigo, 1);
+  assert.equal(r.saida, 'null\n');
+  assert.equal(r.erro, '');
+});
+
 test('uso errado e falta de credencial não chamam o motor', async () => {
   for (const args of [[], ['pedir'], ['listar', URL_PR], ['apagar', URL_PR], ['ler', URL_PR, 'extra']]) {
     const r = await rodar(args);
