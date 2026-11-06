@@ -61,7 +61,7 @@ for (const [nome, mudar] of MUDANCAS_EXTERNAS) {
     const atual = await contextoExternoDoAlcance(fonte(mudar(), { H: C }), [FILE]);
     const resultado = revalidarAusenciaHerdada(herdado(anterior), atual, [FILE]);
     assert.deepEqual(resultado.alcance, {});
-    assert.deepEqual(resultado.alcanceReavaliar, [FILE.path]);
+    assert.equal(FILE.path in resultado.alcance, false, 'o alcance volta a ser declarado pela sessão em curso');
     assert.deepEqual(resultado.unchanged, [FILE.path]);
     assert.equal(resultado.ativa, true);
   });

@@ -7,7 +7,7 @@
     "profundidadeExcedida": 2
   },
   "lib/engine/decision.js": {
-    "maxLines": 256,
+    "maxLines": 254,
     "jsonStringifyCru": 2,
     "profundidadeExcedida": 2
   },

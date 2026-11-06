@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-terminal-dedup-'));
 process.env.FAROL_HOME = root;
 const { Engine } = await import('../server.js');
+const { sessionCardHtml, liberaTerminal, textoDoCancelamento } = await import('../ui/pure/sessao.js');
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const pr = numero => ({ key: `org/repo#${numero}`, url: `https://github.com/org/repo/pull/${numero}`,
@@ -99,4 +100,36 @@ test('conta silenciada e regra manual mantêm suas recusas', async () => {
   e.config.accounts[0].reviewRules = { org: { mode: 'manual' } };
   assert.equal((await e.launchReview([pr(1).url], 'terminal', 'auto')).ok, false);
   assert.equal((await e.launchReview([pr(1).url], 'terminal', 'clique')).ok, true);
+});
+
+test('Liberar PR solta o terminal cujo aviso de fim se perdeu, sem tocar login nem sessão automática', async () => {
+  const e = motor();
+  assert.equal((await e.launchReview([pr(1).url], 'terminal', 'clique')).ok, true);
+  assert.equal((await e.launchReview([pr(1).url], 'auto', 'clique')).ok, false, 'o terminal segura o PR');
+  assert.deepEqual(e.cancelSession('terminal-0'), { ok: true, liberado: true });
+  assert.equal(e.activeReviews.has('terminal-0'), false);
+  assert.equal((await e.launchReview([pr(1).url], 'terminal', 'clique')).ok, true, 'liberado, o PR volta a poder ser revisado');
+  e.activeReviews.set('login', { id: 'login', mode: 'terminal', keys: [], login: true });
+  assert.equal(e.cancelSession('login').ok, false, 'login não segura PR e não é liberado por aqui');
+  assert.equal(e.activeReviews.has('login'), true);
+});
+
+test('o cartão do terminal de revisão oferece Liberar PR; login, sessão sem PR e sessão não cancelável não', () => {
+  const terminal = { id: 't1', label: 'org/repo#1', mode: 'terminal', keys: ['org/repo#1'] };
+  assert.equal(liberaTerminal(terminal), true);
+  assert.equal(textoDoCancelamento(terminal), 'Liberar PR');
+  assert.match(sessionCardHtml(terminal), /act-cancel" data-id="t1">Liberar PR</);
+  for (const s of [{ ...terminal, login: true }, { ...terminal, keys: [] }, { id: 'a1', mode: 'auto', keys: ['org/repo#1'] }]) {
+    assert.equal(liberaTerminal(s), false);
+    assert.doesNotMatch(sessionCardHtml(s), /act-cancel/);
+  }
+  assert.match(sessionCardHtml({ id: 'a2', mode: 'auto', keys: ['org/repo#1'], cancellable: true }), />Cancelar</);
+});
+
+test('autoanálise continua recusada com revisão automática ativa do mesmo PR', () => {
+  const e = motor();
+  e.activeReviews.set('headless', { id: 'headless', mode: 'auto', keys: [pr(1).key] });
+  assert.deepEqual(e.enqueueHeadless({ ...pr(1), kind: 'self' }), { ok: false, code: 'duplicado' });
+  e.activeReviews.delete('headless');
+  assert.notDeepEqual(e.enqueueHeadless({ ...pr(1), kind: 'self' }), { ok: false, code: 'duplicado' });
 });

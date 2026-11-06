@@ -196,6 +196,22 @@ export function selfSessionKey(sessions, id) {
 // Compatibilidade dos widgets: quantidade de eventos não mede conclusão.
 export function sessionProgress() { return null; }
 
+// O terminal de revisão segura o PR contra outra revisão neste aparelho (revisao-em-curso.js)
+// até a janela avisar que fechou. Se esse aviso se perde, o botão LIBERA o PR: o Farol não
+// fecha a janela, só deixa de contá-la. Login e sessão sem PR não seguram nada.
+export function liberaTerminal(s = {}) {
+  return s.mode === 'terminal' && s.login !== true && Array.isArray(s.keys) && s.keys.length > 0;
+}
+
+export function temCancelamento(s = {}) {
+  return !!s.cancellable || liberaTerminal(s);
+}
+
+export function textoDoCancelamento(s = {}) {
+  if (liberaTerminal(s)) return 'Liberar PR';
+  return s.cancelled ? 'Cancelando…' : 'Cancelar';
+}
+
 // `outros`: quem MAIS está revisando o PR desta sessão (estado 5 do desenho de 02/10/2026,
 // ui/pure/revisando.js), só a linha curta e sem botão.
 export function sessionCardHtml(s = {}, stages = '', outros = []) {
@@ -215,8 +231,7 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
   else if (p === null) quemPediu = 'pedido não identificado';
   const pedido = quemPediu ? `<span class="session-requested">${quemPediu}</span>` : '';
   const cancelamentoDisabled = s.cancelled ? ' disabled' : '';
-  const cancelamentoTexto = s.cancelled ? 'Cancelando…' : 'Cancelar';
-  const cancelar = s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${id}"${cancelamentoDisabled}>${cancelamentoTexto}</button>` : '';
+  const cancelar = temCancelamento(s) ? `<button class="btn sm danger-ghost act-cancel" data-id="${id}"${cancelamentoDisabled}>${textoDoCancelamento(s)}</button>` : '';
   return `
       <div class="card session-card" data-id="${id}">
         <div class="session-head">

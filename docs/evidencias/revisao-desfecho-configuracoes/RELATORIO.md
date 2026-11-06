@@ -3,7 +3,7 @@
 Data: 06/11/2026. Repositório: `wandersonaadsantos/farol`.
 
 Base inicial analisada: `f2fabc2811b9e9b1b33ef920442e76b585156863`, versão `2.78.39`.
-Integrações da base: `c9aa06f28e2199c967471b2b885796ae8dd4447e` (PR #348, autoanálise por agente) e `34c2d887fa3af8ad393311331f895273ab953a4c` (PR #351, prova na primeira rodada, leitura entre PRs e recuperação encerrada por decisão humana). O segundo merge foi incorporado à branch depois da abertura do PR #352, com resolução explícita dos conflitos.
+Integrações da base: `c9aa06f28e2199c967471b2b885796ae8dd4447e` (PR #348, autoanálise por agente) e `34c2d887fa3af8ad393311331f895273ab953a4c` (PR #351, prova na primeira rodada, leitura entre PRs e recuperação encerrada por decisão humana). O segundo merge foi incorporado à branch depois da abertura do PR #352, com resolução explícita dos conflitos. Depois, a branch recebeu por merge a `main` `1306111c5d3e7ea1fd1d3a54cc1d3d61a2d1d739` (PRs #353 e #349, saída da recuperação da prova); ver "Integração com a saída da recuperação" abaixo.
 Branch de trabalho: `fix/revisao-desfecho-configuracoes`.
 
 ## Resultado e critério da correção
@@ -18,17 +18,17 @@ As alterações são de código, testes e documentação. A integração preserv
 
 | Item | Conclusão técnica | Tratamento aplicado |
 |---|---|---|
-| 1. Divergência impede retirar pedido resolvido | Defeito confirmado no caminho da retirada | A divergência histórica isolada deixa de impedir a retirada. Prova da rodada, referências anteriores, ausência de defeitos e demais gates continuam necessários. |
+| 1. Divergência impede retirar pedido resolvido | Defeito confirmado no caminho da retirada | A divergência histórica isolada, longe dos pedidos respondidos, deixa de impedir a retirada; a que cai no ponto de um pedido dito resolvido continua segurando. Prova da rodada, referências anteriores, ausência de defeitos e demais gates continuam necessários. |
 | 2. Sessão reprova pela mesma dívida antiga | Defeito confirmado para dívida correspondente à medição técnica | Correlação dos achados da sessão com todos os achados mecânicos, antes do corte público. Correção na conversa existente; regra exata ou âncora causal em mudança real. |
 | 3. Construção longa vira dívida | Defeito confirmado | Intervalo sintático completo, vinculado ao blob do head. Sem margem arbitrária de proximidade. |
 | 4. Ausência de consumidores herdada sem reconferência | Defeito confirmado de frescor do contexto | Herança vinculada à árvore completa do head, incluindo arquivos do diff, base e identidade da conta/repositório. Contradição concreta do mapa já habilitado invalida a declaração. |
 | 5. Objeção nova já lida descarta aprovação | Limitação confirmada do protocolo anterior | Consulta somente de leitura entrega texto e recibo; envelope declara tipo, id e hash de conteúdo. Publicação reconfirma os recibos contra o histórico atual. |
 | 6. Resposta do autor conta como objeção | Custo evitável confirmado | Autor identificado é excluído das objeções independentes; PR avulso consulta a identidade. Identidade desconhecida conserva a classificação cautelosa. |
-| 7. Mudança de versão antecipa esperas | Comportamento confirmado | Mudança de regra respeita `proximaEm`; a próxima tentativa efetiva entra no contador. Não se concede sessão extra pela migração. |
+| 7. Mudança de versão antecipa esperas | Comportamento confirmado | Mudança de regra respeita `proximaEm`; a próxima rodada usa a regra atual e, como qualquer outra desde o PR #349, só entra no contador quando conclui. Não se concede sessão fora do recuo pela migração. |
 | 8. Causa da queda da janela | Causa ainda não demonstrada | Diagnóstico local opt-in, sem upload, em `FAROL_HOME`; tratamento da rejeição assíncrona ao recarregar e exclusão de saída limpa. Não declarar correção da causa. |
 | 9. Estado grande enviado à tela | Peso confirmado por inspeção e fixture; alegação de ausência total de retenção era excessiva | Projeção de uso e ações somente para os consumidores da tela, preservando séries, totais, limites, trabalho visível e consulta histórica. |
 | 10. Divergência duplicada no card | Defeito de apresentação confirmado | Um único ponto de divergência, inclusive com prova esgotada. Evidência usada pelo gate fica separada do texto da UI. |
-| 11. Ratchet desatualizado | Confirmado | `review.js`: 707 → 704, medido após integrar a `main` atual. `server.js`: 936 → 929; `decision.js`: 257 → 256, além da redução de outras dívidas nesses arquivos tocados. Nenhuma baseline aumentou em relação à base publicada. |
+| 11. Ratchet desatualizado | Confirmado | `review.js`: 707 → 704, medido após integrar a `main` atual. `server.js`: 936 → 929; `decision.js`: 257 → 254 (medido depois de integrar o PR #349), além da redução de outras dívidas nesses arquivos tocados. Nenhuma baseline aumentou em relação à base publicada. |
 | 12. Herança de production, compare e terminal duplicado | Conjunto de defeitos e limites distintos | Pontas P/B/H fixadas, ancestralidade e completude conferidas, renomes e interação causal observada preservados; compare real exercitado; terminal incluído na exclusão local. Limites semânticos e coordenação humana entre aparelhos explicitados abaixo. |
 
 ## Decisão correta sem nova trava
@@ -106,7 +106,24 @@ O app continua sem detectar semanticamente uma dependência omitida por completo
 
 A mesma chave canônica agora é consultada na fila automática, na janela de início, nas revisões automáticas ativas e nos terminais ativos. A guarda acontece depois da preparação assíncrona e antes do lançamento. Há teste de duas requisições simultâneas, lote parcial, caixa diferente no nome do repositório e liberação após fechar o terminal.
 
+O terminal só deixa de segurar o PR quando a janela avisa que fechou (no macOS e no Linux, pelo `trap EXIT` que chama a API local). Se esse aviso se perde, o cartão do terminal em "Analisando agora" oferece **Liberar PR**: o Farol faz o que o fim da sessão faria (solta o PR e revoga a capacidade de postagem do terminal) sem fechar a janela da pessoa. Login e sessão sem PR não seguram nada e não têm o botão. O "Refazer" de recibo órfão recusa sem apagar o recibo quando há revisão do mesmo PR em curso neste aparelho, e a autoanálise continua recusada contra a revisão automática ativa do mesmo PR, como antes.
+
 A exceção humana existente para terminal entre aparelhos permanece: não foi criado lease remoto para uma sessão conduzida pela pessoa. A correção elimina a duplicação local observada; não promete exclusão global de terminais nem altera a configuração de coordenação.
+
+## Integração com a saída da recuperação
+
+O merge da `main` `1306111c` trouxe o PR #349: a tentativa da recuperação passou a contar quando a rodada **conclui** (`armar`), não quando é agendada (`relancar`), com teto de seis rodadas por commit (`MAX_TENTATIVAS_POR_HEAD`) e a pausa que pede uma pessoa (`pedeVoce`). A resolução seguiu essa semântica:
+
+- A troca de regras continua sem antecipar `proximaEm`, mas deixou de somar tentativa ao relançar; quem conta é a conclusão da rodada. Os testes deste PR que esperavam a soma no agendamento foram ajustados para o contrato da `main`, e um deles agora roda a rodada relançada e confere a contagem na conclusão.
+- `armar` mantém, lado a lado, a recusa por `ambienteSegura` (da `main`) e a recusa por `escopoSessaoInconclusivo` (deste PR).
+- `recordDecision` substitui a pendência anterior com `provaEsgotada`, com `esperaProva` (da `main`) ou por head velho. A condição própria para a pendência de escopo da sessão saiu: toda rodada headless já carrega `provaEsgotada`, e a mutação que a removia não derrubou nenhum teste.
+- `pontosDaProvaEsgotada` continua sem repetir a divergência que `ressalvas.js` já mostra, agora valendo em toda rodada.
+
+A auto-revisão depois do merge acrescentou: a divergência no ponto de um pedido dito resolvido segura a retirada (`divergenciaNoPedido`); o botão Liberar PR do terminal; a recusa do Refazer com revisão local em curso; a autoanálise de novo recusada contra revisão automática ativa; a leitura dos intervalos pelo descritor aberto (alerta `js/file-system-race` do CodeQL); os testes da herança de production pelo caminho real (`provaDaHeranca` com a base do inventário), sem o auxiliar que só os testes usavam; e a retirada do campo `alcanceReavaliar`, que nada lia.
+
+O desconto de dívida exige agora o intervalo medido pelo parser. Arquivo que não é JavaScript/TypeScript e ponto que não abre nó sintático (valor dentro de template literal) voltam a bloquear, o que é o lado seguro e está dito em `docs/REVIEW-GATES.md`.
+
+A validação desta integração rodou em Windows 11 com Node 24.22.1; os números estão em "Validação e limites do ambiente". Os testes de processo Linux, excluídos na rodada anterior por causa do namespace de PIDs daquele executor, ficam a cargo da matriz do CI.
 
 ## Objeções e política da conta
 

@@ -65,6 +65,12 @@ after(() => {
   io.run = runReal;
   try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
+// O caminho de produção: provaDaHeranca com a base do inventário (aplicarHerancaDeProducao).
+async function herdados(engine, pr, head, arquivos) {
+  const { provaDaHeranca } = await import('../lib/engine/heranca-de-producao.js');
+  return (await provaDaHeranca(engine, pr, head, arquivos, BASE))?.arquivos || null;
+}
+
 beforeEach(() => {
   sessoes = 0;
   postados = 0;
@@ -223,22 +229,20 @@ test('a marca de herança confirmada vinda da sessão é apagada antes da confer
 });
 
 test('falha passageira da comparação não desliga a regra para o repositório', async () => {
-  const { arquivosHerdados } = await import('../lib/engine/heranca-de-producao.js');
   gh.producaoFalha = true;
   const e = motor();
-  await arquivosHerdados(e, PR(31), HEAD, [ARQ]);
+  await herdados(e, PR(31), HEAD, [ARQ]);
   assert.equal(e.semProducao?.has('acme/app') || false, true, 'o 404 guarda');
   const e2 = motor();
   gh.producaoFalha = false;
   gh.compareErro = 'HTTP 502';
-  await arquivosHerdados(e2, PR(32), HEAD, [ARQ]);
+  await herdados(e2, PR(32), HEAD, [ARQ]);
   assert.equal(e2.semProducao?.has('acme/app') || false, false, '502 não guarda');
 });
 
 test('base com barra usa somente SHAs fixos nas duas comparações', async () => {
-  const { arquivosHerdados } = await import('../lib/engine/heranca-de-producao.js');
   gh.base = 'release/equipe/homologacao';
-  assert.deepEqual(await arquivosHerdados(motor(), PR(33), HEAD, [ARQ]), [ARQ]);
+  assert.deepEqual(await herdados(motor(), PR(33), HEAD, [ARQ]), [ARQ]);
   assert.deepEqual(endpointsDaComparacao, [
     `repos/acme/app/compare/${PROD}...${HEAD}?per_page=1`,
     `repos/acme/app/compare/${PROD}...${BASE}?per_page=1`,
@@ -246,12 +250,11 @@ test('base com barra usa somente SHAs fixos nas duas comparações', async () =>
 });
 
 test('404 na comparação não afirma que a branch production está ausente', async () => {
-  const { arquivosHerdados } = await import('../lib/engine/heranca-de-producao.js');
   const e = motor(); gh.compareFalha = true;
-  assert.equal(await arquivosHerdados(e, PR(34), HEAD, [ARQ]), null);
+  assert.equal(await herdados(e, PR(34), HEAD, [ARQ]), null);
   assert.equal(e.semProducao?.has('acme/app') || false, false);
   gh.compareFalha = false;
-  assert.deepEqual(await arquivosHerdados(e, PR(34), HEAD, [ARQ]), [ARQ], 'a consulta pode se recuperar sem reiniciar o Farol');
+  assert.deepEqual(await herdados(e, PR(34), HEAD, [ARQ]), [ARQ], 'a consulta pode se recuperar sem reiniciar o Farol');
 });
 
 test('arquivo herdado cujo achado cita consumidor alterado pela base continua bloqueando', async () => {
@@ -287,18 +290,17 @@ test('herança sem fundamentação não reduz um bloqueio', async () => {
 });
 
 test('rename na base preserva o caminho anterior ao classificar dívida e contexto', async () => {
-  const { arquivosHerdados, rebaixarHeranca } = await import('../lib/engine/heranca-de-producao.js');
+  const { rebaixarHeranca } = await import('../lib/engine/heranca-de-producao.js');
   gh.mexidosNaBase = [{ filename: 'src/lib/novo-aviso.test.tsx', previous_filename: ARQ }];
-  assert.deepEqual(await arquivosHerdados(motor(), PR(39), HEAD, [ARQ]), [], 'caminho removido por rename não é um arquivo intacto');
+  assert.deepEqual(await herdados(motor(), PR(39), HEAD, [ARQ]), [], 'caminho removido por rename não é um arquivo intacto');
   const result = { findings: [{ ...HERDADO, evidence: 'A opção em src/config-antiga.ts:8 causa a quebra no arquivo herdado.' }] };
   assert.equal(rebaixarHeranca(result, [ARQ], ['src/config-nova.ts', 'src/config-antiga.ts']), 0);
 });
 
 for (const lado of ['diferentes', 'mexidosNaBase']) {
   test(`comparação ${lado} no teto de 300 arquivos não permite rebaixamento`, async () => {
-    const { arquivosHerdados } = await import('../lib/engine/heranca-de-producao.js');
     gh[lado] = Array.from({ length: 300 }, (_, i) => `src/arquivo-${i}.ts`);
-    assert.equal(await arquivosHerdados(motor(), PR(40), HEAD, [ARQ]), null);
+    assert.equal(await herdados(motor(), PR(40), HEAD, [ARQ]), null);
   });
 }
 
@@ -315,12 +317,21 @@ test('head ou base andou depois do inventário: resultado antigo não é rebaixa
 });
 
 test('inventário parcial e merge-base incompatível não viram prova de herança', async () => {
-  const { aplicarHerancaDeProducao, arquivosHerdados } = await import('../lib/engine/heranca-de-producao.js');
+  const { aplicarHerancaDeProducao } = await import('../lib/engine/heranca-de-producao.js');
   const result = { verdict: 'request_changes', findings: [HERDADO], payloads: { approve: APROVA } };
   await aplicarHerancaDeProducao(motor(), PR(42), HEAD,
     { status: 'incomplete', headSha: HEAD, baseSha: BASE, files: [{ path: ARQ }] }, result, (text) => ({ text }));
   assert.equal(result.verdict, 'request_changes');
   assert.equal(leiturasDaComparacao, 0);
   gh.ancestralDoHead = ANCESTRAL;
-  assert.equal(await arquivosHerdados(motor(), PR(42), HEAD, [ARQ]), null, 'behind 0 sozinho não basta se a resposta contradiz o ancestral');
+  assert.equal(await herdados(motor(), PR(42), HEAD, [ARQ]), null, 'behind 0 sozinho não basta se a resposta contradiz o ancestral');
+});
+
+test('prova da herança exige a base do inventário e devolve o que a base mexeu como contexto', async () => {
+  const { provaDaHeranca } = await import('../lib/engine/heranca-de-producao.js');
+  gh.mexidosNaBase = ['src/configuracao.ts'];
+  const prova = await provaDaHeranca(motor(), PR(43), HEAD, [ARQ, 'src/configuracao.ts'], BASE);
+  assert.deepEqual(prova.arquivos, [ARQ]);
+  assert.ok(prova.contextoAlterado.includes('src/configuracao.ts'));
+  assert.equal(await provaDaHeranca(motor(), PR(43), HEAD, [ARQ], ANCESTRAL), null, 'base que andou desde o inventário não prova nada');
 });

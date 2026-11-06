@@ -19,6 +19,7 @@ const REVIEW_ID = 5779550702;
 const check = (name, conclusion, status = 'COMPLETED') => ({ name, status, conclusion, startedAt: '2026-11-05T12:00:00Z' });
 const pedido = (extra) => ({ id: REVIEW_ID, state: 'CHANGES_REQUESTED', commit: HEAD_VELHO, at: '2026-11-05T03:38:29Z', ...extra });
 
+const { normalizeFindings } = await import('../lib/engine/review-findings.js');
 const io = (await import('../lib/io.js')).default;
 const runReal = io.run;
 let envios = [];
@@ -492,15 +493,26 @@ test('prova esgotada sem lacuna dispensada retira como qualquer rodada', async (
   assert.equal(provaDaRetirada(e, PR(60), { ...base, provaEsgotada: true }), 'sim');
 });
 
-test('divergência herdada não mantém pedido resolvido, com ou sem prova esgotada', async () => {
+test('divergência herdada longe do pedido não o mantém, com ou sem prova esgotada', async () => {
   const { e, base } = await resultadoReal(61);
-  const verificationCheckpoint = { total: 2, conflicts: [{ entries: [{ file: ARQUIVO, line: 1, claim: 'a chamada pode falhar' }] }] };
+  const verificationCheckpoint = { total: 2, conflicts: [{ entries: [{ file: 'src/outro.ts', line: 9, claim: 'a chamada pode falhar' }] }] };
   for (const provaEsgotada of [false, true]) {
     const resultado = { ...base, verificationCheckpoint, provaEsgotada };
     assert.equal(provaDaRetirada(e, PR(61), resultado), 'sim');
     assert.equal(provaDaRetirada(e, PR(61), { ...resultado, roundReview: { ...base.roundReview, unresolvedCount: 1 } }), 'nao');
     assert.equal(provaDaRetirada(e, PR(61), { ...resultado, coverage: { total: 1, reviewed: [], missing: [ARQUIVO] } }), 'nao');
   }
+});
+
+test('divergência no ponto do pedido resolvido segura a retirada', async () => {
+  const { e, base } = await resultadoReal(62);
+  assert.ok(normalizeFindings(base.findings).findings.some((f) => f.ref && f.status === 'resolvido' && f.file === ARQUIVO && f.line === 1));
+  for (const entrada of [{ file: ARQUIVO, line: 1 }, { file: ARQUIVO }]) {
+    const verificationCheckpoint = { total: 2, conflicts: [{ entries: [{ ...entrada, claim: 'o desvio continua' }] }] };
+    assert.equal(provaDaRetirada(e, PR(62), { ...base, verificationCheckpoint, provaEsgotada: true }), 'nao', JSON.stringify(entrada));
+  }
+  const outraLinha = { total: 2, conflicts: [{ entries: [{ file: ARQUIVO, line: 40, claim: 'outra coisa' }] }] };
+  assert.equal(provaDaRetirada(e, PR(62), { ...base, verificationCheckpoint: outraLinha, provaEsgotada: true }), 'sim');
 });
 
 const SO_CI = [

@@ -265,6 +265,20 @@ test('redoReceipt não apaga o recibo quando o clique seria barrado por outro mo
   assert.equal(e.relancados.length, 0);
 });
 
+test('redoReceipt não apaga o recibo quando há revisão deste PR em curso neste aparelho', async () => {
+  for (const sessao of [{ mode: 'auto', keys: [KEY] }, { mode: 'terminal', keys: [KEY] }]) {
+    fake.setTree({ users: { u1: { receipts: { [IDS.accountHash]: { [IDS.prHash]: { [FP]: recibo() } } } } } });
+    const e = motorConectado();
+    e.activeReviews.set('viva', { id: 'viva', ...sessao });
+    const r = await e.syncRedoReceipt(KEY);
+    assert.equal(r.ok, false, sessao.mode);
+    assert.equal(r.code, 'conflito');
+    assert.match(r.motivo, /em curso deste PR neste aparelho/);
+    assert.ok(reciboNoBanco(), 'o recibo só some quando o relançamento vai mesmo acontecer');
+    assert.equal(e.relancados.length, 0);
+  }
+});
+
 test('redoReceipt sem conexão não toca o banco nem relança', async () => {
   const e = motorConectado();
   e.sync.status = 'erro';

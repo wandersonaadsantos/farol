@@ -119,6 +119,10 @@ const CONGELADA = [
   // progressoDaSessao, conclusaoDaSessao e as tres constantes da regua, e SAIU
   // situacaoDaSessao, que o progressoDaSessao absorveu (a fase, o silencio e os arquivos
   // lidos agora vem junto com a porcentagem, nos textos do desenho)
+  // "Liberar PR" do terminal de revisão cujo aviso de fim se perdeu (06/11/2026, PR #352)
+  "liberaTerminal",
+  "temCancelamento",
+  "textoDoCancelamento",
   "conclusaoDaSessao",
   "progressoDaSessao",
   "SEM_SINAL_MS",
