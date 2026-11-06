@@ -347,7 +347,9 @@ test('PR #248, achado 1: com a prova esgotada, base nova ou objeção nova recus
   // aprovação que a conta mandou sair, então ele não substitui a impressão que falta.
   // A execução que não concluiu é a lacuna que a rodada dispensa; relatório sem ferramenta
   // nenhuma (avaliação técnica atual ausente) segue exigido desde 06/11/2026 (abaixo).
-  const semContexto = { schema: 1, verdict: 'not-run', failure: 'assessment', error: 'ferramenta ausente' };
+  // com a identidade da regra que o runtime grava na falha (runtime.js, identidadeDaFalha)
+  const semContexto = { schema: 1, verdict: 'not-run', failure: 'assessment', error: 'ferramenta ausente',
+    version: report.version, toolCommit: report.toolCommit, profile: report.profile };
   const comPedido = motor(semContexto, { bloqueadoPorHistorico: async () => ({ bloqueado: false, decisivos: [], pediramMudancas: ['colega'] }) });
   assert.equal(await approvalRefusal(comPedido, pr, payload), null);
   const semPedido = motor(semContexto, { bloqueadoPorHistorico: async () => ({ bloqueado: false, decisivos: [] }) });

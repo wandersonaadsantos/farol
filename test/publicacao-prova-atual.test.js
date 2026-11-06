@@ -19,7 +19,7 @@ process.env.FAROL_HOME = path.join(root, 'home');
 const { TOOL } = await import('../lib/technical-review/verdict.js');
 const { PROFILE_FILE, profileFor } = await import('../lib/technical-review/profiles.js');
 const { approvalRefusal } = await import('../lib/technical-review/publication.js');
-const { technicalRuntime } = await import('../lib/technical-review/runtime.js');
+const { technicalRuntime, prepareTechnicalReview, finishTechnicalReview } = await import('../lib/technical-review/runtime.js');
 const { VERSAO_DAS_REGRAS } = await import('../lib/technical-review/evidence.js');
 
 const REPO = 'org/declarado';
@@ -49,6 +49,12 @@ const FONTES = {
 function motor(fonte, report) {
   return { ...FONTES[fonte](report), saveDecisions: () => { }, technicalRecheckRequested: new Set(),
     bloqueadoPorChecks: async () => ({ verifiedHead: HEAD, faltando: [] }) };
+}
+
+async function relatorioDaFalha() {
+  const contexto = await prepareTechnicalReview({}, { repo: REPO, key: PR.key, number: 1 }, HEAD);
+  assert.ok(contexto.error, 'a ferramenta ausente faz o prepare falhar');
+  return finishTechnicalReview(contexto);
 }
 
 beforeEach(() => {
@@ -96,11 +102,27 @@ for (const fonte of Object.keys(FONTES)) {
     assert.equal(r.needsReview, true);
   });
 
-  test(`${fonte}: execução não concluída com a declaração trocada depois pede revisão nova`, async () => {
-    const report = { schema: 1, verdict: 'not-run', failure: 'assessment', repo: REPO, head: HEAD, profile: profileFor(REPO).fingerprint };
-    assert.equal(await approvalRefusal(motor(fonte, report), PR, PAYLOAD), null, 'a lacuna que a rodada dispensou segue ressalva');
-    declarar(['core', 'frontend']);
-    const r = await approvalRefusal(motor(fonte, report), PR, PAYLOAD);
+  // O relatório da falha de execução exatamente como o runtime grava (segunda revisão independente,
+  // 06/11/2026): a ferramenta não está instalada nesta máquina de teste, e o prepare devolve a falha.
+  for (const [troca, aplicar] of [
+    ['a declaração técnica', () => declarar(['core', 'frontend'])],
+    ['o commit da ferramenta', () => { TOOL.commit = 'f'.repeat(40); }],
+    ['a versão da ferramenta', () => { TOOL.version = `${TOOL.version}-nova`; }],
+  ]) {
+    test(`${fonte}: avaliação técnica que falhou na rodada, depois troca ${troca}: pede revisão nova`, async () => {
+      const report = await relatorioDaFalha();
+      assert.equal(report.verdict, 'not-run');
+      assert.equal(await approvalRefusal(motor(fonte, report), PR, PAYLOAD), null, 'controle: a falha que a rodada dispensou segue ressalva');
+      aplicar();
+      const r = await approvalRefusal(motor(fonte, report), PR, PAYLOAD);
+      assert.ok(r, 'não sai APPROVE sobre a falha registrada com a regra antiga');
+      assert.equal(r.blocked, 'technical_review');
+      assert.equal(r.needsReview, true);
+    });
+  }
+
+  test(`${fonte}: falha de execução gravada antes desta versão (sem perfil nem ferramenta) pede revisão nova`, async () => {
+    const r = await approvalRefusal(motor(fonte, { schema: 1, verdict: 'not-run', error: 'x', failure: 'assessment' }), PR, PAYLOAD);
     assert.ok(r);
     assert.equal(r.needsReview, true);
   });
