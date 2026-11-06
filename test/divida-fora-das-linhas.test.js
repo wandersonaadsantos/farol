@@ -3,7 +3,7 @@
 // bloqueando como antes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { linhaDoAchado, trechosDoDiff, classificarPorLinhas, pontoDaDivida } from '../lib/technical-review/divida-fora-das-linhas.js';
+import { linhaDoAchado, trechosDoDiff, trechosDoPatch, classificarPorLinhas, pontoDaDivida } from '../lib/technical-review/divida-fora-das-linhas.js';
 import { technicalGap, technicalSummary, relatorioComViolacao, TOOL } from '../lib/technical-review/verdict.js';
 import { relatorioTecnico } from '../lib/technical-review/runtime.js';
 import { attentionPoints } from '../lib/engine/ressalvas.js';
@@ -59,7 +59,7 @@ test('a linha vem só do verificador mecânico; avaliação, texto entre aspas e
 // ------------------------------------------------------------------ o diff medido
 
 test('só o inventário completo do mesmo commit, com patch cru e inteiro, dá trechos', () => {
-  assert.deepEqual(trechosDoDiff(INVENTARIO, HEAD).get(TESTE), [[1938, 1950], [2386, 2390]]);
+  assert.deepEqual(trechosDoDiff(INVENTARIO, HEAD).get(TESTE), [[1938, 1949], [2386, 2389]]);
   assert.equal(trechosDoDiff(INVENTARIO, 'e'.repeat(40)), null, 'inventário de outro commit');
   assert.equal(trechosDoDiff({ ...INVENTARIO, status: 'partial' }, HEAD), null);
   assert.equal(trechosDoDiff(null, HEAD), null);
@@ -92,7 +92,7 @@ test('biud-frontend#1818: supressor e unidade fixa em linha intacta viram dívid
 });
 
 test('achado no trecho do PR, inclusive no contexto em volta da mudança, segue bloqueando, e segura a regra inteira', () => {
-  for (const linha of [1938, 1941, 1949, 1950, 2386, 2390]) {
+  for (const linha of [1938, 1941, 1949, 2386, 2389]) {
     const r = classificarPorLinhas({ rules: [fail(SUPRESSAO)], findings: [supressor(TESTE, 2394), supressor(TESTE, linha)] }, INVENTARIO, HEAD);
     assert.equal(r.findings[1].foraDasLinhas, undefined, String(linha));
     assert.equal(r.rules[0].dividaForaDasLinhas, undefined, `linha ${linha}: um achado do trecho segura a regra`);
@@ -167,4 +167,11 @@ test('a dívida vira ressalva da revisão aprovável, nunca some calada', () => 
   assert.ok(pontos.some(p => p.kind === 'gate' && p.text === texto), JSON.stringify(pontos));
   assert.equal(pontoDaDivida({}), null);
   assert.equal(pontoDaDivida(null), null);
+});
+
+test('o fim do trecho é inclusivo: +10,3 cobre 10 a 12, e a linha 13 já é dívida anterior', () => {
+  const nl = String.fromCharCode(10);
+  assert.deepEqual(trechosDoPatch(['@@ -1,3 +10,3 @@', ' a', '+b', ' c'].join(nl)), [[10, 12]]);
+  assert.deepEqual(trechosDoPatch(['@@ -5,2 +7,0 @@', '-x', '-y'].join(nl)), [[7, 7]], 'trecho só de remoção fica na linha onde caiu');
+  assert.deepEqual(trechosDoPatch(['@@ -4 +4 @@', '-x', '+y'].join(nl)), [[4, 4]], 'sem tamanho é uma linha');
 });
