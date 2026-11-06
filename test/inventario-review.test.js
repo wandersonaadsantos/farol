@@ -19,14 +19,14 @@ const HEAD = 'a'.repeat(40);
 const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/pull/1', requested: true, author: 'dev' };
 const FILES = Array.from({ length: 132 }, (_, i) => ({ path: `src/f${i}.ts`, sha: `blob${i}`, status: 'modified', lines: 10 }));
 
-function motor(verdict, { partial = false, moved = false, fail = false, coverage = true, extra = {} } = {}) {
+function motor(verdict, { partial = false, moved = false, fail = false, coverage = true, extra = {}, changedFiles = 132 } = {}) {
   let snapshots = 0;
   const queries = [];
   io.run = async (_cmd, args) => {
     queries.push(args.join(' '));
     if (args[1] === 'repos/o/r/pulls/1') {
       snapshots++;
-      return { ok: !fail, stdout: JSON.stringify({ headSha: moved && snapshots > 1 ? 'c'.repeat(40) : HEAD, baseSha: 'b'.repeat(40), changedFiles: 132 }) };
+      return { ok: !fail, stdout: JSON.stringify({ headSha: moved && snapshots > 1 ? 'c'.repeat(40) : HEAD, baseSha: 'b'.repeat(40), changedFiles }) };
     }
     if (args[1] === 'repos/o/r/pulls/1/files') return { ok: true, stdout: JSON.stringify(partial ? FILES.slice(0, 100) : FILES) };
     return { ok: true, stdout: '[]' };
@@ -119,4 +119,18 @@ test('tentativas esgotadas não liberam aprovação com inventário desconhecido
   const result = { ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', provaEsgotada: true,
     inventarioDiff: { status: 'unavailable', reason: 'sem rede' }, payloads: { approve: { event: 'APPROVE', body: 'ok' } } };
   assert.equal(e.shouldAutoApprove(PR, result).ok, false);
+});
+
+// Segunda revisão independente de 06/11/2026: acima do limite de arquivos que o GitHub lista o
+// inventário nunca fecha. A revisão vai à mesa com o motivo, sem recuperação, e a prova gravada
+// não pede revisão nova pelo clique (que daria o mesmo resultado, uma sessão por clique).
+test('PR acima do limite de arquivos do GitHub: mesa com o motivo, sem recuperação e sem lacuna que relance pelo clique', async () => {
+  const { e } = motor('approve', { changedFiles: 3500 });
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.postados.length, 0, 'o APPROVE automático continua impedido');
+  const d = e.decisions.pending[0];
+  assert.ok(d, 'fica com você');
+  assert.equal(d.esperaProva, undefined, 'sem recuperação');
+  assert.match(d.reasons.map(r => r.text || r).join(' | '), /3500 arquivos.*a decisão é sua/);
+  assert.equal(d.approvalEvidence.includes('diff não medido independentemente'), false);
 });

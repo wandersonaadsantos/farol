@@ -46,6 +46,7 @@ const { PROFILE_FILE, profileFor } = await import('../lib/technical-review/profi
 const esperaProva = (await import('../lib/engine/espera-prova.js')).default;
 const busca = (await import('../lib/engine/busca-da-prova.js')).default;
 const reviewMod = (await import('../lib/engine/review.js')).default;
+const { textoDaRecusa } = await import('../lib/engine/approval-policy.js');
 
 const finishOriginal = technicalRuntime.finishTechnicalReview;
 const targetOriginal = technicalRuntime.targetFor;
@@ -247,9 +248,34 @@ test('diff não medido e avaliação técnica ausente seguem exigidos na 1ª rod
   assert.deepEqual(busca.lacunasExigidas(semRelatorio), ['avaliação técnica atual ausente']);
   assert.deepEqual(busca.pontosDaProvaEsgotada(semRelatorio), [], 'não vira ressalva');
   assert.ok(armou(motor(), semRelatorio), 'entra na recuperação');
-  assert.ok(armou(motor(), semDiff), 'entra na recuperação');
+  // o caso que a produção gera: a medição do diff falhou de passagem e a análise ficou incompleta
+  const medicaoFalhou = { ...semDiff, analysisStatus: 'incomplete', inventarioDiff: { status: 'unavailable', reason: 'falha de rede' } };
+  assert.ok(esperaProva.armarEspera(motor(), { ...PR }, 'analise_incompleta', { ...medicaoFalhou, approvalEvidence: busca.lacunasExigidas(medicaoFalhou) }, []),
+    'medição que falhou de passagem entra na recuperação');
   const semDeclaracao = { ...base, technicalReview: { semDeclaracao: true } };
   assert.deepEqual(busca.lacunasExigidas(semDeclaracao), [], 'repositório sem declaração segue ressalva');
+});
+
+// Segunda revisão independente de 06/11/2026: PR com mais arquivos do que a lista do GitHub
+// devolve (3000) tem o inventário incompleto para sempre. Outra revisão dá o mesmo resultado, então
+// é desfecho terminal: a decisão é sua, sem recuperação e sem revisão nova pelo clique; o APPROVE
+// automático continua impedido.
+const NO_LIMITE = { status: 'incomplete', reason: 'lista incompleta ou duplicada: 3000 de 3500 arquivos', changedFiles: 3500 };
+test('inventário acima do limite do GitHub: desfecho terminal, a decisão é sua, sem recuperação e sem revisão nova pelo clique', () => {
+  const r = { headSha: HEAD, ...criteriaFixture('approve'), analysisStatus: 'complete', checksVerifiedHead: HEAD, verificationCheckpoint: { total: 0, conflicts: [] },
+    technicalReview: technicalReport(HEAD), protocolo: { prReviewer: 'rodou' }, coverage: { total: 0, reviewed: [], missing: [] }, provaEsgotada: true,
+    verdict: 'approve', payloads: { approve: { event: 'APPROVE', body: 'Leitura feita.' } }, inventarioDiff: NO_LIMITE };
+  const e = motor();
+  const gate = e.shouldAutoApprove({ ...PR }, r);
+  assert.equal(gate.ok, false, 'o APPROVE automático continua impedido');
+  assert.equal(gate.motivo, 'inventario_no_limite');
+  assert.match(textoDaRecusa(e, { ...PR }, gate.motivo, r), /3500 arquivos.*a decisão é sua/);
+  assert.equal(busca.lacunasExigidas(r).includes('diff não medido independentemente'), false, 'o clique da mesa não pede revisão nova que daria o mesmo');
+  assert.equal(esperaProva.armarEspera(e, { ...PR }, 'analise_incompleta', { ...r, analysisStatus: 'incomplete', approvalEvidence: ['análise incompleta'] }, []), null,
+    'nem a análise incompleta arma recuperação: outra rodada não mede o diff');
+  const passageiro = { ...r, inventarioDiff: { status: 'incomplete', reason: 'o head mudou', changedFiles: 132 } };
+  assert.ok(busca.lacunasExigidas(passageiro).includes('diff não medido independentemente'), 'controle: abaixo do limite segue exigido');
+  assert.notEqual(e.shouldAutoApprove({ ...PR }, passageiro).motivo, 'inventario_no_limite');
 });
 
 // Edicoes-CNBB/biblioteca-cnbb-web#182, 05/11/2026: a mesma divergência entre passadas, num
