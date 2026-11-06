@@ -16,7 +16,9 @@ const {
 } = await import('../lib/review-source/caminho-protegido.js');
 const { KIND: ENV_KIND } = await import('../lib/review-source/env-changes.js');
 const { prPathFromRead, arquivoMaterializado, materializeScope, scopeBlock, blocoDosRedigidos } = await import('../lib/engine/pr-scope.js');
-const { observeReadEvent, observarLeitura, leiturasProvadas } = await import('../lib/engine/read-evidence.js');
+const { observeReadEvent, observarLeitura, leiturasProvadas, observeSourceResult, lidosComProtegidoProvado } = await import('../lib/engine/read-evidence.js');
+const { makeReader } = await import('../lib/review-source/reader.js');
+const { blobHash } = await import('../lib/review-source/contract.js');
 const { prepararCoberturaParaOGate, coverageGap, splitByProof, salvarProvaDaSessao, readFileProof } = await import('../lib/engine/file-proof.js');
 const { ARQUIVO_DE_GUARDAS, guardasDaSessao } = await import('../lib/engine/guardas-da-sessao.js');
 const { parseJson } = await import('../lib/io.js');
@@ -84,21 +86,22 @@ test('leituraInteiraPermitida: o arquivo inteiro só de caminho comum, e o templ
 
 /* ---------- o nome que o deny não casa ---------- */
 
-// As regras de `permissions.deny` do Claude Code seguem o gitignore: padrão sem barra casa o
-// nome-base em qualquer profundidade, e `*` casa qualquer trecho do nome. Medido em 06/11/2026
+// As regras de `permissions.deny` do Claude Code seguem o gitignore: padrão sem barra casa
+// QUALQUER componente do caminho em qualquer profundidade (arquivo ou diretório: `.env.d/prod.env`
+// cai pelo `.env.d`), e `*` casa qualquer trecho do nome. O teste avalia o caminho inteiro. Medido em 06/11/2026
 // no CLI 2.1.308: `Read(.env.*)` recusou `.../pr-scope/<pr>/.env.example` (caminho absoluto, fora
 // do projeto) e aceitou `_.env.example.redigido`.
 const REGRAS_DE_DENY = ['.env', '.env.*', '.env*', '**/.env*', '*.env', '.secrets'];
 function casaDeny(caminho) {
-  const nome = caminho.split('/').at(-1);
-  return REGRAS_DE_DENY.some((regra) => {
+  return caminho.split('/').some((componente) => REGRAS_DE_DENY.some((regra) => {
     const padrao = regra.replace(/^\*\*\//, '');
     const re = new RegExp(`^${padrao.split('*').map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`);
-    return re.test(nome);
-  });
+    return re.test(componente);
+  }));
 }
 
-const PROTEGIDOS = ['.env', '.env.example', 'apps/web/.env.local', 'deploy/prod.env', 'env.production', '.env.production.local'];
+const PROTEGIDOS = ['.env', '.env.example', 'apps/web/.env.local', 'deploy/prod.env', 'env.production', '.env.production.local',
+  '.env.d/prod.env', '.envs/.production/.django', 'config/.env/dev', 'a%2Fb/.env', 'x/%25/.env.local'];
 
 test('o nome original casa o deny do usuário e o nome redigido não', () => {
   for (const original of PROTEGIDOS) {
@@ -106,6 +109,7 @@ test('o nome original casa o deny do usuário e o nome redigido não', () => {
     const redigido = nomeMaterializado(original);
     assert.equal(casaDeny(redigido), false, `${redigido} não pode casar o deny`);
     assert.equal(redigido.split('/')[0], PASTA_REDIGIDA);
+    assert.equal(redigido.split('/').length, 2, `${redigido}: nenhum diretório do caminho original sobra no disco`);
     assert.ok(redigido.endsWith('.redigido'));
     assert.equal(caminhoDoPr(redigido), original, 'o nome redigido volta ao caminho do PR');
   }
@@ -116,7 +120,8 @@ test('caminho comum fica onde está, e o protegido lido no lugar comum não vira
   assert.equal(caminhoDoPr('src/a.js'), 'src/a.js');
   assert.equal(caminhoDoPr('.env.example'), null, 'no lugar comum nada foi escrito');
   assert.equal(caminhoDoPr('apps/.env'), null);
-  for (const torto of [`${PASTA_REDIGIDA}`, `${PASTA_REDIGIDA}/x.js`, `${PASTA_REDIGIDA}/_.redigido`, `${PASTA_REDIGIDA}/_src.js.redigido`, '']) {
+  for (const torto of [`${PASTA_REDIGIDA}`, `${PASTA_REDIGIDA}/x.js`, `${PASTA_REDIGIDA}/_.redigido`, `${PASTA_REDIGIDA}/_src.js.redigido`, '',
+    `${PASTA_REDIGIDA}/.env.d/_prod.env.redigido`, `${PASTA_REDIGIDA}/_.env.d%2fprod.env.redigido`, `${PASTA_REDIGIDA}/_%2E.env.redigido`]) {
     assert.equal(caminhoDoPr(torto), null, torto);
   }
 });
@@ -129,10 +134,10 @@ test('o diretório materializado grava a projeção só no nome redigido e o map
     { path: `${PASTA_REDIGIDA}/colide.js`, patch: PATCH_COMUM, status: 'added' },
   ]);
   assert.deepEqual(r.total, ['src/a.js', 'apps/web/.env.example', `${PASTA_REDIGIDA}/colide.js`]);
-  assert.deepEqual(r.redigidos, { 'apps/web/.env.example': `${PASTA_REDIGIDA}/apps/web/_.env.example.redigido` });
+  assert.deepEqual(r.redigidos, { 'apps/web/.env.example': `${PASTA_REDIGIDA}/_apps%2Fweb%2F.env.example.redigido` });
   assert.equal(fs.existsSync(path.join(root, 'apps', 'web', '.env.example')), false, 'nada no nome original');
   const redigido = arquivoMaterializado(root, 'apps/web/.env.example');
-  assert.equal(redigido, path.join(root, PASTA_REDIGIDA, 'apps', 'web', '_.env.example.redigido'));
+  assert.equal(redigido, path.join(root, PASTA_REDIGIDA, '_apps%2Fweb%2F.env.example.redigido'));
   assert.equal(fs.readFileSync(redigido, 'utf8'), '# projeção\n+DEBUG=true\n');
   assert.equal(fs.existsSync(path.join(root, PASTA_REDIGIDA, 'colide.js')), false, 'colisão com a pasta redigida não é escrita');
   assert.equal(prPathFromRead(root, redigido), 'apps/web/.env.example');
@@ -140,7 +145,7 @@ test('o diretório materializado grava a projeção só no nome redigido e o map
   assert.equal(prPathFromRead(root, path.join(root, 'src', 'a.js')), 'src/a.js');
   const bloco = scopeBlock(r);
   assert.match(bloco, /PROTEGIDO/);
-  assert.match(bloco, /_farol_redigido_\/apps\/web\/_\.env\.example\.redigido/);
+  assert.match(bloco, /_farol_redigido_\/_apps%2Fweb%2F\.env\.example\.redigido/);
   assert.match(bloco, /PROIBIDO/);
   assert.equal(blocoDosRedigidos({}), '');
 });
@@ -250,4 +255,106 @@ test('a sessão de revisão recebe o arquivo de guardas por --settings, e ele s�
 test('caminhoProtegido continua a régua de sempre', () => {
   for (const p of ['.env', '.env.example', 'a/.ssh/x', 'secrets.yaml', 'x.pem']) assert.equal(caminhoProtegido(p), true, p);
   for (const p of ['src/env.ts', 'README.md', '']) assert.equal(caminhoProtegido(p), false, p);
+});
+
+/* ---------- pontos da revisão de 06/11/2026 ---------- */
+
+test('sem herança ativa, coverage.inherited escrito pelo modelo não dispensa a leitura do protegido', () => {
+  // caso reproduzido no review: reviewed e inherited declarados, nenhuma leitura observada
+  const forjado = { coverage: { reviewed: ['.env.example'], inherited: ['.env.example'] } };
+  prepararCoberturaParaOGate(forjado, [{ path: '.env.example' }], { ativa: false }, new Set());
+  assert.deepEqual(forjado.protegidosSemLeitura, ['.env.example']);
+  assert.match(coverageGap(forjado).join(' | '), /caminho protegido sem leitura observada da projeção redigida: \.env\.example/);
+  // herança ativa que NÃO traz o protegido entre os inalterados também não dispensa
+  const outro = { coverage: { reviewed: ['.env.example'], inherited: ['.env.example'], missing: [] } };
+  prepararCoberturaParaOGate(outro, [{ path: '.env.example', sha: 'e1' }, { path: 'src/a.js', sha: 'a1' }],
+    { ativa: true, unchanged: ['src/a.js'], changed: ['.env.example'] }, new Set());
+  assert.deepEqual(outro.protegidosSemLeitura, ['.env.example']);
+});
+
+test('rename de arquivo de ambiente para template público continua protegido na execução restrita', () => {
+  // every(isSourceTemplate): basta um dos lados não ser template para o patch não chegar
+  const projection = { id: 'p', version: 1, project: () => ({ text: '', digest: '', redactions: [] }) };
+  const v = politicaDoPatch('.env.example', '.env.dev', PATCH_ENV, projection);
+  assert.equal(v.template, false);
+  assert.equal(v.sensitivePath, true);
+  assert.equal(v.politica, 'protected-path');
+  assert.equal(v.patchAvailable, false);
+  assert.equal(politicaDoPatch('.env.sample', '.env.example', PATCH_ENV, projection).politica, 'template-keys', 'os dois lados template');
+});
+
+function leitorDeFixture(entradas) {
+  const texto = 'SEGREDO_CRU=valor\n';
+  const H = 'a'.repeat(40), blob = blobHash(Buffer.from(texto));
+  const guardado = new Map([
+    [`tree:${H}`, { commit: H, tree: 'c'.repeat(40), truncated: false,
+      entries: entradas.map((p) => ({ path: p, blob, type: 'blob', mode: '100644', size: texto.length, readable: true })) }],
+    [`blob:${blob}`, { blob, size: texto.length, content: Buffer.from(texto).toString('base64'), cacheable: false }],
+  ]);
+  const store = { root: 'fixture', metrics: { acquisitions: 0 }, get: async (k) => guardado.get(k) || null, put: async () => {} };
+  const manifest = { H, B: H, M: H, files: [] };
+  return makeReader({}, { repo: 'o/r' }, manifest, store, null, { limits: { maxFiles: 100, maxFileBytes: 1e6 } });
+}
+
+test('o leitor do arquivo inteiro recusa caminho protegido mesmo fora do manifesto, antes de tocar a árvore', async () => {
+  const leitor = leitorDeFixture(['.env', 'deploy/prod.env', 'src/a.js']);
+  for (const protegido of ['.env', 'deploy/prod.env']) {
+    const r = await leitor.read(protegido);
+    assert.equal(r.status, 'excluded', protegido);
+    assert.equal(r.text, null);
+  }
+  assert.equal((await leitor.read('src/a.js')).status, 'available', 'caminho comum segue legível');
+});
+
+test('a prova pela fonte restrita só credita caminho dentro da raiz do escopo', () => {
+  const root = path.join(FAROL_HOME, 'fonte-restrita', 'patches');
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, '..', 'fora.txt'), 'linha\n');
+  fs.writeFileSync(path.join(root, 'dentro.txt'), 'linha\n');
+  const review = { scopeRoot: root, filesRead: new Set() };
+  const engine = { config: {}, activeReviews: new Map([['rev', review]]) };
+  const entrega = (p) => observeSourceResult(engine, { id: 'rev' }, { path: p, text: 'linha', start: 1, count: 1 }, ' 1→linha');
+  entrega('../fora.txt');
+  assert.equal(leiturasProvadas(engine, 'rev').size, 0, 'arquivo fora da raiz nunca vira prova');
+  entrega('dentro.txt');
+  assert.deepEqual([...leiturasProvadas(engine, 'rev')], ['dentro.txt']);
+});
+
+test('a autoanálise só conta o protegido como lido com a entrega conferida', () => {
+  const root = path.join(FAROL_HOME, 'prova-self');
+  materializeScope(root, [{ path: '.env.example', patch: 'linha um\n', status: 'modified' }, { path: 'src/a.js', patch: PATCH_COMUM, status: 'modified' }]);
+  const f = fixture(root);
+  f.request(arquivoMaterializado(root, '.env.example'), 'r1');
+  assert.deepEqual([...f.review.filesRead], ['.env.example'], 'a regra do Read viu o pedido');
+  f.review.filesRead.add('src/a.js');
+  assert.deepEqual([...lidosComProtegidoProvado(f.engine, 'rev', f.review.filesRead)], ['src/a.js'], 'pedido sem entrega conferida não conta');
+  f.response(arquivoMaterializado(root, '.env.example'), 'r1', ['linha um']);
+  assert.deepEqual([...lidosComProtegidoProvado(f.engine, 'rev', f.review.filesRead)].sort(), ['.env.example', 'src/a.js']);
+  assert.equal(lidosComProtegidoProvado(f.engine, 'rev', undefined).size, 0);
+});
+
+// Matcher das regras `Bash(...)` de deny: `*` casa qualquer trecho, inclusive espaço e aspas.
+function negado(regras, comando) {
+  return regras.some((regra) => {
+    const corpo = regra.replace(/^Bash\(/, '').replace(/\)$/, '');
+    const re = new RegExp(`^${corpo.split('*').map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`);
+    return re.test(comando);
+  });
+}
+
+test('as guardas recusam o diff pedido por cabeçalho e deixam as leituras do protocolo', () => {
+  const { deny } = parseJson(fs.readFileSync(ARQUIVO_DE_GUARDAS, 'utf8')).permissions;
+  for (const cru of [
+    'gh api repos/o/r/pulls/7 -H "Accept: application/vnd.github.diff"',
+    "gh api repos/o/r/pulls/7 -H 'Accept: application/vnd.github.patch'",
+    'gh api repos/o/r/pulls/7 --header "Accept: application/vnd.github.v3.diff"',
+    'gh api -H "Accept: application/vnd.github.v3.patch" repos/o/r/commits/abc',
+    'gh pr diff 7 --repo o/r', 'gh api repos/o/r/pulls/7/files --paginate', 'gh api repos/o/r/tarball/main',
+  ]) assert.equal(negado(deny, cru), true, cru);
+  for (const legitimo of [
+    'gh api "repos/o/r/contents/src/a.js?ref=abc" --jq .content',
+    'gh pr view 7 --repo o/r --json files --jq .files[].path',
+    'gh api repos/o/r/pulls/7/reviews',
+    'gh api repos/o/r/pulls/7 -H "Accept: application/vnd.github+json"',
+  ]) assert.equal(negado(deny, legitimo), false, legitimo);
 });

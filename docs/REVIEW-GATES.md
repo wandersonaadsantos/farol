@@ -1358,9 +1358,13 @@ o consultam:
 
 - **O nome da projeção não casa o `deny`.** Das três opções (nome novo, projeção inline no prompt,
   isolar o headless das settings com `--setting-sources`), ficou o nome novo:
-  `_farol_redigido_/<pasta>/_<nome>.redigido` (`nomeMaterializado`). O `_` na frente tira o nome das
-  regras que ancoram no início (`.env`, `.env.*`, `.env*`, `**/.env*`) e o sufixo das que ancoram no
-  fim (`*.env`); medido no CLI 2.1.308: `Read(.env.*)` recusou `.../.env.example` e aceitou
+  `_farol_redigido_/_<caminho achatado>.redigido` (`nomeMaterializado`), um componente só abaixo da
+  pasta redigida, com `/` escrito `%2F` e `%` escrito `%25`. O `_` na frente tira o nome das regras que
+  ancoram no início (`.env`, `.env.*`, `.env*`, `**/.env*`), o sufixo das que ancoram no fim (`*.env`),
+  e o achatamento tira o diretório: a regra do `deny` segue o gitignore e casa também um DIRETÓRIO do
+  caminho, então manter `.env.d/` de `.env.d/prod.env` (ou `.envs/.production/`, `config/.env/`) no
+  disco deixaria a projeção recusada mesmo com o nome-base trocado. `caminhoDoPr` só aceita o nome que
+  o próprio `nomeMaterializado` escreveria; medido no CLI 2.1.308: `Read(.env.*)` recusou `.../.env.example` e aceitou
   `_.env.example.redigido`. A projeção inline perderia a prova de leitura (nada a observar no stream),
   e `--setting-sources` tiraria da sessão TODAS as settings do usuário (hooks, modelo, `env`), não só o
   `deny`, e deixaria a projeção presa em quem tivesse a regra no settings do projeto. O caminho do PR
@@ -1374,12 +1378,24 @@ o consultam:
   o caminho em `coverage.reviewed`. A prova por arquivo guarda `observados`, e `splitByProof` só herda
   um protegido quando ele está lá: prova gravada antes dessa regra não tem a lista e o protegido é
   relido (é pequeno). Sem a medição do diff nada é conferido, e o gate `protegido_sem_leitura` da
-  política continua segurando o protegido sem projeção. Provedor sem observação de leitura (Antigravity)
-  deixa o protegido em lacuna: falta de dado não vira cobertura.
+  política continua segurando o protegido sem projeção. A dispensa da leitura vale só para a herança
+  COMPROVADA pelo engine (`heranca.ativa`, `heranca.unchanged`): `coverage.inherited` escrito pelo
+  modelo numa rodada sem herança ativa não dispensa nada. A autoanálise passa pela mesma régua:
+  `lidosComProtegidoProvado` (`read-evidence.js`) tira do `observed.scope.reviewed` o protegido cuja
+  entrega não foi conferida, ainda que a regra do Read tenha visto o pedido.
+
+  **Limitação conhecida, de propósito:** a leitura observada vive em memória, no stream do Claude
+  desta sessão. Codex e Antigravity não emitem evento de leitura de arquivo, e a sessão retomada depois
+  de reiniciar o Farol começa sem as observações da anterior; nos três casos o protegido do diff fica em
+  lacuna (ressalva visível, `protegidosSemLeitura`) até uma sessão do Claude lê-lo de novo. Falta de
+  dado não vira cobertura. Na autoanálise pelo Codex ou Antigravity a cobertura inteira já é
+  `COVERAGE_UNOBSERVABLE`, então o protegido não muda o desfecho dali.
 - **As rotas do patch cru medidas nos transcripts são recusadas por mecanismo.** A sessão de revisão e
   a autoanálise recebem `--settings workspace-template/.claude/guardas.json`
-  (`lib/engine/guardas-da-sessao.js`), só com `deny`: `gh pr diff*`, `gh api *pulls/*/files*`,
-  tarball, zipball, `gh repo clone` e `git clone`. Por linha de comando porque o `prepareHome` nunca
+  (`lib/engine/guardas-da-sessao.js`), só com `deny`: `gh pr diff*`, `gh api *pulls/*/files*`, o
+  diff pedido por cabeçalho (`gh api *vnd.github*.diff*` e `*vnd.github*.patch*`, que cobrem
+  `Accept: application/vnd.github.diff`, `.patch` e `application/vnd.github.v3.diff` em qualquer
+  endpoint), tarball, zipball, `gh repo clone` e `git clone`. Por linha de comando porque o `prepareHome` nunca
   regrava o `settings.json` semeado, então a regra chega a toda instalação no mesmo boot; o
   `settings.json` do template leva a mesma lista para instalação nova. O curinga no meio do padrão
   de Bash foi medido no 2.1.308. `compare`, `commits/<sha>` e `contents/<caminho>` ficam na proibição
@@ -1387,6 +1403,16 @@ o consultam:
   regra do crédito, acima, é o gate de verdade: o que a sessão vir por fora não credita nada. O
   `pr-reviewer` deixou de baixar o patch único no passo 3; sem raiz de escopo ele lê cada arquivo não
   protegido pelo `contents` e declara os protegidos em `coverage.missing`.
+- **A revisão no terminal tem o mesmo desenho.** O botão "Revisar no terminal" abre
+  `claude "/pr-review <urls>"`, e o `pr-reviewer.md` que o `prepareHome` regrava em toda instalação
+  vale ali também. Por isso a sessão de terminal recebe o mesmo `--settings` das guardas
+  (`buildSessionScript`/`buildSessionScriptMac` em `session.js`), e o engine grava o escopo antes de
+  abrir a janela (`lib/engine/escopo-do-terminal.js`): o patch de cada arquivo pela mesma régua da
+  headless, numa raiz `state/pr-scope/terminal-<ms>-<i>`, passada como `escopo=<raiz>` logo depois da
+  URL, relativa ao workspace (o cwd da sessão) e sem `%` (o `.cmd` do Windows leria `%2F` como
+  parâmetro). O `pr-reviewer` lê o diff de lá, com os trechos `@@` que o comentário inline precisa.
+  Falha ao ler os patches não segura a janela: a URL vai sem `escopo=` e vale o caminho sem raiz de
+  escopo, que nunca lê o protegido cru.
 
 Medido nos 41 transcripts de `~/.claude/projects/-Users-alex--farol-workspace/` antes de fechar:
 38 com "Fontes e patches preparados" e 3 com o escopo medido (nenhum sem raiz de escopo), 3 com

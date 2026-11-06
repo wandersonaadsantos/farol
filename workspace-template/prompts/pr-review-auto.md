@@ -100,8 +100,9 @@ Coerência obrigatória: `request_changes` exige um defeito bloqueante sustentad
 
 - Caminho PROTEGIDO (`.env*`, credencial, chave) chega só como projeção redigida, no nome que o
   prompt lista sob `redigidos`. Leia a projeção e declare o caminho do PR em `coverage.reviewed`;
-  nunca busque o conteúdo cru desse caminho por outra via (`gh pr diff` e `pulls/N/files` são
-  recusados; `compare`, `commits`, `contents`, tarball e clone são proibidos). Declaração sem a
+  nunca busque o conteúdo cru desse caminho por outra via (`gh pr diff`, `pulls/N/files` e o diff
+  pedido por cabeçalho `Accept: application/vnd.github.diff` ou `.patch` são recusados; `compare`,
+  `commits`, `contents`, tarball e clone são proibidos). Declaração sem a
   leitura observada da projeção não cobre o arquivo.
 
 - `analysisStatus = "complete"` somente quando a análise técnica terminou. Falha fatal, diff não lido ou resultado sem substância usa `"incomplete"`; nesse estado nenhuma ação pode ser postada automaticamente.
