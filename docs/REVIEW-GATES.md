@@ -1097,10 +1097,14 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   ~10 min relendo os 21; as réplicas do GitFlow (task para develop, release_hmg e release_prd)
   trazem os mesmos blobs. A prova por arquivo era só do PR. Agora
   `lib/engine/prova-do-repositorio.js` guarda um índice por repositório em
-  `state/file-proof-blobs/<encodeURIComponent(repo)>.json` (`{repo, entradas}`), com chave
-  (caminho, blob SHA) e, em cada entrada, o PR e o head da leitura, quando, a sessão, o status e
-  o alcance conferido para aquele blob. **Gravado** pelo `salvarProvaDaSessao`, no mesmo ponto
-  e depois do `verificarAlcance`, só com o que a sessão LEU: arquivo do diff medido, com blob,
+  `state/file-proof-blobs/<encodeURIComponent(repo em minúsculas)>.json` (`{repo, entradas}`; o
+  Windows não diferencia caixa, e o `repo` gravado é conferido sem caixa), com chave (caminho,
+  blob SHA, hash do patch) e, em cada entrada, o PR e o head da leitura, quando, a sessão, o status e
+  o alcance conferido para aquele blob. **Gravado** por `registrarLeituraEntrePrs`, depois da
+  prova da rodada (`lacunasDaRodada`) e da conferência do cancelamento, só quando a análise
+  sustenta decisão (`podeEntrarNoIndice`: completa, sem cancelamento e sem lacuna exigida além do
+  CI; texto incoerente, commit não confirmado e as outras lacunas duras ficam de fora; revisão
+  independente de 06/11/2026), e só com o que a sessão LEU: arquivo do diff medido, com blob,
   em `coverage.reviewed`, fora de `missing` e fora de `inherited` (o herdado mantém a origem de
   quem leu primeiro); o alcance é o mesmo `alcanceDaProva` da prova do PR (só o que fechou).
   Teto de 4000 entradas por repositório (ficam as leituras mais recentes) e poda pela idade da
@@ -1110,9 +1114,17 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   própria do PR, que vence: o índice só cobre o arquivo que ela não herda, e entrada gravada
   pelo próprio PR nunca serve (o PR responde pela prova dele, inclusive pela regra do mesmo
   head: relançamento no mesmo head fora da rodada complementar segue cheio, sem índice).
-  Herda o arquivo com o MESMO caminho, o MESMO blob (vazio nunca prova) e status compatível
-  (conteúdo presente, added, modified, renamed e afins, casa entre si; removido só com
-  removido). O herdado entra na mesma lista do `fileProofBlock`, num grupo próprio com a
+  Herda o arquivo com o MESMO caminho, o MESMO blob (vazio nunca prova), o MESMO patch e o
+  MESMO status. O patch entra na chave desde a revisão independente de 06/11/2026: o que se
+  revisa é o patch contra o merge-base, e ele muda entre PRs com o mesmo blob (réplica do
+  GitFlow, promoção que leva linhas de outras tasks na base); com só o blob, o PR B herdava como
+  lido um arquivo cujo patch contra a base dele trazia linhas que ninguém leu. Arquivo sem o
+  patch completo (`patchStatus` diferente de `available`: o GitHub omite em arquivo grande ou
+  binário, ou corta) não herda nem entra no índice, e o inventário de reserva (`pr-inventory.js`,
+  sem patch) também não herda. Conferido no dado real com a chave nova: o #1852 herda os 21
+  arquivos do #1843 (mesma base b7940a68, mesmos patches). A leitura herdada de outro PR guarda a
+  origem real na prova do próprio PR (`origens`): a rodada seguinte desse PR continua dizendo
+  "lido em org/repo#N" em vez de "sua revisão anterior deste PR leu". O herdado entra na mesma lista do `fileProofBlock`, num grupo próprio com a
   origem por arquivo ("lido em org/repo#N, commit abc1234"), a reconciliação o põe em
   `coverage.inherited`, o `coverageGap` o aceita como coberto e a origem vai às provas da
   decisão em `cobertura.entrePrs` (contagem e amostra), a partir de `result.coberturaEntrePrs`,
