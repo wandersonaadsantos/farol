@@ -359,6 +359,10 @@ test('contexto alterado só segura quando a evidência cita o caminho inteiro, n
     assert.equal(rebaixarHeranca(achado(cita), [proprio], [alvo]), 0, cita);
   }
   assert.equal(rebaixarHeranca(achado('Mesmo trecho em package.json.bak, igual à production.'), [proprio], ['package.json']), 1, 'outro arquivo com o nome como prefixo');
+  for (const pontuado of ['A base mudou package.json.', 'A base mudou package.json, e o teste quebra.', 'Quebra pela base (ver package.json).',
+    'A base mudou package.json; o teste quebra.', 'A base mudou package.json: a versão do node.']) {
+    assert.equal(rebaixarHeranca(achado(pontuado), [proprio], ['package.json']), 0, `pontuação depois do caminho fecha a citação: ${pontuado}`);
+  }
   assert.equal(rebaixarHeranca(achado(igual), [proprio], ['']), 1, 'caminho vazio não cita nada (e não prende o laço)');
 });
 
