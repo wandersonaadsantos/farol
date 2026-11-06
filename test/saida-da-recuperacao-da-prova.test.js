@@ -182,14 +182,22 @@ test('B5: a lacuna dura recuperável tem teto por commit, e depois dele vai à m
 });
 
 // Review do PR #349: o clique depois do teto herdava `tentativasDaProva`, somava outra rodada e
-// recusava de novo, embora o guia prometa que revisar de novo por clique recomeça a contagem.
-test('B5: depois do teto só o seu clique neste PR recomeça a contagem; rodada automática e Revisar tudo voltam à mesa', async () => {
-  const e = motor(['approve', 'approve']);
-  const INCOMPLETA = { analysisStatus: 'incomplete', decision: 'needs_decision' };
+// recusava de novo. O reinício é explícito e não libera tentativas automáticas: o clique roda e
+// decide; com lacuna dura recuperável ele volta à mesa sem armar a recuperação neste commit.
+const INCOMPLETA = { analysisStatus: 'incomplete', decision: 'needs_decision' };
+
+async function noTeto(e) {
   const d = await revisado(e, INCOMPLETA);
   d.esperaProva.tentativas = busca.MAX_TENTATIVAS_POR_HEAD - 1;
   const teto = await revisado(e, INCOMPLETA, { ...PR, knownHead: HEAD });
+  assert.equal(teto.esperaProva, undefined);
   assert.equal(teto.tentativasDaProva, busca.MAX_TENTATIVAS_POR_HEAD);
+  return teto;
+}
+
+test('B5: depois do teto, rodada automática e Revisar tudo herdam o contador e voltam à mesa, com um card só', async () => {
+  const e = motor(['approve', 'approve']);
+  const teto = await noTeto(e);
   const automatica = await revisado(e, INCOMPLETA, { ...PR, knownHead: HEAD });
   assert.notEqual(automatica.id, teto.id, 'a rodada automática concluiu');
   assert.equal(automatica.esperaProva, undefined, 'rodada automática não passa do teto');
@@ -197,15 +205,45 @@ test('B5: depois do teto só o seu clique neste PR recomeça a contagem; rodada 
   assert.equal(pendentes(e).length, 1, 'o card do teto é substituído, não duplicado');
   const lote = await revisado(e, INCOMPLETA, { ...CLIQUE, lote: true });
   assert.notEqual(lote.id, automatica.id, 'o Revisar tudo concluiu');
-  assert.equal(lote.esperaProva, undefined, 'Revisar tudo não escolhe este PR: não recomeça');
+  assert.equal(lote.esperaProva, undefined, 'Revisar tudo não escolhe este PR');
+  assert.match(textos(lote)[0], /revisões minhas neste commit/);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'a varredura não rearma');
-  const clique = await revisado(e, INCOMPLETA, CLIQUE);
-  assert.ok(clique.esperaProva, 'o seu clique recomeça a recuperação');
-  assert.equal(clique.esperaProva.tentativas, 0, 'a contagem recomeça do zero');
-  assert.equal(clique.tentativasDaProva, 0);
-  assert.doesNotMatch(textos(clique).join(' | '), /revisões minhas neste commit/);
-  assert.equal(pendentes(e).length, 1, 'um card por PR');
+  assert.equal(pendentes(e).length, 1);
   assert.deepEqual(envios, []);
+});
+
+test('B5: depois do teto, o seu clique com lacuna dura volta à mesa sem armar a recuperação automática, a cada clique', async () => {
+  const e = motor(['approve', 'approve']);
+  await noTeto(e);
+  for (const n of [1, 2]) {
+    const clique = await revisado(e, INCOMPLETA, CLIQUE);
+    assert.equal(clique.esperaProva, undefined, `clique ${n}: nenhuma espera automática armada`);
+    assert.equal(clique.tentativasDaProva, busca.MAX_TENTATIVAS_POR_HEAD + n, 'o contador segue acima do teto');
+    assert.match(textos(clique)[0], /só revisão por clique/);
+    assert.match(textos(clique)[0], /não rearmo a recuperação automática/);
+    assert.equal(pendentes(e).length, 1, 'um card por PR');
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'nenhum relançamento automático depois');
+    assert.equal(pendente(e).esperaProva, undefined);
+    assert.equal(pendente(e).blockedKind, undefined, 'nada agendado para outra sessão');
+  }
+  assert.deepEqual(envios, []);
+  // commit novo recomeça tudo: a rodada do head novo arma a busca de novo
+  gh.head = 'c'.repeat(40);
+  const novo = await revisado(e, { ...INCOMPLETA, headSha: gh.head }, { ...PR, knownHead: gh.head });
+  assert.equal(novo.headSha, gh.head);
+  assert.ok(novo.esperaProva, 'no commit novo a recuperação automática volta');
+  assert.equal(novo.esperaProva.tentativas, 0);
+});
+
+test('B5: depois do teto, o seu clique roda e decide: a prova que falta vira ressalva e a política aprova', async () => {
+  const e = motor(['approve', 'approve']);
+  await noTeto(e);
+  const r = await revisado(e, SEM_PROTOCOLO, CLIQUE);
+  assert.equal(pendentes(e).length, 0, 'a política decidiu, nada ficou na mesa');
+  assert.equal(r, undefined);
+  assert.equal(envios.length, 1, 'o clique não foi recusado pelo teto');
+  assert.equal(envios[0].event, 'APPROVE');
+  assert.ok(e.eventos.some((x) => x[0] === 'auto-approved'));
 });
 
 test('B4: valor oculto de ambiente é decidido antes de armar a busca, com o motivo dito no card', () => {
