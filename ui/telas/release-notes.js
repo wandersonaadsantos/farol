@@ -16,6 +16,9 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.41', [
+    'Panorama e Meus PRs de outros aparelhos aparecem só no aparelho admin; nos outros, as abas mostram só os PRs do próprio aparelho',
+  ]],
   ['2.78.40', [
     'A revisão decide na primeira rodada: o que não impede a decisão vira ressalva na hora e a configuração da conta decide, sem o cartão "Recuperando a análise"',
     'Arquivo já lido em outro PR do mesmo repositório, com o mesmo conteúdo e o mesmo trecho alterado, não é relido',

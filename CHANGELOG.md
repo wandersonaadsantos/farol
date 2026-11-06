@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.41
+
+O Panorama e os Meus PRs de outros aparelhos aparecem só no aparelho admin.
+
+### Correções
+
+- As linhas do Panorama e dos Meus PRs vindas de outros aparelhos (com o chip "só leitura") e as faixas "desatualizada" dessas listas aparecem só no aparelho admin, que é quem acompanha o conjunto. Nos outros aparelhos, as duas abas mostram só os PRs do próprio aparelho, e a contagem deixa de somar os dos outros. A visão de cada aparelho em Radar > Aparelhos continua no admin, como antes. Se o aparelho passar a ser o admin, ou deixar de ser, a tela muda sozinha na leitura seguinte, sem reiniciar.
+
 ## v2.78.40
 
 A revisão automática decide na primeira rodada e aproveita o que já foi lido em outro PR do mesmo repositório.
