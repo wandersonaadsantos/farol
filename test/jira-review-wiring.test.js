@@ -48,7 +48,8 @@ test('o bloco do card CHEGA no promptFinal do headless', () => {
 
 test('os argumentos do mcp CHEGAM no streamOpts do headless', () => {
   const trecho = FONTE.slice(FONTE.indexOf('const streamOpts = {'), FONTE.indexOf('const sid ='));
-  assert.match(trecho, /extraArgs: jiraMod\.mcpArgsFor\(engine, cardRes\.site\)/);
+  assert.match(trecho, /extraArgs: \[\.\.\.jiraMod\.mcpArgsFor\(engine, cardRes\.site\), \.\.\.guardasDaSessao\(\)\]/,
+    'o mcp do Jira e as guardas de permissão (06/11/2026) viajam juntos');
 });
 
 test('card não lido com o Jira ligado derruba o cardMet', () => {

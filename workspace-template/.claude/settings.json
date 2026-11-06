@@ -24,6 +24,14 @@
       "WebFetch",
       "Write(state/**)",
       "Task"
+    ],
+    "deny": [
+      "Bash(gh pr diff*)",
+      "Bash(gh api *pulls/*/files*)",
+      "Bash(gh api *tarball*)",
+      "Bash(gh api *zipball*)",
+      "Bash(gh repo clone*)",
+      "Bash(git clone*)"
     ]
   }
 }

@@ -10,7 +10,8 @@ import assert from 'node:assert/strict';
 const FONTE = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'selfpr.js'), 'utf8');
 
 test('a autoanálise sobe com os argumentos do mcp escopado', () => {
-  assert.match(FONTE, /extraArgs: isolated \? \[\] : jiraMod\.mcpArgsFor\(engine, jiraMod\.siteForPr\(engine, pr\)\)/);
+  assert.match(FONTE, /extraArgs: isolated \? \[\] : \[\.\.\.jiraMod\.mcpArgsFor\(engine, jiraMod\.siteForPr\(engine, pr\)\), \.\.\.guardasDaSessao\(\)\]/,
+    'o mcp do Jira e as guardas de permissão (06/11/2026) viajam juntos; a execução isolada não leva nenhum');
 });
 
 test('a autoanálise importa o compositor do Jira', () => {

@@ -1335,6 +1335,58 @@ Caminho protegido sem essa projeção segura para qualquer autor (`protegido_sem
 conhecido: comentário com senha em forma de frase passa sem ser visto por ninguém; ele não chega à
 sessão, mas também não segura a aprovação.
 
+### Projeção legível sob o deny do usuário e a leitura do protegido como prova (06/11/2026)
+
+Auditoria no motor instalado 2.78.39: o `~/.claude/settings.json` do dono traz
+`deny: ["Read(.env)", "Read(.env.*)", "Read(.secrets)"]`, a sessão headless herda as settings do
+usuário (o `--dangerously-skip-permissions` não desliga `deny`), e a regra casa pelo nome-base em
+qualquer profundidade, inclusive em caminho absoluto fora do projeto. A projeção do `.env.example`
+era materializada em `state/pr-scope/<pr>@<sessão>/.env.example`, então quatro de quatro PRs com
+esse arquivo deram `erro-do-read` em `medicoes-leitura.jsonl` e viraram lacuna de cobertura. Pior:
+barradas, duas sessões buscaram o patch CRU no GitHub (`gh api repos/<o>/<r>/pulls/N/files`, que o
+`Bash(gh:*)` do workspace permitia), contornando a redação; numa delas o arquivo ainda foi declarado
+em `coverage.reviewed`. Um subagente baixou o tarball do repositório para o `/tmp`.
+
+Três decisões, uma por buraco, todas em `lib/review-source/caminho-protegido.js` e nos módulos que
+o consultam:
+
+- **O nome da projeção não casa o `deny`.** Das três opções (nome novo, projeção inline no prompt,
+  isolar o headless das settings com `--setting-sources`), ficou o nome novo:
+  `_farol_redigido_/<pasta>/_<nome>.redigido` (`nomeMaterializado`). O `_` na frente tira o nome das
+  regras que ancoram no início (`.env`, `.env.*`, `.env*`, `**/.env*`) e o sufixo das que ancoram no
+  fim (`*.env`); medido no CLI 2.1.308: `Read(.env.*)` recusou `.../.env.example` e aceitou
+  `_.env.example.redigido`. A projeção inline perderia a prova de leitura (nada a observar no stream),
+  e `--setting-sources` tiraria da sessão TODAS as settings do usuário (hooks, modelo, `env`), não só o
+  `deny`, e deixaria a projeção presa em quem tivesse a regra no settings do projeto. O caminho do PR
+  continua sendo o que a sessão declara: `prPathFromRead` desfaz o nome (`caminhoDoPr`), o prompt
+  lista cada protegido com o nome a ler (`redigidos`, `blocoDosRedigidos`), e o caminho protegido lido
+  no lugar comum, onde nada foi escrito, não vira cobertura nem pela regra do Read.
+- **Protegido só conta coberto com a leitura OBSERVADA da projeção.** `prepararCoberturaParaOGate`
+  recebe `leiturasProvadas` (os caminhos cuja entrega inteira o `read-evidence.js` conferiu contra o
+  arquivo materializado, em qualquer modo) e grava `result.protegidosSemLeitura`; o `coverageGap`
+  o lê como lacuna (`caminho protegido sem leitura observada da projeção redigida: ...`), mesmo com
+  o caminho em `coverage.reviewed`. A prova por arquivo guarda `observados`, e `splitByProof` só herda
+  um protegido quando ele está lá: prova gravada antes dessa regra não tem a lista e o protegido é
+  relido (é pequeno). Sem a medição do diff nada é conferido, e o gate `protegido_sem_leitura` da
+  política continua segurando o protegido sem projeção. Provedor sem observação de leitura (Antigravity)
+  deixa o protegido em lacuna: falta de dado não vira cobertura.
+- **As rotas do patch cru medidas nos transcripts são recusadas por mecanismo.** A sessão de revisão e
+  a autoanálise recebem `--settings workspace-template/.claude/guardas.json`
+  (`lib/engine/guardas-da-sessao.js`), só com `deny`: `gh pr diff*`, `gh api *pulls/*/files*`,
+  tarball, zipball, `gh repo clone` e `git clone`. Por linha de comando porque o `prepareHome` nunca
+  regrava o `settings.json` semeado, então a regra chega a toda instalação no mesmo boot; o
+  `settings.json` do template leva a mesma lista para instalação nova. O curinga no meio do padrão
+  de Bash foi medido no 2.1.308. `compare`, `commits/<sha>` e `contents/<caminho>` ficam na proibição
+  do protocolo (são rotas legítimas da procedência do sync e das regras do repositório), e por isso a
+  regra do crédito, acima, é o gate de verdade: o que a sessão vir por fora não credita nada. O
+  `pr-reviewer` deixou de baixar o patch único no passo 3; sem raiz de escopo ele lê cada arquivo não
+  protegido pelo `contents` e declara os protegidos em `coverage.missing`.
+
+Medido nos 41 transcripts de `~/.claude/projects/-Users-alex--farol-workspace/` antes de fechar:
+38 com "Fontes e patches preparados" e 3 com o escopo medido (nenhum sem raiz de escopo), 3 com
+`pulls/N/files`, 1 com `gh pr diff` (só `--name-only`), 7 com `contents?ref=` (regras do repositório),
+8 que citam tarball. A recusa não tira da sessão nada que o protocolo precise.
+
 Na execução restrita, blobs novos não são persistidos no cache compartilhado; entradas
 já existentes podem ser lidas e verificadas. O reader conserva somente texto projetado,
 digest e metadados em cache efêmero por execução, com orçamento de 32 MiB de payload

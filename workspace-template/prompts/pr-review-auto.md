@@ -98,6 +98,12 @@ Coerência obrigatória: `request_changes` exige um defeito bloqueante sustentad
   Releitura para validar um achado ou interação é necessária; releitura integral por
   todos os participantes não é. Cache, leitura observada e análise válida são fatos distintos.
 
+- Caminho PROTEGIDO (`.env*`, credencial, chave) chega só como projeção redigida, no nome que o
+  prompt lista sob `redigidos`. Leia a projeção e declare o caminho do PR em `coverage.reviewed`;
+  nunca busque o conteúdo cru desse caminho por outra via (`gh pr diff` e `pulls/N/files` são
+  recusados; `compare`, `commits`, `contents`, tarball e clone são proibidos). Declaração sem a
+  leitura observada da projeção não cobre o arquivo.
+
 - `analysisStatus = "complete"` somente quando a análise técnica terminou. Falha fatal, diff não lido ou resultado sem substância usa `"incomplete"`; nesse estado nenhuma ação pode ser postada automaticamente.
 - `decision = "auto_approve"` **somente** se TODAS valem: zero findings `issue (blocking)` **e** `cardMet === true` (card do Jira lido e critérios atendidos; no sync de linhagem verificado, a procedência provada É o requisito, ver a regra própria abaixo) **e** CI não está vermelho.
 - **CI vermelho = check obrigatório em FAILURE.** `security/snyk` em ERROR (cota) NÃO conta e não entra em `reasons`; check IN_PROGRESS impede confirmar verde, e a reason correta é "CI em andamento" (nunca "CI vermelho").
