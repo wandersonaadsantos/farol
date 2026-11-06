@@ -218,6 +218,19 @@ públicos montados pelo app, reconstrução depois da trava de linguagem e os ma
 `test/espera-regras-e-pr-proprio.test.js`, `test/gate-espera-revisao.test.js` e
 `test/consciencia-historico.test.js`.
 
+**Decisão de gente durante a recuperação da análise (06/11/2026).** Medido em
+biudtech/biud-frontend#1841: a pendência com `esperaProva` foi relançada no mesmo head, a rodada
+relançada foi segurada pela aprovação de uma pessoa naquele head (`bloqueiaAutomatico`) e o cartão
+"Recuperando a análise" ficou sete horas na tela até o merge. Agora `launchReReviews` chama
+`resolverSeGenteDecidiu` (`lib/engine/espera-prova-decidida.js`) antes do `bloqueiaAutomatico`:
+só para PR com `esperaProva` naquele head ele consulta o histórico, e com `hist.bloqueado` no
+MESMO head da espera resolve a pendência como `approval_not_needed`/`skip`, sem postar e sem mesa,
+no molde da espera do CI ("outra pessoa já decidiu este commit (@x) enquanto eu concluía a análise:
+a revisão automática não é necessária, nada foi publicado"), com log INFO, um aviso e o recibo de
+coordenação publicado. Com o meu pedido automático aberto (`pedidoMeuAberto`) o histórico não
+bloqueia e a rodada roda, como antes; decisão em outro head não resolve nada (commit novo tem
+caminho próprio). Travado em `test/espera-prova-decidida.test.js`.
+
 **Inventário dos caminhos que terminavam na mesa (até a v2.72.11) e o que fazem agora**, com a conta
 em automático na classe do resultado:
 
