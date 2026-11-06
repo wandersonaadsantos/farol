@@ -17,6 +17,7 @@ const { observeReadEvent, observarLeitura } = await import('../lib/engine/read-e
 const { ARQUIVO_DE_GUARDAS } = await import('../lib/engine/guardas-da-sessao.js');
 const { arquivoMaterializado } = await import('../lib/engine/pr-scope.js');
 const { nomeMaterializado } = await import('../lib/review-source/caminho-protegido.js');
+const { abrirRevisaoNoTerminal } = await import('../lib/engine/escopo-do-terminal.js');
 const { WORKSPACE } = await import('../lib/paths.js');
 const io = (await import('../lib/io.js')).default;
 const original = { ...sourceRuntime }, runOriginal = io.run;
@@ -339,4 +340,44 @@ test('patch ausente: o escopo do terminal grava o marcador dizendo que lê-lo n�
   const texto = fs.readFileSync(path.join(raiz, 'img', 'logo.png'), 'utf8');
   assert.match(texto, /não é o conteúdo do arquivo: lê-lo não cobre nada, declare o caminho em coverage\.missing/);
   assert.equal(fs.existsSync(path.join(raiz, ...nomeMaterializado('.env').split('/'))), false, 'protegido sem projeção: nada no disco');
+});
+
+// Patch truncado pela API (contagem de + e - abaixo de additions e deletions): o terminal não tem o
+// gate de cobertura que recusa o crédito na revisão e na autoanálise, então o fragmento gravado
+// tem de se dizer fragmento antes do primeiro trecho, e o patch inteiro segue sem aviso.
+test('patch truncado: o escopo do terminal grava o fragmento com o aviso antes do primeiro trecho', async () => {
+  const e = setup();
+  e.queue = [{ ...pr }];
+  e.bloqueiaAutomatico = async () => false;
+  const FRAGMENTO = '@@ -1,900 +1,900 @@\n-x\n+y';
+  const COMPLETO = '@@ -1 +1 @@\n-old\n+new';
+  io.run = async (_command, args) => (args.join(' ').includes('pulls/1/files')
+    ? { ok: true, stdout: JSON.stringify([[
+      { filename: 'src/grande.js', status: 'modified', additions: 900, deletions: 900, patch: FRAGMENTO },
+      { filename: 'src/a.js', status: 'modified', additions: 1, deletions: 1, patch: COMPLETO }]]) }
+    : { ok: true, stdout: '[]' });
+  const abertos = [];
+  e.spawnConsole = (slash) => { abertos.push(slash); return { ok: true }; };
+  await e.launchReview([pr.url], 'terminal', 'clique');
+  const raiz = path.join(WORKSPACE, ...abertos[0].match(/escopo=(\S+)/)[1].split('/'));
+  const truncado = fs.readFileSync(path.join(raiz, 'src', 'grande.js'), 'utf8');
+  const inicio = truncado.indexOf('@@');
+  assert.match(truncado.slice(0, inicio), /patch truncado pela API do GitHub: .*declare o caminho em coverage\.missing/);
+  assert.equal(truncado.slice(inicio), FRAGMENTO, 'o fragmento continua inteiro depois do aviso');
+  assert.equal(fs.readFileSync(path.join(raiz, 'src', 'a.js'), 'utf8'), COMPLETO, 'patch completo não ganha aviso');
+});
+
+/* ---------- reserva do PR durante a preparação do terminal (revisão do head df581c00) ---------- */
+
+test('o terminal libera só a reserva que fez: a chave que a fila já tinha reservado continua lá', async () => {
+  const e = setup();
+  const outro = { ...pr, key: 'org/repo#2', number: 2, url: 'https://github.com/org/repo/pull/2' };
+  e.headlessIniciando = new Set([pr.key]);
+  io.run = async () => ({ ok: false, code: 1, stdout: '', stderr: 'fora do ar' });
+  const durante = [];
+  e.spawnConsole = () => { durante.push([...e.headlessIniciando].sort()); return { ok: true }; };
+  e.emit = () => {};
+  await abrirRevisaoNoTerminal(e, [{ ...pr }, outro]);
+  assert.deepEqual(durante, [[pr.key, outro.key]], 'as duas chaves ficam reservadas até a janela abrir');
+  assert.deepEqual([...e.headlessIniciando], [pr.key], 'a reserva da fila sobrevive; a do terminal sai');
 });

@@ -1520,7 +1520,12 @@ o consultam:
   URL, relativa ao workspace (o cwd da sessão) e sem `%` (o `.cmd` do Windows leria `%2F` como
   parâmetro). O `pr-reviewer` lê o diff de lá, com os trechos `@@` que o comentário inline precisa.
   Falha ao ler os patches não segura a janela: a URL vai sem `escopo=` e vale o caminho sem raiz de
-  escopo, que nunca lê o protegido cru.
+  escopo, que nunca lê o protegido cru. O patch que a API entrega pela metade (contagem de `+` e `-`
+  abaixo de `additions` e `deletions`, a régua de `upstreamPatchStatus` em `github.js`, que o
+  `parsePatchPages` passou a usar também na queda da autoanálise) vira `partial`, e no terminal, que
+  não tem o gate de cobertura, o fragmento é gravado com um aviso antes do primeiro `@@`. Durante a
+  preparação o terminal reserva as chaves em `headlessIniciando` e, no fim, solta só as que ele
+  mesmo pôs: a reserva que a fila headless já tinha continua com ela.
 
 Medido nos 41 transcripts de `~/.claude/projects/-Users-alex--farol-workspace/` antes de fechar:
 38 com "Fontes e patches preparados" e 3 com o escopo medido (nenhum sem raiz de escopo), 3 com
