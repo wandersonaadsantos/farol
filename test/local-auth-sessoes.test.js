@@ -10,7 +10,8 @@ process.env.FAROL_HOME = HOME;
 
 import { test, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
-const { emitirSessao, verificarSessao, revogarTodas, sessoesPath } = await import('../lib/local-auth/sessoes.js');
+const { emitirSessao, verificarSessao, revogarTodas, sessoesPath, listarSessoes, revogarSessao } = await import('../lib/local-auth/sessoes.js');
+const crypto = await import('node:crypto');
 const { LOCAL_AUTH_DIR } = await import('../lib/paths.js');
 const { TEMPOS } = await import('../lib/constants.js');
 
@@ -88,4 +89,32 @@ test('o arquivo de sessões nunca fica legível por outros', { skip: process.pla
   assert.equal(fs.statSync(sessoesPath()).mode & 0o777, 0o600);
   verificarSessao(token, T0 + TEMPOS.SESSAO_LOCAL_TOQUE_MS);
   assert.equal(fs.statSync(sessoesPath()).mode & 0o777, 0o600, 'o toque regrava e restringe de novo');
+});
+
+// Credencial do agente da autoanálise (issue #346): escopo próprio, nunca Bearer geral.
+test('a sessão da autoanálise só vale no próprio escopo, e a comum nunca vale nele', () => {
+  const agente = emitirSessao('agente', T0, { classe: 'autoanalise' });
+  const comum = emitirSessao('celular', T0);
+  assert.equal(verificarSessao(agente, T0 + 1), false, 'o token do agente não pode abrir a API geral');
+  assert.equal(verificarSessao(agente, T0 + 1, 'autoanalise'), true);
+  assert.equal(verificarSessao(comum, T0 + 1, 'autoanalise'), false, 'o Bearer geral não abre as rotas do agente');
+  assert.equal(verificarSessao(comum, T0 + 1), true);
+});
+
+test('o hash da sessão da autoanálise mora em domínio próprio, e o motor antigo nunca a reconhece', () => {
+  const agente = emitirSessao('agente', T0, { classe: 'autoanalise' });
+  const [s] = JSON.parse(fs.readFileSync(sessoesPath(), 'utf8'));
+  assert.equal(s.classe, 'autoanalise');
+  assert.notEqual(s.hash, crypto.createHash('sha256').update(agente).digest('hex'), 'sha256(token) puro viraria Bearer geral num revert');
+});
+
+test('a sessão da autoanálise aparece na lista com a classe, vence pelo prazo e sai com a revogação', () => {
+  const agente = emitirSessao('agente', T0, { classe: 'autoanalise' });
+  const [linha] = listarSessoes({ agora: T0 + 1 });
+  assert.equal(linha.classe, 'autoanalise');
+  assert.equal(linha.ultimoUsoEm, T0);
+  assert.equal(verificarSessao(agente, T0 + TEMPOS.SESSAO_LOCAL_ABSOLUTA_MS, 'autoanalise'), false, 'tem prazo');
+  const outro = emitirSessao('agente', T0, { classe: 'autoanalise' });
+  assert.equal(revogarSessao(listarSessoes({ agora: T0 + 1 }).at(-1).id, T0 + 1), true);
+  assert.equal(verificarSessao(outro, T0 + 2, 'autoanalise'), false, 'revogada');
 });
