@@ -13,6 +13,10 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 A revisão automática decide na primeira rodada e aproveita o que já foi lido em outro PR do mesmo repositório.
 
+### Novidades
+
+- A autoanálise dos meus PRs pode ser pedida, lida e listada por um agente, com credencial própria emitida no aparelho (`node tools/farol-parear.js --autoanalise`) e sem nenhuma escrita no GitHub. O comando `node tools/farol-autoanalise.js` faz as três coisas.
+
 ### Melhorias
 
 - A revisão decide na primeira rodada. O que falta e não impede a decisão (leitura incompleta de algum arquivo, uso fora do diff não declarado, protocolo, divergência entre passadas) vira ressalva na hora, e a configuração da conta decide entre aprovar com ressalvas e esperar você. Acabou a segunda sessão no mesmo commit e o cartão "Recuperando a análise" para esses casos. Medido: cinco PRs foram mergeados enquanto esperavam essa segunda rodada, sem o Farol postar.

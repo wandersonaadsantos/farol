@@ -21,6 +21,7 @@ const RELEASE_NOTES_RECENTES = [
     'Arquivo já lido em outro PR do mesmo repositório, com o mesmo conteúdo e o mesmo trecho alterado, não é relido',
     'Recuperação de análise em commit já decidido por uma pessoa é encerrada sem postar, em vez de ficar pendurada',
     'Aprovação pendente pede revisão nova se a declaração ou a ferramenta técnica mudaram depois da revisão',
+    'Autoanálise dos meus PRs pode ser pedida, lida e listada por um agente, com credencial própria e sem escrita no GitHub',
   ]],
   ['2.78.39', [
     'Divergência entre passadas de verificação, quando é a única prova que falta, vira ressalva sem revisões repetidas no mesmo commit',
