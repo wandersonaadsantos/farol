@@ -126,6 +126,7 @@ invariantes continuam lá.
 - [Dedup é por ROUND, não por "alguma vez" (v2.40.5)](#dedup-é-por-round-não-por-alguma-vez-v2405)
 - [Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho](#re-revisão-automática-pós-push-v2410-o-round-2-fecha-sozinho)
 - [Dívida herdada da production não bloqueia (05/11/2026, v2.78.37)](#dívida-herdada-da-production-não-bloqueia-05112026-v27837)
+- [Achado técnico fora das linhas do PR não bloqueia (06/11/2026)](#achado-técnico-fora-das-linhas-do-pr-não-bloqueia-06112026)
 - [Conferência na boca da sessão (05/11/2026, v2.78.36)](#conferência-na-boca-da-sessão-05112026-v27836)
 - [O pedido de mudanças sai quando o problema foi resolvido (05/11/2026, v2.78.35)](#o-pedido-de-mudanças-sai-quando-o-problema-foi-resolvido-05112026-v27835)
 - [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
@@ -165,10 +166,12 @@ blockers. Nenhuma dessas verificações converte automaticamente a decisão em a
 
    **O Farol busca a prova, e depois de duas tentativas não exige mais (17/10/2026, v2.72.6; removido pelo PR #250 na v2.72.8 e devolvido pela decisão do dono de 19/10/2026, v2.73.2, que também supera o PR #253 neste ponto).** A recuperação durável do PR #253 (logo acima) continua, mas o recuo só segue para o que continua exigido depois das duas tentativas: análise incompleta, lacuna dura que não é defeito do PR e interrupção. Com a conta aprovando, o app busca a prova por revisão complementar; depois das duas tentativas a lacuna que não é dura vira ressalva com o próprio texto, e a política de ressalvas da conta decide (`lib/engine/espera-prova.js` e `lib/engine/busca-da-prova.js`):
    - a pendência nasce com a marca `esperaProva` e o próximo ciclo relança NA HORA uma revisão complementar do MESMO commit (stale_head no head lido, âncora e recibo da rodada liberados, sem o relógio de PR quieto em `relogioDoRound`). O prompt dessa rodada traz o bloco "Revisão complementar (tentativa N de 2 neste commit)" com as lacunas da anterior, como dado delimitado; diff e checks são medidos de novo pelo engine na própria rodada;
-   - são no máximo DUAS rodadas complementares por commit. A rodada que nasce com o contador cheio (`provaEsgotada`) mantém só as lacunas duras e as do CI; o resto vira ressalva ("faltou prova depois das minhas 2 tentativas neste commit, então segue como ressalva: ..."), o resumo técnico da tela fica em `ressalva` e o botão Aprovar fica ligado. A publicação aceita com os mesmos requisitos do repositório sem declaração mais o contexto da revisão (base e objeções gravadas). Quem decide o que é ressalva é o engine, nunca o modelo: prova gravada por uma versão anterior das regras (`approvalEvidenceVersion` diferente de `VERSAO_DAS_REGRAS`, hoje 3) pede revisão nova (`legacyEvidenceGap`), e a pendência é relançada pela reconferência técnica.
+   - são no máximo DUAS rodadas complementares por commit. A rodada que nasce com o contador cheio (`provaEsgotada`) mantém só as lacunas duras e as do CI; o resto vira ressalva ("faltou prova depois das minhas 2 tentativas neste commit, então segue como ressalva: ..."). Divergência entre passadas de verificação não espera as tentativas (v2.78.39): o checkpoint é só de acréscimo e outra rodada nunca a desfaz, então, quando ela é a única lacuna não dura, vira ressalva já na rodada em que aparece ("outra tentativa não desfaz a divergência entre passadas, então segue como ressalva: ..."); com outra lacuna de prova junto, a busca continua por ela. Medido em Edicoes-CNBB/biblioteca-cnbb-web#182, em que a mesma divergência voltou em 7 commits. Na rodada da prova esgotada, o resumo técnico da tela fica em `ressalva` e o botão Aprovar fica ligado. A publicação aceita com os mesmos requisitos do repositório sem declaração mais o contexto da revisão (base e objeções gravadas). Quem decide o que é ressalva é o engine, nunca o modelo: prova gravada por uma versão anterior das regras (`approvalEvidenceVersion` diferente de `VERSAO_DAS_REGRAS`, hoje 7) pede revisão nova (`legacyEvidenceGap`), e a pendência é relançada pela reconferência técnica.
    - continuam IMPEDINDO, sempre (lacunas duras, `ehLacunaDura` e `relatorioComViolacao` em `verdict.js`): CI obrigatório vermelho ou pendente, violação técnica confirmada ou achado não resolvido (repositório com declaração), a parte do card deste PR dita não entregue, commit não confirmado, avaliação de outro commit ou repositório, head que andou e PR da própria conta (que sai como COMMENT);
 
    O prompt complementar recebe as lacunas e exige as avaliações estruturadas; achado confirmado deve gerar um pedido de mudanças fundamentado pelo revisor, publicado somente se a política permitir. Com análise suficiente, a aprovação passa pelos mesmos gates de identidade, commit, base, objeções, checks e deduplicação. Tentativa nenhuma dispensa lacuna dura; a que não é dura vira ressalva depois das duas tentativas (decisão do dono de 19/10/2026). Pendências antigas sem prova voltam ao funil automaticamente; a origem é a do dono (`origemDoDono`), e PR da própria conta sai como COMMENT.
+
+   **Só objeção nova de pessoa invalida o APPROVE (05/11/2026).** A conferência das objeções na publicação (`objecoesMudaram`, `lib/technical-review/reviews.js`) não compara mais o hash do histórico inteiro: o relatório grava, junto da impressão, a lista das objeções de pessoa que a revisão leu (`humanObjections`), e a publicação só recusa quando aparece uma que não está nela. Não é objeção: review ou comentário de ferramenta (`ehFerramenta`, a régua do gate de consciência), review APPROVED e os comentários de linha que nasceram dentro dele, review DISMISSED, review sem texto e o que simplesmente sumiu. É objeção: pedido de mudanças, review comentado com texto e comentário de linha de pessoa fora de aprovação, inclusive da própria conta, e corpo editado. Medido no estado real: das sete recusas "histórico de objeções mudou depois da revisão" gravadas até 05/11/2026, a impressão de cada relatório foi reconstruída byte a byte a partir dos reviews do GitHub, e seis vinham de ferramenta (acrity) ou de aprovação de pessoa; o biud-frontend#1803, por exemplo, só foi aprovado 2h27 depois, por outra sessão paga. A sétima (um review comentado com defeitos, publicado durante a leitura) continua recusando, embora a sessão o tenha lido por conta própria: o engine não tem prova mecânica do que o modelo leu. Relatório gravado antes desta versão (sem a lista) segue comparando a impressão inteira, e a impressão continua calculada do mesmo jeito.
 
    A interface mostra recuperação, próxima tentativa ou o impedimento do ambiente, fora de "Precisa de você". Falha de execução tem diagnóstico próprio, sem ser mascarada como avaliação ausente. CI mantém sua espera específica; PR fechado ou mergeado é reconciliado, e commit novo segue o caminho de re-revisão do head atual. `test/espera-prova.test.js` e `test/busca-da-prova.test.js` cobrem os desfechos e a preservação dos bloqueios.
 
@@ -228,7 +231,7 @@ em automático na classe do resultado:
 | PR da própria conta (desfecho e `espera-pr-proprio.js`) | autor é a conta que revisa (o GitHub recusa APPROVE e REQUEST_CHANGES do autor) | mesa, "outra pessoa precisa aprovar" | a revisão sai como COMMENT (`payloads.comment`, ou o texto do veredito), ancorada no commit lido, e a pendência é resolvida como `commented_own_pr`. Vale também para as esperas que já existiam. Falha passageira arma o reenvio do evento `comment` |
 | resultado incompleto (`espera-prova.js`, `recuperacao-prova.js`) | `analise_incompleta`, `sem_texto`, `nao_aprovavel` (aprovar sem o APPROVE pronto, ou pedir mudanças sem texto) | mesa | a recuperação durável do PR #253 relança a revisão no MESMO commit: duas tentativas rápidas e depois recuo de 15 minutos até seis horas, com o motivo da pausa (login, ferramenta, orçamento, cancelamento) no card, quando a origem é do dono |
 | trava de linguagem (desfecho e `espera-ci.js`) | o texto público foi barrado (`internal_language`) | mesa como falha ao postar | reconstrução UMA vez (`reconstruirPayload`: sai cada parágrafo e cada comentário de linha barrado) e nova postagem; sem texto sobrando, mesa com o motivo de infra |
-| reconferência técnica (`recheck.js`) | base ou objeções mudaram depois da revisão | relançava só com `requested === true` | relança para qualquer origem do dono (a pendência grava `pr.origemDono`) |
+| reconferência técnica (`recheck.js`) | base mudou ou apareceu objeção nova de pessoa depois da revisão | relançava só com `requested === true` | relança para qualquer origem do dono (a pendência grava `pr.origemDono`) |
 
 **A mesa que sobra, e por quê** (cada uma diz o motivo no card):
 - a política da conta em `wait` para a classe do resultado, inclusive quando muda durante uma espera (`politicaAindaAprova`): é a escolha do dono;
@@ -1040,7 +1043,8 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   o código resultante é byte a byte o que a revisão anterior avaliou.
 - **Round incremental (herança de cobertura por blob)**: no round 2 com head DIFERENTE do da
   prova (mesmo head é retomada de falha, e aí quem cobre é o checkpoint; herdar tudo no mesmo
-  head faria a sessão "se confirmar" sem ler nada), `splitByProof` separa o diff em INALTERADOS
+  head faria a sessão "se confirmar" sem ler nada; a exceção é a rodada complementar da busca da
+  prova, no item seguinte), `splitByProof` separa o diff em INALTERADOS
   (blob + status idênticos E leitura declarada na prova) e ALTERADOS. O prompt ganha o
   `fileProofBlock` (leia os alterados + reverifique os achados; inalterado só se interagir; e
   declare em `coverage.reviewed` SÓ o que leu NESTA sessão), o fan-out passa a medir e fatiar
@@ -1053,6 +1057,28 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   (carimbado em session.js via `activeReviews.get(id).fileBlobs`) e `relevantEntries` (fonte
   única em verification-checkpoint.js, usada pelo resumeBlock E pelo summarizeCheckpoint) aceita
   entrada de head antigo cujo arquivo não mudou.
+- **Alcance herdado e rodada complementar no mesmo head (05/11/2026)**: medido no estado real,
+  a cobertura do inalterado era herdada, mas o `alcance` não, e o arquivo de código que não
+  mudou voltava como "sem uso fora do diff e sem o motivo" (biud-frontend#1826:
+  `renovacaoDaZona.ts` conferido em ccbcf9b, pendência em cc101dd sem mudar uma linha). Agora a
+  prova por arquivo guarda, por arquivo, a declaração de alcance que FECHOU na rodada
+  (`alcanceConferido`: todo chamador fora do diff conferido no head, ou o motivo de não haver
+  uso), presa ao blob e com a origem (head e sessão que declararam); por isso
+  `salvarProvaDaSessao` (em `file-proof.js`) roda depois do `verificarAlcance`. Na rodada
+  seguinte, arquivo inalterado (mesmo critério de `splitByProof`, e com o blob medido agora
+  igual ao da declaração) cuja declaração atual falta ou não fecha recebe a guardada
+  (`herdarAlcance`, marcada em `herdado` e listada em `result.alcanceHerdado`, que vai às
+  provas como `alcance.herdados`); declaração nova com chamador fora do diff é mantida e
+  conferida. O chamador herdado é conferido DE NOVO no head atual, então arquivo citado que
+  mudou fora do diff volta a ser pendência. Inalterado sem declaração conferida antes continua
+  pendência: nada é dispensado sem prova, e o `fileProofBlock` passa a listar os inalterados de
+  código que ainda pedem a declaração (biud-frontend#1818 tinha 47 assim desde a primeira
+  rodada, que declarou alcance para 2 arquivos). **No mesmo head**, a herança vale só para a
+  rodada complementar da busca da prova (pendência com `esperaProva` deste head): a rodada
+  anterior concluiu e gravou a prova, e reler o que já tinha prova por blob fazia a complementar
+  perder cobertura (biud-esg#522, 91a151c: as duas specs lidas às 19:38 viraram pendência às
+  19:46). O clique ou relançamento no mesmo head fora da busca da prova segue cheio, pelo motivo
+  do parágrafo acima. Travado em `test/heranca-de-alcance.test.js`.
 - **Retomada de sessão no round 2** (`config.reReviewResume`, default **false**, opt-in;
   toggle em Sistema > Automação, `#setReReviewResume`): o relançamento automático carrega o
   `sessionId` da última decisão do PR (`lastReviewSessionId`, lido das decisões CRUAS porque o
@@ -1204,6 +1230,21 @@ O caso medido: biud-frontend#1822, backmerge da production na development, repro
 - **Falta de dado não rebaixa nada:** comparação no teto de 300 arquivos ou leitura que falha deixam o resultado como veio, e repositório sem `production` fica guardado para não pagar a consulta de novo.
 
 **Limite:** quebra causada pela base num arquivo herdado depende de a sessão não declarar o ponto como herdado; o prompt pede para não marcar na dúvida.
+
+## Achado técnico fora das linhas do PR não bloqueia (06/11/2026)
+
+O caso medido: biud-frontend#1818, heads e8b2f02 e d50ee37. A sessão aprovou, e a avaliação técnica virou o desfecho em pedido de mudanças automático por supressor sem motivo (`index.test.ts` 1973 e 2394) e unidade fixa (`RegisterFlow.tsx` 403), todos em linhas que o PR não tocou, só porque o arquivo estava no diff. É o princípio do merge-back (acima) para qualquer PR, aplicado à avaliação técnica.
+
+`lib/technical-review/divida-fora-das-linhas.js` (puro) roda dentro do `finishTechnicalReview`, onde estão todos os achados da ferramenta (o relatório guarda só dez), com o inventário do diff que o `runHeadlessReview` passa pela recuperação do resultado:
+
+- **A linha do achado** vem só do verificador mecânico ("na linha N", com o texto entre aspas, que é código do PR, descartado antes). Achado de avaliação ("avaliada como ...") traz o texto da sessão e nunca é lido em busca de linha.
+- **As linhas do PR** vêm do inventário do mesmo commit (patch do GitHub por arquivo, contra o ancestral comum). Fora das linhas é fora de todo trecho do patch, inclusive das linhas de contexto: o supressor numa linha intacta cujo motivo foi apagado na linha de cima continua bloqueando.
+- **Falta de dado bloqueia:** inventário incompleto ou de outro commit, patch ausente, parcial, reescrito (arquivo de ambiente) ou com trecho oculto, arquivo fora do inventário, mensagem sem linha.
+- **Regra sem linha continua bloqueando:** responsabilidade única, duplicação de regra de negócio e as demais de avaliação. A ferramenta só as aciona em arquivo da entrega, a duplicação pode morar fora do trecho alterado justamente porque o PR a criou, e sem linha não há como provar que a violação é anterior.
+- **Efeito:** o achado ganha `foraDasLinhas` e a regra reprovada cujos achados TODOS ficaram fora ganha `dividaForaDasLinhas`; as duas marcas são do app e os predicados de `verdict.js` as leem como as regras de organização (sugestão). O relatório põe o que bloqueia primeiro no corte de dez e guarda `foraDasLinhas` (contagem e amostra), que vira ressalva no card (`ressalvas.js`) e frase no resumo técnico. Dívida anterior agravada (`error` do relatório) segue bloqueando. `VERSAO_DAS_REGRAS` subiu para 7.
+- **Retirada do pedido:** `provaDaRetirada` lê `defeitosDoPr`, que sai das mesmas lacunas; a rodada nova de um PR reprovado só por dívida fora das linhas deixa de ter defeito e o pedido automático pode sair. A memória de rodadas guarda os achados da sessão, não os da avaliação técnica, e não muda.
+
+**Limite:** o achado que a sessão escreve com base na ferramenta não passa por aqui (é o veredito dela, como antes); e no #1818 a duplicação de regra de negócio em `route.ts`, arquivo criado pelo PR, continua reprovando pela regra acima.
 
 ## Conferência na boca da sessão (05/11/2026, v2.78.36)
 

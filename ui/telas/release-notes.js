@@ -16,6 +16,13 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.39', [
+    'Divergência entre passadas de verificação, quando é a única prova que falta, vira ressalva sem revisões repetidas no mesmo commit',
+    'Problema apontado fora do trecho alterado pelo PR vira ressalva de dívida anterior, não reprovação',
+    'No histórico de reviews, só objeção nova de uma pessoa descarta a aprovação; review de ferramenta ou aprovação de colega não',
+    'O uso fora do diff já conferido num arquivo que não mudou vale na rodada seguinte',
+    'Queda da janela passa a registrar motivo, código e memória no log',
+  ]],
   ['2.78.38', [
     'O pedido de mudanças sai quando o problema foi resolvido, também na última tentativa de revisão do commit',
   ]],

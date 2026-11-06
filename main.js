@@ -11,9 +11,17 @@ import { avisoDe, badgeDe, coresDe } from './lib/engine/avisos-nativos.js';
 import { consumirReaberturaSilenciosa } from './lib/engine/update.js';
 
 // fonte única do branch de plataforma (lib/paths.js), como no resto do app
-import { IS_MAC } from './lib/paths.js';
+import { IS_MAC, IS_WIN } from './lib/paths.js';
 import { aplicarAutostartMac } from './lib/autostart-mac.js';
 import { identificarAplicativo, identificarJanela, instalarMenuMac } from './lib/desktop-identity.js';
+import { linhaDaQuedaDoRenderer, linhaDaQuedaDeProcesso, memoriaDoProcesso } from './lib/queda-de-processo.js';
+
+// A queda do renderer só é diagnosticável com o que se sabia ANTES dela: depois
+// que o processo morre não há memória para medir. Então a memória dele é amostrada
+// em silêncio (nada vai ao log) e a linha da queda conta a última amostra.
+const AMOSTRA_RENDERER_MS = 30000;
+let amostraRenderer = null;
+let paginaCarregadaEm = null;
 
 let win = null;
 let tray = null;
@@ -61,6 +69,14 @@ if (!gotLock) {
   });
 
   app.on('before-quit', () => { quitting = true; });
+  // GPU e utilitários (rede, áudio) também morrem sozinhos; a do GPU é suspeita direta
+  // das quedas do renderer no Windows (titleBarOverlay compõe pela GPU). Saída limpa e
+  // o encerramento do app não são falha.
+  app.on('child-process-gone', (_e, details) => {
+    if (quitting) return;
+    const linha = linhaDaQuedaDeProcesso(details, IS_WIN);
+    if (linha && engine) engine.log('ERROR', linha);
+  });
   app.on('window-all-closed', () => { /* segue vivo na bandeja */ });
   app.on('activate', () => showWindow()); // macOS: clique no Dock reabre a janela
 }
@@ -105,10 +121,20 @@ function createWindow() {
   // sem esse caminho). Sem este handler a janela fica em branco pra sempre com o
   // processo principal vivo (achado real, 20/08/2026: 4 processos Farol.exe no
   // Task Manager e tela preta). recarrega sozinho; falha do reload não trava o app.
+  // Desde 05/11/2026 a linha leva código de saída, a última memória medida, há quanto
+  // tempo a página carregou e se a janela estava visível: 23 quedas só com "(crashed)"
+  // não deram diagnóstico nenhum (lib/queda-de-processo.js).
+  win.webContents.on('did-finish-load', () => { paginaCarregadaEm = Date.now(); });
   win.webContents.on('render-process-gone', (_e, details) => {
-    engine && engine.log('ERROR', `renderer caiu (${details.reason}); recarregando a janela`);
+    const visivel = win && !win.isDestroyed() ? win.isVisible() : undefined;
+    engine && engine.log('ERROR', linhaDaQuedaDoRenderer({
+      details, amostra: amostraRenderer, carregadaEm: paginaCarregadaEm, visivel, agora: Date.now(), ehWindows: IS_WIN,
+    }));
+    amostraRenderer = null;
+    paginaCarregadaEm = null;
     if (win && !win.isDestroyed()) { try { win.loadURL(appUrl); } catch { /* próxima interação do usuário reabre pela bandeja */ } }
   });
+  amostrarRenderer();
   // trava (não caiu, mas parou de responder) tem outro sintoma: avisa em vez de
   // recarregar sozinho, pra não interromper um processo que ainda pode voltar.
   // Só WARN na trava: "voltou a responder" é ruído operacional, não falha
@@ -143,6 +169,21 @@ function createWindow() {
         : 'Monitorando na bandeja do sistema. Clique no icone para reabrir.');
     }
   });
+}
+
+// Amostra silenciosa da memória do renderer (app.getAppMetrics, sem custo de IPC
+// com a página). unref: o relógio nunca segura o app vivo na saída.
+function amostrarRenderer() {
+  const medir = () => {
+    try {
+      if (!win || win.isDestroyed()) return;
+      const mem = memoriaDoProcesso(app.getAppMetrics(), win.webContents.getOSProcessId());
+      if (mem) amostraRenderer = { ...mem, em: Date.now() };
+    } catch { /* medir é best-effort; a queda continua registrada sem memória */ }
+  };
+  medir();
+  const t = setInterval(medir, AMOSTRA_RENDERER_MS);
+  if (t.unref) t.unref();
 }
 
 function showWindow() {
