@@ -401,3 +401,18 @@ test('a guarda do índice tolera só a pendência de cobertura entre as lacunas 
   assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, diffMedido: ['src/a.md'], coverage: { total: 1, reviewed: [], missing: ['src/a.md'] } }), true,
     'cobertura de arquivo é filtrada arquivo a arquivo em lidosNaSessao');
 });
+
+// Segunda revisão independente de 06/11/2026: a leitura herdada de outro PR e guardada na prova
+// própria só segue herdada no salto seguinte com o mesmo patch, como o índice exige.
+test('herança encadeada: o herdado de outro PR na prova própria exige o mesmo patch no salto seguinte', () => {
+  const antes = arquivo('src/elo.ts', 'blob-elo', 'modified', 'patch-1');
+  const prova = { head: H1, files: [antes], reviewed: [antes.path], alcance: {}, origens: { [antes.path]: { pr: 'o/r#1', head: H1 } } };
+  const outroPatch = fileProof.splitByProof([arquivo('src/elo.ts', 'blob-elo', 'modified', 'patch-2')], prova);
+  assert.deepEqual(outroPatch.unchanged, [], 'mesmo blob com outro patch volta à leitura');
+  const mesmoPatch = fileProof.splitByProof([arquivo('src/elo.ts', 'blob-elo', 'modified', 'patch-1')], prova);
+  assert.deepEqual(mesmoPatch.unchanged, ['src/elo.ts'], 'controle');
+  assert.deepEqual(mesmoPatch.origens['src/elo.ts'], { pr: 'o/r#1', head: H1 });
+  const proprio = { ...prova, origens: {} };
+  assert.deepEqual(fileProof.splitByProof([arquivo('src/elo.ts', 'blob-elo', 'modified', 'patch-2')], proprio).unchanged, ['src/elo.ts'],
+    'a leitura do próprio PR segue pela regra de sempre (blob e status)');
+});
