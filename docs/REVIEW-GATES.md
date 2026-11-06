@@ -1428,6 +1428,113 @@ Caminho protegido sem essa projeção segura para qualquer autor (`protegido_sem
 conhecido: comentário com senha em forma de frase passa sem ser visto por ninguém; ele não chega à
 sessão, mas também não segura a aprovação.
 
+### Projeção legível sob o deny do usuário e a leitura do protegido como prova (06/11/2026)
+
+Auditoria no motor instalado 2.78.39: o `~/.claude/settings.json` do dono traz
+`deny: ["Read(.env)", "Read(.env.*)", "Read(.secrets)"]`, a sessão headless herda as settings do
+usuário (o `--dangerously-skip-permissions` não desliga `deny`), e a regra casa pelo nome-base em
+qualquer profundidade, inclusive em caminho absoluto fora do projeto. A projeção do `.env.example`
+era materializada em `state/pr-scope/<pr>@<sessão>/.env.example`, então quatro de quatro PRs com
+esse arquivo deram `erro-do-read` em `medicoes-leitura.jsonl` e viraram lacuna de cobertura. Pior:
+barradas, duas sessões buscaram o patch CRU no GitHub (`gh api repos/<o>/<r>/pulls/N/files`, que o
+`Bash(gh:*)` do workspace permitia), contornando a redação; numa delas o arquivo ainda foi declarado
+em `coverage.reviewed`. Um subagente baixou o tarball do repositório para o `/tmp`.
+
+Três decisões, uma por buraco, todas em `lib/review-source/caminho-protegido.js` e nos módulos que
+o consultam:
+
+- **O nome da projeção não casa o `deny`.** Das três opções (nome novo, projeção inline no prompt,
+  isolar o headless das settings com `--setting-sources`), ficou o nome novo:
+  `_farol_redigido_/_<caminho achatado>.redigido` (`nomeMaterializado`), um componente só abaixo da
+  pasta redigida, com `/` escrito `%2F` e `%` escrito `%25`. O `_` na frente tira o nome das regras que
+  ancoram no início (`.env`, `.env.*`, `.env*`, `**/.env*`), o sufixo das que ancoram no fim (`*.env`),
+  e o achatamento tira o diretório: a regra do `deny` segue o gitignore e casa também um DIRETÓRIO do
+  caminho, então manter `.env.d/` de `.env.d/prod.env` (ou `.envs/.production/`, `config/.env/`) no
+  disco deixaria a projeção recusada mesmo com o nome-base trocado. `caminhoDoPr` só aceita o nome que
+  o próprio `nomeMaterializado` escreveria; medido no CLI 2.1.308: `Read(.env.*)` recusou `.../.env.example` e aceitou
+  `_.env.example.redigido`. A projeção inline perderia a prova de leitura (nada a observar no stream),
+  e `--setting-sources` tiraria da sessão TODAS as settings do usuário (hooks, modelo, `env`), não só o
+  `deny`, e deixaria a projeção presa em quem tivesse a regra no settings do projeto. O caminho do PR
+  continua sendo o que a sessão declara: `prPathFromRead` desfaz o nome (`caminhoDoPr`), o prompt
+  lista cada protegido com o nome a ler (`redigidos`, `blocoDosRedigidos`), e o caminho protegido lido
+  no lugar comum, onde nada foi escrito, não vira cobertura nem pela regra do Read.
+- **Protegido só conta coberto com a leitura OBSERVADA da projeção.** `prepararCoberturaParaOGate`
+  recebe `leiturasProvadas` (os caminhos cuja entrega inteira o `read-evidence.js` conferiu contra o
+  arquivo materializado, em qualquer modo) e grava `result.protegidosSemLeitura`; o `coverageGap`
+  o lê como lacuna (`caminho protegido sem leitura observada da projeção redigida: ...`), mesmo com
+  o caminho em `coverage.reviewed`. A prova por arquivo guarda `observados`, e `splitByProof` só herda
+  um protegido quando ele está lá: prova gravada antes dessa regra não tem a lista e o protegido é
+  relido (é pequeno). Sem a medição do diff nada é conferido, e o gate `protegido_sem_leitura` da
+  política continua segurando o protegido sem projeção. A dispensa da leitura vale só para a herança
+  COMPROVADA pelo engine (`heranca.ativa`, `heranca.unchanged`): `coverage.inherited` escrito pelo
+  modelo numa rodada sem herança ativa não dispensa nada. O índice de leitura entre PRs do mesmo repositório
+  (`prova-do-repositorio.js`) não registra nem herda caminho protegido: a declaração de outro PR não
+  é observação desta revisão, e o protegido é relido. A autoanálise passa pela mesma régua:
+  `lidosComProtegidoProvado` (`read-evidence.js`) tira do `observed.scope.reviewed` o protegido cuja
+  entrega não foi conferida, ainda que a regra do Read tenha visto o pedido. Protegido quer dizer
+  protegido de um lado ou do outro do rename (`arquivoProtegido`): `.env.example` renomeado para
+  `config.txt` traz no patch o conteúdo de antes, então os metadados do diff (`previousPath`) seguem
+  até cada filtro da prova: o inventário medido pelo `gh` (`pr-inventory.js`), o escopo materializado
+  (`arquivos` em `pr-scope.js`), a autoanálise, a prova por arquivo e o índice entre PRs.
+  **Protegido SEM projeção não tem arquivo nenhum no escopo** (review do PR #350, 06/11/2026): o
+  caminho comum sem patch recebe um marcador de indisponibilidade, e no protegido esse marcador
+  seria uma entrega inteira conferível, creditada em `provados` por um conteúdo que a sessão nunca
+  viu. `materializeScope` não grava nada para ele (fica no total, em `semProjecao`, e o prompt manda
+  declará-lo em `coverage.missing`), e a disponibilidade viaja até o crédito: `arquivos[].projecao`
+  é `false` e `lidosComProtegidoProvado` o tira dos lidos mesmo com uma entrega conferida.
+- **Marcador não é conteúdo.** Arquivo cuja representação no escopo não tem o conteúdo integral (patch
+  ausente ou binário, protegido sem projeção, patch truncado pelo GitHub) é gravado como marcador ou
+  fragmento e entra em `semConteudoIntegral` (`pr-scope.js`, guardado no registro da sessão). Lê-lo inteiro
+  não credita nada: `read-evidence.js` recusa a prova do retorno (`sem-conteudo-integral`) e a regra do
+  Read, então ele não entra em `provados` nem em `filesRead`, e a autoanálise o deixa em `missing`. Na
+  revisão, `prepararCoberturaParaOGate` recebe a lista e grava `result.semConteudoIntegral`, que o
+  `coverageGap` lê como lacuna (`arquivo sem conteúdo integral no escopo (patch ausente, binário ou
+  truncado): ...`) mesmo declarado ou herdado; o protegido nessa situação já sai como protegido sem
+  leitura. A prova por arquivo e o índice entre PRs não o guardam como lido. O escopo do terminal grava o
+  mesmo marcador, dizendo que lê-lo não cobre nada. A exceção é a renomeação pura (`renamed` sem nenhuma
+  linha alterada): não há conteúdo novo a ler, e o marcador dela conta. Consequência: PR com arquivo
+  binário ou grande demais para a API tem essa lacuna, e ela segue o caminho de toda lacuna de cobertura.
+
+  **Limitação conhecida, de propósito:** a leitura observada vive em memória, no stream do Claude
+  desta sessão. Codex e Antigravity não emitem evento de leitura de arquivo, e a sessão retomada depois
+  de reiniciar o Farol começa sem as observações da anterior; nos três casos o protegido do diff fica em
+  lacuna (ressalva visível, `protegidosSemLeitura`) até uma sessão do Claude lê-lo de novo. Falta de
+  dado não vira cobertura. Na autoanálise pelo Codex ou Antigravity a cobertura inteira já é
+  `COVERAGE_UNOBSERVABLE`, então o protegido não muda o desfecho dali.
+- **As rotas do patch cru medidas nos transcripts são recusadas por mecanismo.** A sessão de revisão e
+  a autoanálise recebem `--settings workspace-template/.claude/guardas.json`
+  (`lib/engine/guardas-da-sessao.js`), só com `deny`: `gh pr diff*`, `gh api *pulls/*/files*`, o
+  diff pedido por cabeçalho (`gh api *vnd.github*.diff*` e `*vnd.github*.patch*`, que cobrem
+  `Accept: application/vnd.github.diff`, `.patch` e `application/vnd.github.v3.diff` em qualquer
+  endpoint), tarball, zipball, `gh repo clone` e `git clone`. Por linha de comando porque o `prepareHome` nunca
+  regrava o `settings.json` semeado, então a regra chega a toda instalação no mesmo boot; o
+  `settings.json` do template leva a mesma lista para instalação nova. O curinga no meio do padrão
+  de Bash foi medido no 2.1.308. `compare`, `commits/<sha>` e `contents/<caminho>` ficam na proibição
+  do protocolo (são rotas legítimas da procedência do sync e das regras do repositório), e por isso a
+  regra do crédito, acima, é o gate de verdade: o que a sessão vir por fora não credita nada. O
+  `pr-reviewer` deixou de baixar o patch único no passo 3; sem raiz de escopo ele lê cada arquivo não
+  protegido pelo `contents` e declara os protegidos em `coverage.missing`.
+- **A revisão no terminal tem o mesmo desenho.** O botão "Revisar no terminal" abre
+  `claude "/pr-review <urls>"`, e o `pr-reviewer.md` que o `prepareHome` regrava em toda instalação
+  vale ali também. Por isso a sessão de terminal recebe o mesmo `--settings` das guardas
+  (`buildSessionScript`/`buildSessionScriptMac` em `session.js`), e o engine grava o escopo antes de
+  abrir a janela (`lib/engine/escopo-do-terminal.js`): o patch de cada arquivo pela mesma régua da
+  headless, numa raiz `state/pr-scope/terminal-<ms>-<i>`, passada como `escopo=<raiz>` logo depois da
+  URL, relativa ao workspace (o cwd da sessão) e sem `%` (o `.cmd` do Windows leria `%2F` como
+  parâmetro). O `pr-reviewer` lê o diff de lá, com os trechos `@@` que o comentário inline precisa.
+  Falha ao ler os patches não segura a janela: a URL vai sem `escopo=` e vale o caminho sem raiz de
+  escopo, que nunca lê o protegido cru. O patch que a API entrega pela metade (contagem de `+` e `-`
+  abaixo de `additions` e `deletions`, a régua de `upstreamPatchStatus` em `github.js`, que o
+  `parsePatchPages` passou a usar também na queda da autoanálise) vira `partial`, e no terminal, que
+  não tem o gate de cobertura, o fragmento é gravado com um aviso antes do primeiro `@@`. Durante a
+  preparação o terminal reserva as chaves em `headlessIniciando` e, no fim, solta só as que ele
+  mesmo pôs: a reserva que a fila headless já tinha continua com ela.
+
+Medido nos 41 transcripts de `~/.claude/projects/-Users-alex--farol-workspace/` antes de fechar:
+38 com "Fontes e patches preparados" e 3 com o escopo medido (nenhum sem raiz de escopo), 3 com
+`pulls/N/files`, 1 com `gh pr diff` (só `--name-only`), 7 com `contents?ref=` (regras do repositório),
+8 que citam tarball. A recusa não tira da sessão nada que o protocolo precise.
+
 Na execução restrita, blobs novos não são persistidos no cache compartilhado; entradas
 já existentes podem ser lidas e verificadas. O reader conserva somente texto projetado,
 digest e metadados em cache efêmero por execução, com orçamento de 32 MiB de payload
