@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
 import { SYNC } from '../lib/constants.js';
+import { comoAdmin, comoExecutor } from './helpers/papel.js';
 
 const { Engine } = await import('../server.js');
 const syncMod = (await import('../lib/engine/sync.js')).default;
@@ -32,6 +33,7 @@ const envelope = (await import('../lib/sync/envelope.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag } = await import('../lib/sync/tags.js');
 const orgSemAcesso = (await import('../lib/engine/org-sem-acesso.js')).default;
+const adminChave = (await import('../lib/sync/admin-chave.js')).default;
 const pure = await import('../ui/pure.js');
 
 const API_KEY = 'chave-web-de-teste';
@@ -94,6 +96,8 @@ async function aparelho(nome, deviceId) {
   assert.equal(aberta.ok, true, JSON.stringify(aberta));
   if (deviceId) e.sync.deviceId = deviceId;
   e.sync.deviceName = nome;
+  // a projeção das listas dos outros só sai para o admin; o caso que prova o contrário desfaz
+  e.deixarDeSerAdmin = comoAdmin(e);
   e.accountForPr = () => LOGIN;
   e.eventos = [];
   e.on('sync-lists', (p) => e.eventos.push(['sync-lists', p]));
@@ -153,6 +157,49 @@ test('B lê o que A publicou: origem, conta, hora e Meus PRs só leitura', async
   const evento = b.eventos.find(([n]) => n === 'sync-lists');
   assert.ok(evento, 'a leitura avisa a tela por evento próprio');
   assert.equal(escopoDe(evento[1], 'panorama').linhas.length, 2);
+});
+
+test('só o admin recebe as listas dos outros; quem não é admin lê por dentro e a tela não recebe nada', async () => {
+  const { a, b } = await par();
+  b.deixarDeSerAdmin();
+  const restaurar = comoExecutor(b, 'dA');
+  await publicarDeA(a, { agora: T });
+  b.eventos.length = 0;
+  const r = await listas.lerListasRemotas(b, b.config.sync, { agora: T + 10 });
+  assert.deepEqual([r.estado, r.escopos.length], ['so-admin', 0]);
+  assert.deepEqual([b.syncListasRemotas().estado, b.syncListasRemotas().escopos], ['so-admin', []], 'a rota também sai vazia');
+  const emitidos = b.eventos.filter(([n]) => n === 'sync-lists').map(([, p]) => p);
+  assert.ok(emitidos.length > 0, 'a tela é avisada do estado');
+  for (const p of emitidos) assert.deepEqual([p.estado, p.escopos], ['so-admin', []], 'o evento não leva linha de outro aparelho');
+  assert.ok(b.sync.listasRemotas.escopos.size > 0, 'a leitura por dentro continua (nome das contas no painel)');
+  // virou admin: a projeção traz as linhas de volta, sem reiniciar
+  restaurar();
+  const restaurarAdmin = comoAdmin(b);
+  const depois = await listas.lerListasRemotas(b, b.config.sync, { agora: T + 20 });
+  assert.equal(depois.estado, 'ligada');
+  assert.deepEqual(escopoDe(depois, 'panorama').linhas.map((l) => l.key).sort(), ['acme/app#1', 'acme/app#2']);
+  assert.equal(escopoDe(b.eventos.at(-1)[1], 'panorama').linhas.length, 2, 'virar admin avisa a tela');
+  // deixou de ser admin: o evento seguinte sai vazio
+  restaurarAdmin();
+  comoExecutor(b, 'dA');
+  await listas.lerListasRemotas(b, b.config.sync, { agora: T + 30 });
+  assert.deepEqual([b.eventos.at(-1)[1].estado, b.eventos.at(-1)[1].escopos], ['so-admin', []], 'deixar de ser admin limpa a tela');
+});
+
+test('sem o sinal do admin no banco, a projeção sai vazia mesmo com a chave local de admin', async () => {
+  const { a, b } = await par();
+  b.deixarDeSerAdmin();
+  b.sync.sinais.admin = null;
+  await publicarDeA(a, { agora: T });
+  // a chave que fica no aparelho que já foi admin não decide a tela
+  assert.equal(adminChave.gravarChaveDeAdmin({ uid: 'u1', generation: 1, jwk: adminChave.gerarParDeAdmin().jwk }), true);
+  try {
+    assert.ok(adminChave.lerChaveDeAdmin(), 'a chave local existe');
+    await listas.lerListasRemotas(b, b.config.sync, { agora: T + 10 });
+    assert.deepEqual([b.syncListasRemotas().estado, b.syncListasRemotas().escopos], ['so-admin', []]);
+  } finally {
+    adminChave.apagarChaveDeAdmin();
+  }
 });
 
 test('a tela mostra a origem certa e não conta dobrado o PR visto aqui e lá', async () => {

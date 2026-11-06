@@ -21,6 +21,7 @@ import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
 import { SYNC } from '../lib/constants.js';
+import { comoAdmin } from './helpers/papel.js';
 
 const { Engine } = await import('../server.js');
 const syncMod = (await import('../lib/engine/sync.js')).default;
@@ -78,6 +79,8 @@ async function aparelho(nome, deviceId, conta, owner) {
   assert.equal((await e.syncUnlock({ password: SENHA })).ok, true);
   e.sync.deviceId = deviceId;
   e.sync.deviceName = nome;
+  // a projeção das listas dos outros só sai para o admin (test/sync-listas-remotas.test.js prova o contrário)
+  comoAdmin(e);
   e.accountForPr = () => conta;
   return e;
 }

@@ -150,6 +150,16 @@ test('sem linha remota e sem aviso, o bloco some; com estado, ele diz o estado',
   assert.match(naoAbriu, /1 item de outro aparelho não abriu e ficou de fora/);
 });
 
+test('aparelho que não é o admin não mostra linha nem faixa das listas dos outros', () => {
+  const soAdmin = listas([], { estado: 'so-admin' });
+  assert.deepEqual(estadoDasListas(soAdmin, SYNC), { estado: 'so-admin', texto: '' });
+  const locais = [{ key: 'acme/app#1' }, { key: 'acme/app#2' }];
+  const m = mesclarListaRemota(locais, soAdmin, 'myPrs', { sync: SYNC, agora: AGORA });
+  assert.deepEqual([m.remotas.length, m.deste, m.total, m.avisos.length], [0, 2, 2, 0], 'a contagem da aba é só a deste aparelho');
+  assert.equal(panoramaRemotoHtml(mesclarListaRemota([], soAdmin, 'panorama', { sync: SYNC, agora: AGORA }), { agora: AGORA }), '');
+  assert.equal(meusPrsRemotoHtml(m), '', 'nem a faixa de estado aparece');
+});
+
 test('texto vindo de outro aparelho é escapado', () => {
   const m = mesclarListaRemota([], listas([escopo('panorama', [linha('acme/app#2', { title: '<img src=x onerror=1>' })], { aparelho: '<b>x</b>' })]), 'panorama', { sync: SYNC, agora: AGORA });
   const html = panoramaRemotoHtml(m, { agora: AGORA });
