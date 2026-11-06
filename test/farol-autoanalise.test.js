@@ -4,6 +4,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
+import http from 'node:http';
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-farol-autoanalise-'));
 process.env.FAROL_HOME = HOME;
@@ -113,6 +114,52 @@ test('a porta vem do casca.json, senão do config.json, senão a padrão', async
   gravarCasca({ porta: 47124, pid: process.pid, versao: '0', codigoPareamento: '', iniciadoEm: 0 });
   assert.equal(await alvoCom(), '47124');
   apagarCasca();
+});
+
+async function alvoComBind(bind, porta = 47200) {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ port: porta, bind }));
+  const falso = fetchFalso();
+  await executar(['listar'], fluxo(), fluxo(), { fetch: falso.fetch, token: TOKEN });
+  return falso.chamadas[0].alvo;
+}
+
+test('o host segue o bind configurado, IPv6 entre colchetes', async () => {
+  assert.equal(await alvoComBind('[::1]'), 'http://[::1]:47200/api/self-review/agent/list');
+  assert.equal(await alvoComBind('192.168.0.10'), 'http://192.168.0.10:47200/api/self-review/agent/list');
+});
+
+test('escuta em tudo vai ao loopback, e sem bind fica em 127.0.0.1', async () => {
+  assert.equal(await alvoComBind('0.0.0.0'), 'http://127.0.0.1:47200/api/self-review/agent/list');
+  assert.equal(await alvoComBind('[::]'), 'http://[::1]:47200/api/self-review/agent/list');
+  assert.equal(await alvoComBind(undefined), 'http://127.0.0.1:47200/api/self-review/agent/list');
+});
+
+test('com bind, a porta continua vindo do casca.json', async () => {
+  gravarCasca({ porta: 47124, pid: process.pid, versao: '0', codigoPareamento: '', iniciadoEm: 0 });
+  assert.equal(new URL(await alvoComBind('[::1]', 47123)).port, '47124');
+  apagarCasca();
+});
+
+test('motor fora do ar com bind diz o host:porta tentado', async () => {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ port: 47200, bind: '[::1]' }));
+  const erro = fluxo();
+  const fetch = async () => { throw new Error('connect ECONNREFUSED'); };
+  assert.equal(await executar(['listar'], fluxo(), erro, { fetch, token: TOKEN }), 1);
+  assert.match(erro.texto.join(''), /\[::1\]:47200/);
+});
+
+test('de ponta a ponta: alcança um motor que escuta só em ::1', async () => {
+  const servidor = http.createServer((req, res) => { res.setHeader('content-type', 'application/json'); res.end('{"ok":true}'); });
+  await new Promise((ok, falha) => { servidor.once('error', falha); servidor.listen(0, '::1', ok); });
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ port: servidor.address().port, bind: '[::1]' }));
+    const saida = fluxo();
+    assert.equal(await executar(['listar'], saida, fluxo(), { token: TOKEN }), 0);
+    assert.equal(JSON.parse(saida.texto.join('')).ok, true);
+  } finally {
+    servidor.close();
+    fs.rmSync(CONFIG_FILE, { force: true });
+  }
 });
 
 test('o comando não roda processo nenhum (nada de gh nem git)', () => {

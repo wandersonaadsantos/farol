@@ -8,6 +8,7 @@ import { DEFAULT_PORT } from '../lib/constants.js';
 import { readJson, parseJson, safeStringify } from '../lib/io.js';
 import { lerCasca } from '../lib/engine/casca-arquivo.js';
 import { autoanaliseToken } from '../lib/env.js';
+import { sanearBind } from '../lib/parse.js';
 
 const USO = 'Uso: node tools/farol-autoanalise.js pedir <url> | ler <url> | listar\n';
 const ROTAS = {
@@ -22,24 +23,32 @@ function portaDoMotor() {
   return lerCasca()?.porta || readJson(CONFIG_FILE, {}).port || DEFAULT_PORT;
 }
 
+// O host é o bind do motor (config.bind, saneado do mesmo jeito que o Engine faz). Escuta em
+// tudo não é destino: a conexão vai ao loopback da mesma família. Sem bind, sanearBind dá 127.0.0.1.
+const LOOPBACK_DE_ESCUTA_EM_TUDO = new Map([['0.0.0.0', '127.0.0.1'], ['[::]', '[::1]']]);
+function hostDoMotor() {
+  const bind = sanearBind(readJson(CONFIG_FILE, {}).bind);
+  return LOOPBACK_DE_ESCUTA_EM_TUDO.get(bind) ?? bind;
+}
+
 function usoValido(args) {
   const [comando, url] = args;
   if (!Object.hasOwn(ROTAS, comando) || args.length > 2) return false;
   return (comando === 'listar') === (url === undefined);
 }
 
-async function executar(args, saida, erro, { fetch = globalThis.fetch, token = autoanaliseToken(), port = portaDoMotor() } = {}) {
+async function executar(args, saida, erro, { fetch = globalThis.fetch, token = autoanaliseToken(), port = portaDoMotor(), host = hostDoMotor() } = {}) {
   if (!usoValido(args)) { erro.write(USO); return 2; }
   if (!token) { erro.write('Defina FAROL_AUTOANALISE_TOKEN com a credencial de: node tools/farol-parear.js --autoanalise\n'); return 2; }
   const [method, rota, body] = ROTAS[args[0]](args[1]);
   const headers = { 'x-farol': '1', 'content-type': 'application/json', 'x-farol-autoanalise': token };
   try {
-    const resposta = await fetch(`http://127.0.0.1:${port}${rota}`, { method, body, headers });
+    const resposta = await fetch(`http://${host}:${port}${rota}`, { method, body, headers });
     const texto = await resposta.text();
     saida.write(`${texto}\n`);
     return resposta.ok && parseJson(texto, {})?.ok === true ? 0 : 1;
   } catch (e) {
-    erro.write(`O motor do Farol não respondeu em 127.0.0.1:${port}: ${e.message}\n`);
+    erro.write(`O motor do Farol não respondeu em ${host}:${port}: ${e.message}\n`);
     return 1;
   }
 }
