@@ -452,3 +452,34 @@ test('representação sem conteúdo integral: o escopo marca, a leitura não cre
   // a autoanálise também tira o sem conteúdo, mesmo que alguém o tenha posto em filesRead
   assert.deepEqual([...lidosComProtegidoProvado(f.engine, 'rev', new Set(['src/a.js', 'img/logo.png']))], ['src/a.js']);
 });
+
+/* ---------- protegido sem projeção (review de 06/11/2026, 18:19) ---------- */
+
+test('protegido sem patch não ganha marcador no disco: não há o que ler, e a leitura do marcador não credita', () => {
+  const root = path.join(FAROL_HOME, 'sem-projecao');
+  const r = materializeScope(root, [
+    { path: '.env.example', patch: '', status: 'modified' },
+    { path: 'apps/web/.env.local', patch: '+DEBUG=true\n', status: 'modified' },
+    { path: 'img/logo.png', patch: '', status: 'added' },
+  ]);
+  assert.deepEqual(r.total, ['.env.example', 'apps/web/.env.local', 'img/logo.png'], 'segue no denominador');
+  assert.equal(fs.existsSync(arquivoMaterializado(root, '.env.example')), false, 'sem projeção não há arquivo nenhum');
+  assert.equal(fs.existsSync(path.join(root, '.env.example')), false);
+  assert.ok(fs.existsSync(arquivoMaterializado(root, 'apps/web/.env.local')), 'o protegido COM projeção continua gravado');
+  assert.ok(fs.existsSync(path.join(root, 'img', 'logo.png')), 'o comum sem patch continua com o marcador');
+  assert.deepEqual(r.semProjecao, ['.env.example']);
+  assert.deepEqual(Object.keys(r.redigidos), ['apps/web/.env.local']);
+  assert.deepEqual(r.arquivos.map((f) => [f.path, f.projecao]), [['.env.example', false], ['apps/web/.env.local', true], ['img/logo.png', true]]);
+  assert.match(scopeBlock(r), /\.env\.example.*sem projeção/);
+  assert.match(blocoDosRedigidos(r.redigidos, r.semProjecao), /coverage\.missing/);
+  // a disponibilidade viaja até o crédito: mesmo com uma entrega conferida (um marcador antigo no
+  // disco, por exemplo), o protegido sem projeção fica fora do que a autoanálise conta como lido
+  const f = fixture(root);
+  fs.mkdirSync(path.dirname(arquivoMaterializado(root, '.env.example')), { recursive: true });
+  fs.writeFileSync(arquivoMaterializado(root, '.env.example'), 'marcador\n');
+  f.request(arquivoMaterializado(root, '.env.example'), 'r1');
+  f.response(arquivoMaterializado(root, '.env.example'), 'r1', ['marcador']);
+  assert.ok(leiturasProvadas(f.engine, 'rev').has('.env.example'), 'a entrega do marcador foi conferida');
+  assert.deepEqual([...lidosComProtegidoProvado(f.engine, 'rev', f.review.filesRead, r.arquivos)], []);
+  assert.deepEqual([...lidosComProtegidoProvado(f.engine, 'rev', f.review.filesRead, [{ path: '.env.example', projecao: true }])], ['.env.example']);
+});

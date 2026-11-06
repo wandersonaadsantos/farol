@@ -174,10 +174,12 @@ test('o terminal grava o escopo, passa escopo= e abre o claude com as guardas', 
   assert.doesNotMatch(m[2], /%|\\/, 'a raiz atravessa o .cmd do Windows: sem % e sem barra invertida');
   const raiz = path.join(WORKSPACE, ...m[2].split('/'));
   assert.equal(fs.readFileSync(path.join(raiz, 'src', 'a.js'), 'utf8'), PATCHES_DO_GITHUB[0].patch);
+  // `apps/.env.d/` é pasta protegida, então o arquivo não tem projeção: nem o marcador é gravado
+  // (a leitura dele seria uma entrega conferível de um conteúdo que a sessão nunca viu)
   const redigido = path.join(raiz, ...nomeMaterializado('apps/.env.d/prod.env').split('/'));
-  const projecao = fs.readFileSync(redigido, 'utf8');
-  assert.doesNotMatch(projecao, /velho/, 'o valor antigo do protegido não chega ao disco da sessão');
+  assert.equal(fs.existsSync(redigido), false, 'protegido sem projeção não tem arquivo no escopo');
   assert.equal(fs.existsSync(path.join(raiz, 'apps', '.env.d')), false, 'nada no caminho original');
+  assert.doesNotMatch(fs.readdirSync(raiz).join(' '), /velho/);
 
   const win = e.buildSessionScript(abertos[0].slash, 'fixture', 'cap');
   assert.ok(win.includes(`claude --settings "${ARQUIVO_DE_GUARDAS}" "${abertos[0].slash}"`), win);
@@ -282,7 +284,8 @@ function lerTudoDoEscopo(e, opts, caminhos) {
   const session = e.activeReviews.get(opts.id);
   for (const [i, caminho] of caminhos.entries()) {
     const filePath = arquivoMaterializado(session.scopeRoot, caminho);
-    const texto = fs.readFileSync(filePath, 'utf8');
+    // o protegido sem projeção não tem arquivo nenhum: a entrega simulada é a de um marcador
+    const texto = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : 'marcador\n';
     const block = { type: 'tool_use', id: `r-${i}`, name: 'Read', input: { file_path: filePath } };
     observeReadEvent(e, opts, { type: 'assistant', message: { content: [block] } });
     observarLeitura(e, opts, block);
@@ -333,8 +336,7 @@ test('patch ausente: o escopo do terminal grava o marcador dizendo que lê-lo n�
   e.spawnConsole = (slash) => { abertos.push(slash); return { ok: true }; };
   await e.launchReview([pr.url], 'terminal', 'clique');
   const raiz = path.join(WORKSPACE, ...abertos[0].match(/escopo=(\S+)/)[1].split('/'));
-  for (const caminho of ['img/logo.png', '.env']) {
-    const texto = fs.readFileSync(path.join(raiz, ...nomeMaterializado(caminho).split('/')), 'utf8');
-    assert.match(texto, /não é o conteúdo do arquivo: lê-lo não cobre nada, declare o caminho em coverage\.missing/, caminho);
-  }
+  const texto = fs.readFileSync(path.join(raiz, 'img', 'logo.png'), 'utf8');
+  assert.match(texto, /não é o conteúdo do arquivo: lê-lo não cobre nada, declare o caminho em coverage\.missing/);
+  assert.equal(fs.existsSync(path.join(raiz, ...nomeMaterializado('.env').split('/'))), false, 'protegido sem projeção: nada no disco');
 });
