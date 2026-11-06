@@ -77,8 +77,8 @@ function motor() {
   const e = new Engine();
   e.log = () => { };
   e.accountForPr = () => 'trabalho';
-  e.approvePolicyFor = () => 'wait';
-  e.rejectPolicyFor = () => 'wait';
+  // política da conta gravada por extenso e lida pelos métodos reais do motor (contas-config.js)
+  e.config.accounts = [{ user: 'trabalho', owners: [], onClean: 'wait', onCaveats: 'wait', onReject: 'wait' }];
   e.scopeLabel = () => 'Conta Trabalho';
   e.writeMemory = () => { };
   e.headSha = async () => HEAD;

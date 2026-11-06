@@ -4,7 +4,7 @@
    até a Task 8, que o levou pro ui/app.js: com o Radar e Meus PRs virando módulo, ele
    passou a chamar mais telas do que esta camada de identidade pode conhecer sem ciclo. */
 
-import { esc, hexToRgba, ownerFromUrl, validScope, personMention, fmtRel, accountBarVisible } from '../pure.js';
+import { esc, hexToRgba, ownerFromUrl, validScope, personMention, fmtRel, accountBarVisible, separarPendentes } from '../pure.js';
 import { estado, escopo, abaAtual, definirEscopo } from './estado.js';
 import { $, selo } from './infra.js';
 import { filaSemRevisoesAtivas } from '../pure/fila.js';
@@ -117,12 +117,13 @@ export function memGroupHead(user) {
 }
 
 // PRs que pedem sua atenção numa conta (fila + decisões pendentes). A pendência que espera
-// o CI fica de fora: o Farol aprova sozinho, ela não pede você (30/09/2026).
+// o CI fica de fora: o Farol aprova sozinho, ela não pede você (30/09/2026). A mesma régua da
+// seção (separarPendentes): a recuperação pausada por algo que só você desfaz conta (06/11/2026).
 export function attentionCount(user) {
   const u = String(user).toLowerCase();
   const q = filaSemRevisoesAtivas(estado().queue || [], estado().activeSessions || [], prUser)
     .filter(p => String(prUser(p)).toLowerCase() === u).length;
-  const d = (estado().decisions?.pending || []).filter(p => !p.esperaCi && !p.esperaProva && String(prUser(p)).toLowerCase() === u).length;
+  const d = separarPendentes(estado().decisions?.pending).precisam.filter(p => String(prUser(p)).toLowerCase() === u).length;
   return q + d;
 }
 

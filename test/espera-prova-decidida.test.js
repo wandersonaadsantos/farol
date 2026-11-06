@@ -55,10 +55,8 @@ function motor() {
   const e = new Engine();
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
-  e.approvePolicyFor = () => 'approve';
-  e.rejectPolicyFor = () => 'wait';
-  e.autoReviewFor = () => true;
+  // política da conta gravada por extenso e lida pelos métodos reais do motor (contas-config.js)
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], autoReview: true, onClean: 'approve', onCaveats: 'approve', onReject: 'wait' }];
   e.decisions = { pending: [], resolved: [] };
   e.saveDecisions = () => { };
   e.saveReReviewLaunched = () => { };

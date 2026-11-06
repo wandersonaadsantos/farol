@@ -37,14 +37,15 @@ test('CI que ficou vermelho antes da execução impede a sessão e libera a vaga
   assert.equal(e.queue[0].retomarSid, 'sessao-preservada');
   assert.equal(e.queue[0].knownHead, 'head-original');
   const marca = e.decisions.pending[0].esperaProva;
-  assert.equal(marca.tentativas, 0);
+  // a tentativa conta na conclusão da rodada (espera-prova.js, armar): a espera não mexe nela
+  assert.equal(marca.tentativas, 1);
   assert.equal(marca.aguardandoCi, true);
   await e.runOneHeadless(pr, 'eu');
-  assert.equal(marca.tentativas, 0, 'esperar novamente não desconta outra rodada');
+  assert.equal(marca.tentativas, 1, 'esperar novamente não mexe no contador');
   e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
   await e.runOneHeadless(pr, 'eu');
   assert.equal(e.executadas, 1);
-  assert.equal(marca.tentativas, 1);
+  assert.equal(marca.tentativas, 1, 'começar também não conta: só a rodada que conclui');
   assert.equal(marca.aguardandoCi, undefined);
 });
 
@@ -77,7 +78,7 @@ test('uma decisão de outro head que chega durante a consulta de CI não é alte
 
 test('re-review comum volta a ser elegível depois do CI mesmo sem pedido de revisão na fila', async () => {
   const e = motor();
-  e.autoReviewFor = () => true;
+  e.config.accounts[0].autoReview = true; // a conta revisa sozinha, lida pelo autoReviewFor real
   e.tokens = { eu: 'token-teste' };
   e.panorama = [{ ...PR, requested: false }];
   e.staleInfo[PR.key] = { stale: true, head: 'head-comum', lastState: 'APPROVED' };
