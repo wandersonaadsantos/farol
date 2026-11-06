@@ -79,6 +79,7 @@ function motor(rodadas, prompts) {
         ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
         coverage: rodadas.atual.coverage, alcance: rodadas.atual.alcance,
         payloads: { approve: { event: 'APPROVE', body: 'Li o diff e o comportamento fecha com o card.' } }, reportMarkdown: '# ok',
+        ...(rodadas.atual.extra || {}),
       }),
       sessionId: '12345678-abcd-1234-abcd-123456789012',
     };
@@ -144,7 +145,8 @@ function revisado(pr, head, files, extra = {}) {
   const arquivos = files.map(({ path: p, sha, status, patch, patchStatus }) => ({ path: p, sha, status, patch, patchStatus }));
   const result = { coverage: { total: arquivos.length, reviewed: arquivos.map((f) => f.path), missing: [] },
     diffMedido: arquivos.map((f) => f.path), sessionId: 'sess-1', ...extra };
-  fileProof.salvarProvaDaSessao(pr, head, arquivos, result);
+  const alcance = fileProof.salvarProvaDaSessao(pr, head, arquivos, result);
+  repoProof.registrarNoIndiceDoRepositorio(pr, head, arquivos, result, alcance);
 }
 async function ler(pr, head, files, eng = engineDaLeitura()) {
   analysis.sourceRuntime.prepareSources = async () => fonte(head, files);
@@ -220,7 +222,7 @@ test('arquivo sem patch (grande ou binário) ou com patch parcial não herda nem
   assert.equal(repoProof.chaveDoArquivo(semPatch), '');
   assert.equal(repoProof.chaveDoArquivo(parcial), '');
   const pr = { key: 'org/dez#1', repo: 'org/dez' };
-  fileProof.salvarProvaDaSessao(pr, H1, [semPatch, parcial], { coverage: { reviewed: [semPatch.path, parcial.path] } });
+  repoProof.registrarNoIndiceDoRepositorio(pr, H1, [semPatch, parcial], { coverage: { reviewed: [semPatch.path, parcial.path] } }, {});
   assert.deepEqual(repoProof.lerIndiceDoRepositorio('org/dez'), {});
   const forjada = { [`sg::src/grande.json`]: { pr: 'o/r#1', head: H1, at: Date.now(), status: 'modified' },
     [`sg:${repoProof.hashDoPatch('')}:src/grande.json`]: { pr: 'o/r#1', head: H1, at: Date.now(), status: 'modified' } };
@@ -281,7 +283,7 @@ test('o índice só guarda o que a sessão leu: nem o herdado, nem o que ficou e
   const pr = { key: 'org/seis#1', repo: 'org/seis' };
   const arquivos = [arquivo('src/lido.md', 's1'), arquivo('src/herdado.md', 's2'), arquivo('src/faltou.md', 's3')];
   const result = { coverage: { total: 3, reviewed: ['src/lido.md', 'src/herdado.md', 'src/inventado.md'], missing: ['src/faltou.md'], inherited: ['src/herdado.md'] } };
-  fileProof.salvarProvaDaSessao(pr, H1, arquivos, result);
+  repoProof.registrarNoIndiceDoRepositorio(pr, H1, arquivos, result, fileProof.salvarProvaDaSessao(pr, H1, arquivos, result));
   const indice = repoProof.lerIndiceDoRepositorio('org/seis');
   assert.deepEqual(Object.values(indice).map((e) => e.caminho), ['src/lido.md']);
 });
@@ -326,4 +328,41 @@ test('o arquivo do índice tem nome em minúsculas e o repositório gravado é c
   assert.equal(path.basename(repoProof.indiceDoRepositorioPath('Org/Caixa')), path.basename(repoProof.indiceDoRepositorioPath('org/caixa')));
   assert.equal(path.basename(repoProof.indiceDoRepositorioPath('Org/Caixa')), `${encodeURIComponent('org/caixa')}.json`);
   assert.ok(repoProof.lerIndiceDoRepositorio('org/caixa')[repoProof.chaveDoArquivo(a)], 'a outra grafia lê o mesmo índice');
+});
+
+// Revisão independente de 06/11/2026: o índice entre PRs só recebe a leitura de uma análise que
+// pode sustentar decisão. Incompleta, incoerente, com lacuna dura ou cancelada não empresta
+// leitura a outro PR; a prova do próprio PR continua sendo gravada como antes.
+for (const [nome, extra] of [
+  ['análise incompleta', { analysisStatus: 'incomplete', decision: 'needs_decision' }],
+  ['lacuna dura (a parte do card deste PR dita não entregue)', { card: 'CARD-1', cardMet: false, cardParteDestePr: false }],
+]) {
+  test(`${nome}: a leitura não entra no índice entre PRs, e a prova do próprio PR segue gravada`, async () => {
+    const pr = { key: 'acme/onze#1', repo: 'acme/onze', number: 1, url: 'https://github.com/acme/onze/pull/1', author: 'dev', requested: true };
+    const f = arquivo('src/onze.md', `blob-onze-${nome.length}`);
+    const rodadas = { atual: { head: 'ccccccc3', files: [f], coverage: { total: 1, reviewed: [f.path], missing: [] }, alcance: [], extra } };
+    const e = motor(rodadas, []);
+    await e.runHeadlessReview({ ...pr });
+    assert.equal(repoProof.lerIndiceDoRepositorio('acme/onze')[repoProof.chaveDoArquivo(f)], undefined);
+    assert.deepEqual(fileProof.readFileProof(pr.key).reviewed, [f.path], 'a prova do PR continua');
+  });
+}
+
+test('controle: análise completa e sem lacuna dura alimenta o índice entre PRs', async () => {
+  const pr = { key: 'acme/doze#1', repo: 'acme/doze', number: 1, url: 'https://github.com/acme/doze/pull/1', author: 'dev', requested: true };
+  const f = arquivo('src/doze.md', 'blob-doze');
+  const rodadas = { atual: { head: 'ddddddd4', files: [f], coverage: { total: 1, reviewed: [f.path], missing: [] }, alcance: [] } };
+  await motor(rodadas, []).runHeadlessReview({ ...pr });
+  assert.equal(repoProof.lerIndiceDoRepositorio('acme/doze')[repoProof.chaveDoArquivo(f)].pr, pr.key);
+});
+
+test('a guarda do índice: cancelamento, incompleta, incoerente e lacuna exigida ficam de fora', () => {
+  const limpo = { analysisStatus: 'complete', approvalEvidence: [] };
+  assert.equal(repoProof.podeEntrarNoIndice(limpo), true);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, cancelled: true }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, analysisStatus: 'incomplete' }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, approvalEvidence: ['veredito e texto público incompatíveis com os achados'] }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, approvalEvidence: ['commit revisado não confirmado'] }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, approvalEvidence: ['ci_em_andamento'] }), true, 'CI não diz nada da leitura');
+  assert.equal(repoProof.podeEntrarNoIndice({ analysisStatus: 'complete' }), false, 'sem a prova da rodada calculada não entra');
 });
