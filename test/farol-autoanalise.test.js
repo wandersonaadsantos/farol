@@ -11,6 +11,9 @@ process.env.FAROL_HOME = HOME;
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 const { executar } = await import('../tools/farol-autoanalise.js');
+const { CONFIG_FILE } = await import('../lib/paths.js');
+const { gravarCasca, apagarCasca } = await import('../lib/engine/casca-arquivo.js');
+const { DEFAULT_PORT } = await import('../lib/constants.js');
 
 after(() => { fs.rmSync(HOME, { recursive: true, force: true }); });
 
@@ -89,6 +92,20 @@ test('motor fora do ar diz a porta tentada, sem vazar a credencial', async () =>
   assert.equal(await executar(['listar'], saida, erro, { fetch, token: TOKEN, port: 47999 }), 1);
   assert.match(erro.texto.join(''), /127\.0\.0\.1:47999/);
   assert.equal(erro.texto.join('').includes(TOKEN), false);
+});
+
+test('a porta vem do casca.json, senão do config.json, senão a padrão', async () => {
+  const alvoCom = async () => {
+    const falso = fetchFalso();
+    await executar(['listar'], fluxo(), fluxo(), { fetch: falso.fetch, token: TOKEN });
+    return new URL(falso.chamadas[0].alvo).port;
+  };
+  assert.equal(await alvoCom(), String(DEFAULT_PORT));
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ port: 47123 }));
+  assert.equal(await alvoCom(), '47123');
+  gravarCasca({ porta: 47124, pid: process.pid, versao: '0', codigoPareamento: '', iniciadoEm: 0 });
+  assert.equal(await alvoCom(), '47124');
+  apagarCasca();
 });
 
 test('o comando não roda processo nenhum (nada de gh nem git)', () => {

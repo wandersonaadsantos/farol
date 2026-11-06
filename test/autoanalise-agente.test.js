@@ -134,6 +134,15 @@ test('desatualizado: carimbo do motor vale; sem head atual não se sabe; anális
   }
 });
 
+test('registro antigo sem campos sai com o vazio do mesmo tipo, nunca undefined', () => {
+  const { engine } = engineFalso({ myPRs: [prMeu({ title: undefined })], selfAnalyses: { 'acme/app#7': {} } });
+  const r = ler(engine, URL_PR);
+  assert.equal(r.titulo, '');
+  assert.deepEqual([r.veredito, r.resumo, r.itens, r.itensForaDoPr, r.dicas, r.relatorio, r.headAnalisado, r.analisadoEm],
+    [null, '', [], [], [], '', null, null]);
+  assert.equal(r.desatualizado, true, 'sem head registrado não prova que vale para o commit atual');
+});
+
 test('ler diz na fila, rodando ou sem análise, e recusa PR fora do escopo', () => {
   assert.equal(ler(engineFalso({ fila: [{ kind: 'self', key: 'acme/app#7' }] }).engine, URL_PR).estado, 'na_fila');
   assert.equal(ler(engineFalso({ ativas: [{ mode: 'self', keys: ['acme/app#7'] }] }).engine, URL_PR).estado, 'rodando');
