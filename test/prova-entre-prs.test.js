@@ -76,7 +76,7 @@ function motor(rodadas, prompts) {
     prompts.push(prompt);
     return {
       text: JSON.stringify({
-        ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+        protocolo: { prReviewer: 'rodou' }, ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
         coverage: rodadas.atual.coverage, alcance: rodadas.atual.alcance,
         payloads: { approve: { event: 'APPROVE', body: 'Li o diff e o comportamento fecha com o card.' } }, reportMarkdown: '# ok',
         ...(rodadas.atual.extra || {}),
@@ -365,12 +365,39 @@ test('controle: análise completa e sem lacuna dura alimenta o índice entre PRs
 });
 
 test('a guarda do índice: cancelamento, incompleta, incoerente e lacuna exigida ficam de fora', () => {
-  const limpo = { analysisStatus: 'complete', approvalEvidence: [] };
+  const limpo = { analysisStatus: 'complete', approvalEvidence: [], headSha: H1, checksVerifiedHead: H1, diffMedido: [],
+    verificationCheckpoint: { total: 0, conflicts: [] }, protocolo: { prReviewer: 'rodou' }, technicalReview: { semDeclaracao: true },
+    coverage: { total: 0, reviewed: [], missing: [] } };
   assert.equal(repoProof.podeEntrarNoIndice(limpo), true);
   assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, cancelled: true }), false);
   assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, analysisStatus: 'incomplete' }), false);
   assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, approvalEvidence: ['veredito e texto público incompatíveis com os achados'] }), false);
   assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, approvalEvidence: ['commit revisado não confirmado'] }), false);
   assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, approvalEvidence: ['ci_em_andamento'] }), true, 'CI não diz nada da leitura');
-  assert.equal(repoProof.podeEntrarNoIndice({ analysisStatus: 'complete' }), false, 'sem a prova da rodada calculada não entra');
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, approvalEvidence: undefined }), false, 'sem a prova da rodada calculada não entra');
+});
+
+// Segunda revisão independente de 06/11/2026: a lacuna de qualidade da leitura que vira ressalva
+// (protocolo de revisão não comprovado, verificação de afirmações ausente, divergência no
+// checkpoint) também barra o índice. Sem isto o PR que herda ficava limpo, sem a ressalva da origem.
+test('PR A com protocolo de revisão não comprovado não alimenta o índice, e o PR B não herda', async () => {
+  const a = { key: 'acme/treze#1', repo: 'acme/treze', number: 1, url: 'https://github.com/acme/treze/pull/1', author: 'dev', requested: true };
+  const f = arquivo('src/treze.md', 'blob-treze');
+  const rodadas = { atual: { head: 'fffffff6', files: [f], coverage: { total: 1, reviewed: [f.path], missing: [] }, alcance: [],
+    extra: { protocolo: { prReviewer: 'pulado' } } } };
+  await motor(rodadas, []).runHeadlessReview({ ...a });
+  assert.deepEqual(repoProof.lerIndiceDoRepositorio('acme/treze'), {});
+  const h = await ler({ key: 'acme/treze#2', repo: 'acme/treze', number: 2 }, H2, [f]);
+  assert.deepEqual(h.unchanged, [], 'o PR B lê o arquivo');
+});
+
+test('a guarda do índice tolera só a pendência de cobertura entre as lacunas dispensadas', () => {
+  const limpo = { analysisStatus: 'complete', approvalEvidence: [], provaEsgotada: true, headSha: H1, checksVerifiedHead: H1, diffMedido: [],
+    verificationCheckpoint: { total: 0, conflicts: [] }, protocolo: { prReviewer: 'rodou' }, technicalReview: { semDeclaracao: true },
+    coverage: { total: 0, reviewed: [], missing: [] } };
+  assert.equal(repoProof.podeEntrarNoIndice(limpo), true, 'controle');
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, protocolo: { prReviewer: 'pulado' } }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, verificationCheckpoint: undefined }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, diffMedido: ['src/a.md'], coverage: { total: 1, reviewed: [], missing: ['src/a.md'] } }), true,
+    'cobertura de arquivo é filtrada arquivo a arquivo em lidosNaSessao');
 });
