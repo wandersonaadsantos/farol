@@ -110,8 +110,11 @@ function sessao(e, extra) {
 const PR = { key: 'acme/app#1', repo: 'acme/app', number: 1, url: 'https://github.com/acme/app/pull/1', title: 'PR', author: 'dev', requested: true, account: 'eu' };
 const pendente = (e) => e.decisions.pending.find((x) => x.key === PR.key);
 const textos = (d) => (d.reasons || []).map((r) => r.text || r);
-// lacuna que a própria sessão preenche ao revisar de novo (envelope)
+// lacuna que a própria sessão preenche ao revisar de novo (envelope). Desde 06/11/2026 ela não
+// arma a recuperação: vira ressalva na própria rodada (test/busca-da-prova.test.js).
 const SEM_PROTOCOLO = { protocolo: { prReviewer: 'pulado' } };
+// o que segue exigido e se recupera no mesmo commit: o veículo da recuperação nestes testes
+const INCOMPLETA = { analysisStatus: 'incomplete' };
 // lacuna que só o mundo resolve (estado). Desde 17/10/2026 a dependência sozinha é ressalva;
 // a lacuna é a sessão dizendo que a parte do card deste PR não foi entregue, e a dependência
 // citada segue sendo lida a cada ciclo, porque ela fechar é estado novo para revisar de novo.
@@ -141,14 +144,14 @@ test('atualização retoma uma pendência antiga uma vez, sem interromper rodada
   assert.equal(envios.length, 0, 'retomar não fabrica um parecer nem publica');
 });
 
-test('aprovável com prova incompleta: nada é postado, e a pendência BUSCA A PROVA, sem pedir você', async () => {
+test('aprovável com análise incompleta: nada é postado, e a pendência RECUPERA A ANÁLISE, sem pedir você', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   assert.deepEqual(envios, [], 'nenhum APPROVE com lacuna (invariante 4)');
   assert.ok(d && d.esperaProva, 'a marca durável está no decisions.json');
   assert.equal(d.esperaProva.tentativas, 0);
   assert.equal(d.esperaProva.soEnvelope, true);
-  assert.ok(d.esperaProva.lacunas.includes('protocolo de revisão não comprovado'), d.esperaProva.lacunas.join(' | '));
+  assert.ok(d.esperaProva.lacunas.includes('análise incompleta'), d.esperaProva.lacunas.join(' | '));
   assert.equal(d.reasons[0].espera, true, 'o motivo da espera é marcado, como na espera do CI');
   assert.deepEqual(e.eventos, [], 'sem needs-decision');
   assert.ok(e.toasts.some(t => /recuperação continua automaticamente/.test(t)), e.toasts.join(' | '));
@@ -183,7 +186,7 @@ test('recuperação entrega as 44 lacunas completas após persistir a marca, sem
 
 test('recuperação com CI obrigatório vermelho não agenda nem conta outra tentativa', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   e.config.aguardarCiParaRevisar = true;
   e.bloqueadoPorChecks = async () => ({ bloqueado: true, faltando: [{ nome: 'ci', estado: 'vermelho' }] });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
@@ -197,7 +200,7 @@ test('recuperação com CI obrigatório vermelho não agenda nem conta outra ten
 for (const headAtual of [HEAD, HEAD_NOVO]) {
 test(`retomada pela fila normal substitui a recuperação sem knownHead, no head ${headAtual.slice(0, 7)}`, async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   e.processHeadless = () => {};
   e.config.aguardarCiParaRevisar = true;
   e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [], verifiedHead: HEAD });
@@ -222,7 +225,7 @@ test(`retomada pela fila normal substitui a recuperação sem knownHead, no head
 
 test('CI muda após o agendamento: ciclo completo espera sem virar órfã e retoma com uma tentativa', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   e.processHeadless = () => {};
   e.config.aguardarCiParaRevisar = true;
   e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
@@ -299,9 +302,12 @@ test('recuperação sem head original preserva prazo e detecta rodada órfã ap�
 
 test('pendência antiga com lista vazia não esconde a prova técnica ausente', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
+  // gravada antes da marca da rodada (sem provaEsgotada), com a análise concluída
   delete d.esperaProva;
+  delete d.provaEsgotada;
   delete d.technicalReview;
+  d.analysisStatus = 'complete';
   d.approvalEvidence = [];
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.ok(d.esperaProva);
@@ -325,7 +331,7 @@ test('análise incompleta se recupera mesmo com lista de lacunas vazia', async (
 
 test('publicação manual recebe uma análise concluída, nunca uma decisão sem prova', async () => {
   const e = motor(['wait', 'wait']);
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   assert.ok(d.esperaProva);
   assert.deepEqual(e.eventos, []);
   assert.deepEqual(envios, []);
@@ -354,7 +360,7 @@ test('armar: só prova_tecnica_incompleta, sem violação confirmada, com a pol�
 
 test('ciclo: commit novo larga a espera e carimba stale_head', async () => {
   const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   gh.head = HEAD_NOVO;
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   const d = pendente(e);
@@ -388,7 +394,7 @@ test('ciclo: PR fechado é do reconcilePending, leitura que falha espera, coorde
 
 test('mudança para publicação manual não abandona a análise ainda bloqueada', async () => {
   const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   e.approvePolicyFor = () => 'wait';
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.ok(pendente(e).esperaProva);
@@ -414,7 +420,7 @@ test('outros aparelhos: a espera da prova viaja como fato e não pede ninguém',
 
 test('execução estacionada por falha transitória é reagendada sem decisão manual', async () => {
   const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   await esperaProva.reverQuandoAProvaMudar(e);
   e.autoReviewParked.add(PR.key);
   e.parkedMotivos = { [PR.key]: { tipo: 'falha', motivo: 'saiu com código 1' } };
@@ -437,7 +443,7 @@ test('execução estacionada por falha transitória é reagendada sem decisão m
 
 test('execução órfã é reagendada, sobrevive ao reinício e conclui sem clique', async () => {
   const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   await esperaProva.reverQuandoAProvaMudar(e);
   e.reReviewLaunched[PR.key] = { head: HEAD, at: Date.now() - 3600 * 1000 };
   await esperaProva.reverQuandoAProvaMudar(e);
@@ -599,7 +605,7 @@ for (const retry of [null, { event: 'approve', attempts: 3, exhausted: true }]) 
 
 test('pendência antiga esgotada volta à recuperação sem perder o bloqueio técnico', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   delete d.esperaProva;
   d.provaEsgotada = true;
   e.decisions = JSON.parse(JSON.stringify(e.decisions));
@@ -612,7 +618,7 @@ test('pendência antiga esgotada volta à recuperação sem perder o bloqueio t�
 
 test('cancelamento explícito não é desfeito pela recuperação e aparece como impedimento', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   e.autoReviewParked.add(PR.key);
   e.parkedMotivos[PR.key] = { tipo: 'cancelado', motivo: 'cancelada por você' };
   for (let i = 0; i < 3; i++) assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
@@ -624,7 +630,7 @@ test('cancelamento explícito não é desfeito pela recuperação e aparece como
 
 test('autenticação vencida pausa a execução e segue recuperável após restabelecer o perfil', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   e.autoReviewParked.add(PR.key);
   e.parkedMotivos[PR.key] = { tipo: 'falha', motivo: 'OAuth access token has expired' };
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
@@ -638,7 +644,7 @@ test('autenticação vencida pausa a execução e segue recuperável após resta
 test('fila, sessão e retry existentes impedem uma recuperação concorrente', async () => {
   for (const origem of ['fila', 'sessao', 'retry']) {
     const e = motor();
-    await revisado(e, SEM_PROTOCOLO);
+    await revisado(e, INCOMPLETA);
     if (origem === 'fila') e.headlessQueue.push(PR);
     if (origem === 'sessao') e.activeReviews.set('outra', { keys: [PR.key] });
     if (origem === 'retry') e.retryAfterNet.set(PR.key, { at: Date.now() });
@@ -652,7 +658,7 @@ test('fila, sessão e retry existentes impedem uma recuperação concorrente', a
 // conta desligada, em que nenhuma tentativa roda até alguém religar.
 test('automação desligada: o card diz o que falta, sem prometer conclusão sozinho', async () => {
   const e = motor();
-  const antes = await revisado(e, SEM_PROTOCOLO);
+  const antes = await revisado(e, INCOMPLETA);
   assert.match(antes.reasons[0].text, /concluo a revisão sozinho/, 'com a automação ligada a promessa vale');
   e.autoReviewFor = () => false;
   await esperaProva.reverQuandoAProvaMudar(e);
@@ -667,7 +673,7 @@ test('automação desligada: o card diz o que falta, sem prometer conclusão soz
 test('revisão que termina com a automação já desligada nasce pausada, sem promessa no card nem no aviso', async () => {
   const e = motor();
   e.autoReviewFor = () => false;
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   assert.match(d.esperaProva.impedimento, /desativada/);
   assert.doesNotMatch(d.reasons[0].text, /sozinho/);
   const avisos = e.toasts.join(' | ');
@@ -677,7 +683,7 @@ test('revisão que termina com a automação já desligada nasce pausada, sem pr
 
 test('pendência com caminho protegido não rearma na varredura: segue com a pessoa, sem nova sessão', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   delete d.esperaProva;
   d.analysisStatus = 'incomplete';
   d.inventarioDiff = { status: 'complete', files: [{ path: 'secrets/a.json' }] };
@@ -692,7 +698,7 @@ test('pendência com caminho protegido não rearma na varredura: segue com a pes
 
 test('automação desligada pausa a recuperação sem descartar a pendência', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   e.autoReviewFor = () => false;
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
   assert.match(d.esperaProva.impedimento, /desativada/);
@@ -703,7 +709,7 @@ test('automação desligada pausa a recuperação sem descartar a pendência', a
 
 test('orçamento restabelecido libera a recuperação sem exigir uma revisão manual', async () => {
   const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   e.autoReviewParked.add(PR.key);
   e.parkedMotivos[PR.key] = { tipo: 'orcamento', motivo: 'limite de orçamento' };
   e.budgetBlockedFor = () => true;
@@ -726,7 +732,7 @@ test('clique avulso e PR da própria conta não ganham recuperação com publica
 test('reprovação automática também recupera a análise quando a aprovação é manual', async () => {
   const e = motor(['wait', 'wait']);
   e.rejectPolicyFor = () => 'request_changes';
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   assert.ok(d.esperaProva);
   assert.deepEqual(e.eventos, []);
   await esperaProva.reverQuandoAProvaMudar(e);
@@ -738,7 +744,7 @@ test('reprovação automática também recupera a análise quando a aprovação 
 
 test('ressalva real após recuperar a prova continua obedecendo à aprovação manual', async () => {
   const e = motor(['approve', 'wait']);
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   await esperaProva.reverQuandoAProvaMudar(e);
   const d = await revisado(e, { card: 'CARD-1', cardMet: false });
   assert.equal(d.esperaProva, undefined);
@@ -763,7 +769,7 @@ function coordenado(e, recibo, { leituraFalha = false } = {}) {
 
 test('furo 3: com coordenação, o recibo pendente DESTE aparelho para este head é invalidado antes do relançamento', async () => {
   const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   const apagados = coordenado(e, { outcome: 'completed', publicationState: 'pending', deviceId: 'este', expiresAt: Date.now() + 1e9 });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.equal(apagados.length, 1, 'o recibo que barraria a admissão como "recibo" sai');
@@ -781,7 +787,7 @@ test('furo 3: recibo publicado, de outro aparelho ou leitura que falha: não apa
     [null, { leituraFalha: true }],
   ]) {
     const e = motor();
-    await revisado(e, SEM_PROTOCOLO);
+    await revisado(e, INCOMPLETA);
     const apagados = coordenado(e, recibo, opcoes);
     e.salvas = 0;
     assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
@@ -790,7 +796,7 @@ test('furo 3: recibo publicado, de outro aparelho ou leitura que falha: não apa
     assert.equal(e.salvas, 0);
   }
   const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   const apagados = coordenado(e, null);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'sem recibo nenhum, relança normalmente');
   assert.deepEqual(apagados, []);
@@ -798,7 +804,7 @@ test('furo 3: recibo publicado, de outro aparelho ou leitura que falha: não apa
 
 test('recibo legado de recusa antes do POST pode ser recuperado pelo mesmo aparelho', async () => {
   const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   const apagados = coordenado(e, { outcome: 'completed', publicationState: 'failed', deviceId: 'este', expiresAt: Date.now() + 1e9 });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.equal(apagados.length, 1);

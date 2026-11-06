@@ -210,8 +210,8 @@ export function esperaCiCardMeta(d) {
 }
 
 // Recuperação automática da análise, inclusive quando uma execução foi interrompida (PR #253).
-// Depois de duas tentativas no mesmo commit, o que faltar e não for impeditivo vira ressalva e a
-// política da conta decide (decisão do dono de 19/10/2026, que supera o PR #250 e o PR #253).
+// Desde 06/11/2026 o que faltar e não for impeditivo vira ressalva já na primeira rodada, e a
+// política da conta decide: a recuperação sobra só para o que continua impeditivo.
 function tentativaDaProva(d) {
   const feitas = Number(d && d.esperaProva && d.esperaProva.tentativas) || 0;
   const n = d && d.blockedKind === 'stale_head' ? feitas : feitas + 1;
@@ -222,7 +222,7 @@ function esperaProvaCardMeta(d, execucao = {}) {
   const horario = marca.proximaEm > Date.now() ? new Date(marca.proximaEm).toLocaleString('pt-BR') : '';
   let texto = 'A análise ainda não produziu toda a evidência necessária. Nada foi publicado. ';
   if (horario) texto += `Próxima tentativa a partir de ${horario}. `;
-  texto += 'O Farol retoma sozinho para concluir o parecer. Depois de duas tentativas neste commit, somente lacunas não impeditivas podem virar ressalva conforme a política da conta. Análise incompleta não é aprovação nem reprovação; você não precisa pular este PR para a recuperação continuar.';
+  texto += 'O Farol retoma sozinho para concluir o parecer, porque o que falta impede a decisão. Análise incompleta não é aprovação nem reprovação; você não precisa pular este PR para a recuperação continuar.';
   const st = {
     tom: 'info', icone: 'hourglass',
     lead: 'Recuperação agendada.',

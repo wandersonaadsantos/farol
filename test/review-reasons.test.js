@@ -99,9 +99,9 @@ test('contestação com a conta aprovando com ressalvas: o APPROVE sai e a disco
   e.myReviewStates = async () => [];
   e.postReview = async (_pr, payload) => { postados.push(payload); return { ok: true }; };
   e.writeMemory = () => { };
-  const naMesaAntes = e.decisions.pending.length;
   await e.runHeadlessReview(PR);
-  assert.equal(e.decisions.pending.length, naMesaAntes, 'nada novo na mesa');
+  // a rodada nova do mesmo PR substitui a pendência que um teste anterior deixou no disco
+  assert.equal(e.decisions.pending.some((d) => d.key === PR.key), false, 'nada na mesa para este PR');
   assert.equal(postados.length, 1);
   assert.doesNotMatch(JSON.stringify(postados[0]), /Acrity|Discordância|falso positivo/i, 'a discordância não entra no texto do PR');
   const item = e.decisions.resolved[0];
@@ -116,8 +116,9 @@ test('lacuna de cobertura entra UMA vez nas reasons, como ressalva, com a amostr
   }), { policy: 'approve', ressalvas: 'wait' });
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
-  assert.match(texto(item.reasons[0]), /análise técnica pendente/, 'a recuperação da prova prevalece sobre a política de publicação');
-  assert.ok(item.esperaProva, 'a lacuna não deve pedir uma decisão ainda bloqueada');
+  // desde 06/11/2026 a cobertura vira ressalva na própria rodada (decidir na 1ª rodada): a política decide
+  assert.match(texto(item.reasons[0]), /aprovável com ressalvas/, 'quem segura é a política da conta');
+  assert.equal(item.esperaProva, undefined, 'sem recuperação no mesmo commit para lacuna que não é dura');
   const deCobertura = textos(item.reasons).filter(r => /cobertura da leitura/.test(r));
   assert.equal(deCobertura.length, 1, `cobertura virou ${deCobertura.length} motivo(s): ${deCobertura.join(' | ')}`);
   assert.match(deCobertura[0], /b\.ts/, 'a redação que fica é a que mostra a amostra');

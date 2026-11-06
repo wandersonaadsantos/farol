@@ -31,11 +31,11 @@
 > Duas revisões complementares são imediatas; as seguintes têm intervalo crescente, de 15
 > minutos até seis horas. Uma execução interrompida é reagendada e não vira uma decisão humana.
 > **Decisão do dono de 19/10/2026, que supera a regra do PR #250 (v2.72.8) e o "todas as provas
-> continuam obrigatórias" do PR #253:** repositório sem declaração técnica e a lacuna que não é
-> dura e sobra depois das duas tentativas do Farol no mesmo commit são ressalva, e a
-> configuração da conta decide. O recuo continua só para análise incompleta, lacuna dura que
-> não é defeito do PR e interrupção (ver "Repositório sem declaração técnica é ressalva" e "O
-> Farol busca a prova, e depois de duas tentativas não exige mais", abaixo).
+> continuam obrigatórias" do PR #253, e decisão de 06/11/2026 ("decidir na 1ª rodada"):**
+> repositório sem declaração técnica e a lacuna que não é dura são ressalva já na rodada que as
+> encontrou, e a configuração da conta decide. A recuperação continua só para análise
+> incompleta, lacuna dura que não é defeito do PR e interrupção (ver "Repositório sem
+> declaração técnica é ressalva" e "A primeira rodada decide", abaixo).
 > Desde 18/10/2026 (v2.73.2) a conta em automático decide sem mesa: clique, admin, comando e
 > distribuição postam pela política, defeito do PR e CI vermelho viram REQUEST_CHANGES com a
 > conta reprovando sozinha, e PR da própria conta sai como COMMENT (ver "A decisão sem mesa").
@@ -57,8 +57,8 @@
 > Baselines existentes podem ser fornecidos no perfil privado; o revisor não os cria.
 > Desde a v2.78.9 o Farol confere, antes da ferramenta, se cada pasta dos campos de diretório
 > (`testDirs`, `e2eDirs`, `sourceDirs`, `componentDirs`) existe no commit analisado. Pasta
-> ausente é a falha `declaration`: o card nomeia as pastas (até cinco), a lacuna é dura (não
-> vira ressalva depois das duas tentativas), não é defeito do PR (nunca vira pedido de
+> ausente é a falha `declaration`: o card nomeia as pastas (até cinco), a lacuna é dura (nunca
+> vira ressalva), não é defeito do PR (nunca vira pedido de
 > mudanças) e a recuperação fica parada até a declaração do repositório mudar. Antes, a
 > ferramenta recusava a declaração inteira na primeira pasta ausente, o worker engolia o
 > motivo e a avaliação terminava "a ferramenta não concluiu": em 27/10/2026, um PR do
@@ -162,14 +162,13 @@ blockers. Nenhuma dessas verificações converte automaticamente a decisão em a
 
    O ciclo confere o PR, respeita a coordenação e só libera o recibo pendente do mesmo aparelho e commit. Fila, sessão ou retry existentes impedem recuperação concorrente. Rodada órfã ou falha transitória estacionada é reagendada; autenticação, orçamento, ferramenta indisponível e configuração ausente têm impedimento operacional explícito, sem pedir uma aprovação manual que continuaria recusada. Cancelamento explícito não é desfeito. Automação desligada ou conta silenciada pausam a execução. Mudança da política de publicação continua válida.
 
-   **Repositório sem declaração técnica é ressalva (17/10/2026, v2.72.5; de novo pela decisão do dono de 19/10/2026, v2.73.2, que supera o PR #250 e o PR #253).** Repositório sem declaração no cadastro privado não tem avaliação técnica configurada, e isso não é violação. A marca `technicalReview.semDeclaracao` nasce SÓ no runtime (`lib/technical-review/runtime.js`), nunca da saída do modelo; com ela `approvalGaps` pula a lacuna técnica, `attentionPoints` põe a ressalva "Este repositório não tem declaração técnica cadastrada, então a avaliação técnica automática não rodou." e a política de ressalvas da conta decide. A publicação (`publication.js`) aceita exigindo `commit_id`, nenhuma outra lacuna obrigatória na prova gravada, os checks obrigatórios verdes NESTE commit e o contexto da revisão ainda valendo (base e impressão das objeções, quando gravadas). Cadastro ilegível continua impedindo. Com declaração, ferramenta indisponível ou avaliação inconclusiva impedem aprovação até as duas tentativas do Farol se esgotarem (abaixo).
+   **Repositório sem declaração técnica é ressalva (17/10/2026, v2.72.5; de novo pela decisão do dono de 19/10/2026, v2.73.2, que supera o PR #250 e o PR #253).** Repositório sem declaração no cadastro privado não tem avaliação técnica configurada, e isso não é violação. A marca `technicalReview.semDeclaracao` nasce SÓ no runtime (`lib/technical-review/runtime.js`), nunca da saída do modelo; com ela `approvalGaps` pula a lacuna técnica, `attentionPoints` põe a ressalva "Este repositório não tem declaração técnica cadastrada, então a avaliação técnica automática não rodou." e a política de ressalvas da conta decide. A publicação (`publication.js`) aceita exigindo `commit_id`, nenhuma outra lacuna obrigatória na prova gravada, os checks obrigatórios verdes NESTE commit e o contexto da revisão ainda valendo (base e impressão das objeções, quando gravadas). Cadastro ilegível continua impedindo. Com declaração, ferramenta indisponível ou avaliação inconclusiva são lacunas que não são duras: viram ressalva já na rodada que as encontrou (abaixo).
 
-   **O Farol busca a prova, e depois de duas tentativas não exige mais (17/10/2026, v2.72.6; removido pelo PR #250 na v2.72.8 e devolvido pela decisão do dono de 19/10/2026, v2.73.2, que também supera o PR #253 neste ponto).** A recuperação durável do PR #253 (logo acima) continua, mas o recuo só segue para o que continua exigido depois das duas tentativas: análise incompleta, lacuna dura que não é defeito do PR e interrupção. Com a conta aprovando, o app busca a prova por revisão complementar; depois das duas tentativas a lacuna que não é dura vira ressalva com o próprio texto, e a política de ressalvas da conta decide (`lib/engine/espera-prova.js` e `lib/engine/busca-da-prova.js`):
-   - a pendência nasce com a marca `esperaProva` e o próximo ciclo relança NA HORA uma revisão complementar do MESMO commit (stale_head no head lido, âncora e recibo da rodada liberados, sem o relógio de PR quieto em `relogioDoRound`). O prompt dessa rodada traz o bloco "Revisão complementar (tentativa N de 2 neste commit)" com as lacunas da anterior, como dado delimitado; diff e checks são medidos de novo pelo engine na própria rodada;
-   - são no máximo DUAS rodadas complementares por commit. A rodada que nasce com o contador cheio (`provaEsgotada`) mantém só as lacunas duras e as do CI; o resto vira ressalva ("faltou prova depois das minhas 2 tentativas neste commit, então segue como ressalva: ..."). Divergência entre passadas de verificação não espera as tentativas (v2.78.39): o checkpoint é só de acréscimo e outra rodada nunca a desfaz, então, quando ela é a única lacuna não dura, vira ressalva já na rodada em que aparece ("outra tentativa não desfaz a divergência entre passadas, então segue como ressalva: ..."); com outra lacuna de prova junto, a busca continua por ela. Medido em Edicoes-CNBB/biblioteca-cnbb-web#182, em que a mesma divergência voltou em 7 commits. Na rodada da prova esgotada, o resumo técnico da tela fica em `ressalva` e o botão Aprovar fica ligado. A publicação aceita com os mesmos requisitos do repositório sem declaração mais o contexto da revisão (base e objeções gravadas). Quem decide o que é ressalva é o engine, nunca o modelo: prova gravada por uma versão anterior das regras (`approvalEvidenceVersion` diferente de `VERSAO_DAS_REGRAS`, hoje 7) pede revisão nova (`legacyEvidenceGap`), e a pendência é relançada pela reconferência técnica.
-   - continuam IMPEDINDO, sempre (lacunas duras, `ehLacunaDura` e `relatorioComViolacao` em `verdict.js`): CI obrigatório vermelho ou pendente, violação técnica confirmada ou achado não resolvido (repositório com declaração), a parte do card deste PR dita não entregue, commit não confirmado, avaliação de outro commit ou repositório, head que andou e PR da própria conta (que sai como COMMENT);
+   **A primeira rodada decide (decisão do dono de 06/11/2026, "decidir na 1ª rodada"; antes, desde 17/10/2026, v2.72.6, e de novo desde 19/10/2026, v2.73.2, depois de duas revisões complementares no mesmo commit).** A rodada complementar no mesmo commit deixou de existir para a lacuna que não é dura: medido em 06/11/2026, cinco PRs (biudtech/biud-frontend#1852, #1843, #1842, #1841 e biudtech/backoffice#271) foram mergeados enquanto esperavam a segunda rodada, sem o Farol postar. Toda rodada carimba `provaEsgotada` (`lacunasDaRodada`, `lib/engine/busca-da-prova.js`): `lacunasExigidas` mantém só as lacunas duras e as do CI, e a que não é dura (cobertura da leitura, alcance, protocolo, checkpoint, falha de execução da ferramenta técnica, avaliação inconclusiva) vira ressalva com o próprio texto ("faltou prova nesta revisão, então segue como ressalva: ..."; a divergência entre passadas diz "outra tentativa não desfaz a divergência entre passadas, então segue como ressalva: ..."), e a política de ressalvas da conta decide entre aprovar com ressalvas e a mesa. Nenhuma espera da prova arma por ela e nenhuma segunda sessão roda no mesmo commit. O resumo técnico da tela fica em `ressalva` e o botão Aprovar fica ligado. A publicação aceita com os mesmos requisitos do repositório sem declaração mais o contexto da revisão (base e objeções gravadas), e só para a lacuna que a própria rodada dispensou (`dispensadaPelaRodada`, `publication.js`): declaração técnica trocada depois da rodada, ferramenta atualizada (`TOOL.commit`) ou versão trocada pedem revisão nova (`needsReview`), na espera do CI e no Aprovar da mesa, porque a avaliação da rodada é da regra antiga. O relatório da falha de execução (`not-run`) grava o perfil, o commit e a versão da ferramenta desde a segunda revisão independente (`runtime.js`, `identidadeDaFalha`), e o gravado antes, sem eles, também pede revisão nova. PR com mais arquivos do que os 3000 que o GitHub lista (`inventarioNoLimite`, `pr-inventory.js`) é desfecho terminal: motivo `inventario_no_limite` ("a decisão é sua"), sem recuperação e sem o diff não medido entre as exigidas, para o clique da mesa não pedir uma revisão nova que daria o mesmo; o APPROVE automático continua impedido. Quem decide o que é ressalva é o engine, nunca o modelo: prova gravada por uma versão anterior das regras (`approvalEvidenceVersion` diferente de `VERSAO_DAS_REGRAS`, hoje 8) pede revisão nova (`legacyEvidenceGap`), e a espera armada por regras anteriores é relançada uma vez para decidir pelas regras de hoje.
+   - continuam IMPEDINDO, sempre (lacunas duras, `ehLacunaDura` e `relatorioComViolacao` em `verdict.js`): CI obrigatório vermelho ou pendente, violação técnica confirmada ou achado não resolvido (repositório com declaração), a parte do card deste PR dita não entregue, commit não confirmado, avaliação de outro commit ou repositório, análise incompleta, diff não medido independentemente, avaliação técnica atual ausente (com declaração cadastrada; sem declaração segue ressalva), texto incoerente com os achados, head que andou e PR da própria conta (que sai como COMMENT). A análise incompleta entrou na lista em 06/11/2026: com toda rodada decidindo, ela sairia da prova gravada e o Aprovar da mesa e a publicação deixariam de vê-la. O diff não medido e a avaliação ausente entraram no mesmo dia, pela revisão independente: sem o primeiro a cobertura volta a ser só o que o modelo declarou, e sem a segunda nada foi avaliado;
+   - a recuperação durável do PR #253 (logo acima) continua só para o que segue exigido: análise incompleta, lacuna dura que não é defeito do PR e interrupção. A pendência nasce com a marca `esperaProva` e o próximo ciclo relança NA HORA uma revisão do MESMO commit (stale_head no head lido, âncora e recibo da rodada liberados, sem o relógio de PR quieto em `relogioDoRound`); `MAX_TENTATIVAS` (2) conta essas rodadas rápidas antes do recuo. O prompt dessa rodada traz o bloco "Revisão complementar (tentativa N neste commit)" com as lacunas da anterior, como dado delimitado; diff e checks são medidos de novo pelo engine na própria rodada.
 
-   O prompt complementar recebe as lacunas e exige as avaliações estruturadas; achado confirmado deve gerar um pedido de mudanças fundamentado pelo revisor, publicado somente se a política permitir. Com análise suficiente, a aprovação passa pelos mesmos gates de identidade, commit, base, objeções, checks e deduplicação. Tentativa nenhuma dispensa lacuna dura; a que não é dura vira ressalva depois das duas tentativas (decisão do dono de 19/10/2026). Pendências antigas sem prova voltam ao funil automaticamente; a origem é a do dono (`origemDoDono`), e PR da própria conta sai como COMMENT.
+   O prompt da recuperação recebe as lacunas e exige as avaliações estruturadas; achado confirmado deve gerar um pedido de mudanças fundamentado pelo revisor, publicado somente se a política permitir. Com análise suficiente, a aprovação passa pelos mesmos gates de identidade, commit, base, objeções, checks e deduplicação. Tentativa nenhuma dispensa lacuna dura. Pendências antigas sem prova voltam ao funil automaticamente; a origem é a do dono (`origemDoDono`), e PR da própria conta sai como COMMENT.
 
    **Só objeção nova de pessoa invalida o APPROVE (05/11/2026).** A conferência das objeções na publicação (`objecoesMudaram`, `lib/technical-review/reviews.js`) não compara mais o hash do histórico inteiro: o relatório grava, junto da impressão, a lista das objeções de pessoa que a revisão leu (`humanObjections`), e a publicação só recusa quando aparece uma que não está nela. Não é objeção: review ou comentário de ferramenta (`ehFerramenta`, a régua do gate de consciência), review APPROVED e os comentários de linha que nasceram dentro dele, review DISMISSED, review sem texto e o que simplesmente sumiu. É objeção: pedido de mudanças, review comentado com texto e comentário de linha de pessoa fora de aprovação, inclusive da própria conta, e corpo editado. Medido no estado real: das sete recusas "histórico de objeções mudou depois da revisão" gravadas até 05/11/2026, a impressão de cada relatório foi reconstruída byte a byte a partir dos reviews do GitHub, e seis vinham de ferramenta (acrity) ou de aprovação de pessoa; o biud-frontend#1803, por exemplo, só foi aprovado 2h27 depois, por outra sessão paga. A sétima (um review comentado com defeitos, publicado durante a leitura) continua recusando, embora a sessão o tenha lido por conta própria: o engine não tem prova mecânica do que o modelo leu. Relatório gravado antes desta versão (sem a lista) segue comparando a impressão inteira, e a impressão continua calculada do mesmo jeito.
 
@@ -219,6 +218,19 @@ públicos montados pelo app, reconstrução depois da trava de linguagem e os ma
 `test/espera-regras-e-pr-proprio.test.js`, `test/gate-espera-revisao.test.js` e
 `test/consciencia-historico.test.js`.
 
+**Decisão de gente durante a recuperação da análise (06/11/2026).** Medido em
+biudtech/biud-frontend#1841: a pendência com `esperaProva` foi relançada no mesmo head, a rodada
+relançada foi segurada pela aprovação de uma pessoa naquele head (`bloqueiaAutomatico`) e o cartão
+"Recuperando a análise" ficou sete horas na tela até o merge. Agora `launchReReviews` chama
+`resolverSeGenteDecidiu` (`lib/engine/espera-prova-decidida.js`) antes do `bloqueiaAutomatico`:
+só para PR com `esperaProva` naquele head ele consulta o histórico, e com `hist.bloqueado` no
+MESMO head da espera resolve a pendência como `approval_not_needed`/`skip`, sem postar e sem mesa,
+no molde da espera do CI ("outra pessoa já decidiu este commit (@x) enquanto eu concluía a análise:
+a revisão automática não é necessária, nada foi publicado"), com log INFO, um aviso e o recibo de
+coordenação publicado. Com o meu pedido automático aberto (`pedidoMeuAberto`) o histórico não
+bloqueia e a rodada roda, como antes; decisão em outro head não resolve nada (commit novo tem
+caminho próprio). Travado em `test/espera-prova-decidida.test.js`.
+
 **Inventário dos caminhos que terminavam na mesa (até a v2.72.11) e o que fazem agora**, com a conta
 em automático na classe do resultado:
 
@@ -235,7 +247,7 @@ em automático na classe do resultado:
 
 **A mesa que sobra, e por quê** (cada uma diz o motivo no card):
 - a política da conta em `wait` para a classe do resultado, inclusive quando muda durante uma espera (`politicaAindaAprova`): é a escolha do dono;
-- lacuna dura que não é defeito do PR (commit não confirmado, avaliação de outro commit ou repositório): o invariante 4 proíbe o APPROVE e pedir mudanças seria afirmar algo falso ao autor. A prova que falta sem ser dura deixou de ser mesa: depois das duas tentativas ela é ressalva e a política decide (decisão do dono de 18/10/2026);
+- lacuna dura que não é defeito do PR (commit não confirmado, avaliação de outro commit ou repositório): o invariante 4 proíbe o APPROVE e pedir mudanças seria afirmar algo falso ao autor. A prova que falta sem ser dura deixou de ser mesa: ela é ressalva já na rodada que a encontrou e a política decide (decisões do dono de 18/10/2026 e 06/11/2026);
 - a recuperação pausada por impedimento do ambiente (login, ferramenta indisponível, orçamento, cadastro ilegível, cancelamento seu): não é mesa, o card diz o impedimento e a recuperação retoma sozinha quando ele passa (PR #253);
 - falha permanente ao postar (credencial, texto todo barrado, PR de org que nenhuma conta cobre, a `reserva` do `atribuicaoDoPr`), e o reenvio que esgotou as tentativas: infra, dita no card;
 - pendência gravada sem o commit lido ou sem o payload (dado corrompido): o Farol não posta sem saber de que código o texto fala;
@@ -1079,6 +1091,58 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   perder cobertura (biud-esg#522, 91a151c: as duas specs lidas às 19:38 viraram pendência às
   19:46). O clique ou relançamento no mesmo head fora da busca da prova segue cheio, pelo motivo
   do parágrafo acima. Travado em `test/heranca-de-alcance.test.js`.
+- **Leitura herdada entre PRs do mesmo repositório, por conteúdo (06/11/2026)**: medido no
+  estado real, biudtech/biud-frontend#1852 (promoção para homologation) trazia os 21 arquivos
+  com o MESMO caminho, blob e status do #1843, revisado uma hora antes, e gastou uma sessão de
+  ~10 min relendo os 21; as réplicas do GitFlow (task para develop, release_hmg e release_prd)
+  trazem os mesmos blobs. A prova por arquivo era só do PR. Agora
+  `lib/engine/prova-do-repositorio.js` guarda um índice por repositório em
+  `state/file-proof-blobs/<encodeURIComponent(repo em minúsculas)>.json` (`{repo, entradas}`; o
+  Windows não diferencia caixa, e o `repo` gravado é conferido sem caixa), com chave (caminho,
+  blob SHA, hash do patch) e, em cada entrada, o PR e o head da leitura, quando, a sessão, o status e
+  o alcance conferido para aquele blob. **Gravado** por `registrarLeituraEntrePrs`, depois da
+  prova da rodada (`lacunasDaRodada`) e da conferência do cancelamento, só quando a análise
+  sustenta decisão (`podeEntrarNoIndice`: completa, sem cancelamento e sem lacuna exigida além do
+  CI; texto incoerente, commit não confirmado e as outras lacunas duras ficam de fora; revisão
+  independente de 06/11/2026; desde a segunda, também sem lacuna dispensada sobre a qualidade da
+  leitura, como protocolo não comprovado, verificação de afirmações ausente ou divergência no
+  checkpoint, tolerada só a pendência de cobertura; desde a thread do PR #351, também sem bloqueio
+  em aberto: achado bloqueante vigente, pedido de mudanças ou bloqueio de rodada anterior que a
+  memória ainda conta, porque o índice guarda só a leitura e a memória de rodadas é por PR, e o PR
+  seguinte com o patch idêntico herdaria o arquivo sem reavaliar o defeito conhecido), e só com o que a sessão LEU: arquivo do diff medido, com blob,
+  em `coverage.reviewed`, fora de `missing` e fora de `inherited` (o herdado mantém a origem de
+  quem leu primeiro); o alcance é o mesmo `alcanceDaProva` da prova do PR (só o que fechou).
+  Teto de 4000 entradas por repositório (ficam as leituras mais recentes) e poda pela idade da
+  prova por arquivo (30 dias), na gravação e no boot (`pruneFileProofs` também apaga o índice
+  sem gravação há mais que isso). Gravações paralelas no mesmo repositório podem perder uma
+  entrada; perder só custa reler o arquivo. **Lido** em `prepareReviewReading`, depois da prova
+  própria do PR, que vence: o índice só cobre o arquivo que ela não herda, e entrada gravada
+  pelo próprio PR nunca serve (o PR responde pela prova dele, inclusive pela regra do mesmo
+  head: relançamento no mesmo head fora da rodada complementar segue cheio, sem índice).
+  Herda o arquivo com o MESMO caminho, o MESMO blob (vazio nunca prova), o MESMO patch e o
+  MESMO status. O patch entra na chave desde a revisão independente de 06/11/2026: o que se
+  revisa é o patch contra o merge-base, e ele muda entre PRs com o mesmo blob (réplica do
+  GitFlow, promoção que leva linhas de outras tasks na base); com só o blob, o PR B herdava como
+  lido um arquivo cujo patch contra a base dele trazia linhas que ninguém leu. Arquivo sem o
+  patch completo (`patchStatus` diferente de `available`: o GitHub omite em arquivo grande ou
+  binário, ou corta) não herda nem entra no índice, e o inventário de reserva (`pr-inventory.js`,
+  sem patch) também não herda. Conferido no dado real com a chave nova: o #1852 herda os 21
+  arquivos do #1843 (mesma base b7940a68, mesmos patches). A leitura herdada de outro PR guarda a
+  origem real na prova do próprio PR (`origens`): a rodada seguinte desse PR continua dizendo
+  "lido em org/repo#N" em vez de "sua revisão anterior deste PR leu", e no salto seguinte essa
+  leitura só segue herdada com o mesmo patch (`splitByProof`), como o índice exige. O herdado entra na mesma lista do `fileProofBlock`, num grupo próprio com a
+  origem por arquivo ("lido em org/repo#N, commit abc1234"), a reconciliação o põe em
+  `coverage.inherited`, o `coverageGap` o aceita como coberto e a origem vai às provas da
+  decisão em `cobertura.entrePrs` (contagem e amostra), a partir de `result.coberturaEntrePrs`,
+  que só o engine escreve. **O que não herda entre PRs**, para não perder qualidade: (a) o
+  alcance com chamador é conferido no head NOVO antes da sessão (`verificarAlcance` e
+  `alcanceConferido` contra o diff do PR novo); não fechou, o arquivo perde a herança e volta à
+  leitura; (b) o alcance "sem uso fora do diff" depende da base e do head do PR novo e não tem
+  como ser conferido pelo engine: a leitura herda e a sessão declara o alcance de novo (o
+  arquivo cai na lista "SEM alcance conferido"); (c) a avaliação técnica e o veredito são do PR
+  novo: herança é só da LEITURA; (d) caminho diferente (renomeado) não herda. Qualquer falha de
+  leitura do índice ou da conferência devolve a herança à da prova do PR. Travado em
+  `test/prova-entre-prs.test.js`.
 - **Retomada de sessão no round 2** (`config.reReviewResume`, default **false**, opt-in;
   toggle em Sistema > Automação, `#setReReviewResume`): o relançamento automático carrega o
   `sessionId` da última decisão do PR (`lastReviewSessionId`, lido das decisões CRUAS porque o

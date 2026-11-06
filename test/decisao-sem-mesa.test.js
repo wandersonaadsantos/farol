@@ -518,18 +518,17 @@ test('origem desconhecida com resultado incompleto não ganha recuperação com 
   assert.equal(pendente(e, 42).esperaProva, undefined);
 });
 
-// Decisão do dono de 19/10/2026: depois das duas tentativas, a lacuna que não é dura vira
-// ressalva e a política decide; a recuperação com recuo NÃO continua para ela.
-test('prova esgotada com lacuna que não é dura: vira ressalva e aprova pela política, sem recuo', async () => {
+// Decisão do dono de 06/11/2026 (decidir na 1ª rodada): a lacuna que não é dura vira ressalva já
+// na rodada que a encontrou e a política decide; nem a rodada complementar nem o recuo continuam.
+test('lacuna que não é dura na primeira rodada: vira ressalva e aprova pela política, sem recuo', async () => {
   const e = motor();
   const semProtocolo = { protocolo: { prReviewer: 'pulado' } };
   await revisar(e, 43, { extra: semProtocolo });
-  assert.ok(pendente(e, 43).esperaProva);
-  pendente(e, 43).esperaProva.tentativas = esperaProva.MAX_TENTATIVAS;
-  await revisar(e, 43, { extra: semProtocolo });
+  assert.equal(pendente(e, 43), undefined, 'sem espera da prova');
   assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
   assert.equal(resolvida(e, 43).status, 'auto_approved');
-  assert.ok((resolvida(e, 43).attention || []).some((r) => /faltou prova depois das minhas 2 tentativas/.test(r.text || r)));
+  assert.ok((resolvida(e, 43).attention || []).some((r) => /faltou prova nesta revisão, então segue como ressalva/.test(r.text || r)));
+  assert.equal(await esperaProva.varrerEsperas(e), 0);
 });
 
 // ---------------------------------------------------------------- reenvio do comentário de PR próprio
