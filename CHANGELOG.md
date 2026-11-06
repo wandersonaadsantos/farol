@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.38
+
+O pedido de mudanças que eu postei sai quando o problema foi resolvido, também na última tentativa de revisão de um commit.
+
+### Correções
+
+- A revisão que fecha a análise na última tentativa permitida num commit, com tudo lido e nada pendente, passa a retirar o pedido de mudanças automático como qualquer outra rodada. Antes, ela mantinha o pedido mesmo provando a correção, e o PR ficava travado por mim. Quando a última tentativa deixa alguma lacuna como ressalva, o pedido continua de pé.
+
 ## v2.78.37
 
 A label de revisão passa a valer como contrato, a reprovação automática fica proporcional à causa, e o Revisar tudo e os backmerges deixam de travar o que não deviam.
