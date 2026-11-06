@@ -377,3 +377,12 @@ test('o prefixo a/ e b/ só sai no cabeçalho de diff; solto no texto, é a past
   assert.equal(segura('--- a/a/package.json', 'a/package.json'), true, 'cabeçalho de diff da pasta real a');
   assert.equal(segura('--- a/a/package.json', 'package.json'), false, 'o cabeçalho da pasta a não cita o package.json da raiz');
 });
+
+test('caminho escrito com barra invertida do Windows cita o mesmo arquivo', async () => {
+  const { rebaixarHeranca } = await import('../lib/engine/heranca-de-producao.js');
+  const proprio = 'apps/web/src/aviso.test.tsx';
+  const achado = (evidence) => ({ findings: [{ ...HERDADO, file: proprio, evidence }] });
+  assert.equal(rebaixarHeranca(achado('A base mudou src\\configuracao.ts.'), [proprio], ['src/configuracao.ts']), 0, 'src\\configuracao.ts é src/configuracao.ts');
+  assert.equal(rebaixarHeranca(achado('Ver .\\package.json:12.'), [proprio], ['package.json']), 0, '.\\package.json é ./package.json');
+  assert.equal(rebaixarHeranca(achado('Igual em apps\\web\\package.json.'), [proprio], ['package.json']), 1, 'com a barra invertida, o package.json do pacote continua não sendo o da raiz');
+});
