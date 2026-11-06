@@ -11,12 +11,29 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.78.42
 
-"CI obrigatório antes da aprovação" volta a ser uma chave, desligada por padrão, e três opções de Automação passam a vir ligadas.
+"CI obrigatório antes da aprovação" volta a ser uma chave, desligada por padrão, e três opções de Automação passam a vir ligadas. A revisão separa a dívida antiga do que o PR fez, e o mesmo PR não abre duas revisões no aparelho.
+
+### Novidades
+
+- Diagnóstico local de quedas da janela, desligado por padrão: com `"diagnosticoQuedas": true` no `~/.farol/config.json` e o Farol reiniciado, os minidumps ficam em `~/.farol/diagnostico-quedas`, sem envio para lugar nenhum. Eles podem conter trechos da memória, então ficam só no aparelho.
 
 ### Melhorias
 
 - Em Sistema > Automação, "CI obrigatório antes da aprovação" voltou a ser uma chave, e vem desligada. Desligada, o estado do CI obrigatório não segura, não adia e não barra a decisão: a aprovação sai assim que a revisão conclui e a configuração da conta permite, o botão Aprovar não espera o CI, o CI vermelho não vira pedido de mudanças, e o estado da pipe fica anotado no app, nunca no PR. Só desligue onde o check é obrigatório no ruleset: sem isso, o Farol pode aprovar com o CI vermelho e o GitHub não barra o merge. Ligada, tudo funciona como até agora: a aprovação espera os checks obrigatórios verdes no commit revisado e sai sozinha quando eles fecham. Uma espera do CI que já estava armada se resolve no ciclo seguinte quando a chave é desligada: a aprovação sai pela configuração da conta, e o pedido de mudanças sustentado só pelo CI vem para você.
 - "Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas, e "Atualizar sozinho" continua ligada por padrão. Rodando como root (proot do Termux), a sessão de terminal abre sem a flag de permissões mesmo com a chave ligada, porque o Claude Code a recusa ali. Na primeira abertura desta versão, as duas primeiras são ligadas e a do CI é desligada uma vez só, porque o valor antigo estava gravado sem ninguém ter escolhido. Depois disso, o que você escolher fica.
+- Dívida técnica antiga numa linha que o PR não alterou deixa de reprovar quando a construção inteira (a chamada, o template, o bloco do supressor) fica fora da mudança. Se a construção encosta no trecho alterado, continua bloqueando. Quando a revisão repete essa mesma dívida como bloqueio, ela corrige o parecer na mesma conversa; sem correção, nada é publicado e o motivo fica no card.
+- O pedido de mudanças já resolvido é retirado mesmo quando a verificação teve divergência entre passadas longe dele. A divergência no ponto de um pedido dito resolvido continua segurando a retirada.
+- A herança de dívida da production confere a production, a base e o head por SHA, e recusa rebaixar quando a evidência cita um arquivo que a base mudou. A citação vale pelo caminho inteiro: o próprio arquivo do achado, ou um homônimo em outra pasta, não segura mais o rebaixamento. O prefixo `a/` ou `b/` só é descartado no cabeçalho de diff (`--- a/`, `+++ b/`, `diff --git`); fora dele, `a/package.json` é o arquivo da pasta `a`, não o `package.json` da raiz. Caminho escrito com barra invertida, no estilo do Windows, conta como o mesmo arquivo.
+- Resposta do autor do PR deixa de contar como objeção nova e de descartar a aprovação. Um review que chega durante a análise pode ser lido pela revisão e incorporado com o recibo do conteúdo; edição posterior continua descartando.
+- A ausência de uso fora do diff só é herdada com a árvore do repositório idêntica, e import visto no mapa do head contradiz a declaração.
+
+### Correções
+
+- O mesmo PR não abre duas revisões neste aparelho, contando a sessão de terminal, inclusive com dois cliques simultâneos. Se o aviso de fim da janela do terminal se perde, o cartão dela oferece **Liberar PR**: o PR volta a poder ser revisado, e a janela, que não é fechada, perde a permissão de publicar a revisão pelo Farol.
+- A autoanálise volta a ser recusada quando há revisão comum do mesmo PR na fila, como antes.
+- O Refazer de recibo órfão recusa sem apagar nada quando há revisão do mesmo PR em curso no aparelho.
+- A troca de regras não antecipa o recuo da recuperação já agendado.
+- A janela que cai se recupera sem rejeição não tratada, e a saída limpa do processo não é registrada como queda.
 
 ## v2.78.41
 

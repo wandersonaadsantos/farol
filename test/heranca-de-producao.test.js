@@ -40,7 +40,7 @@ io.run = async (_cmd, args) => {
     if (gh.compareErro) return { ok: false, code: 1, stdout: '', stderr: gh.compareErro };
     const file = (f) => typeof f === 'string' ? { filename: f } : f;
     if (sub.includes(`${PROD}...${HEAD}`)) return { ok: true, code: 0, stdout: JSON.stringify({ base: PROD, mergeBase: gh.ancestralDoHead, behind: gh.behind, files: gh.diferentes.map(file) }), stderr: '' };
-    return { ok: true, code: 0, stdout: JSON.stringify({ base: PROD, mergeBase: ANCESTRAL, files: gh.mexidosNaBase.map(file) }), stderr: '' };
+    return { ok: true, code: 0, stdout: JSON.stringify({ base: gh.pontaDaComparacaoDaBase || PROD, mergeBase: gh.ancestralDaBase || ANCESTRAL, files: gh.mexidosNaBase.map(file) }), stderr: '' };
   }
   if (sub.includes('--json reviewRequests,reviews')) {
     if (gh.leituraFalha) return { ok: false, code: 1, stdout: '', stderr: 'HTTP 502' };
@@ -334,4 +334,59 @@ test('prova da herança exige a base do inventário e devolve o que a base mexeu
   assert.deepEqual(prova.arquivos, [ARQ]);
   assert.ok(prova.contextoAlterado.includes('src/configuracao.ts'));
   assert.equal(await provaDaHeranca(motor(), PR(43), HEAD, [ARQ], ANCESTRAL), null, 'base que andou desde o inventário não prova nada');
+});
+
+test('comparação da base contra outra ponta ou sem ancestral não vira prova de herança', async () => {
+  gh.pontaDaComparacaoDaBase = ANCESTRAL;
+  assert.equal(await herdados(motor(), PR(43), HEAD, [ARQ]), null, 'a lista da base veio de outra production');
+  gh.pontaDaComparacaoDaBase = undefined;
+  gh.ancestralDaBase = 'nao-e-sha';
+  assert.equal(await herdados(motor(), PR(43), HEAD, [ARQ]), null, 'sem o ancestral comum a lista da base não se ancora');
+  gh.ancestralDaBase = undefined;
+  assert.deepEqual(await herdados(motor(), PR(43), HEAD, [ARQ]), [ARQ]);
+});
+
+test('contexto alterado só segura quando a evidência cita o caminho inteiro, não um pedaço de outro', async () => {
+  const { rebaixarHeranca } = await import('../lib/engine/heranca-de-producao.js');
+  const proprio = 'apps/web/src/aviso.test.tsx';
+  const achado = (evidence) => ({ findings: [{ ...HERDADO, file: proprio, evidence }] });
+  const igual = `${proprio} e apps/web/package.json estão iguais na production desde 31/10.`;
+  assert.equal(rebaixarHeranca(achado(igual), [proprio], ['src/aviso.test.tsx']), 1, 'o caminho do próprio achado não cita o homônimo de outra pasta');
+  assert.equal(rebaixarHeranca(achado(igual), [proprio], ['package.json']), 1, 'o package.json do pacote não é o da raiz');
+  for (const cita of ['A base mudou package.json e isso quebra o teste.', 'Ver (./package.json:12).', 'O `src/aviso.test.tsx` da base mudou.',
+    'Ver https://github.com/acme/app/blob/' + BASE + '/package.json#L12, que a base mudou.', 'No diff da base: --- a/package.json']) {
+    const alvo = cita.includes('package') ? 'package.json' : 'src/aviso.test.tsx';
+    assert.equal(rebaixarHeranca(achado(cita), [proprio], [alvo]), 0, cita);
+  }
+  assert.equal(rebaixarHeranca(achado('Mesmo trecho em package.json.bak, igual à production.'), [proprio], ['package.json']), 1, 'outro arquivo com o nome como prefixo');
+  for (const pontuado of ['A base mudou package.json.', 'A base mudou package.json, e o teste quebra.', 'Quebra pela base (ver package.json).',
+    'A base mudou package.json; o teste quebra.', 'A base mudou package.json: a versão do node.']) {
+    assert.equal(rebaixarHeranca(achado(pontuado), [proprio], ['package.json']), 0, `pontuação depois do caminho fecha a citação: ${pontuado}`);
+  }
+  assert.equal(rebaixarHeranca(achado(igual), [proprio], ['']), 1, 'caminho vazio não cita nada (e não prende o laço)');
+});
+
+test('o prefixo a/ e b/ só sai no cabeçalho de diff; solto no texto, é a pasta real', async () => {
+  const { rebaixarHeranca } = await import('../lib/engine/heranca-de-producao.js');
+  const proprio = 'apps/web/src/aviso.test.tsx';
+  const achado = (evidence) => ({ findings: [{ ...HERDADO, file: proprio, evidence }] });
+  const segura = (texto, caminho) => rebaixarHeranca(achado(texto), [proprio], [caminho]) === 0;
+  for (const cabecalho of ['--- a/package.json', '+++ b/package.json', 'diff --git a/package.json b/package.json', 'No diff (`--- a/package.json`).']) {
+    assert.equal(segura(cabecalho, 'package.json'), true, cabecalho);
+  }
+  assert.equal(segura('diff --git a/src/a.ts b/package.json', 'package.json'), true, 'o lado b/ do diff --git');
+  assert.equal(segura('A base mudou a/package.json.', 'package.json'), false, 'a/package.json solto é o arquivo da pasta a, não o da raiz');
+  assert.equal(segura('Ver `b/package.json`, igual à production.', 'package.json'), false, 'b/package.json solto também');
+  assert.equal(segura('A base mudou a/package.json.', 'a/package.json'), true, 'a pasta real a cita o próprio caminho');
+  assert.equal(segura('--- a/a/package.json', 'a/package.json'), true, 'cabeçalho de diff da pasta real a');
+  assert.equal(segura('--- a/a/package.json', 'package.json'), false, 'o cabeçalho da pasta a não cita o package.json da raiz');
+});
+
+test('caminho escrito com barra invertida do Windows cita o mesmo arquivo', async () => {
+  const { rebaixarHeranca } = await import('../lib/engine/heranca-de-producao.js');
+  const proprio = 'apps/web/src/aviso.test.tsx';
+  const achado = (evidence) => ({ findings: [{ ...HERDADO, file: proprio, evidence }] });
+  assert.equal(rebaixarHeranca(achado('A base mudou src\\configuracao.ts.'), [proprio], ['src/configuracao.ts']), 0, 'src\\configuracao.ts é src/configuracao.ts');
+  assert.equal(rebaixarHeranca(achado('Ver .\\package.json:12.'), [proprio], ['package.json']), 0, '.\\package.json é ./package.json');
+  assert.equal(rebaixarHeranca(achado('Igual em apps\\web\\package.json.'), [proprio], ['package.json']), 1, 'com a barra invertida, o package.json do pacote continua não sendo o da raiz');
 });
