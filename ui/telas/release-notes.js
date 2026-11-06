@@ -17,7 +17,7 @@ import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
   ['2.78.42', [
-    '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho',
+    '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho; a aprovação que sai sem essa barreira ganha aviso no card do app, nunca no PR',
     '"Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas; "Atualizar sozinho" continua ligada',
   ]],
   ['2.78.41', [

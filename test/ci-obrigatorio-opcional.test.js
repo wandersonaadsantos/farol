@@ -207,3 +207,54 @@ test('reprovacaoSoPeloCi: só o CI vermelho sustentando o pedido, inclusive com 
   assert.equal(reprovacaoSoPeloCi({ ...base, findings: [], checksVerifiedHead: 'c'.repeat(40) }), false, 'CI lido em outro commit não sustenta');
   assert.equal(reprovacaoSoPeloCi({ ...base, verdict: 'approve' }), false);
 });
+
+test('sem check obrigatório no ruleset: a leitura marca, e o aviso da aprovação diz que o GitHub não barra o merge', async () => {
+  const checks = await import('../lib/engine/checks-exigidos.js');
+  const { avisoDaAprovacao } = await import('../lib/engine/gate-espera.js');
+  const io = (await import('../lib/io.js')).default;
+  assert.equal(checks.semCheckObrigatorio([]), true);
+  assert.equal(checks.semCheckObrigatorio(['acrity/review']), true, 'veredito de review de ferramenta não é check de CI');
+  assert.equal(checks.semCheckObrigatorio(['audit']), false);
+  assert.equal(checks.semCheckObrigatorio(null), false, 'exigência desconhecida não vira aviso');
+  const rodada = (name, conclusion, status = 'COMPLETED') => ({ name, status, conclusion, startedAt: '2026-11-06T12:00:00Z' });
+
+  // a leitura real do bloqueadoPorChecks, com o gh falso: ruleset vazio e um check vermelho
+  const runReal = io.run;
+  io.run = async (_cmd, args) => {
+    const sub = args.join(' ');
+    if (sub.includes('rules/branches/main')) return { ok: true, stdout: '[]' };
+    return { ok: true, stdout: JSON.stringify({ baseRefName: 'main', headRefOid: 'f'.repeat(40),
+      statusCheckRollup: [rodada('lint', 'FAILURE'), rodada('build', 'SUCCESS'), rodada('e2e', null, 'IN_PROGRESS')] }) };
+  };
+  try {
+    const engine = { accountForPr: () => 'eu', accountForOwner: () => 'eu', tokenFor: () => 'tk', ghEnv: () => ({}) };
+    const lido = await checks.bloqueadoPorChecks(engine, { url: 'https://github.com/o/r/pull/1', repo: 'o/r' });
+    assert.deepEqual([lido.bloqueado, lido.semExigencia], [false, true]);
+    assert.deepEqual(lido.naoVerdes, [{ nome: 'lint', estado: 'vermelho' }, { nome: 'e2e', estado: 'rodando' }]);
+    const result = {};
+    await checks.anexarChecksObrigatorios({ bloqueadoPorChecks: async () => lido }, {}, result);
+    assert.equal(result.semCheckObrigatorio, true);
+    const [aviso] = avisoDaAprovacao(result);
+    assert.equal(aviso.text, 'aprovado sem check de CI obrigatório no ruleset da branch de destino: se a branch também não tiver proteção clássica, o GitHub não barra o merge, e o CI não está verde no head (lint vermelho, e2e sem resultado)');
+  } finally {
+    io.run = runReal;
+  }
+
+  assert.deepEqual(avisoDaAprovacao({ semCheckObrigatorio: true, checksForaDoRuleset: [] }).map((a) => a.text),
+    ['aprovado sem check de CI obrigatório no ruleset da branch de destino: se a branch também não tiver proteção clássica, o GitHub não barra o merge'], 'sem CI nenhum também avisa');
+  const muitos = Array.from({ length: 13 }, (_, i) => ({ nome: 'c' + i, estado: 'vermelho' }));
+  assert.match(avisoDaAprovacao({ semCheckObrigatorio: true, checksForaDoRuleset: muitos })[0].text, /c9 vermelho, mais 3\)$/, 'teto de dez nomes no card');
+  assert.deepEqual(avisoDaAprovacao({ checksObrigatorios: [{ nome: 'audit', estado: 'vermelho' }] }).map((a) => a.text),
+    ['aprovado com check obrigatório vermelho no head (audit): o ruleset segura o merge até ele passar, salvo bypass']);
+  assert.deepEqual(avisoDaAprovacao({ checksObrigatorios: [] }), [], 'CI obrigatório verde: sem aviso');
+});
+
+test('migração do esquema 2: o que se distingue como escolha fica; o indistinguível segue a migração única, com rastro', async () => {
+  const M = (await import('../lib/engine/contas-migracao.js')).default;
+  const jaNoPadraoNovo = M.migrarPadroes({ esquemaConfig: 1, skipPermissions: true, reReviewResume: true, aguardarCiParaAprovar: false });
+  assert.deepEqual([jaNoPadraoNovo.valores, jaNoPadraoNovo.mudancas], [{}, []], 'true gravado é escolha ou já o padrão: nada muda, nada vai ao rastro');
+  const indistinguivel = M.migrarPadroes({ esquemaConfig: 1, skipPermissions: false, reReviewResume: true, aguardarCiParaAprovar: false });
+  assert.deepEqual(indistinguivel.valores, { skipPermissions: true });
+  assert.deepEqual(indistinguivel.mudancas, [{ conta: null, campo: 'skipPermissions', de: false, para: true }], 'a troca fica visível no rastro');
+  assert.match(ler('docs/CONFIGURATION.md'), /indistinguível do padrão antigo/);
+});
