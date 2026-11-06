@@ -84,6 +84,12 @@ test('desligar só é seguro com check obrigatório no ruleset: a linha da chave
   assert.match(nota, /só desligue onde o check é obrigatório no ruleset/);
   assert.doesNotMatch(nota, /o merge segue barrado pelo GitHub'/);
   assert.match(ler('lib/settings.js'), /Só é seguro onde o check é obrigatório no ruleset/);
+  // o card da espera desligada e o título dos seletores da conta também condicionam a barreira ao ruleset
+  const card = esperaCiCardMeta({ id: '1', key: 'o/r#1', verdict: 'approve', esperaCi: { checks: [] }, reasons: [] }, false).statusHtml;
+  for (const [onde, texto] of [['card', card], ['fraseDoCi', fraseDoCi({})]]) {
+    assert.match(texto, /só fica barrado pelo GitHub onde o check é obrigatório no ruleset/, onde);
+    assert.doesNotMatch(texto, /continua barrado pelo GitHub/, onde);
+  }
 });
 
 test('botão Aprovar desligado: o título só fala de CI com a chave ligada', () => {

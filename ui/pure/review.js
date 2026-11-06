@@ -195,7 +195,7 @@ function technicalLabel(d) {
   if (d?.blockedKind === 'technical_recheck') return TECHNICAL_LABEL.pending;
 }
 
-const ESPERA_DESLIGADA = 'A espera do CI está desligada (CI obrigatório antes da aprovação, em Sistema > Automação): no próximo ciclo, sem esperar o CI, a decisão sai pela política da conta ou vem para você. O merge continua barrado pelo GitHub enquanto um check obrigatório não passar.';
+const ESPERA_DESLIGADA = 'A espera do CI está desligada (CI obrigatório antes da aprovação, em Sistema > Automação): no próximo ciclo, sem esperar o CI, a decisão sai pela política da conta ou vem para você. O merge só fica barrado pelo GitHub onde o check é obrigatório no ruleset.';
 export function esperaCiCardMeta(d, ciObrigatorio = true) {
   const label = technicalLabel(d);
   const desligada = ciObrigatorio === false;

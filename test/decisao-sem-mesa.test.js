@@ -849,7 +849,7 @@ test('pendência do conflito vira revisão nova quando chega commit', async () =
 
 /* ---------- "CI obrigatório antes da aprovação" desligado (padrão desde 06/11/2026) ----------
    Pedido do dono: o estado do CI obrigatório não segura, não adia e não barra a decisão. O merge
-   continua barrado pelo GitHub. Cada caso abaixo é o par desligado de um caso ligado acima. */
+   só fica barrado pelo GitHub onde o check é obrigatório no ruleset. Cada caso abaixo é o par desligado de um caso ligado acima. */
 
 test('desligada: CI vermelho com a conta reprovando sozinha sai como APPROVE, nunca como pedido pelo CI', async () => {
   const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }], ciObrigatorio: false });

@@ -399,7 +399,7 @@ export function fraseDoCi(config) {
   if (config && config.aguardarCiParaAprovar === true) {
     return 'CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit';
   }
-  return 'O estado do CI obrigatório não segura nem adia a aprovação (CI obrigatório antes da aprovação está desligado em Automação); o merge continua barrado pelo GitHub enquanto um check obrigatório não passar';
+  return 'O estado do CI obrigatório não segura nem adia a aprovação (CI obrigatório antes da aprovação está desligado em Automação); o merge só fica barrado pelo GitHub onde o check é obrigatório no ruleset';
 }
 
 export function accountsManagerHtml(ctx) {
