@@ -8,6 +8,11 @@ Revise os PRs abaixo seguindo **à risca** o protocolo do `CLAUDE.md` desta past
 
 URLs: $ARGUMENTS
 
+Quando uma URL vier seguida de `escopo=<raiz>`, essa é a RAIZ DE ESCOPO daquele PR: o Farol
+já gravou nela o patch de cada arquivo (caminho protegido só como projeção redigida, em
+`_farol_redigido_/`). Repasse a raiz ao `pr-reviewer`, que lê o diff de lá.
+Não use `gh pr diff` nem `gh api .../pulls/N/files`: os dois são recusados nesta sessão.
+
 Pontos-chave (o detalhe está no `CLAUDE.md`):
 - **Um PR por vez.**
 - Triagem proporcional ao risco — **não bloqueie por preferência** ou refactor desejável.
