@@ -17,6 +17,8 @@ import assert from 'node:assert/strict';
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-objecoes-novas-'));
 process.env.FAROL_HOME = path.join(root, 'home');
 const { reviewSnapshot, objecoesMudaram, impressaoDasObjecoes } = await import('../lib/technical-review/reviews.js');
+const { registrarLeiturasDeObjecoes, promptDeLeituraDeObjecoes } = await import('../lib/technical-review/objection-reading.js');
+const { main: lerNaSessao } = await import('../lib/technical-review/query-objections.js');
 const { approvalRefusal } = await import('../lib/technical-review/publication.js');
 const { technicalRuntime } = await import('../lib/technical-review/runtime.js');
 const { PROFILE_FILE, profileFor } = await import('../lib/technical-review/profiles.js');
@@ -34,10 +36,10 @@ const bot = { login: 'acrity-advesarial-code-review[bot]', type: 'Bot' };
 const review = (id, user, state, body = '') => ({ id, user, state, body, commit_id: HEAD });
 const comentario = (id, user, body, reviewId) => ({ id, user, body, path: 'src/a.ts', line: 3, commit_id: HEAD, pull_request_review_id: reviewId });
 
-async function snapshotDe(reviews, comments) {
+async function snapshotDe(reviews, comments, metadata = pr) {
   const original = io.run;
   io.run = async (_cmd, args) => ({ ok: true, stdout: JSON.stringify([args.some(a => a.endsWith('/reviews')) ? reviews : comments]) });
-  try { return await reviewSnapshot(engine, pr); } finally { io.run = original; }
+  try { return await reviewSnapshot(engine, metadata); } finally { io.run = original; }
 }
 
 // o que a revisão leu: um pedido de mudanças de pessoa já respondido e um review antigo da ferramenta
@@ -84,6 +86,73 @@ test('objeção nova de pessoa invalida: review comentado com texto, pedido de m
 test('review de pessoa sem texto e sem comentário não é objeção', async () => {
   const visto = impressaoDasObjecoes(await snapshotDe(lidoReviews, lidoComments));
   assert.equal(objecoesMudaram(visto, await snapshotDe([...lidoReviews, review(19, pessoa('outro'), 'COMMENTED')], lidoComments)), false);
+});
+
+test('resposta do autor não invalida aprovação; intervenção de outro revisor continua invalidando', async () => {
+  const metadata = { ...pr, author: 'Dev' };
+  const visto = impressaoDasObjecoes(await snapshotDe(lidoReviews, lidoComments, metadata));
+  const resposta = comentario(200, pessoa('dev'), 'Corrigi esse comportamento.', 10);
+  const depois = await snapshotDe([...lidoReviews, review(20, pessoa('dev'), 'COMMENTED', 'Ajustado.')], [...lidoComments, resposta], metadata);
+  assert.equal(objecoesMudaram(visto, depois), false);
+  const revisor = await snapshotDe(lidoReviews, [...lidoComments, resposta, comentario(201, pessoa('eu'), 'O caso vazio continua errado.', 10)], metadata);
+  assert.equal(objecoesMudaram(visto, revisor), true);
+  assert.equal(objecoesMudaram(visto, await snapshotDe(lidoReviews, [...lidoComments, resposta])), true, 'sem identidade não presume quem é o autor');
+});
+
+test('PR avulso confirma o autor no GitHub antes de classificar suas respostas', async () => {
+  const original = io.run;
+  const resposta = comentario(210, pessoa('dev'), 'Corrigido.', 10);
+  io.run = async (_cmd, args) => {
+    if (args.some(a => a.endsWith('/reviews'))) return { ok: true, stdout: JSON.stringify([lidoReviews]) };
+    if (args.some(a => a.endsWith('/comments'))) return { ok: true, stdout: JSON.stringify([[...lidoComments, resposta]]) };
+    return { ok: true, stdout: JSON.stringify({ author: 'dev' }) };
+  };
+  try {
+    const snapshot = await reviewSnapshot(engine, pr);
+    assert.equal(snapshot.leituras.some(r => r.id === resposta.id), false);
+    assert.equal(snapshot.leituras.some(r => r.id === lidoComments[0].id), true);
+  } finally { io.run = original; }
+});
+
+test('leitura adicional cobre somente o mesmo conteúdo de reviews e comentários efetivamente declarados', async () => {
+  const antes = await snapshotDe(lidoReviews, lidoComments);
+  const novosReviews = [...lidoReviews, review(21, pessoa('outro'), 'COMMENTED', 'Conferir o caminho vazio.')];
+  const novosComments = [...lidoComments, comentario(202, pessoa('outro'), 'A condição precisa tratar nulo.', 21)];
+  const lido = await snapshotDe(novosReviews, novosComments);
+  const report = { ...impressaoDasObjecoes(antes), humanObjectionReads: lido.leituras };
+  assert.equal(objecoesMudaram(report, lido), false);
+  assert.equal(objecoesMudaram({ ...report, humanObjectionReads: lido.leituras.filter(r => r.tipo !== 'comment') }, lido), true);
+  assert.equal(objecoesMudaram({ ...report, humanObjectionReads: [{ tipo: 'review', id: 21 }] }, lido), true, 'id não comprova conteúdo');
+  assert.equal(objecoesMudaram({ ...report, humanObjectionReads: 'inválido' }, lido), true);
+  const editado = await snapshotDe(novosReviews, [...lidoComments, { ...novosComments.at(-1), body: 'Também quebra no valor false.' }]);
+  assert.equal(objecoesMudaram(report, editado), true, 'edição posterior à leitura é objeção nova');
+  const outraObjecao = await snapshotDe([...novosReviews, review(22, pessoa('colega'), 'CHANGES_REQUESTED', 'Outro defeito.')], novosComments);
+  assert.equal(objecoesMudaram(report, outraObjecao), true);
+});
+
+test('consulta da sessão entrega texto e recibo compatíveis e só recibos válidos chegam ao relatório', async () => {
+  const original = io.run;
+  io.run = async (_cmd, args) => ({ ok: true, stdout: JSON.stringify([args.some(a => a.endsWith('/reviews')) ? lidoReviews : lidoComments]) });
+  try {
+    const consulta = await lerNaSessao(['org/repo', '1']);
+    assert.equal(consulta.reviews[0].body, lidoReviews[0].body);
+    assert.equal(consulta.comments[0].body, lidoComments[0].body);
+    const result = { technicalReview: { humanObjections: [] }, objecoesLidas: [...consulta.objecoesLidas, { tipo: 'review', id: 10 }, null] };
+    registrarLeiturasDeObjecoes(result);
+    assert.equal(Object.hasOwn(result, 'objecoesLidas'), false);
+    assert.deepEqual(result.technicalReview.humanObjectionReads, consulta.objecoesLidas);
+    assert.equal(objecoesMudaram(result.technicalReview, await snapshotDe(lidoReviews, lidoComments)), false);
+    await assert.rejects(lerNaSessao(['org/repo;echo', '1']), /Use:/);
+    await assert.rejects(lerNaSessao(['org/repo', '1.5']), /Use:/);
+  } finally { io.run = original; }
+});
+
+test('a consulta usa runtime explícito, módulo distribuído e alvo GitHub canônico', () => {
+  const consulta = JSON.parse(promptDeLeituraDeObjecoes(pr).trim().split('\n').at(-1));
+  assert.deepEqual(consulta.runtime, { executable: process.execPath, environment: { ELECTRON_RUN_AS_NODE: '1' } });
+  assert.deepEqual(consulta.read, [process.execPath, path.resolve(import.meta.dirname, '../lib/technical-review/query-objections.js'), 'org/repo', '1']);
+  assert.equal(fs.existsSync(consulta.read[1]), true);
+  assert.equal(promptDeLeituraDeObjecoes({ ...pr, repo: 'org/repo;echo x' }), '');
 });
 
 test('relatório gravado antes desta versão segue comparando a impressão inteira', async () => {
@@ -142,6 +211,11 @@ test('publicação: ferramenta e aprovação depois da leitura não descartam o 
       technicalRuntime.reviewSnapshot = async () => comObjecao;
       const recusa = await approvalRefusal(motor(), { key, repo }, payload);
       assert.equal(recusa && recusa.error, 'histórico de objeções mudou depois da revisão', `provaEsgotada=${provaEsgotada}`);
+      const result = { technicalReview: report, objecoesLidas: comObjecao.leituras };
+      registrarLeiturasDeObjecoes(result);
+      assert.equal(await approvalRefusal(motor(), { key, repo }, payload), null, 'a sessão já leu e incorporou a objeção nova');
+      technicalRuntime.reviewSnapshot = async () => snapshotDe([...lidoReviews, review(15, pessoa('outro'), 'COMMENTED', 'O conteúdo mudou depois da leitura.')], lidoComments);
+      assert.equal((await approvalRefusal(motor(), { key, repo }, payload))?.error, 'histórico de objeções mudou depois da revisão');
     }
   } finally { Object.assign(technicalRuntime, original); }
 }));

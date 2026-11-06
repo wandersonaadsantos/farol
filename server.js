@@ -14,7 +14,8 @@ import os from 'node:os';
 import { EventEmitter } from 'node:events';
 import { tick as tickReviewAudits } from './lib/review-audit/commands.js';
 import { iniciarManutencaoDoEngine } from './lib/technical-review/material-session-proof.js';
-import { snapshotDecisions } from './lib/engine/snapshot-decisions.js';
+import { snapshotDecisions, snapshotReviewActions } from './lib/engine/snapshot-decisions.js';
+import { snapshotUsage } from './lib/engine/snapshot-usage.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
@@ -1945,8 +1946,8 @@ class Engine extends EventEmitter {
       chats: this.chatSummaries(),
       toolRuns: this.toolRuns,
       decisions: snapshotDecisions(this),
-      reviewActions: this.reviewActions(),
-      usage: this.usageSummary(),
+      reviewActions: snapshotReviewActions(this),
+      usage: snapshotUsage(this.usageSummary()),
       credits: this.credits,
       doctor: this.doctorInfo,
       update: this.update || null,

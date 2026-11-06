@@ -203,7 +203,16 @@ Cada item contém `file` (caminho exato ou null), `line` (inteiro positivo ou nu
 `severity` (`blocking`, `suggestion`, `question` ou `nitpick`), `title`, `summary`,
 `ref` (ID fornecido pelo engine ou null), `status` (`persiste`, `resolvido`, `retirado` ou null)
 e `evidence` (prova concreta de resolução ou retirada, incluindo a mudança em outro arquivo).
-**Merge-back da production (backmerge):** num PR que traz a production para outra base, um ponto que já existe na production, igual, e que não foi criado pela resolução de conflito nem pela interação com o código da base, é dívida herdada. Declare-o com `"herdadoDaProducao": true` e diga na `evidence` por que ele já estava na production. O app confere se o arquivo é herdado de verdade e, se for, o rebaixa a sugestão. Na dúvida, não marque: resolução de conflito e quebra causada pela base continuam bloqueando.
+Quando o achado reproduzir uma violação do verificador técnico, declare também `technicalRule`
+com o ID exato da regra. Dívida anterior cuja construção inteira ficou fora da mudança não
+é blocker. O app confere o intervalo sintático e o blob, inclusive quando o início está longe
+do trecho alterado. Uma linha intacta pode sofrer regressão causada pelo PR: nesse caso,
+declare `introduzidoPor: {file, line, side: "head"|"base", evidence}` com a linha de fato
+acrescentada ou removida e o cenário causal. Contexto de hunk não é linha alterada. Se o app
+medir dívida no mesmo local, diferencie a regressão real dessa violação anterior; não copie
+o veredito da ferramenta sem conferir o escopo. Após corrigir a classificação, reescreva o
+veredito e seus textos públicos, preservando outros defeitos e respondendo às referências.
+**Merge-back da production (backmerge):** num PR que traz a production para outra base, um ponto que já existe na production, igual, e que não foi criado pela resolução de conflito nem pela interação com o código da base, é dívida herdada. Antes de marcar `"herdadoDaProducao": true`, confira dependências, consumidores e configuração envolvidos no achado nas versões fixadas. Cite na `evidence` os caminhos e commits comparados e por que o problema já ocorria na production. Blob igual do arquivo principal não demonstra comportamento igual: se o problema nasce da interação com a base, mantenha o bloqueio e identifique o arquivo causal em `introduzidoPor`. O app confere a herança do arquivo e recusa o rebaixamento quando a evidência aponta contexto alterado; essa conferência não substitui sua análise das interações. Na dúvida, não marque: resolução de conflito e quebra causada pela base continuam bloqueando.
 
 Todo achado `blocking` vigente declara `causa`, de lista fechada (bloqueio sem causa, ou com
 causa fora da lista, é envelope fora do contrato e nada é publicado):

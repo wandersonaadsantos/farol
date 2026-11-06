@@ -5,7 +5,8 @@ import { criteriaFixture } from './helpers/criteria-fixture.js';
 //    biudtech/biud-messaging-waba#52 seguia mostrando lacunas que as regras de hoje não
 //    produzem mais, e a varredura só relançava quando o PR mudava. Agora a marca carrega a
 //    versão das regras do gate (VERSAO_DAS_REGRAS, evidence.js) e, quando ela é anterior, a
-//    varredura relança UMA revisão pelo caminho de sempre e carimba a versão nova.
+//    varredura aplica a versão nova na próxima revisão agendada. A migração respeita
+//    o recuo e a tentativa real entra no contador, sem sessão extra pela atualização.
 // 2. PR da própria conta que revisa esperava para sempre: biudtech/biud-frontend#1479 era da
 //    conta que revisava, e o GitHub não aceita APPROVE (nem pedido de mudanças) do autor.
 //    Nenhuma prova destrava isso: a espera não arma e a que já existia é largada.
@@ -136,19 +137,24 @@ test('a marca nasce com a versão das regras do gate vigente', async () => {
 });
 
 for (const [nome, regras] of [['sem carimbo (armada antes da v2.72.6)', undefined], ['com carimbo anterior', VERSAO_DAS_REGRAS - 1]]) {
-  test(`espera ${nome}: relança no mesmo head sem gastar tentativa e sai carimbada`, async () => {
+  test(`espera ${nome}: preserva o recuo, relança sem gastar tentativa e sai carimbada`, async () => {
     const e = motor();
     await revisado(e, PR, INCOMPLETA);
     const marca = pendente(e).esperaProva;
-    Object.assign(marca, { regras, tentativas: 1, lacunas: ['critérios necessários do card não comprovados'] });
+    Object.assign(marca, { regras, tentativas: 1, proximaEm: Date.now() + 60_000, lacunas: ['critérios necessários do card não comprovados'] });
     if (regras === undefined) delete marca.regras;
     e.reReviewLaunched[PR.key] = { head: HEAD, dia: '', rodadas: 1, at: Date.now() };
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'troca de regra não antecipa a sessão');
+    assert.equal(marca.regras, regras, 'não carimba uma regra ainda não aplicada');
+    assert.equal(marca.tentativas, 1, 'esperar não consome tentativa');
+    assert.equal(e.reReviewLaunched[PR.key].head, HEAD, 'preserva a âncora durante o recuo');
+    marca.proximaEm = 0;
     assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
     const d = pendente(e);
     assert.equal(d.blockedKind, 'stale_head', 'o round automático de sempre relança');
     assert.equal(d.blockedHead, HEAD, 'no MESMO head');
     assert.equal(d.esperaProva.regras, VERSAO_DAS_REGRAS, 'carimbada: não relança de novo pela regra');
-    assert.equal(d.esperaProva.tentativas, 1, 'a troca de regra não gasta tentativa');
+    assert.equal(d.esperaProva.tentativas, 1, 'agendar não gasta tentativa: conta a rodada que conclui (armar)');
     assert.equal(e.reReviewLaunched[PR.key].head, '', 'a âncora do head foi liberada');
     assert.match(textos(d)[0], /regras do gate mudaram/);
     assert.deepEqual(envios, []);

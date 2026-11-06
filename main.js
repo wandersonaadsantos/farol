@@ -2,7 +2,7 @@
 // Toda a logica de monitoramento vive em server.js (que tambem roda sozinho
 // com "node server.js" caso o Electron nao esteja disponivel).
 
-import { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage } from 'electron';
+import { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage, crashReporter } from 'electron';
 import path from 'node:path';
 
 import farol from './server.js';
@@ -15,6 +15,8 @@ import { IS_MAC, IS_WIN } from './lib/paths.js';
 import { aplicarAutostartMac } from './lib/autostart-mac.js';
 import { identificarAplicativo, identificarJanela, instalarMenuMac } from './lib/desktop-identity.js';
 import { linhaDaQuedaDoRenderer, linhaDaQuedaDeProcesso, memoriaDoProcesso } from './lib/queda-de-processo.js';
+import { iniciarDiagnosticoQuedas } from './lib/diagnostico-quedas.js';
+import { quedaInesperada, recarregarJanela } from './lib/renderer-recovery.js';
 
 // A queda do renderer só é diagnosticável com o que se sabia ANTES dela: depois
 // que o processo morre não há memória para medir. Então a memória dele é amostrada
@@ -44,6 +46,7 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
+  const diagnosticoQuedas = iniciarDiagnosticoQuedas(app, crashReporter);
 
   app.on('second-instance', () => showWindow());
 
@@ -66,6 +69,7 @@ if (!gotLock) {
       if (reabertura) notify('Farol atualizado', `Agora na versão ${reabertura.to || 'nova'}. Segue monitorando na bandeja.`);
     });
     engine = eng;
+    if (diagnosticoQuedas.erro) engine.log('WARN', diagnosticoQuedas.erro);
   });
 
   app.on('before-quit', () => { quitting = true; });
@@ -126,13 +130,14 @@ function createWindow() {
   // não deram diagnóstico nenhum (lib/queda-de-processo.js).
   win.webContents.on('did-finish-load', () => { paginaCarregadaEm = Date.now(); });
   win.webContents.on('render-process-gone', (_e, details) => {
+    if (!quedaInesperada(details, quitting)) return;
     const visivel = win && !win.isDestroyed() ? win.isVisible() : undefined;
     engine && engine.log('ERROR', linhaDaQuedaDoRenderer({
       details, amostra: amostraRenderer, carregadaEm: paginaCarregadaEm, visivel, agora: Date.now(), ehWindows: IS_WIN,
     }));
     amostraRenderer = null;
     paginaCarregadaEm = null;
-    if (win && !win.isDestroyed()) { try { win.loadURL(appUrl); } catch { /* próxima interação do usuário reabre pela bandeja */ } }
+    void recarregarJanela(win, appUrl, mensagem => engine?.log('ERROR', mensagem));
   });
   amostrarRenderer();
   // trava (não caiu, mas parou de responder) tem outro sintoma: avisa em vez de

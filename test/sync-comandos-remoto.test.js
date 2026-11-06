@@ -46,7 +46,9 @@ after(async () => {
   await identity.close();
   try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
-beforeEach(() => {
+beforeEach(t => {
+  // Simula somente a medição do usuário comum; a admissão real continua valendo.
+  if (typeof process.getuid === 'function') t.mock.method(process, 'getuid', () => 1000);
   fake.setTree(null);
   try { fs.rmSync(comandos.caminhoDosFeitos(), { force: true }); } catch { /* sem registro anterior */ }
 });
