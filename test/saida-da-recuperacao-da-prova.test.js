@@ -45,7 +45,7 @@ isolateTechnicalTool();
 const esperaProva = (await import('../lib/engine/espera-prova.js')).default;
 const busca = (await import('../lib/engine/busca-da-prova.js')).default;
 const { shouldAutoApprove, textoDaRecusa } = await import('../lib/engine/approval-policy.js');
-const { AUTOMACAO_DESLIGADA } = await import('../lib/engine/recuperacao-prova.js');
+const { AUTOMACAO_DESLIGADA, registrarPausa } = await import('../lib/engine/recuperacao-prova.js');
 const pendencia = (await import('../lib/sync/pendencia.js')).default;
 const fila = (await import('../lib/sync/fila.js')).default;
 const { fatosDaFila } = await import('../lib/engine/sync-fila.js');
@@ -61,15 +61,13 @@ beforeEach(() => {
   gh = { state: 'OPEN', head: HEAD };
 });
 
-// `politica` = [limpo, com ressalvas]
+// `politica` = [limpo, com ressalvas]. A política é a da conta, gravada por extenso como a tela
+// de Contas grava, e lida pelos métodos reais do motor (contas-config.js), sem substituí-los.
 function motor(politica = ['wait', 'wait'], { automatica = true } = {}) {
   const e = new Engine();
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
-  e.approvePolicyFor = (_conta, limpo) => (limpo ? politica[0] : politica[1]);
-  e.rejectPolicyFor = () => 'wait';
-  e.autoReviewFor = () => automatica;
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], autoReview: automatica, onClean: politica[0], onCaveats: politica[1], onReject: 'wait' }];
   e.decisions = { pending: [], resolved: [] };
   e.saveDecisions = () => { };
   e.saveReReviewLaunched = () => { };
@@ -84,6 +82,11 @@ function motor(politica = ['wait', 'wait'], { automatica = true } = {}) {
   e.on('auto-approved', (p) => e.eventos.push(['auto-approved', p.result.key]));
   e.bloqueadoPorChecks = async () => ({ faltando: [] });
   return e;
+}
+
+// liga ou desliga "quando chega um PR pra você" na conta, como a tela de Contas faz
+function revisaSozinha(e, ligada) {
+  e.config.accounts[0].autoReview = ligada;
 }
 
 function sessao(e, extra) {
@@ -178,6 +181,33 @@ test('B5: a lacuna dura recuperável tem teto por commit, e depois dele vai à m
   assert.deepEqual(envios, []);
 });
 
+// Review do PR #349: o clique depois do teto herdava `tentativasDaProva`, somava outra rodada e
+// recusava de novo, embora o guia prometa que revisar de novo por clique recomeça a contagem.
+test('B5: depois do teto só o seu clique neste PR recomeça a contagem; rodada automática e Revisar tudo voltam à mesa', async () => {
+  const e = motor(['approve', 'approve']);
+  const INCOMPLETA = { analysisStatus: 'incomplete', decision: 'needs_decision' };
+  const d = await revisado(e, INCOMPLETA);
+  d.esperaProva.tentativas = busca.MAX_TENTATIVAS_POR_HEAD - 1;
+  const teto = await revisado(e, INCOMPLETA, { ...PR, knownHead: HEAD });
+  assert.equal(teto.tentativasDaProva, busca.MAX_TENTATIVAS_POR_HEAD);
+  const automatica = await revisado(e, INCOMPLETA, { ...PR, knownHead: HEAD });
+  assert.notEqual(automatica.id, teto.id, 'a rodada automática concluiu');
+  assert.equal(automatica.esperaProva, undefined, 'rodada automática não passa do teto');
+  assert.equal(automatica.tentativasDaProva, busca.MAX_TENTATIVAS_POR_HEAD + 1);
+  assert.equal(pendentes(e).length, 1, 'o card do teto é substituído, não duplicado');
+  const lote = await revisado(e, INCOMPLETA, { ...CLIQUE, lote: true });
+  assert.notEqual(lote.id, automatica.id, 'o Revisar tudo concluiu');
+  assert.equal(lote.esperaProva, undefined, 'Revisar tudo não escolhe este PR: não recomeça');
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'a varredura não rearma');
+  const clique = await revisado(e, INCOMPLETA, CLIQUE);
+  assert.ok(clique.esperaProva, 'o seu clique recomeça a recuperação');
+  assert.equal(clique.esperaProva.tentativas, 0, 'a contagem recomeça do zero');
+  assert.equal(clique.tentativasDaProva, 0);
+  assert.doesNotMatch(textos(clique).join(' | '), /revisões minhas neste commit/);
+  assert.equal(pendentes(e).length, 1, 'um card por PR');
+  assert.deepEqual(envios, []);
+});
+
 test('B4: valor oculto de ambiente é decidido antes de armar a busca, com o motivo dito no card', () => {
   const e = motor();
   e.config.people = { dev: { papel: 'junior' } };
@@ -232,7 +262,7 @@ test('B7: pendência pausada conta no contador, no ícone, no card e na projeç�
   const f = fila.estadoDaFila(PR.key, fatosDaFila(e));
   assert.deepEqual([f.estado, f.motivo], ['decidir', ''], 'vocabulário fechado preservado: motivo vazio, não estado novo');
   // a que NÃO está pausada continua fora, como antes
-  e.autoReviewFor = () => true;
+  revisaSozinha(e, true);
   await esperaProva.reverQuandoAProvaMudar(e);
   assert.equal(d.esperaProva.pedeVoce, false);
   assert.equal(separarPendentes([e.decisionForUi(d)]).precisam.length, 0);
@@ -243,11 +273,11 @@ test('B7: a pausa que chega depois avisa needs-decision uma vez, e a espera do C
   const e = motor(['approve', 'approve']);
   const d = await revisado(e, SEM_PROTOCOLO);
   assert.deepEqual(e.eventos, []);
-  e.autoReviewFor = () => false;
+  revisaSozinha(e, false);
   await esperaProva.reverQuandoAProvaMudar(e);
   await esperaProva.reverQuandoAProvaMudar(e);
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]], 'uma vez só');
-  e.autoReviewFor = () => true;
+  revisaSozinha(e, true);
   await esperaProva.reverQuandoAProvaMudar(e);
   assert.equal(d.esperaProva.pedeVoce, false);
   // a pausa pelo CI obrigatório é automática: não pede ninguém
@@ -260,4 +290,38 @@ test('B7: a pausa que chega depois avisa needs-decision uma vez, e a espera do C
   assert.equal(dc.esperaProva.pedeVoce, false);
   assert.deepEqual(c.eventos, []);
   assert.equal(separarPendentes([c.decisionForUi(dc)]).precisam.length, 0);
+});
+
+// Review do PR #349: `anotarPausa` e `registrarPausa` saíam quando o texto do impedimento não
+// mudava, antes de preencher `pedeVoce`. A marca gravada até a 2.78.39 (com o impedimento e sem o
+// campo) ficava para sempre fora de "Precisa de você".
+function marcaAntiga(d) {
+  delete d.esperaProva.pedeVoce;
+  delete d.esperaProva.avisada;
+  assert.equal(d.esperaProva.impedimento, AUTOMACAO_DESLIGADA);
+  assert.equal(separarPendentes([d]).precisam.length, 0, 'como a marca antiga se comportava');
+}
+
+test('B7: marca pausada gravada antes do pedeVoce entra em Precisa de você na varredura, com aviso único', async () => {
+  const e = motor(['wait', 'wait'], { automatica: false });
+  const d = await revisado(e, SEM_PROTOCOLO);
+  marcaAntiga(d);
+  e.eventos = [];
+  await esperaProva.reverQuandoAProvaMudar(e);
+  await esperaProva.reverQuandoAProvaMudar(e);
+  assert.equal(d.esperaProva.pedeVoce, true);
+  assert.equal(separarPendentes([e.decisionForUi(d)]).precisam.length, 1);
+  assert.equal(badgeDe({ decisions: { pending: [e.decisionForUi(d)] } }).contador, 1);
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]], 'avisa uma vez só');
+});
+
+test('B7: registrarPausa com o mesmo texto completa a marca antiga e avisa uma vez', async () => {
+  const e = motor(['wait', 'wait'], { automatica: false });
+  const d = await revisado(e, SEM_PROTOCOLO);
+  marcaAntiga(d);
+  e.eventos = [];
+  registrarPausa(e, d, AUTOMACAO_DESLIGADA);
+  registrarPausa(e, d, AUTOMACAO_DESLIGADA);
+  assert.equal(d.esperaProva.pedeVoce, true);
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });

@@ -168,6 +168,8 @@ test('todo contador local de pendência exclui a espera do CI, e a tela tem a se
   assert.match(ler('lib/engine/avisos-nativos.js'), /pendentes\.filter\(d => d && !resolveSozinha\(d\)\)\.length/, 'badge e tooltip da bandeja');
   assert.match(ler('lib/engine/avisos-nativos.js'), /d\.esperaProva && d\.esperaProva\.pedeVoce !== true/, 'a pausada que pede você conta no ícone');
   assert.match(ler('main.js'), /badgeDe\(snapshot\)/, 'o Electron conta pela mesma fonte');
+  // o texto só prova a régua comum; o resultado da contagem por conta é observado em
+  // test/ui-fila-revisoes-ativas.test.js (attentionCount soma as pendências que precisam de você)
   assert.match(ler('ui/telas/contas.js'), /separarPendentes\(estado\(\)\.decisions\?\.pending\)\.precisam\.filter\(/, 'contagem por conta pela mesma régua da seção');
   assert.match(ler('ui/telas/paleta.js'), /comandosDasPendencias\(estado\(\)\?\.decisions\?\.pending, \{ scopeVisible, decide, decideComConfirmacao \}\)/, 'paleta usa a projeção comum de ações');
   const radar = ler('ui/telas/radar.js');

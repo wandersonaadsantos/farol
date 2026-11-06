@@ -136,3 +136,25 @@ test('recuperação mostra agenda, executor e execução conforme o snapshot rea
   receber(snap);
   assert.match($('#esperaCi').innerHTML, /Concluindo a análise/);
 });
+
+// Review do PR #349: a contagem por conta era provada só pelo texto do código (ui-rerodada.test.js);
+// tirar `+ d` do retorno de attentionCount passava. Aqui o resultado é observado.
+test('attentionCount soma as pendências que precisam de você, inclusive a recuperação pausada', () => {
+  const snap = snapshot();
+  snap.queue = [];
+  snap.panorama = [];
+  const pendencia = (id, extra) => ({ id, key: `acme/app#${id}`, pr: { ...pr, key: `acme/app#${id}` }, verdict: 'approve', reasons: [], ...extra });
+  snap.decisions = { pending: [
+    pendencia(1, {}),
+    pendencia(2, { esperaProva: { tentativas: 0, impedimento: 'Revisão automática desativada nesta conta.', pedeVoce: true } }),
+    pendencia(3, { esperaProva: { tentativas: 0 } }),
+    pendencia(4, { esperaCi: { checks: [] } }),
+    pendencia(5, { account: 'bob', pr: { ...pr, key: 'acme/app#5', account: 'bob' } }),
+  ], resolved: [] };
+  receber(snap);
+  assert.equal(attentionCount('alice'), 2, 'a comum e a pausada; a recuperação automática e a espera do CI ficam fora');
+  assert.equal(attentionCount('bob'), 1);
+  snap.queue = [pr];
+  receber(snap);
+  assert.equal(attentionCount('alice'), 3, 'fila e pendências somam');
+});
