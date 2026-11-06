@@ -55,6 +55,21 @@ test('amostra com inventário anterior válido mede só o escopo, fora da trava 
   await first.budget.finish(id, false);
 });
 
+test('composição trata como estrangeiro o Git pendente de outro escopo gravado por outro processo', async t => {
+  const { base, first, second } = await fixture(t);
+  const id = await first.budget.reserve('git-acquisition', 10000);
+  const outro = path.basename(second.root);
+  // O processo que mediu era o dono do Git pendente e gravou foreignGitProcess falso; para este
+  // processo o Git é alheio, e o órfão precisa da folga até o teto, como no scan completo.
+  await editarEstado(base, state => Object.assign(state.lastInventory.scopes[outro], { pendingGitProcess: true, foreignGitProcess: false }));
+  const state = JSON.parse(await fs.readFile(path.join(base, 'storage-budget.json'), 'utf8'));
+  const composto = first.budget.composeInventory(state, await first.budget.scanScope());
+  assert.equal(composto.scopes[outro].foreignGitProcess, true);
+  assert.ok(first.budget.unconfirmedScopes(state, composto).has(outro));
+  assert.equal(composto.scopes[path.basename(first.root)].foreignGitProcess, undefined, 'o próprio escopo vem da medida fresca');
+  await first.budget.finish(id, false);
+});
+
 test('amostra recompõe managedBytes com o escopo fresco e o crescimento ainda reprova a quota', async t => {
   const { base, first } = await fixture(t, { globalMaxBytes: 70000 });
   const id = await first.budget.reserve('git-acquisition', 10000);
