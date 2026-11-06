@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { medirIntervalos } from '../lib/technical-review/intervalos-dos-achados.js';
 import { classificarPorLinhas } from '../lib/technical-review/divida-fora-das-linhas.js';
-import { blobHash } from '../lib/review-source/contract.js';
+import { blobHash, DEFAULTS } from '../lib/review-source/contract.js';
 
 const snapshot = await fs.mkdtemp(path.join(os.tmpdir(), 'farol-intervalos-'));
 const HEAD = 'a'.repeat(40);
@@ -102,4 +102,18 @@ test('sintaxe inválida, intervalo de outro blob e regra desconhecida não receb
 test('arquivo fora do material não é lido para conceder dívida', async () => {
   const findings = await medirIntervalos(snapshot, [{ rule: 'core.suppression.declared', file: '../fora.ts', message: 'violacao na linha 1' }]);
   assert.equal(findings[0].intervaloVerificado, undefined);
+});
+
+test('o blob do intervalo é o dos bytes lidos, e arquivo acima do teto ou que não é arquivo não é medido', async () => {
+  const texto = exemplos[2].text;
+  await fs.writeFile(path.join(snapshot, 'lido.tsx'), texto);
+  const [lido] = await medirIntervalos(snapshot, [{ rule: exemplos[2].rule, file: 'lido.tsx', message: 'violacao na linha 2' }]);
+  assert.equal(lido.intervaloVerificado.blob, blobHash(Buffer.from(texto)));
+  const grande = texto + '\n' + '/'.repeat(DEFAULTS.maxFileBytes);
+  await fs.writeFile(path.join(snapshot, 'grande.tsx'), grande);
+  const [acima] = await medirIntervalos(snapshot, [{ rule: exemplos[2].rule, file: 'grande.tsx', message: 'violacao na linha 2' }]);
+  assert.equal(acima.intervaloVerificado, undefined, 'acima do teto não é lido');
+  await fs.mkdir(path.join(snapshot, 'pasta.tsx'), { recursive: true });
+  const [pasta] = await medirIntervalos(snapshot, [{ rule: exemplos[2].rule, file: 'pasta.tsx', message: 'violacao na linha 2' }]);
+  assert.equal(pasta.intervaloVerificado, undefined, 'diretório não é arquivo do material');
 });
