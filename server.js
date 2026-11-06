@@ -1450,7 +1450,7 @@ class Engine extends EventEmitter {
   async mergeSelfPR(url, opts = {}) { return selfMod.mergeSelfPR(this, url, opts); }
   selfPromptFor(url) { return selfMod.selfPromptFor(this, url); }
   parseSelfResult(raw) { return selfMod.parseSelfResult(this, raw); }
-  async launchSelfAnalysis(url, isolation = undefined, codexProfileId = undefined) { return selfMod.launchSelfAnalysis(this, url, { isolation, codexProfileId }); }
+  async launchSelfAnalysis(url, isolation = undefined, codexProfileId = undefined, agente = false) { return selfMod.launchSelfAnalysis(this, url, { isolation, codexProfileId, agente }); }
   cancelSelfAnalysis(key) { return selfMod.cancelSelfAnalysis(this, key); }
   async runSelfAnalysis(pr) { return selfMod.runSelfAnalysis(this, pr); }
 

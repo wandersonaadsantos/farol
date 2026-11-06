@@ -38,7 +38,7 @@ function engineFalso({ myPRs = [prMeu()], selfAnalyses = {}, owners = ['ACME'], 
     limiteDoPlanoAte: () => gasto.limite || 0,
     budgetBlockedFor: () => gasto.orcamento || null,
     quotaBlockedFor: () => gasto.cota || null,
-    launchSelfAnalysis: async (url, isolation) => { lancadas.push({ url, isolation }); return { ok: true, isolation }; },
+    launchSelfAnalysis: async (url, isolation, perfil, agente) => { lancadas.push({ url, isolation, agente }); return { ok: true, isolation }; },
   };
   const acessos = new Set();
   const engine = new Proxy(alvo, { get(t, nome) { acessos.add(nome); return t[nome]; } });
@@ -52,7 +52,7 @@ test('pedido válido lança a autoanálise no modo restrito e só toca membros d
   const { engine, lancadas, acessos } = engineFalso();
   const r = await pedir(engine, URL_PR);
   assert.equal(r.ok, true);
-  assert.deepEqual(lancadas, [{ url: URL_PR, isolation: 'restricted-read' }]);
+  assert.deepEqual(lancadas, [{ url: URL_PR, isolation: 'restricted-read', agente: true }]);
   ler(engine, URL_PR);
   listar(engine);
   const fora = [...acessos].filter(n => typeof n === 'string' && !LEITURAS_PERMITIDAS.has(n));
