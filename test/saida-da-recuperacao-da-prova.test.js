@@ -132,6 +132,17 @@ test('B6: revisão manual sobre a pendência pausada substitui o card, em vez de
   assert.deepEqual(envios, []);
 });
 
+// A pendência em recuperação gravada até a 2.78.39 não tem `provaEsgotada` (a marca só passou a
+// valer em toda rodada com o #351) e precisa sair pela condição própria do `esperaProva`.
+test('B6: pendência em recuperação gravada sem provaEsgotada (até a 2.78.39) também é substituída', async () => {
+  const e = motor(['wait', 'wait'], { automatica: false });
+  const antes = await revisado(e, INCOMPLETA);
+  antes.provaEsgotada = false;
+  await revisado(e, INCOMPLETA, CLIQUE);
+  assert.equal(pendentes(e).length, 1, 'um card por PR');
+  assert.notEqual(pendente(e).id, antes.id);
+});
+
 // B1 e B3: a tentativa é contada quando a sessão conclui, e a revisão mandada pelo dono conta.
 // Desde a decisão do dono de 06/11/2026 (#351) toda rodada decide a lacuna que não é dura; a
 // pausada que sobra é a da lacuna dura recuperável, e a revisão sua é a saída dela.

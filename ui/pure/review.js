@@ -220,7 +220,7 @@ function tentativaDaProva(d) {
 }
 // O que destrava a pausada que pede você. Pedir mudanças, comentar e pular já são possíveis;
 // aprovar continua exigindo a prova.
-const DESTRAVA_DA_PAUSA = 'Para destravar: resolva o impedimento (ligue a revisão automática da conta, se for ela), revise de novo (a segunda revisão sua neste commit fecha a busca e traz a decisão para a mesa) ou decida aqui: pedir mudanças, comentar ou pular; aprovar exige a prova.';
+const DESTRAVA_DA_PAUSA = 'Para destravar: resolva o impedimento (ligue a revisão automática da conta, se for ela), revise de novo (a revisão sua que concluir a análise decide; a que ainda não concluir conta no teto do commit) ou decida aqui: pedir mudanças, comentar ou pular; aprovar exige a prova.';
 function esperaProvaCardMeta(d, execucao = {}) {
   const marca = d.esperaProva || {};
   const horario = marca.proximaEm > Date.now() ? new Date(marca.proximaEm).toLocaleString('pt-BR') : '';
