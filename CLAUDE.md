@@ -289,7 +289,8 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
    como desativar no Farol ... e deve vir por default como desabilitado"; foi forçada de 17/10
    a 06/11/2026): desligada, o estado do CI não segura, não adia e não barra a decisão em via
    nenhuma (revisão automática, clique, publicação, espera armada, retirada, autoanálise não
-   usa CI) e fica só como nota no app; o merge segue barrado pelo GitHub pelo ruleset.
+   usa CI) e fica só como nota no app. Desligar só é seguro onde o check é obrigatório no
+   ruleset: sem isso, o APPROVE sai com o CI vermelho e nada barra o merge (a tela avisa).
    **A decisão sem mesa (18/10/2026, v2.73.2), regra do dono:** "Se foi configurado pra
    aprovar sozinho ele aprova sozinho, se foi configurado pra reprovar sozinho ele reprova
    sozinho, sem depender da minha ação." A política da conta (`onClean`, `onCaveats`,

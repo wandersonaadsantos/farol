@@ -13,6 +13,12 @@ import { esperaCiCardMeta, staleCardMeta, tituloDoAprovarDesligado, fraseDoCi, a
 import { PREFERENCE_LABELS } from '../ui/pure/preferences.js';
 
 const ler = (rel) => fs.readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
+// a seção v2.78.42 do CHANGELOG, a deste PR
+function secaoDoChangelog() {
+  const texto = ler('CHANGELOG.md');
+  const inicio = texto.indexOf('## v2.78.42');
+  return inicio < 0 ? '' : texto.slice(inicio, texto.indexOf('## v2.78.41', inicio));
+}
 
 test('prompt: desligada, a sessão é avisada de que o CI não decide; ligada, nada muda', () => {
   for (const config of [{}, { aguardarCiParaAprovar: false }, { aguardarCiParaAprovar: 'true' }]) {
@@ -37,11 +43,47 @@ test('card da espera do CI: ligada promete a espera e desliga o Aprovar; desliga
   assert.equal(desligada.approveDisabled, false);
   assert.doesNotMatch(desligada.statusHtml + desligada.verdictHtml, /Aprovo sozinho quando|ESPERANDO O CI|exige os checks/);
   assert.match(desligada.statusHtml, /a espera do CI está desligada/i);
+  assert.match(desligada.statusHtml, /a decisão sai pela política da conta ou vem para você/,
+    'o pedido de mudanças que esperava só pelo CI vai para a mesa (liberarSemCi): o card não promete que tudo sai pela política');
   assert.equal(esperaCiCardMeta(d).approveDisabled, true, 'sem a informação, o lado seguro');
   assert.equal(staleCardMeta(d, null, {}, false).approveDisabled, false, 'o card do Radar e a paleta leem o mesmo');
   const comLacuna = esperaCiCardMeta({ ...d, technical: { state: 'pending', message: '' } }, false);
   assert.equal(comLacuna.approveDisabled, true, 'a prova técnica continua exigida');
   assert.doesNotMatch(comLacuna.statusHtml, /checks obrigatórios verdes/);
+});
+
+test('espera armada e desligada: nenhum texto promete que a decisão sempre sai pela política da conta', () => {
+  // decisao-sem-mesa.test.js, "desligada depois de armada": a aprovação sai pela política, mas
+  // a espera de um pedido de mudanças só pelo CI vai para você. Quem descreve a liberação diz os dois.
+  const fontes = {
+    'ui/pure/review.js': ler('ui/pure/review.js').match(/const ESPERA_DESLIGADA = '([^']+)'/)[1],
+    'CHANGELOG.md': secaoDoChangelog(),
+  };
+  assert.ok(fontes['CHANGELOG.md'], 'a seção v2.78.42 deste PR');
+  assert.match(fontes['ui/pure/review.js'], /política da conta ou vem para você/);
+  assert.match(fontes['CHANGELOG.md'], /o pedido de mudanças sustentado só pelo CI vem para você/);
+  for (const [arquivo, texto] of Object.entries(fontes)) {
+    assert.doesNotMatch(texto, /sai pela política da conta, sem olhar o CI/, arquivo);
+    assert.doesNotMatch(texto, /Aprovação que já estava esperando o CI sai no ciclo seguinte/, arquivo);
+  }
+});
+
+test('desligar só é seguro com check obrigatório no ruleset: a linha da chave, os docs e as notas avisam', () => {
+  const html = ler('ui/index.html');
+  const inicio = html.indexOf('id="sys-row-aguardarciaprovar"');
+  const linha = html.slice(inicio, html.indexOf('</label>', inicio));
+  assert.match(linha, /Só desligue onde o check é obrigatório no ruleset/);
+  assert.match(linha, /pode aprovar com o CI vermelho e o GitHub não barra o merge/);
+  assert.doesNotMatch(linha, /O merge continua barrado pelo GitHub/, 'sem promessa incondicional');
+  assert.match(ler('docs/CONFIGURATION.md'), /Só é seguro desligar onde o check é obrigatório no ruleset\*\*: sem isso, o Farol pode aprovar com o CI vermelho/);
+  assert.match(ler('docs/REVIEW-GATES.md'), /desligar só é seguro nesse caso: num repositório sem check obrigatório, desligar permite APPROVE com o CI vermelho/);
+  assert.doesNotMatch(ler('docs/REVIEW-GATES.md'), /e é por isso que desligar é seguro/);
+  assert.match(secaoDoChangelog(), /Só desligue onde o check é obrigatório no ruleset/);
+  const notas = ler('ui/telas/release-notes.js');
+  const nota = notas.slice(notas.indexOf("['2.78.42'"), notas.indexOf("['2.78.41'"));
+  assert.match(nota, /só desligue onde o check é obrigatório no ruleset/);
+  assert.doesNotMatch(nota, /o merge segue barrado pelo GitHub'/);
+  assert.match(ler('lib/settings.js'), /Só é seguro onde o check é obrigatório no ruleset/);
 });
 
 test('botão Aprovar desligado: o título só fala de CI com a chave ligada', () => {

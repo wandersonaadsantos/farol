@@ -504,7 +504,7 @@
             <label class="set-row" id="sys-row-aguardarciaprovar">
               <span class="set-txt">
                 <span class="set-title">CI obrigatório antes da aprovação</span>
-                <span class="set-desc">Com a chave ligada, a aprovação espera os checks <b>obrigatórios</b> concluírem com sucesso no commit revisado: o card fica em "Resolução automática" e o Farol aprova sozinho quando a pipe fecha verde no mesmo commit, o botão Aprovar também espera, e com a conta reprovando sozinha o CI vermelho vira pedido de mudanças. Desligado (padrão), o estado do CI não segura nem adia a decisão: a aprovação sai assim que a revisão conclui e a política da conta permite, e o estado da pipe fica registrado aqui no app, nunca no PR. O merge continua barrado pelo GitHub enquanto um check obrigatório do ruleset não passar.</span>
+                <span class="set-desc">Com a chave ligada, a aprovação espera os checks <b>obrigatórios</b> concluírem com sucesso no commit revisado: o card fica em "Resolução automática" e o Farol aprova sozinho quando a pipe fecha verde no mesmo commit, o botão Aprovar também espera, e com a conta reprovando sozinha o CI vermelho vira pedido de mudanças. Desligado (padrão), o estado do CI não segura nem adia a decisão: a aprovação sai assim que a revisão conclui e a política da conta permite, e o estado da pipe fica registrado aqui no app, nunca no PR. <b>Só desligue onde o check é obrigatório no ruleset</b>: sem isso, o Farol pode aprovar com o CI vermelho e o GitHub não barra o merge.</span>
               </span>
               <span class="set-ctl"><input id="setAguardarCiAprovar" type="checkbox"><span class="switch"></span></span>
             </label>
