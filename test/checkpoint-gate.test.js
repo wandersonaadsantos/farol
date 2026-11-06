@@ -66,14 +66,20 @@ function ehRessalvaDoCheckpoint(r, trecho) {
   assert.equal(pts[0].kind, 'gate');
 }
 
-test('checkpointGap: verificationCheckpoint com conflito impede aprovação em qualquer política', () => {
+test('checkpointGap: verificationCheckpoint com conflito é ressalva e a política da conta decide', () => {
   const r = approvableResult({
     verificationCheckpoint: {
       total: 2, confirmedCount: 1,
       conflicts: [{ entries: [{ claim: 'a', verdict: 'confirmado' }, { claim: 'a', verdict: 'refutado' }] }],
     }
   });
-  ehRessalvaDoCheckpoint(r, /verificação de afirmações ficou com problema: divergência de veredito/);
+  // v2.78.39: a divergência entre passadas não pede outra busca da prova (outra tentativa não a
+  // desfaz, busca-da-prova.js), então ela é só ressalva e a política da conta decide na hora
+  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: true, motivo: null });
+  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' });
+  const pts = enginePorClasse('approve', 'wait').attentionPoints(r);
+  assert.equal(pts.length, 1);
+  assert.match(pts[0].text, /verificação de afirmações ficou com problema: divergência de veredito/);
 });
 
 test('checkpointGap: verificationCheckpoint malformado impede aprovação em qualquer política', () => {

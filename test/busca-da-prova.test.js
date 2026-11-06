@@ -222,6 +222,40 @@ test('unidade: só a lacuna que não é dura vira ressalva, e o relatório com v
   assert.equal(busca.relatorioComViolacao({ verdict: 'pass', rules: [{ verdict: 'fail' }], findings: [] }), true);
 });
 
+// Edicoes-CNBB/biblioteca-cnbb-web#182, 05/11/2026: a mesma divergência entre passadas, num
+// arquivo inalterado, voltou em 7 commits e cada um gastou as duas buscas antes de virar
+// ressalva. O checkpoint é só de acréscimo: outra tentativa nunca desfaz a divergência.
+const DIVERGENCIA = 'divergência de veredito em src/a.ts:75 ("o alerta some ao salvar") entre passadas de verificação';
+function comDivergencia(extra) {
+  return { headSha: HEAD, ...criteriaFixture('approve'), analysisStatus: 'complete', checksVerifiedHead: HEAD, diffMedido: [],
+    verificationCheckpoint: { total: 2, confirmedCount: 1, conflicts: [{ entries: [{ file: 'src/a.ts', line: 75, claim: 'o alerta some ao salvar' }] }] },
+    technicalReview: technicalReport(HEAD), protocolo: { prReviewer: 'rodou' }, coverage: { total: 0, reviewed: [], missing: [] },
+    verdict: 'approve', reasons: [], ...extra };
+}
+const armou = (e, r) => esperaProva.armarEspera(e, { ...PR }, 'prova_tecnica_incompleta', { ...r, approvalEvidence: busca.lacunasExigidas(r) }, busca.pontosDaProvaEsgotada(r));
+
+test('divergência entre passadas sozinha vira ressalva já, sem nova busca', () => {
+  const r = comDivergencia();
+  assert.deepEqual(busca.lacunasExigidas(r), []);
+  assert.deepEqual(busca.pontosDaProvaEsgotada(r).map((p) => p.text),
+    [`outra tentativa não desfaz a divergência entre passadas, então segue como ressalva: ${DIVERGENCIA}`]);
+  assert.equal(armou(motor(), r), null);
+});
+
+test('divergência junto de outra lacuna de prova: a busca continua pela outra', () => {
+  const r = comDivergencia({ protocolo: { prReviewer: 'pulado' } });
+  assert.deepEqual(busca.lacunasExigidas(r), [DIVERGENCIA, 'protocolo de revisão não comprovado']);
+  assert.deepEqual(busca.pontosDaProvaEsgotada(r), []);
+  assert.ok(armou(motor(), r));
+});
+
+test('divergência não dispensa lacuna dura nem violação', () => {
+  const duro = comDivergencia({ cardParteDestePr: false });
+  assert.deepEqual(busca.lacunasExigidas(duro), ['a parte do card que cabe a este PR não foi comprovada']);
+  const violada = comDivergencia({ technicalReview: { ...technicalReport(HEAD), findings: [{ x: 1 }] } });
+  assert.deepEqual(busca.lacunasExigidas(violada), ['achados técnicos não resolvidos']);
+});
+
 test('publicação: com a prova esgotada a avaliação técnica inconclusiva não recusa; violação e prova não esgotada recusam', async () => {
   const repo = 'org/declarado';
   fs.mkdirSync(path.dirname(PROFILE_FILE), { recursive: true });

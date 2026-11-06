@@ -16,6 +16,9 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.39', [
+    'Divergência entre passadas de verificação vira ressalva na hora, sem revisões repetidas no mesmo commit',
+  ]],
   ['2.78.38', [
     'O pedido de mudanças sai quando o problema foi resolvido, também na última tentativa de revisão do commit',
   ]],

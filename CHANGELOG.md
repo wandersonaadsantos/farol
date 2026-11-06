@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.39
+
+Divergência entre passadas de verificação deixa de gastar revisões repetidas no mesmo commit.
+
+### Correções
+
+- Quando a única prova que falta é uma divergência entre passadas de verificação, a revisão vai direto para a política da conta, com a divergência como ressalva. Antes, o Farol relançava a revisão duas vezes no mesmo commit, e a divergência continuava, porque outra passada não desfaz as anteriores. Num PR, isso se repetiu em 7 commits seguidos. Com outra prova faltando junto, o Farol continua indo atrás dela.
+
 ## v2.78.38
 
 O pedido de mudanças que eu postei sai quando o problema foi resolvido, também na última tentativa de revisão de um commit.
