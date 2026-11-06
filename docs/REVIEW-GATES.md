@@ -1337,6 +1337,12 @@ O caso medido (biud-frontend#1779): o Farol postou CHANGES_REQUESTED com dois bl
 
 ## Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)
 
+**Pedido por um agente (issue #346).** Um agente pode pedir, ler e listar autoanálises
+dos PRs do próprio usuário pelo comando `tools/farol-autoanalise.js`, com credencial de
+escopo próprio. O pedido sempre usa o modo restrito abaixo e nada escreve no GitHub nem no
+git; revisar PR alheio, aprovar, comentar, mergear e mudar configuração continuam só na
+tela. Contrato e limites em `docs/CONFIGURATION.md` (credenciais de escopo único).
+
 **Execução restrita, opt-in por requisição.** Use `POST /api/self-review/restricted`
 com a URL do PR. A resposta confirma `isolation: "restricted-read"`; versões antigas
 recusam essa rota, sem iniciar uma sessão irrestrita por ignorar um campo novo.

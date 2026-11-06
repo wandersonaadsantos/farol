@@ -12,9 +12,10 @@ process.env.FAROL_HOME = HOME;
 import { test, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 const { consumirCodigo, criarCodigo } = await import('../lib/local-auth/pareamento.js');
-const { emitirSessao, verificarSessao } = await import('../lib/local-auth/sessoes.js');
+const { emitirSessao, verificarSessao, listarSessoes } = await import('../lib/local-auth/sessoes.js');
 const { LOG_FILE, LOCAL_AUTH_DIR } = await import('../lib/paths.js');
 const { SPAWN_LOG_FILE } = await import('../lib/spawnlog.js');
+const { executar } = await import('../tools/farol-parear.js');
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const CLI = path.join(RAIZ, 'tools', 'farol-parear.js');
@@ -65,20 +66,57 @@ test('--revogar-todas derruba sessões e códigos pendentes', () => {
 test('argumento desconhecido não gera código nem mexe em nada', () => {
   const r = rodar(['--codigo', 'ABCDEFGHIJ']);
   assert.equal(r.status, 2);
-  assert.match(r.stderr, /Uso: node tools\/farol-parear\.js \[--revogar-todas\]/);
+  assert.match(r.stderr, /Uso: node tools\/farol-parear\.js \[--revogar-todas \| --autoanalise \[rótulo\]\]/);
   assert.equal(r.stdout, '');
   assert.equal(fs.existsSync(LOCAL_AUTH_DIR), false);
 });
 
-test('farol-parear.js viaja no pacote leve, no Setup.exe e no offline do macOS', () => {
+// Em processo (o executar exportado), para a cobertura e o teste de mutação enxergarem o ramo.
+function executarAqui(args) {
+  const saida = []; const erro = [];
+  const codigo = executar(args, { write: (t) => saida.push(t) }, { write: (t) => erro.push(t) });
+  return { codigo, stdout: saida.join(''), stderr: erro.join('') };
+}
+
+test('--autoanalise emite a credencial do agente: só no stdout, só no escopo dela, revogável', () => {
+  const r = executarAqui(['--autoanalise']);
+  assert.equal(r.codigo, 0, r.stderr);
+  const m = r.stdout.match(/Credencial do agente da autoanálise: ([A-Za-z0-9_-]{43})\nVale só para pedir, ler e listar autoanálises, por até 90 dias\. /);
+  assert.ok(m, r.stdout);
+  assert.equal(verificarSessao(m[1], Date.now(), 'autoanalise'), true);
+  assert.equal(verificarSessao(m[1]), false, 'nunca vale como Bearer geral');
+  assert.deepEqual(listarSessoes().map(s => [s.rotulo, s.classe]), [['agente', 'autoanalise']]);
+  for (const arquivo of arquivosDe(HOME)) assert.equal(fs.readFileSync(arquivo, 'utf8').includes(m[1]), false, `token em claro em ${arquivo}`);
+  assert.equal(executarAqui(['--autoanalise', 'laptop']).codigo, 0);
+  assert.ok(listarSessoes().some(s => s.rotulo === 'laptop' && s.classe === 'autoanalise'));
+  for (const args of [['--autoanalise', 'a', 'b'], ['--outra']]) {
+    const errado = executarAqui(args);
+    assert.equal(errado.codigo, 2, args.join(' '));
+    assert.equal(errado.stdout, '');
+  }
+  assert.equal(executarAqui(['--revogar-todas']).codigo, 0);
+  assert.equal(verificarSessao(m[1], Date.now(), 'autoanalise'), false, 'revogar-todas também derruba a do agente');
+});
+
+for (const nome of ['farol-parear.js', 'farol-autoanalise.js']) {
+  test(`${nome} viaja no pacote leve, no Setup.exe e no offline do macOS`, () => {
+    const pacote = fs.readFileSync(path.join(RAIZ, 'tools', 'make-package.ps1'), 'utf8');
+    const pacoteSh = fs.readFileSync(path.join(RAIZ, 'tools', 'make-package.sh'), 'utf8');
+    const setup = fs.readFileSync(path.join(RAIZ, 'tools', 'make-installer.ps1'), 'utf8');
+    const offline = fs.readFileSync(path.join(RAIZ, 'tools', 'make-offline-mac.sh'), 'utf8');
+    const ps = new RegExp(`foreach \\(\\$t in @\\([^)]*'${nome.replace('.', '\\.')}'`);
+    const sh = new RegExp(`for t in [^;\\n]*\\b${nome.replace('.', '\\.')}\\b`);
+    assert.match(pacote, ps, 'whitelist do pacote leve');
+    assert.match(pacoteSh, sh, 'whitelist do pacote leve (sh)');
+    assert.match(setup, ps, 'whitelist do Setup.exe');
+    assert.match(offline, sh, 'whitelist do offline do macOS');
+  });
+}
+
+test('a guarda de árvore suja do pacote lê a mesma lista que o laço de tools/ copia', () => {
   const pacote = fs.readFileSync(path.join(RAIZ, 'tools', 'make-package.ps1'), 'utf8');
-  const setup = fs.readFileSync(path.join(RAIZ, 'tools', 'make-installer.ps1'), 'utf8');
-  const offline = fs.readFileSync(path.join(RAIZ, 'tools', 'make-offline-mac.sh'), 'utf8');
-  assert.match(pacote, /foreach \(\$t in @\([^)]*'farol-parear\.js'/, 'whitelist do pacote leve');
   // a guarda de árvore suja passou a ler a MESMA lista que o empacotador copia (main,
   // 1e260c6): o arquivo está nela porque o laço de tools/ o acrescenta
   assert.match(pacote, /\$doPacote \+= "tools\/\$t"/, 'o laço de tools/ alimenta a lista da guarda');
   assert.match(pacote, /status --porcelain -- @doPacote/, 'o pacote recusa árvore suja também neste arquivo');
-  assert.match(setup, /foreach \(\$t in @\([^)]*'farol-parear\.js'/, 'whitelist do Setup.exe');
-  assert.match(offline, /for t in [^;\n]*\bfarol-parear\.js\b/, 'whitelist do offline do macOS');
 });
