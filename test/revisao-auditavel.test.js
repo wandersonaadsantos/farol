@@ -96,7 +96,7 @@ test('2: provasDaDecisao resume decision, cobertura, alcance, checks, protocolo 
   assert.deepEqual([p.cobertura.total, p.cobertura.lidos, p.cobertura.faltando], [3, 1, 2]);
   assert.ok(p.cobertura.lacunas >= 2, 'as lacunas vêm do mesmo coverageGap do gate');
   assert.ok(p.cobertura.amostra.length <= 10);
-  assert.deepEqual(p.alcance, { declarados: 1 });
+  assert.deepEqual(p.alcance, { declarados: 1, herdados: 0 });
   assert.deepEqual(p.checksNaoVerdes, ['typecheck:vermelho']);
   assert.deepEqual(p.dependenciasAbertas, ['acme/infra#9 aberto']);
   assert.deepEqual(p.card, { inteiro: true, parteDestePr: null }, 'parte deste PR não declarada é null');
