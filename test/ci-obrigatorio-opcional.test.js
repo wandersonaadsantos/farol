@@ -20,6 +20,9 @@ test('prompt: desligada, a sessão é avisada de que o CI não decide; ligada, n
     assert.match(bloco, /CI obrigatório fora da decisão/);
     assert.match(bloco, /Não conclua `request_changes` nem declare bloqueio com causa `ci`/);
     assert.match(bloco, /defeito do código \(causa `defeito_codigo`\)/, 'o diff que quebra o check, com prova, continua defeito');
+    assert.match(bloco, /não rebaixe `decision` para `needs_decision` nem escreva item em\s+`reasons` só pelo estado do CI/,
+      'o CI não vira ressalva pela sessão (com a conta esperando você nas ressalvas, isso mandaria o PR limpo para a mesa)');
+    assert.match(bloco, /vale por cima das regras de CI deste prompt/);
   }
   assert.equal(ciForaDaDecisaoBlock({ aguardarCiParaAprovar: true }), '');
   assert.match(ler('lib/engine/review-prompt.js'), /thirdPartyReviewBlock\(\) \+ ciForaDaDecisaoBlock\(engine\.config\)/, 'o bloco entra no prompt da revisão');
@@ -90,4 +93,16 @@ test('lacunas da rodada: o CI só entra na prova exigida com a chave ligada; o a
     const desligada = lacunasDaRodada({ config }, null, base());
     for (const g of ci) assert.equal(desligada.includes(g), false, `desligada não exige ${g}`);
   }
+});
+
+test('reprovacaoSoPeloCi: só o CI vermelho sustentando o pedido, inclusive com achados ilegíveis', async () => {
+  const { reprovacaoSoPeloCi } = await import('../lib/engine/review-consistency.js');
+  const head = 'b'.repeat(40);
+  const base = { verdict: 'request_changes', headSha: head, checksVerifiedHead: head, checksObrigatorios: [{ nome: 'audit', estado: 'vermelho' }] };
+  assert.equal(reprovacaoSoPeloCi({ ...base, findings: [] }), true);
+  assert.equal(reprovacaoSoPeloCi({ ...base, findings: 'ilegível' }), true, 'contagem não confiável: segura o pedido automático');
+  assert.equal(reprovacaoSoPeloCi({ ...base, findings: [{ severity: 'blocking', title: 'x', summary: 'y', causa: 'defeito_codigo' }] }), false, 'com bloqueio, não é só o CI');
+  assert.equal(reprovacaoSoPeloCi({ ...base, findings: [], checksObrigatorios: [] }), false, 'sem CI vermelho, não');
+  assert.equal(reprovacaoSoPeloCi({ ...base, findings: [], checksVerifiedHead: 'c'.repeat(40) }), false, 'CI lido em outro commit não sustenta');
+  assert.equal(reprovacaoSoPeloCi({ ...base, verdict: 'approve' }), false);
 });
