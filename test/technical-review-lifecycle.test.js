@@ -9,7 +9,7 @@ const { STATE_DIR } = await import('../lib/paths.js');
 const { cleanup, criarMaterial } = await import('../lib/technical-review/cleanup.js');
 const { finishTechnicalReview } = await import('../lib/technical-review/runtime.js');
 const { snapshotFor } = await import('../lib/technical-review/material.js');
-const { reviewSnapshot } = await import('../lib/technical-review/reviews.js');
+const { reviewSnapshot, objecoesMudaram, impressaoDasObjecoes } = await import('../lib/technical-review/reviews.js');
 const { setup } = await import('../lib/technical-review/setup.js');
 const { TOOL } = await import('../lib/technical-review/verdict.js');
 const io = (await import('../lib/io.js')).default;
@@ -55,7 +55,9 @@ test('reparo retém o material até o finally da revisão, inclusive após falha
   assert.equal(fs.existsSync(`${snapshot}-request.json`), false);
 });
 
-test('intervenção da própria conta e achado de ferramenta invalidam o histórico', async () => {
+// Desde 05/11/2026 só objeção nova de PESSOA invalida (test/objecoes-novas.test.js): a impressão
+// inteira continua mudando com a ferramenta, mas a lista das objeções de pessoa não.
+test('intervenção da própria conta invalida o histórico; achado de ferramenta muda a impressão e não acrescenta objeção', async () => {
   const original = io.run;
   let entries = [];
   io.run = async () => ({ ok: true, stdout: JSON.stringify([entries]) });
@@ -66,11 +68,13 @@ test('intervenção da própria conta e achado de ferramenta invalidam o histór
     entries = [{ id: 1, user: { login: 'eu', type: 'User' }, state: 'CHANGES_REQUESTED', body: 'A alteração viola o contrato.' }];
     const manual = await reviewSnapshot(engine, pr);
     assert.notEqual(manual.fingerprint, initial.fingerprint);
+    assert.equal(objecoesMudaram(impressaoDasObjecoes(initial), manual), true);
     assert.equal(manual.reviews[0].author, 'eu');
     entries.push({ id: 2, user: { login: 'checker[bot]', type: 'Bot' }, body: 'Contraprova reproduzível.' });
     const automated = await reviewSnapshot(engine, pr);
     assert.notEqual(automated.fingerprint, manual.fingerprint);
     assert.equal(automated.comments.length, 2);
+    assert.equal(objecoesMudaram(impressaoDasObjecoes(manual), automated), false);
   } finally { io.run = original; }
 });
 
