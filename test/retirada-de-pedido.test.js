@@ -517,6 +517,13 @@ test('divergência no ponto do pedido resolvido segura a retirada', async () => 
   assert.equal(provaDaRetirada(e, PR(62), { ...base, verificationCheckpoint: outraLinha, provaEsgotada: true }), 'sim');
 });
 
+test('divergência no ponto de achado novo, sem pedido respondido ali, não segura a retirada', async () => {
+  const { e, base } = await resultadoReal(63);
+  const novo = { file: 'src/novo.ts', line: 5, severity: 'suggestion', title: 'Nome pouco claro', summary: 'Renomear ajuda a leitura.', ref: null, status: null, evidence: '' };
+  const verificationCheckpoint = { total: 2, conflicts: [{ entries: [{ file: novo.file, line: novo.line, claim: 'o nome confunde' }] }] };
+  assert.equal(provaDaRetirada(e, PR(63), { ...base, findings: [...base.findings, novo], verificationCheckpoint, provaEsgotada: true }), 'sim');
+});
+
 const SO_CI = [
   ['check vermelho', () => ({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] })],
   ['check pendente', () => ({ checksObrigatorios: [{ nome: 'test', estado: 'rodando' }] })],

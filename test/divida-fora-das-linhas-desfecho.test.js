@@ -306,3 +306,26 @@ for (const politica of ['request_changes', 'wait']) test(`continuação malforma
   assert.equal(await e.varrerEsperas(), 0);
   assert.match(textos(d).join(' '), /Reescreva o envelope/);
 });
+
+test('a fiação oferece a consulta de objeções no prompt e grava no relatório só os recibos declarados', async () => {
+  const e = motor();
+  const recibo = { tipo: 'review', id: 77, impressao: 'a'.repeat(64) };
+  technicalRuntime.finishTechnicalReview = async (ctx, _a, _c, opcoes = {}) => {
+    const contexto = { ...technicalReport(ctx.head, ctx.repo), ...ctx, profile: { fingerprint: 'fixture' },
+      objections: { fingerprint: 'fixture', objecoes: [] } };
+    return relatorioTecnico(contexto, { catalogFingerprint: 'fixture', verdict: 'pass', coverage: {},
+      rules: [{ rule: SUPRESSAO, verdict: 'pass', conhecidos: 0 }], findings: [] }, { privateEvidence: 'x.json', inventario: opcoes.inventario });
+  };
+  const rodar = e.runClaudeStream;
+  let prompt = '';
+  e.runClaudeStream = async (texto) => {
+    prompt = texto;
+    const resposta = await rodar();
+    return { ...resposta, text: JSON.stringify({ ...JSON.parse(resposta.text), objecoesLidas: [recibo, { tipo: 'review', id: 78 }] }) };
+  };
+  await e.runHeadlessReview(PR(1830));
+  assert.match(prompt, /## Reviews consultados durante a análise/);
+  const d = decisao(e, 1830);
+  assert.deepEqual(d.technicalReview.humanObjectionReads, [recibo], 'recibo sem impressão não entra');
+  assert.equal(Object.hasOwn(d, 'objecoesLidas'), false, 'o campo do modelo não sobrevive cru na decisão');
+});
