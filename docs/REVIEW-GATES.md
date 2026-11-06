@@ -126,6 +126,7 @@ invariantes continuam lá.
 - [Dedup é por ROUND, não por "alguma vez" (v2.40.5)](#dedup-é-por-round-não-por-alguma-vez-v2405)
 - [Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho](#re-revisão-automática-pós-push-v2410-o-round-2-fecha-sozinho)
 - [Dívida herdada da production não bloqueia (05/11/2026, v2.78.37)](#dívida-herdada-da-production-não-bloqueia-05112026-v27837)
+- [Achado técnico fora das linhas do PR não bloqueia (06/11/2026)](#achado-técnico-fora-das-linhas-do-pr-não-bloqueia-06112026)
 - [Conferência na boca da sessão (05/11/2026, v2.78.36)](#conferência-na-boca-da-sessão-05112026-v27836)
 - [O pedido de mudanças sai quando o problema foi resolvido (05/11/2026, v2.78.35)](#o-pedido-de-mudanças-sai-quando-o-problema-foi-resolvido-05112026-v27835)
 - [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
@@ -1204,6 +1205,21 @@ O caso medido: biud-frontend#1822, backmerge da production na development, repro
 - **Falta de dado não rebaixa nada:** comparação no teto de 300 arquivos ou leitura que falha deixam o resultado como veio, e repositório sem `production` fica guardado para não pagar a consulta de novo.
 
 **Limite:** quebra causada pela base num arquivo herdado depende de a sessão não declarar o ponto como herdado; o prompt pede para não marcar na dúvida.
+
+## Achado técnico fora das linhas do PR não bloqueia (06/11/2026)
+
+O caso medido: biud-frontend#1818, heads e8b2f02 e d50ee37. A sessão aprovou, e a avaliação técnica virou o desfecho em pedido de mudanças automático por supressor sem motivo (`index.test.ts` 1973 e 2394) e unidade fixa (`RegisterFlow.tsx` 403), todos em linhas que o PR não tocou, só porque o arquivo estava no diff. É o princípio do merge-back (acima) para qualquer PR, aplicado à avaliação técnica.
+
+`lib/technical-review/divida-fora-das-linhas.js` (puro) roda dentro do `finishTechnicalReview`, onde estão todos os achados da ferramenta (o relatório guarda só dez), com o inventário do diff que o `runHeadlessReview` passa pela recuperação do resultado:
+
+- **A linha do achado** vem só do verificador mecânico ("na linha N", com o texto entre aspas, que é código do PR, descartado antes). Achado de avaliação ("avaliada como ...") traz o texto da sessão e nunca é lido em busca de linha.
+- **As linhas do PR** vêm do inventário do mesmo commit (patch do GitHub por arquivo, contra o ancestral comum). Fora das linhas é fora de todo trecho do patch, inclusive das linhas de contexto: o supressor numa linha intacta cujo motivo foi apagado na linha de cima continua bloqueando.
+- **Falta de dado bloqueia:** inventário incompleto ou de outro commit, patch ausente, parcial, reescrito (arquivo de ambiente) ou com trecho oculto, arquivo fora do inventário, mensagem sem linha.
+- **Regra sem linha continua bloqueando:** responsabilidade única, duplicação de regra de negócio e as demais de avaliação. A ferramenta só as aciona em arquivo da entrega, a duplicação pode morar fora do trecho alterado justamente porque o PR a criou, e sem linha não há como provar que a violação é anterior.
+- **Efeito:** o achado ganha `foraDasLinhas` e a regra reprovada cujos achados TODOS ficaram fora ganha `dividaForaDasLinhas`; as duas marcas são do app e os predicados de `verdict.js` as leem como as regras de organização (sugestão). O relatório põe o que bloqueia primeiro no corte de dez e guarda `foraDasLinhas` (contagem e amostra), que vira ressalva no card (`ressalvas.js`) e frase no resumo técnico. Dívida anterior agravada (`error` do relatório) segue bloqueando. `VERSAO_DAS_REGRAS` subiu para 7.
+- **Retirada do pedido:** `provaDaRetirada` lê `defeitosDoPr`, que sai das mesmas lacunas; a rodada nova de um PR reprovado só por dívida fora das linhas deixa de ter defeito e o pedido automático pode sair. A memória de rodadas guarda os achados da sessão, não os da avaliação técnica, e não muda.
+
+**Limite:** o achado que a sessão escreve com base na ferramenta não passa por aqui (é o veredito dela, como antes); e no #1818 a duplicação de regra de negócio em `route.ts`, arquivo criado pelo PR, continua reprovando pela regra acima.
 
 ## Conferência na boca da sessão (05/11/2026, v2.78.36)
 
