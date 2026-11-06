@@ -1040,7 +1040,8 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   o código resultante é byte a byte o que a revisão anterior avaliou.
 - **Round incremental (herança de cobertura por blob)**: no round 2 com head DIFERENTE do da
   prova (mesmo head é retomada de falha, e aí quem cobre é o checkpoint; herdar tudo no mesmo
-  head faria a sessão "se confirmar" sem ler nada), `splitByProof` separa o diff em INALTERADOS
+  head faria a sessão "se confirmar" sem ler nada; a exceção é a rodada complementar da busca da
+  prova, no item seguinte), `splitByProof` separa o diff em INALTERADOS
   (blob + status idênticos E leitura declarada na prova) e ALTERADOS. O prompt ganha o
   `fileProofBlock` (leia os alterados + reverifique os achados; inalterado só se interagir; e
   declare em `coverage.reviewed` SÓ o que leu NESTA sessão), o fan-out passa a medir e fatiar
@@ -1053,6 +1054,28 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   (carimbado em session.js via `activeReviews.get(id).fileBlobs`) e `relevantEntries` (fonte
   única em verification-checkpoint.js, usada pelo resumeBlock E pelo summarizeCheckpoint) aceita
   entrada de head antigo cujo arquivo não mudou.
+- **Alcance herdado e rodada complementar no mesmo head (05/11/2026)**: medido no estado real,
+  a cobertura do inalterado era herdada, mas o `alcance` não, e o arquivo de código que não
+  mudou voltava como "sem uso fora do diff e sem o motivo" (biud-frontend#1826:
+  `renovacaoDaZona.ts` conferido em ccbcf9b, pendência em cc101dd sem mudar uma linha). Agora a
+  prova por arquivo guarda, por arquivo, a declaração de alcance que FECHOU na rodada
+  (`alcanceConferido`: todo chamador fora do diff conferido no head, ou o motivo de não haver
+  uso), presa ao blob e com a origem (head e sessão que declararam); por isso
+  `salvarProvaDaSessao` (em `file-proof.js`) roda depois do `verificarAlcance`. Na rodada
+  seguinte, arquivo inalterado (mesmo critério de `splitByProof`, e com o blob medido agora
+  igual ao da declaração) cuja declaração atual falta ou não fecha recebe a guardada
+  (`herdarAlcance`, marcada em `herdado` e listada em `result.alcanceHerdado`, que vai às
+  provas como `alcance.herdados`); declaração nova com chamador fora do diff é mantida e
+  conferida. O chamador herdado é conferido DE NOVO no head atual, então arquivo citado que
+  mudou fora do diff volta a ser pendência. Inalterado sem declaração conferida antes continua
+  pendência: nada é dispensado sem prova, e o `fileProofBlock` passa a listar os inalterados de
+  código que ainda pedem a declaração (biud-frontend#1818 tinha 47 assim desde a primeira
+  rodada, que declarou alcance para 2 arquivos). **No mesmo head**, a herança vale só para a
+  rodada complementar da busca da prova (pendência com `esperaProva` deste head): a rodada
+  anterior concluiu e gravou a prova, e reler o que já tinha prova por blob fazia a complementar
+  perder cobertura (biud-esg#522, 91a151c: as duas specs lidas às 19:38 viraram pendência às
+  19:46). O clique ou relançamento no mesmo head fora da busca da prova segue cheio, pelo motivo
+  do parágrafo acima. Travado em `test/heranca-de-alcance.test.js`.
 - **Retomada de sessão no round 2** (`config.reReviewResume`, default **false**, opt-in;
   toggle em Sistema > Automação, `#setReReviewResume`): o relançamento automático carrega o
   `sessionId` da última decisão do PR (`lastReviewSessionId`, lido das decisões CRUAS porque o
