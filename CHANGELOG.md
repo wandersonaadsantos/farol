@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.42
+
+A revisão começa minutos mais cedo: as sessões deixaram de fazer fila na preparação.
+
+### Melhorias
+
+- A conferência de espaço em disco que acompanha cada preparação passou a medir só o repositório em preparo, fora da trava global, e a segurar essa trava por milissegundos. Antes, a cada 250 ms ela percorria o cache inteiro e o material da análise técnica segurando a trava (de 1,6 s a 31 s por vez, medido em 06/11/2026), e as outras revisões só avançavam quando a anterior terminava: o preparo tinha mediana de 8,6 min no dia, para 1 a 3 min de modelo.
+- O tamanho do material da análise técnica fica gravado quando ele fica pronto, e a conferência não percorre mais a árvore dele a cada vez.
+- O cache guarda as últimas 8 bases e 8 heads de cada repositório. Alternar PRs entre production, homologation e development deixa de baixar a divergência de novo a cada troca (no biud-frontend a aquisição ia de 100 a 807 s).
+
+### Correções
+
+- Material da análise técnica de uma sessão que morreu antes de decidir (`in-use`, `preparing` ou com Git pendente) ficava para sempre. Agora sai com a mesma prova das leases: dono encerrado, consumidores encerrados e nenhum Git vivo nascido depois. Em 06/11/2026 eram 15.
+- Pastas antigas de material sem registro, com mais de 7 dias e que nenhuma lease cita, passam a ser removidas, com evidência em `technical-review/legacy-removals.json` e no log. Em 06/11/2026 eram 237, com ~850 mil arquivos.
+- A limpeza deixou de gastar o ciclo relendo registros já removidos; material liberado é visto em poucos ciclos, e não em até ~34 min.
+
 ## v2.78.41
 
 O Panorama e os Meus PRs de outros aparelhos aparecem só no aparelho admin.

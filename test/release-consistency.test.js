@@ -22,6 +22,7 @@ const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
 const { RELEASE_NOTES } = await import('../ui/telas/release-notes.js');
 const { NOTAS_ATE_2_59 } = await import('../ui/telas/release-notes-ate-2.59.js');
 const { NOTAS_2_60_A_2_62 } = await import('../ui/telas/release-notes-2.60-a-2.62.js');
+const { NOTAS_2_62_3_A_2_63 } = await import('../ui/telas/release-notes-2.62.3-a-2.63.js');
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -74,6 +75,13 @@ test('CHANGELOG nao tem versao DEPOIS da atual (secao fantasma acima do bump)', 
       `CHANGELOG tem secao v${v} MAIOR que o package.json (${pkg.version}): ou faltou bump, ou a secao e de uma versao que nao existe`);
   }
   assert.equal(all[0], pkg.version, 'a secao mais recente do CHANGELOG e a versao atual');
+});
+
+test('as notas da 2.62.3 a 2.63.1 ficam inteiras, logo antes das da 2.60 a 2.62', () => {
+  assert.equal(NOTAS_2_62_3_A_2_63[0][0], '2.63.1');
+  assert.equal(NOTAS_2_62_3_A_2_63.at(-1)[0], '2.62.3');
+  const cauda = [...NOTAS_2_62_3_A_2_63, ...NOTAS_2_60_A_2_62, ...NOTAS_ATE_2_59];
+  assert.deepEqual(RELEASE_NOTES.slice(-cauda.length), cauda);
 });
 
 test('as notas da 2.60 a 2.62 ficam inteiras, logo antes das ate a 2.59', () => {
