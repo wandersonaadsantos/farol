@@ -121,6 +121,14 @@ test('PR novo com os mesmos blobs de um PR já revisado do repositório herda to
   const indice = repoProof.lerIndiceDoRepositorio('acme/app');
   assert.equal(indice[repoProof.chaveDoArquivo(VEREDITO)].pr, origem.key,
     'o PR que herdou não reescreve a origem da leitura');
+
+  // a rodada seguinte do PR que herdou continua dizendo de onde veio a leitura
+  assert.deepEqual(fileProof.readFileProof(promocao.key).origens[VEREDITO.path], { pr: origem.key, head: 'aaaaaaa1' });
+  rodadas.atual = { ...rodadas.atual, head: 'eeeeeee5' };
+  await e.runHeadlessReview({ ...promocao });
+  const seguinte = prompts.at(-1);
+  assert.match(seguinte, /- src\/veredito\.ts \(lido em acme\/app#51, commit aaaaaaa\)/);
+  assert.doesNotMatch(seguinte, /Sua revisão anterior deste PR leu/, 'não finge que a leitura foi deste PR');
 });
 
 /* ---------- a leitura antes da sessão ---------- */
