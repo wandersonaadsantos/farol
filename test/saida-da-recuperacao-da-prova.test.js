@@ -107,6 +107,8 @@ const pendentes = (e) => e.decisions.pending.filter((x) => x.key === PR.key);
 const pendente = (e) => pendentes(e)[0];
 const textos = (d) => (d.reasons || []).map((r) => r.text || r);
 const SEM_PROTOCOLO = { protocolo: { prReviewer: 'pulado' } };
+// a lacuna dura recuperável: o veículo da recuperação desde que toda rodada decide o resto (#351)
+const INCOMPLETA = { analysisStatus: 'incomplete', decision: 'needs_decision' };
 
 async function revisado(e, extra, pr = PR) {
   sessao(e, extra);
@@ -120,10 +122,10 @@ const AMBIENTE = { status: 'complete', reason: '', headSha: HEAD, baseSha: 'b'.r
 // B6: o teste que reproduz a duplicação, escrito antes da correção.
 test('B6: revisão manual sobre a pendência pausada substitui o card, em vez de duplicar', async () => {
   const e = motor(['wait', 'wait'], { automatica: false });
-  const antes = await revisado(e, SEM_PROTOCOLO);
+  const antes = await revisado(e, INCOMPLETA);
   assert.ok(antes.esperaProva, 'a pendência nasce em recuperação');
   assert.equal(antes.esperaProva.impedimento, AUTOMACAO_DESLIGADA, 'pausada pela conta que só põe na fila');
-  await revisado(e, SEM_PROTOCOLO, CLIQUE);
+  await revisado(e, INCOMPLETA, CLIQUE);
   assert.equal(pendentes(e).length, 1, 'um card por PR');
   assert.notEqual(pendente(e).id, antes.id, 'o card que fica é o da revisão nova');
   assert.ok(e.decisions.resolved.some((x) => x.id === antes.id && x.status === 'superseded'));
@@ -131,18 +133,19 @@ test('B6: revisão manual sobre a pendência pausada substitui o card, em vez de
 });
 
 // B1 e B3: a tentativa é contada quando a sessão conclui, e a revisão mandada pelo dono conta.
-test('B1: duas revisões suas no mesmo commit, com a conta em "só põe na fila", chegam à prova esgotada e à mesa', async () => {
+// Desde a decisão do dono de 06/11/2026 (#351) toda rodada decide a lacuna que não é dura; a
+// pausada que sobra é a da lacuna dura recuperável, e a revisão sua é a saída dela.
+test('B1: com a conta em "só põe na fila", cada revisão sua conta e a que conclui a análise decide na mesa', async () => {
   const e = motor(['wait', 'wait'], { automatica: false });
-  const original = await revisado(e, SEM_PROTOCOLO);
+  const original = await revisado(e, INCOMPLETA);
   assert.equal(original.esperaProva.tentativas, 0, 'a revisão original não é busca');
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]], 'pausada avisa uma vez: precisa de você');
-  const primeira = await revisado(e, SEM_PROTOCOLO, CLIQUE);
+  const primeira = await revisado(e, INCOMPLETA, CLIQUE);
   assert.equal(primeira.esperaProva.tentativas, 1, 'a primeira revisão sua contou');
-  assert.equal(primeira.provaEsgotada, false);
   const segunda = await revisado(e, SEM_PROTOCOLO, CLIQUE);
-  assert.equal(segunda.provaEsgotada, true, 'a segunda nasce com o contador cheio');
-  assert.equal(segunda.esperaProva, undefined, 'nada mais a recuperar: a lacuna virou ressalva');
-  assert.ok(textos(segunda).some((t) => /faltou prova depois das minhas 2 tentativas/.test(t)), textos(segunda).join(' | '));
+  assert.equal(segunda.provaEsgotada, true, 'a rodada decide');
+  assert.equal(segunda.esperaProva, undefined, 'nada mais a recuperar: a lacuna que não é dura virou ressalva');
+  assert.ok(textos(segunda).some((t) => /faltou prova nesta revisão/.test(t)), textos(segunda).join(' | '));
   assert.equal(pendentes(e).length, 1);
   assert.deepEqual(envios, [], 'a política em wait leva à mesa, sem postar');
   const meta = staleCardMeta(e.decisionForUi(segunda), null);
@@ -151,7 +154,7 @@ test('B1: duas revisões suas no mesmo commit, com a conta em "só põe na fila"
 
 test('B3: rodada relançada e barrada antes da sessão, e sessão interrompida, não gastam tentativa', async () => {
   const e = motor(['approve', 'approve']);
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'relança no mesmo commit');
   assert.equal(d.esperaProva.tentativas, 0, 'o agendamento não conta');
   assert.equal(d.blockedKind, 'stale_head');
@@ -161,7 +164,7 @@ test('B3: rodada relançada e barrada antes da sessão, e sessão interrompida, 
   await assert.rejects(e.runHeadlessReview({ ...PR, knownHead: HEAD }));
   assert.equal(d.esperaProva.tentativas, 0, 'sessão interrompida não gasta tentativa');
   // a que conclui, conta
-  const depois = await revisado(e, SEM_PROTOCOLO, { ...PR, knownHead: HEAD });
+  const depois = await revisado(e, INCOMPLETA, { ...PR, knownHead: HEAD });
   assert.equal(depois.esperaProva.tentativas, 1);
   assert.equal(busca.blocoDaTentativa(e, PR).includes('tentativa 2 neste commit'), true);
 });
@@ -184,7 +187,6 @@ test('B5: a lacuna dura recuperável tem teto por commit, e depois dele vai à m
 // Review do PR #349: o clique depois do teto herdava `tentativasDaProva`, somava outra rodada e
 // recusava de novo. O reinício é explícito e não libera tentativas automáticas: o clique roda e
 // decide; com lacuna dura recuperável ele volta à mesa sem armar a recuperação neste commit.
-const INCOMPLETA = { analysisStatus: 'incomplete', decision: 'needs_decision' };
 
 async function noTeto(e) {
   const d = await revisado(e, INCOMPLETA);
@@ -274,7 +276,7 @@ test('B4: a varredura não rearma pendência com valor oculto de ambiente', asyn
 // B7: a pausada é "precisa de você" em toda superfície, e o fato viaja como motivo.
 test('B7: pendência pausada conta no contador, no ícone, no card e na projeção entre aparelhos', async () => {
   const e = motor(['wait', 'wait'], { automatica: false });
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   assert.equal(d.esperaProva.pedeVoce, true);
   const tela = e.decisionForUi(d);
   assert.equal(tela.esperaProva.pedeVoce, true);
@@ -309,7 +311,7 @@ test('B7: pendência pausada conta no contador, no ícone, no card e na projeç�
 
 test('B7: a pausa que chega depois avisa needs-decision uma vez, e a espera do CI no início não é "precisa de você"', async () => {
   const e = motor(['approve', 'approve']);
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   assert.deepEqual(e.eventos, []);
   revisaSozinha(e, false);
   await esperaProva.reverQuandoAProvaMudar(e);
@@ -320,7 +322,7 @@ test('B7: a pausa que chega depois avisa needs-decision uma vez, e a espera do C
   assert.equal(d.esperaProva.pedeVoce, false);
   // a pausa pelo CI obrigatório é automática: não pede ninguém
   const c = motor(['approve', 'approve']);
-  const dc = await revisado(c, SEM_PROTOCOLO);
+  const dc = await revisado(c, INCOMPLETA);
   c.config.aguardarCiParaRevisar = true;
   c.bloqueadoPorChecks = async () => ({ bloqueado: true, faltando: [{ nome: 'ci', estado: 'vermelho' }] });
   await esperaProva.reverQuandoAProvaMudar(c);
@@ -342,7 +344,7 @@ function marcaAntiga(d) {
 
 test('B7: marca pausada gravada antes do pedeVoce entra em Precisa de você na varredura, com aviso único', async () => {
   const e = motor(['wait', 'wait'], { automatica: false });
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   marcaAntiga(d);
   e.eventos = [];
   await esperaProva.reverQuandoAProvaMudar(e);
@@ -355,7 +357,7 @@ test('B7: marca pausada gravada antes do pedeVoce entra em Precisa de você na v
 
 test('B7: registrarPausa com o mesmo texto completa a marca antiga e avisa uma vez', async () => {
   const e = motor(['wait', 'wait'], { automatica: false });
-  const d = await revisado(e, SEM_PROTOCOLO);
+  const d = await revisado(e, INCOMPLETA);
   marcaAntiga(d);
   e.eventos = [];
   registrarPausa(e, d, AUTOMACAO_DESLIGADA);
