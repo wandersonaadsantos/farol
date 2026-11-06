@@ -86,14 +86,12 @@ function motor(checks, politica = ['approve', 'approve']) {
   const e = new Engine();
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
+  // A política é a da conta, gravada por extenso e lida pelos métodos reais do motor
+  // (contas-config.js). A conta não reprova sozinha: com ela reprovando, o CI vermelho vira
+  // REQUEST_CHANGES automático e a espera continua (test/decisao-sem-mesa.test.js, 18/10/2026)
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], onClean: politica[0], onCaveats: politica[1], onReject: 'wait' }];
   // a espera do CI é opt-in desde 02/10/2026: estes casos testam a chave LIGADA
   e.config.aguardarCiParaAprovar = true;
-  e.politica = politica;
-  e.approvePolicyFor = (_conta, limpo) => (limpo ? e.politica[0] : e.politica[1]);
-  // a conta não reprova sozinha: com ela reprovando, o CI vermelho vira REQUEST_CHANGES
-  // automático e a espera continua (test/decisao-sem-mesa.test.js, 18/10/2026)
-  e.rejectPolicyFor = () => 'wait';
   e.decisions = { pending: [], resolved: [] };
   e.saveDecisions = () => { };
   e.pushState = () => { };
@@ -265,7 +263,7 @@ test('conta que manda esperar você: vai para a mesa pela POLÍTICA, não entra 
 
 test('a política mudou para "esperar você" durante a espera: larga a espera e avisa, sem postar', async () => {
   const e = await emEspera(9);
-  e.politica = ['wait', 'wait'];
+  Object.assign(e.config.accounts[0], { onClean: 'wait', onCaveats: 'wait' });
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, []);
