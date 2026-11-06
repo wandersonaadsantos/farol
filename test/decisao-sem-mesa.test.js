@@ -81,10 +81,8 @@ function motor({ checks = [], aprova = 'approve', reprova = 'request_changes' } 
   const e = new Engine();
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
-  e.approvePolicyFor = () => aprova;
-  e.rejectPolicyFor = () => reprova;
-  e.autoReviewFor = () => true;
+  // política da conta gravada por extenso e lida pelos métodos reais do motor (contas-config.js)
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], autoReview: true, onClean: aprova, onCaveats: aprova, onReject: reprova }];
   e.decisions = { pending: [], resolved: [] };
   e.saveDecisions = () => { };
   e.saveReReviewLaunched = () => { };
@@ -496,7 +494,10 @@ test('análise incompleta com violação confirmada: a conta reprova sozinha, se
 // desvia antes do desfecho; aqui é a porta do desfecho (o que o concluirRevisao consulta).
 test('caminho do defeito recusa resultado incompleto incoerente, mesmo com motivo analise_incompleta', async () => {
   const { caminhoNovo } = await import('../lib/engine/desfecho-da-revisao.js');
-  const motorMinimo = { config: {}, accountForPr: () => 'eu', rejectPolicyFor: () => 'request_changes' };
+  // a política de reprovar vem da conta gravada, pela função real do motor (acaoAoReprovar)
+  const { acaoAoReprovar } = await import('../lib/engine/contas-config.js');
+  const motorMinimo = { config: {}, accountForPr: () => 'eu', accountList: () => [{ user: 'eu', onReject: 'request_changes' }] };
+  motorMinimo.rejectPolicyFor = (user) => acaoAoReprovar(motorMinimo, user);
   const base = { verdict: 'approve', analysisStatus: 'incomplete', headSha: HEAD, approvalEvidence: ['violação técnica confirmada'],
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Antes do merge, revise a duplicação da regra.' } } };
   const autoDec = { ok: false, motivo: 'analise_incompleta' };

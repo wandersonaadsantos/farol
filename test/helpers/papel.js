@@ -32,5 +32,22 @@ function comoExecutor(engine, outroDev = 'dev-admin-remoto') {
   };
 }
 
-export default { comoExecutor };
-export { comoExecutor };
+// O contrário: este motor é o admin, com o sinal fixo apontando para ele mesmo. O id é lido
+// na hora (o teste costuma trocar o `deviceId` depois do login). Devolve a restauração.
+function comoAdmin(engine) {
+  const s = sinaisDe(engine.sync);
+  const antes = Object.getOwnPropertyDescriptor(s, 'admin');
+  const generation = Number(s.admin && s.admin.generation) || 0;
+  Object.defineProperty(s, 'admin', {
+    configurable: true, enumerable: true,
+    get: () => ({ dev: String(engine.sync.deviceId || ''), generation }),
+    set: () => { },
+  });
+  return function restaurar() {
+    if (antes) Object.defineProperty(s, 'admin', antes);
+    else delete s.admin;
+  };
+}
+
+export default { comoExecutor, comoAdmin };
+export { comoExecutor, comoAdmin };

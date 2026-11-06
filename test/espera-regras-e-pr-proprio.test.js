@@ -61,14 +61,18 @@ after(() => {
 });
 beforeEach(() => { envios = []; leiturasDoPr = 0; gh = { autor: 'dev' }; });
 
+// A política é a da conta, gravada por extenso como a tela de Contas grava, e lida pelos métodos
+// reais do motor (contas-config.js), sem substituí-los.
+function conta(e, politica) {
+  Object.assign(e.config.accounts[0], politica);
+  return e;
+}
+
 function motor() {
   const e = new Engine();
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
-  e.approvePolicyFor = () => 'approve';
-  e.rejectPolicyFor = () => 'request_changes';
-  e.autoReviewFor = () => true;
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], autoReview: true, onClean: 'approve', onCaveats: 'approve', onReject: 'request_changes' }];
   e.decisions = { pending: [], resolved: [] };
   e.salvas = 0;
   e.saveDecisions = () => { e.salvas++; };
@@ -105,7 +109,7 @@ const PROPRIO = { ...PR, author: 'Eu' };
 const pendente = (e) => e.decisions.pending.find((x) => x.key === PR.key);
 const resolvida = (e) => e.decisions.resolved.find((x) => x.key === PR.key);
 // a conta que espera você: a mesa é escolha dela, e o PR próprio vai para lá com o motivo
-const esperaVoce = (e) => { e.approvePolicyFor = () => 'wait'; e.rejectPolicyFor = () => 'wait'; return e; };
+const esperaVoce = (e) => conta(e, { onClean: 'wait', onCaveats: 'wait', onReject: 'wait' });
 const textos = (d) => (d.reasons || []).map((r) => r.text || r);
 const SEM_PROTOCOLO = { protocolo: { prReviewer: 'pulado' } };
 // Desde 06/11/2026 a lacuna que não é dura vira ressalva na própria rodada e não arma a espera:
@@ -133,7 +137,7 @@ test('a marca nasce com a versão das regras do gate vigente', async () => {
 });
 
 for (const [nome, regras] of [['sem carimbo (armada antes da v2.72.6)', undefined], ['com carimbo anterior', VERSAO_DAS_REGRAS - 1]]) {
-  test(`espera ${nome}: preserva o recuo, conta a próxima tentativa e sai carimbada`, async () => {
+  test(`espera ${nome}: preserva o recuo, relança sem gastar tentativa e sai carimbada`, async () => {
     const e = motor();
     await revisado(e, PR, INCOMPLETA);
     const marca = pendente(e).esperaProva;
@@ -150,7 +154,7 @@ for (const [nome, regras] of [['sem carimbo (armada antes da v2.72.6)', undefine
     assert.equal(d.blockedKind, 'stale_head', 'o round automático de sempre relança');
     assert.equal(d.blockedHead, HEAD, 'no MESMO head');
     assert.equal(d.esperaProva.regras, VERSAO_DAS_REGRAS, 'carimbada: não relança de novo pela regra');
-    assert.equal(d.esperaProva.tentativas, 2, 'a revisão agendada conta, sem tentativa gratuita pela migração');
+    assert.equal(d.esperaProva.tentativas, 1, 'agendar não gasta tentativa: conta a rodada que conclui (armar)');
     assert.equal(e.reReviewLaunched[PR.key].head, '', 'a âncora do head foi liberada');
     assert.match(textos(d)[0], /regras do gate mudaram/);
     assert.deepEqual(envios, []);
@@ -165,7 +169,7 @@ test('espera do celular (biud-messaging-waba#52): sem carimbo e com as tentativa
   delete marca.regras;
   Object.assign(marca, { tentativas: esperaProva.MAX_TENTATIVAS, lacunas: ['dependência necessária ainda aberta'] });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'relança pela regra');
-  assert.equal(pendente(e).esperaProva.tentativas, esperaProva.MAX_TENTATIVAS + 1);
+  assert.equal(pendente(e).esperaProva.tentativas, esperaProva.MAX_TENTATIVAS);
   // a rodada relançada decide: a lacuna que não é dura vira ressalva e a política aprova
   await revisado(e, PR, SEM_PROTOCOLO);
   assert.equal(envios.length, 1, 'aprovou com ressalvas');
@@ -174,11 +178,13 @@ test('espera do celular (biud-messaging-waba#52): sem carimbo e com as tentativa
   for (let ciclo = 0; ciclo < 2; ciclo++) assert.equal(await esperaProva.varrerEsperas(e), 0);
 });
 
-test('carimbo atual: a busca gasta tentativa normalmente', async () => {
+test('carimbo atual: a busca relança pela falta de prova, e a tentativa conta quando a rodada conclui', async () => {
   const e = motor();
   await revisado(e, PR, INCOMPLETA);
   assert.equal(pendente(e).esperaProva.regras, VERSAO_DAS_REGRAS);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(pendente(e).esperaProva.tentativas, 0);
+  await revisado(e, PR, INCOMPLETA);
   assert.equal(pendente(e).esperaProva.tentativas, 1);
   assert.doesNotMatch(textos(pendente(e))[0], /regras do gate/);
 });
