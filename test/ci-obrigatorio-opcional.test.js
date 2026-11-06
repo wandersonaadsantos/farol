@@ -112,6 +112,39 @@ test('sessão no terminal sem pedir permissões: ligada por padrão, mas como ro
   }
 });
 
+test('o padrão ausente do card é o lado seguro, e todo chamador das telas passa a chave', () => {
+  // ui/pure/review.js trata o argumento ausente como ligado (trava o Aprovar); o engine trata a
+  // config ausente como desligada. Por isso nenhum chamador pode omitir o argumento.
+  const chamadas = [
+    ['ui/telas/radar.js', 'staleCardMeta('],
+    ['ui/telas/radar.js', 'tituloDoAprovarDesligado('],
+    ['ui/pure/paleta-decisoes.js', 'staleCardMeta('],
+    ['ui/pure/review.js', 'return esperaCiCardMeta('],
+  ];
+  for (const [arquivo, chamada] of chamadas) {
+    const linhas = ler(arquivo).split('\n').filter((l) => l.includes(chamada) && !l.includes('export function'));
+    assert.ok(linhas.length > 0, `${arquivo}: ${chamada}`);
+    for (const l of linhas) assert.ok(l.includes('ciObrigatorio)'), `${arquivo}: ${l.trim()}`);
+  }
+});
+
+test('Sistema > Automação: as chaves que nascem ligadas só desligam com false explícito', () => {
+  const sistema = ler('ui/telas/sistema.js');
+  for (const linha of [
+    "$('#setReReviewResume').checked = c.reReviewResume !== false;",
+    "$('#setSkipPerms').checked = c.skipPermissions !== false;",
+    "$('#setAutoUpdate').checked = c.autoUpdate !== false;",
+  ]) assert.ok(sistema.includes(linha), linha);
+});
+
+test('importar preferências antigas não reabre a migração do esquema 2', async () => {
+  const { KEYS } = await import('../lib/preferences/values.js');
+  assert.equal(KEYS.includes('esquemaConfig'), false, 'o marcador não viaja na exportação nem volta na importação');
+  const M = (await import('../lib/engine/contas-migracao.js')).default;
+  const depoisDaImportacao = { esquemaConfig: 2, aguardarCiParaAprovar: true, skipPermissions: false, reReviewResume: false };
+  assert.deepEqual(M.migrarPadroes(depoisDaImportacao), { mudou: false, valores: {}, mudancas: [] }, 'a escolha importada fica');
+});
+
 test('botão Aprovar desligado: o título só fala de CI com a chave ligada', () => {
   assert.equal(tituloDoAprovarDesligado(true), 'A aprovação exige prova técnica atual e CI obrigatório verde');
   assert.equal(tituloDoAprovarDesligado(false), 'A aprovação exige prova técnica atual');

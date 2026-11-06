@@ -208,7 +208,9 @@ test('aprovação reconfirma base, objeções, declaração e CI na fronteira co
     assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review');
     technicalRuntime.targetFor = async () => ({ head, base: proof.base });
     e.bloqueadoPorChecks = async () => ({ verifiedHead: head, faltando: [{ nome: 'test', estado: 'rodando' }] });
-    assert.equal((await approvalRefusal(e, pr, payload)).waitForCi, true);
+    const esperando = await approvalRefusal(e, pr, payload);
+    assert.deepEqual([esperando.waitForCi, esperando.ok, esperando.attempted, esperando.blocked], [true, false, false, 'technical_review'],
+      'ligada, o clique com o CI rodando espera e não publica nada');
     // desligada (padrão): o clique e a postagem automática não leem nem esperam o CI
     e.config = { aguardarCiParaAprovar: false };
     let leituras = 0;
