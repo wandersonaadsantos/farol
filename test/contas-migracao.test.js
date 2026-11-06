@@ -452,12 +452,14 @@ test('migrarPadroes: config do esquema 1 com o padrão antigo gravado recebe os 
   assert.equal(r.mudou, true);
   assert.equal(r.esquemaConfig, M.ESQUEMA_PADROES);
   assert.deepEqual(r.valores, { reReviewResume: true, skipPermissions: true, aguardarCiParaAprovar: false });
-  assert.deepEqual(r.mudancas, [{ conta: null, campo: 'aguardarCiParaAprovar', de: true, para: false }], 'só a chave de política vai ao rastro');
+  assert.deepEqual(r.mudancas, [{ conta: null, campo: 'aguardarCiParaAprovar', de: true, para: false }, { conta: null, campo: 'skipPermissions', de: false, para: true }],
+    'a política e a postura de segurança vão ao rastro; reReviewResume não');
   assert.equal('autoUpdate' in r.valores, false, 'autoUpdate false é escolha de alguém');
   assert.deepEqual(M.migrarPadroes({ ...antiga, ...r.valores, esquemaConfig: r.esquemaConfig }), { mudou: false, valores: {}, mudancas: [] });
   assert.deepEqual(M.migrarPadroes({ esquemaConfig: 2, reReviewResume: false }), { mudou: false, valores: {}, mudancas: [] }, 'escolha depois do marcador fica');
   const nova = M.migrarPadroes({});
   assert.deepEqual(nova.valores, { reReviewResume: true, skipPermissions: true, aguardarCiParaAprovar: false }, 'chave ausente também recebe o padrão');
+  assert.deepEqual(nova.mudancas.map((m) => [m.campo, m.de, m.para]), [['aguardarCiParaAprovar', null, false], ['skipPermissions', null, true]]);
 });
 
 test('no engine: o boot liga os dois padrões e desliga o CI uma vez; a escolha feita depois sobrevive ao reinício', () => {
@@ -470,6 +472,8 @@ test('no engine: o boot liga os dois padrões e desliga o CI uma vez; a escolha 
   assert.deepEqual([gravado.reReviewResume, gravado.skipPermissions, gravado.aguardarCiParaAprovar, gravado.autoUpdate, gravado.esquemaConfig],
     [true, true, false, false, M.ESQUEMA_PADROES]);
   assert.deepEqual(lerJson(POLITICA_HISTORICO_FILE).filter((h) => h.campo === 'aguardarCiParaAprovar').map((h) => [h.de, h.para, h.origem]), [[true, false, 'migração']]);
+  assert.deepEqual(lerJson(POLITICA_HISTORICO_FILE).filter((h) => h.campo === 'skipPermissions').map((h) => [h.de, h.para, h.origem]), [[false, true, 'migração']],
+    'a sessão de terminal sem pedir permissões fica registrada como mudança da migração');
   // a pessoa escolhe o contrário: os boots seguintes respeitam
   e.updateSettings({ reReviewResume: false, skipPermissions: false, aguardarCiParaAprovar: true }, 'janela do Farol');
   const e2 = new Engine();
