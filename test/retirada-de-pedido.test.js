@@ -78,8 +78,10 @@ const eventos = () => envios.map((x) => x.event);
 const ARQUIVO = 'src/a.ts';
 const BLOCKER = { ...criteriaFixture('request_changes').findings[0], title: 'Desvio silencioso', summary: 'O motivo se perde.', file: ARQUIVO, line: 1 };
 
-function motor({ aprova = 'approve', reprova = 'request_changes', checks = () => [] } = {}) {
+// `ciObrigatorio`: a chave "CI obrigatório antes da aprovação" (06/11/2026), ligada nos casos de antes.
+function motor({ aprova = 'approve', reprova = 'request_changes', checks = () => [], ciObrigatorio = true } = {}) {
   const e = new Engine();
+  e.config.aguardarCiParaAprovar = ciObrigatorio;
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
@@ -542,4 +544,28 @@ test('origem desconhecida não retira', async () => {
 
 test('o texto da retirada passa pela trava de linguagem', () => {
   assert.deepEqual(publicTextLanguageIssues(textoDaRetirada(HEAD), 'body', 'eu'), []);
+});
+
+/* ---------- "CI obrigatório antes da aprovação" desligado (padrão desde 06/11/2026) ---------- */
+
+test('desligada: com CI rodando, retira e aprova na mesma rodada, sem esperar o CI', async () => {
+  await duasRodadas(40, { checks: () => [{ nome: 'test', estado: 'rodando' }], ciObrigatorio: false });
+  assert.deepEqual(eventos(), ['DISMISS', 'APPROVE']);
+});
+
+test('desligada: a marca da rodada armada antes não espera mais o CI; a do pedido pelo CI vermelho continua esperando o check', async () => {
+  const e = await duasRodadas(41, { aprova: 'wait', checks: () => [{ nome: 'test', estado: 'rodando' }] });
+  assert.deepEqual(eventos(), [], 'ligada: espera o CI');
+  e.config.aguardarCiParaAprovar = false;
+  gh.rollup = [check('test', '', 'IN_PROGRESS')];
+  await e.varrerEsperas();
+  assert.deepEqual(eventos(), ['DISMISS'], 'desligada: a marca da rodada sai sem o CI');
+  envios.length = 0;
+  const m = motor({ ciObrigatorio: false });
+  m.decisions.resolved = [{ key: KEY(42), id: 'd42', headSha: HEAD, status: 'auto_rejected', pr: { ...PR(42) }, retiradaPendente: { tipo: 'ci', head: HEAD, tentativas: 0 } }];
+  gh.head = HEAD;
+  gh.meus = [pedido({ commit: HEAD })];
+  gh.rollup = [check('test', 'FAILURE')];
+  await m.varrerEsperas();
+  assert.deepEqual(eventos(), [], 'o pedido feito pelo CI vermelho só sai com o check verde');
 });

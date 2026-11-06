@@ -10,7 +10,7 @@ import { criterioTecnicoHtml } from '../pure/review.js';
 import {
   esc, fmtStamp, fmtWhenDay, personMention, papelPicker, reasonGroupsHtml, chatBadge,
   resolvedRow, listViewState, queueEmptyOkHtml, aprovadosHoje, orgsMonitoradas,
-  automacaoPausadaPor, pedidosAntesDoInicio, queueCardHtml, panoramaRowHtml, staleCardMeta, separarPendentes,
+  automacaoPausadaPor, pedidosAntesDoInicio, queueCardHtml, panoramaRowHtml, staleCardMeta, tituloDoAprovarDesligado, separarPendentes,
   contasNoLimiteDaFila, queueLimitHtml, queueWaitingCardHtml,
 } from '../pure.js';
 import { estado, escopo, peopleOf } from './estado.js';
@@ -137,6 +137,8 @@ function renderDecisions() {
   // enxergar o MESMO mapa de pessoas, senão um SSE no meio do map faria dois
   // cards da mesma tela discordarem sobre o papel de alguém
   const people = peopleOf();
+  // "CI obrigatório antes da aprovação" (06/11/2026): sem ela o card não promete espera do CI
+  const ciObrigatorio = estado().config?.aguardarCiParaAprovar === true;
   $('#decisionsWrap').hidden = pending.length === 0;
   $('#decisionsCount').textContent = pending.length;
   $('#esperaCiWrap').hidden = esperandoCi.length === 0;
@@ -145,7 +147,7 @@ function renderDecisions() {
     const m = acctMark(d);
     const author = (d.pr && d.pr.author) || d.author || '';
     // card de commit novo (v2.59.3): barra, veredito, motivos, aviso e botões saem daqui
-    const meta = staleCardMeta(d, (estado().reRounds || {})[d.key], execucaoDaDecisao(d));
+    const meta = staleCardMeta(d, (estado().reRounds || {})[d.key], execucaoDaDecisao(d), ciObrigatorio);
     return `
     <div class="card decision ${meta.cardClass}" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
       <div class="decision-head">
@@ -166,7 +168,7 @@ function renderDecisions() {
         ${(meta.reviewBtn === 'primary' || meta.reviewBtn === 'secondary') && d.pr?.url
           ? `<button class="btn${meta.reviewBtn === 'primary' ? ' primary' : ''} sm act-review" data-url="${esc(d.pr.url)}" title="Revisa de novo agora, no commit atual do PR">Revisar agora</button>`
           : ''}
-        ${meta.stale || meta.semDecisivos ? '' : `<button class="btn primary sm dec-act" data-action="approve"${meta.approveDisabled ? ' disabled title="A aprovação exige prova técnica atual e CI obrigatório verde"' : ''}>Aprovar</button>
+        ${meta.stale || meta.semDecisivos ? '' : `<button class="btn primary sm dec-act" data-action="approve"${meta.approveDisabled ? ` disabled title="${esc(tituloDoAprovarDesligado(ciObrigatorio))}"` : ''}>Aprovar</button>
         <button class="btn sm dec-act dec-rc" data-action="request_changes">Pedir mudanças</button>`}
         ${meta.stale ? '' : '<button class="btn sm dec-act" data-action="comment">Só comentar</button>'}
         <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key, estado()?.chats)}</button>

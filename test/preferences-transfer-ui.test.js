@@ -91,7 +91,7 @@ test('tela mostra dependência ausente com seleção indisponível, sem credenci
 });
 
 
-test('todos os 45 campos passam pelo seletor e aplicação do módulo da tela', async () => {
+test('todos os 46 campos passam pelo seletor e aplicação do módulo da tela', async () => {
   let exercised = 0;
   for (const [key, candidates] of Object.entries(fieldCases())) {
     engine.config = configForField(key);
@@ -117,7 +117,7 @@ test('todos os 45 campos passam pelo seletor e aplicação do módulo da tela', 
     assert.equal($('#preferencesApply').disabled, true, key);
     exercised++;
   }
-  assert.equal(exercised, 45);
+  assert.equal(exercised, 46);
 });
 
 
