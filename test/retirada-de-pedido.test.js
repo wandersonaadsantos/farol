@@ -476,6 +476,7 @@ const RECUSAS = [
   ['veredito de reprovação', () => ({ verdict: 'request_changes' })],
   ['defeito técnico confirmado', () => ({ approvalEvidence: ['violação técnica confirmada'] })],
   ['prova esgotada que dispensou lacuna', () => ({ provaEsgotada: true, coverage: { total: 1, reviewed: [], missing: [ARQUIVO] } })],
+  ['prova esgotada com relatório técnico reprovado', (b) => ({ provaEsgotada: true, technicalReview: { ...b.technicalReview, verdict: 'fail' } })],
   ['cobertura com pendência', () => ({ coverage: { total: 1, reviewed: [], missing: [ARQUIVO] } })],
 ];
 RECUSAS.forEach(([nome, mudar], i) => {
@@ -495,6 +496,7 @@ const SO_CI = [
   ['check vermelho', () => ({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] })],
   ['check pendente', () => ({ checksObrigatorios: [{ nome: 'test', estado: 'rodando' }] })],
   ['checks de outro head', () => ({ checksVerifiedHead: HEAD_VELHO })],
+  ['prova esgotada sem lacuna, check pendente', () => ({ provaEsgotada: true, checksObrigatorios: [{ nome: 'test', estado: 'rodando' }] })],
 ];
 SO_CI.forEach(([nome, mudar], i) => {
   test(`só falta o CI: ${nome}`, async () => {

@@ -21,6 +21,7 @@ const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
 // tela recebe, montada pelo modulo, e nao um recorte do texto de um arquivo so
 const { RELEASE_NOTES } = await import('../ui/telas/release-notes.js');
 const { NOTAS_ATE_2_59 } = await import('../ui/telas/release-notes-ate-2.59.js');
+const { NOTAS_2_60_A_2_62 } = await import('../ui/telas/release-notes-2.60-a-2.62.js');
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -73,6 +74,13 @@ test('CHANGELOG nao tem versao DEPOIS da atual (secao fantasma acima do bump)', 
       `CHANGELOG tem secao v${v} MAIOR que o package.json (${pkg.version}): ou faltou bump, ou a secao e de uma versao que nao existe`);
   }
   assert.equal(all[0], pkg.version, 'a secao mais recente do CHANGELOG e a versao atual');
+});
+
+test('as notas da 2.60 a 2.62 ficam inteiras, logo antes das ate a 2.59', () => {
+  assert.equal(NOTAS_2_60_A_2_62[0][0], '2.62.2');
+  assert.equal(NOTAS_2_60_A_2_62.at(-1)[0], '2.60.0');
+  const cauda = [...NOTAS_2_60_A_2_62, ...NOTAS_ATE_2_59];
+  assert.deepEqual(RELEASE_NOTES.slice(-cauda.length), cauda);
 });
 
 test('as notas ate a 2.59 continuam na lista da tela, inteiras e no fim', () => {
