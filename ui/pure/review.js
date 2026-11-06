@@ -182,6 +182,9 @@ export function separarPendentes(pending) {
 // Farol aprova sozinho quando o CI fechar verde neste commit. O clique também espera
 // os checks obrigatórios. O motivo com os checks já vem em
 // `reasons`; a caixa só diz o que acontece agora.
+// `ciObrigatorio` é a chave "CI obrigatório antes da aprovação" (06/11/2026). Desligada, a espera
+// armada antes sai no próximo ciclo sem olhar o CI (lib/engine/espera-ci.js), e o card não promete
+// espera nenhuma nem desliga o Aprovar por causa do CI. Ausente vale como ligada, o lado seguro.
 const TECHNICAL_LABEL = {
   violation: { title: 'Bloqueio técnico', cls: 'rc' },
   pending: { title: 'Verificação pendente', cls: 'pending' },
@@ -192,21 +195,27 @@ function technicalLabel(d) {
   if (d?.blockedKind === 'technical_recheck') return TECHNICAL_LABEL.pending;
 }
 
-export function esperaCiCardMeta(d) {
+const ESPERA_DESLIGADA = 'A espera do CI está desligada (CI obrigatório antes da aprovação, em Sistema > Automação): no próximo ciclo, sem esperar o CI, a decisão sai pela política da conta ou vem para você. O merge só fica barrado pelo GitHub onde o check é obrigatório no ruleset.';
+export function esperaCiCardMeta(d, ciObrigatorio = true) {
   const label = technicalLabel(d);
+  const desligada = ciObrigatorio === false;
   const st = {
     tom: 'info', icone: 'hourglass',
     lead: 'Esperando o CI obrigatório.',
     texto: 'Aprovo sozinho quando ele fechar verde neste commit; com CI vermelho não aprovo. Se chegar commit novo, reviso de novo. Você não precisa fazer nada. A aprovação manual também exige os checks obrigatórios verdes.',
   };
   let verdictHtml = '<span class="verdict approve">ESPERANDO O CI</span>';
+  if (desligada) {
+    Object.assign(st, { lead: 'Saindo da espera do CI.', texto: ESPERA_DESLIGADA });
+    verdictHtml = '<span class="verdict approve">SAINDO DA ESPERA</span>';
+  }
   if (label) {
     st.lead = label.title;
-    st.texto = d.technical.message || 'A aprovação exige avaliação técnica suficiente e checks obrigatórios verdes.';
+    st.texto = d.technical.message || textoDaProvaExigida(desligada);
     verdictHtml = `<span class="verdict ${label.cls}">${esc(label.title.toUpperCase())}</span>`;
   }
   return {
-    stale: false, cardClass: 'working', approveDisabled: true, verdictHtml,
+    stale: false, cardClass: 'working', approveDisabled: !desligada || !!label, verdictHtml,
     reasons: Array.isArray(d.reasons) ? d.reasons : [], statusHtml: reRoundBoxHtml(st), reviewBtn: '',
   };
 }
@@ -255,18 +264,18 @@ function esperaProvaCardMeta(d, execucao = {}) {
 // Tudo que muda no card de decisão quando ele é de commit novo, num lugar só e testável.
 // reviewBtn: 'primary' (você precisa agir), 'secondary' (atalho: o Farol já vai agir),
 // 'none' (revisão nova já rodando) ou '' (card comum, sem o botão).
-export function staleCardMeta(d, r, execucao = {}) {
-  const meta = metaDoCard(d, r, execucao);
+export function staleCardMeta(d, r, execucao = {}, ciObrigatorio = true) {
+  const meta = metaDoCard(d, r, execucao, ciObrigatorio);
   if (execucao.ativa) meta.reviewBtn = 'none';
   // PR da própria conta que revisa (v2.72.6): o GitHub recusa APPROVE e REQUEST_CHANGES do autor,
   // então o card não oferece os dois (Só comentar e Pular continuam)
   return d && d.prProprio === true ? { ...meta, semDecisivos: true, approveDisabled: true } : meta;
 }
 
-function metaDoCard(d, r, execucao) {
+function metaDoCard(d, r, execucao, ciObrigatorio) {
   const reasons = Array.isArray(d && d.reasons) ? d.reasons : [];
   const stale = !!(d && d.blockedKind === 'stale_head');
-  if (!stale && d && d.esperaCi) return esperaCiCardMeta(d);
+  if (!stale && d && d.esperaCi) return esperaCiCardMeta(d, ciObrigatorio);
   // A recuperação mantém seu estado próprio também quando aguarda ambiente ou cancelamento.
   if (d && d.esperaProva) return esperaProvaCardMeta(d, execucao);
   const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
@@ -290,6 +299,15 @@ function metaDoCard(d, r, execucao) {
     statusHtml: reRoundBoxHtml(st),
     reviewBtn,
   };
+}
+
+function textoDaProvaExigida(semCi) {
+  return semCi ? 'A aprovação exige avaliação técnica suficiente.' : 'A aprovação exige avaliação técnica suficiente e checks obrigatórios verdes.';
+}
+
+// O título do botão Aprovar desligado: o CI só entra com a chave ligada (06/11/2026).
+export function tituloDoAprovarDesligado(ciObrigatorio = true) {
+  return ciObrigatorio === false ? 'A aprovação exige prova técnica atual' : 'A aprovação exige prova técnica atual e CI obrigatório verde';
 }
 
 export function reviewBoxHtml(d) {

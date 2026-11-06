@@ -18,6 +18,8 @@ import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
   ['2.78.42', [
+    '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho',
+    '"Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas; "Atualizar sozinho" continua ligada',
     'As revisões deixaram de fazer fila na preparação: a conferência de disco mede só o repositório em preparo',
     'Material velho da análise técnica (sessão morta, ou sem registro há 7 dias e sem referência) é limpo sozinho, com prova',
     'Alternar PRs entre bases diferentes do mesmo repositório não baixa de novo a divergência a cada troca',

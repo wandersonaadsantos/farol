@@ -54,7 +54,7 @@ test('a paleta de comandos usa funções de decisão que EXISTEM no app.js', () 
   assert.match(APPJS, /function decide\(/, 'decide() definida');
   assert.match(APPJS, /async function decideComConfirmacao\(/, 'decideComConfirmacao() definida');
   assert.match(fonteDosPuros(), /run: \(\) => decideComConfirmacao\(/, 'a paleta chama a versão com confirmação');
-  assert.match(APPJS, /comandosDasPendencias\(estado\(\)\?\.decisions\?\.pending, \{ scopeVisible, decide, decideComConfirmacao \}\)/);
+  assert.match(APPJS, /comandosDasPendencias\(estado\(\)\?\.decisions\?\.pending, \{ scopeVisible, decide, decideComConfirmacao, ciObrigatorio: estado\(\)\?\.config\?\.aguardarCiParaAprovar === true \}\)/);
 });
 
 test('a paleta não lista o botão da própria paleta', () => {
@@ -82,6 +82,15 @@ test('paleta individual e lote excluem reconferência, espera e autoria; lote re
   assert.deepEqual(chamadas, [['1', 'approve'], ['7', 'approve']]);
   await comandos.find(c => c.label === 'Aprovar acme/repo#1').run();
   assert.deepEqual(confirmadas, [['1', 'approve', 'acme/repo#1']]);
+});
+
+test('paleta com "CI obrigatório antes da aprovação" desligado: a espera do CI não desliga o Aprovar', () => {
+  const normal = id => ({ id, key: `acme/repo#${id}`, verdict: 'approve', technical: { state: 'pass' } });
+  const pendentes = [normal('1'), { ...normal('4'), esperaCi: {} }, { ...normal('3'), esperaProva: {} }];
+  const rotulos = (ciObrigatorio) => comandosDasPendencias(pendentes, { scopeVisible: () => true, decide: async () => {},
+    decideComConfirmacao: () => {}, ciObrigatorio }).filter(c => c.kind === 'decisão' && c.label.startsWith('Aprovar')).map(c => c.label);
+  assert.deepEqual(rotulos(false), ['Aprovar acme/repo#1', 'Aprovar acme/repo#4']);
+  assert.deepEqual(rotulos(true), ['Aprovar acme/repo#1']);
 });
 
 /* ---------- contrato da navegação interna (data-goto) ----------

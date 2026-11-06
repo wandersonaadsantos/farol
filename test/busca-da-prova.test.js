@@ -192,8 +192,9 @@ test('falta de prova que segue exigida não é ressalva que transfere uma decis�
 // Os três casos abaixo são da conta que NÃO reprova sozinha (onReject: wait). Com ela
 // reprovando sozinha, CI vermelho e defeito do PR viram REQUEST_CHANGES automático
 // (test/decisao-sem-mesa.test.js, 18/10/2026).
-test('a ressalva da rodada não converte CI vermelho: a aprovação espera o CI sozinha, sem postar e sem chamar ninguém', async () => {
+test('a ressalva da rodada não converte CI vermelho: com a chave ligada, a aprovação espera o CI sozinha, sem postar e sem chamar ninguém', async () => {
   const e = motor();
+  e.config.aguardarCiParaAprovar = true;
   conta(e, { onReject: 'wait' });
   e.bloqueadoPorChecks = async () => ({ faltando: [{ nome: 'test', estado: 'vermelho' }] });
   const d = await revisado(e, SEM_PROTOCOLO);
@@ -337,6 +338,7 @@ test('publicação: com a prova esgotada a avaliação técnica inconclusiva nã
     technicalRuntime.targetFor = async () => ({ base: inconclusivo.base, head });
     technicalRuntime.reviewSnapshot = async () => ({ fingerprint: inconclusivo.humanReviewFingerprint });
     const motorDe = (report, provaEsgotada) => ({
+      config: { aguardarCiParaAprovar: true },
       technicalApprovals: new Map([[pr.key, { report, evidence: [], provaEsgotada, evidenceVersion: VERSAO_DAS_REGRAS }]]), decisions: { pending: [] },
       bloqueadoPorChecks: async () => ({ verifiedHead: head, faltando: [] }),
     });
@@ -349,7 +351,9 @@ test('publicação: com a prova esgotada a avaliação técnica inconclusiva nã
     assert.equal(semCommit.error, 'aprovação sem commit confirmado', 'o commit continua obrigatório');
     const ciVermelho = motorDe(inconclusivo, true);
     ciVermelho.bloqueadoPorChecks = async () => ({ verifiedHead: head, faltando: [{ nome: 'test', estado: 'vermelho' }] });
-    assert.equal((await approvalRefusal(ciVermelho, pr, payload)).waitForCi, true, 'os checks continuam obrigatórios');
+    assert.equal((await approvalRefusal(ciVermelho, pr, payload)).waitForCi, true, 'com a chave ligada, os checks continuam obrigatórios');
+    ciVermelho.config = { aguardarCiParaAprovar: false };
+    assert.equal(await approvalRefusal(ciVermelho, pr, payload), null, 'desligada (padrão), o CI não segura');
   } finally { fs.rmSync(PROFILE_FILE, { force: true }); }
 });
 

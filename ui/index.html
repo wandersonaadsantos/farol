@@ -501,12 +501,13 @@
               </span>
               <span class="set-ctl"><input id="setAguardarCi" type="checkbox"><span class="switch"></span></span>
             </label>
-            <div class="set-row" id="sys-row-aguardarciaprovar">
+            <label class="set-row" id="sys-row-aguardarciaprovar">
               <span class="set-txt">
                 <span class="set-title">CI obrigatório antes da aprovação</span>
-                <span class="set-desc">A aprovação espera os checks obrigatórios concluírem com sucesso no commit revisado. Falha de consulta mantém a verificação pendente. A preferência de publicação da conta continua valendo depois dessa confirmação.</span>
+                <span class="set-desc">Com a chave ligada, a aprovação espera os checks <b>obrigatórios</b> concluírem com sucesso no commit revisado: o card fica em "Resolução automática" e o Farol aprova sozinho quando a pipe fecha verde no mesmo commit, o botão Aprovar também espera, e com a conta reprovando sozinha o CI vermelho vira pedido de mudanças. Desligado (padrão), o estado do CI não segura nem adia a decisão: a aprovação sai assim que a revisão conclui e a política da conta permite, e o estado da pipe fica registrado aqui no app, nunca no PR. <b>Só desligue onde o check é obrigatório no ruleset</b>: sem isso, o Farol pode aprovar com o CI vermelho e o GitHub não barra o merge.</span>
               </span>
-            </div>
+              <span class="set-ctl"><input id="setAguardarCiAprovar" type="checkbox"><span class="switch"></span></span>
+            </label>
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
                 <span class="set-title">Modo rápido da revisão</span>
@@ -517,14 +518,14 @@
             <label class="set-row" id="sys-row-rereviewresume">
               <span class="set-txt">
                 <span class="set-title">Retomar a sessão na segunda rodada</span>
-                <span class="set-desc">Quando o autor corrige depois de um pedido de mudanças seu, a re-revisão automática continua a mesma conversa da revisão anterior (a sessão já leu o PR, então retomar poupa a releitura). Desligado (padrão), cada rodada parte do zero, sem carregar o contexto do anterior. Se a sessão antiga não existir mais, o app recomeça do zero sozinho. Só vale no Claude Code: conta com perfil Codex sempre recomeça do zero.</span>
+                <span class="set-desc">Quando o autor corrige depois de um pedido de mudanças seu, a re-revisão automática continua a mesma conversa da revisão anterior (a sessão já leu o PR, então retomar poupa a releitura). Ligado (padrão). Desligado, cada rodada parte do zero, sem carregar o contexto do anterior. Se a sessão antiga não existir mais, o app recomeça do zero sozinho. Só vale no Claude Code: conta com perfil Codex sempre recomeça do zero.</span>
               </span>
               <span class="set-ctl"><input id="setReReviewResume" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-autoupdate">
               <span class="set-txt">
                 <span class="set-title">Atualizar sozinho</span>
-                <span class="set-desc">Aplica a atualização baixada das releases assim que nenhuma análise, chat ou sessão de terminal estiver rodando e a fila de revisão estiver vazia. O app fecha e reabre sozinho.</span>
+                <span class="set-desc">Aplica a atualização baixada das releases assim que nenhuma análise, chat ou sessão de terminal estiver rodando e a fila de revisão estiver vazia. O app fecha e reabre sozinho. Ligado (padrão). Instalação com atualização administrada por fora (como a Hostinger) não se atualiza por aqui, com a chave ligada ou não.</span>
               </span>
               <span class="set-ctl"><input id="setAutoUpdate" type="checkbox"><span class="switch"></span></span>
             </label>
@@ -583,7 +584,7 @@
             <label class="set-row" id="sys-row-skipperms">
               <span class="set-txt">
                 <span class="set-title">Sessão no terminal sem pedir permissões</span>
-                <span class="set-desc">A sessão no terminal não pede permissão a cada comando (<code>--dangerously-skip-permissions</code>). O modo em segundo plano já roda assim.</span>
+                <span class="set-desc">A sessão no terminal não pede permissão a cada comando (<code>--dangerously-skip-permissions</code>). O modo em segundo plano já roda assim. Ligado (padrão). Desligado, o Claude Code pede sua confirmação a cada comando na janela do terminal.</span>
               </span>
               <span class="set-ctl"><input id="setSkipPerms" type="checkbox"><span class="switch"></span></span>
             </label>

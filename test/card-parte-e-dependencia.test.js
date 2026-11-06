@@ -90,7 +90,9 @@ test('a política de ressalvas da conta decide: aprova sozinho com "aprovar", es
 
 test('CI vermelho e violação técnica continuam bloqueando o mesmo caso multi-repo', () => {
   const ci = multiRepo({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] });
-  assert.equal(shouldAutoApprove(engineCom('approve'), PEDIDO, ci).motivo, 'ci_vermelho');
+  // o CI só bloqueia com "CI obrigatório antes da aprovação" ligado (06/11/2026); desligado, a política decide
+  assert.equal(shouldAutoApprove({ ...engineCom('approve'), config: { aguardarCiParaAprovar: true } }, PEDIDO, ci).motivo, 'ci_vermelho');
+  assert.deepEqual(shouldAutoApprove(engineCom('approve'), PEDIDO, ci), { ok: true, motivo: null });
   const violacao = multiRepo({ technicalReview: report({ verdict: 'fail', findings: [{ file: 'a.ts', message: 'regra duplicada' }] }) });
   assert.ok(approvalGaps(violacao).includes('violação técnica confirmada'));
   assert.equal(shouldAutoApprove(engineCom('approve'), PEDIDO, violacao).motivo, 'prova_tecnica_incompleta');

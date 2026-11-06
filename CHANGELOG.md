@@ -11,10 +11,12 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.78.42
 
-A revisão começa minutos mais cedo: as sessões deixaram de fazer fila na preparação.
+A revisão começa minutos mais cedo, sem fila na preparação, e "CI obrigatório antes da aprovação" volta a ser uma chave, desligada por padrão.
 
 ### Melhorias
 
+- Em Sistema > Automação, "CI obrigatório antes da aprovação" voltou a ser uma chave, e vem desligada. Desligada, o estado do CI obrigatório não segura, não adia e não barra a decisão: a aprovação sai assim que a revisão conclui e a configuração da conta permite, o botão Aprovar não espera o CI, o CI vermelho não vira pedido de mudanças, e o estado da pipe fica anotado no app, nunca no PR. Só desligue onde o check é obrigatório no ruleset: sem isso, o Farol pode aprovar com o CI vermelho e o GitHub não barra o merge. Ligada, tudo funciona como até agora: a aprovação espera os checks obrigatórios verdes no commit revisado e sai sozinha quando eles fecham. Uma espera do CI que já estava armada se resolve no ciclo seguinte quando a chave é desligada: a aprovação sai pela configuração da conta, e o pedido de mudanças sustentado só pelo CI vem para você.
+- "Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas, e "Atualizar sozinho" continua ligada por padrão. Rodando como root (proot do Termux), a sessão de terminal abre sem a flag de permissões mesmo com a chave ligada, porque o Claude Code a recusa ali. Na primeira abertura desta versão, as duas primeiras são ligadas e a do CI é desligada uma vez só, porque o valor antigo estava gravado sem ninguém ter escolhido. Depois disso, o que você escolher fica.
 - A conferência de espaço em disco que acompanha cada preparação passou a medir só o repositório em preparo, fora da trava global, e a segurar essa trava por milissegundos. Antes, a cada 250 ms ela percorria o cache inteiro e o material da análise técnica segurando a trava (de 1,6 s a 31 s por vez, medido em 06/11/2026), e as outras revisões só avançavam quando a anterior terminava: o preparo tinha mediana de 8,6 min no dia, para 1 a 3 min de modelo.
 - O tamanho do material da análise técnica fica gravado quando ele fica pronto, e a conferência não percorre mais a árvore dele a cada vez.
 - O cache guarda as últimas 8 bases e 8 heads de cada repositório. Alternar PRs entre production, homologation e development deixa de baixar a divergência de novo a cada troca (no biud-frontend a aquisição ia de 100 a 807 s).
