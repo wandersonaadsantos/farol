@@ -3,7 +3,7 @@
 Data: 06/11/2026. Repositório: `wandersonaadsantos/farol`.
 
 Base inicial analisada: `f2fabc2811b9e9b1b33ef920442e76b585156863`, versão `2.78.39`.
-Integrações da base: `c9aa06f28e2199c967471b2b885796ae8dd4447e` (PR #348, autoanálise por agente) e `34c2d887fa3af8ad393311331f895273ab953a4c` (PR #351, prova na primeira rodada, leitura entre PRs e recuperação encerrada por decisão humana). O segundo merge foi incorporado à branch depois da abertura do PR #352, com resolução explícita dos conflitos. Depois, a branch recebeu por merge a `main` `1306111c5d3e7ea1fd1d3a54cc1d3d61a2d1d739` (PRs #353 e #349, saída da recuperação da prova); ver "Integração com a saída da recuperação" abaixo.
+Integrações da base: `c9aa06f28e2199c967471b2b885796ae8dd4447e` (PR #348, autoanálise por agente) e `34c2d887fa3af8ad393311331f895273ab953a4c` (PR #351, prova na primeira rodada, leitura entre PRs e recuperação encerrada por decisão humana). O segundo merge foi incorporado à branch depois da abertura do PR #352, com resolução explícita dos conflitos. Depois, a branch recebeu por merge a `main` `1306111c0d85194566745ad422ae7a2a57651380` (PRs #353 e #349, saída da recuperação da prova); ver "Integração com a saída da recuperação" abaixo.
 Branch de trabalho: `fix/revisao-desfecho-configuracoes`.
 
 ## Resultado e critério da correção
@@ -160,6 +160,7 @@ A checagem final usou Node **24.22.1**. Os testes usam `FAROL_HOME` temporário 
 
 | Verificação | Resultado |
 |---|---|
+| Integração com a `main` `1306111c` e auto-revisão, Windows 11 | `npm run check` com 1.255 arquivos; `npm run lint` sem regressão; suíte completa sem exclusão nenhuma: 7.725 testes, 7.618 aprovados, 107 skips condicionais da suíte (os de Linux e macOS, neste SO), zero falhas e zero cancelamentos; `npm run eng` com 12 de 12 regras acionadas executadas e aprovadas. |
 | `npm run check` | Aprovado: 1.254 arquivos JavaScript conferidos após integrar a `main`. |
 | `npm run lint` | Aprovado: gate de qualidade sem regressão e higiene sem apontamento. |
 | Suíte final, com as quatro exclusões ambientais abaixo | 7.695 testes contabilizados: 7.613 aprovados, 82 skips condicionais da suíte, zero falhas/cancelamentos. Os quatro casos excluídos pelo argumento não entram nessa contagem. |
