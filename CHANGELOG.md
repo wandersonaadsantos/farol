@@ -11,11 +11,19 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.78.39
 
-Divergência entre passadas de verificação deixa de gastar revisões repetidas no mesmo commit.
+A revisão automática fica mais assertiva e gasta menos: deixa de repetir rodadas que não mudam nada, de reprovar por dívida antiga e de descartar aprovação por evento que não é objeção.
+
+### Melhorias
+
+- O uso fora do diff que a revisão já conferiu num arquivo que não mudou passa a valer na rodada seguinte, como a leitura já valia. A rodada complementar do mesmo commit também aproveita o que a anterior leu, em vez de começar do zero.
+- Na re-revisão, o pedido à sessão lista os arquivos que não mudaram e ainda precisam dizer onde são usados fora do diff.
+- Quando a janela do Farol cai, o log passa a dizer o motivo, o código de saída, a memória e há quanto tempo a página estava aberta, para a próxima queda ser diagnosticável.
 
 ### Correções
 
-- Quando a única prova que falta é uma divergência entre passadas de verificação, a revisão vai direto para a política da conta, com a divergência como ressalva. Antes, o Farol relançava a revisão duas vezes no mesmo commit, e a divergência continuava, porque outra passada não desfaz as anteriores. Num PR, isso se repetiu em 7 commits seguidos. Com outra prova faltando junto, o Farol continua indo atrás dela.
+- Divergência entre passadas de verificação vira ressalva na hora, e a política da conta decide. Antes, o Farol relançava a revisão duas vezes no mesmo commit sem chance de resolver, porque outra passada não desfaz as anteriores; num PR isso se repetiu em 7 commits seguidos. Com outra prova faltando junto, o Farol continua indo atrás dela.
+- Problema que a avaliação técnica acha em linha que o PR não alterou deixa de reprovar o PR: vira ressalva de dívida anterior, com arquivo e linha. Problema em linha que o PR mudou continua reprovando, e regra que vale para o arquivo inteiro também.
+- A aprovação já concluída só é descartada quando chega uma objeção nova de uma pessoa. Review de ferramenta (como o Acrity) e aprovação de colega com comentários menores deixam de jogar fora a revisão. Medido: 6 de 7 descartes recentes eram desse tipo.
 
 ## v2.78.38
 
