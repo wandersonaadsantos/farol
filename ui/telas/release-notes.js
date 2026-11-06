@@ -16,6 +16,12 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.40', [
+    'A revisão decide na primeira rodada: o que não impede a decisão vira ressalva na hora e a configuração da conta decide, sem o cartão "Recuperando a análise"',
+    'Arquivo já lido em outro PR do mesmo repositório, com o mesmo conteúdo e o mesmo trecho alterado, não é relido',
+    'Recuperação de análise em commit já decidido por uma pessoa é encerrada sem postar, em vez de ficar pendurada',
+    'Aprovação pendente pede revisão nova se a declaração ou a ferramenta técnica mudaram depois da revisão',
+  ]],
   ['2.78.39', [
     'Divergência entre passadas de verificação, quando é a única prova que falta, vira ressalva sem revisões repetidas no mesmo commit',
     'Problema apontado fora do trecho alterado pelo PR vira ressalva de dívida anterior, não reprovação',

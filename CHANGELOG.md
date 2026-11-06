@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.40
+
+A revisão automática decide na primeira rodada e aproveita o que já foi lido em outro PR do mesmo repositório.
+
+### Melhorias
+
+- A revisão decide na primeira rodada. O que falta e não impede a decisão (leitura incompleta de algum arquivo, uso fora do diff não declarado, protocolo, divergência entre passadas) vira ressalva na hora, e a configuração da conta decide entre aprovar com ressalvas e esperar você. Acabou a segunda sessão no mesmo commit e o cartão "Recuperando a análise" para esses casos. Medido: cinco PRs foram mergeados enquanto esperavam essa segunda rodada, sem o Farol postar.
+- Arquivo que já foi lido num PR do mesmo repositório, com o mesmo caminho, o mesmo conteúdo e o mesmo trecho alterado, não é relido em outro PR: a revisão só lê o que é novo e diz no pedido de onde veio cada leitura. Vale para réplicas e promoções que trazem o mesmo código. Uso fora do diff com chamador é conferido de novo no commit do PR novo, "sem uso fora do diff" é declarado de novo, e a avaliação técnica e o veredito são sempre do PR novo.
+
+### Correções
+
+- A recuperação da análise que esperava concluir num commit já aprovado ou recusado por uma pessoa passa a ser encerrada sem postar, com o motivo no card. Antes, a revisão era segurada pela decisão da pessoa e o cartão ficava pendurado até o merge (7 horas num caso).
+- Continuam impedindo a decisão e seguem na recuperação: análise incompleta, diff não medido, avaliação técnica ausente, violação técnica confirmada, achado não resolvido, a parte do card não entregue, commit não confirmado e CI.
+- A aprovação que espera o CI ou o seu clique pede revisão nova se a declaração técnica do repositório ou a ferramenta técnica mudaram depois da revisão, em vez de sair com a avaliação antiga.
+
 ## v2.78.39
 
 A revisão automática fica mais assertiva e gasta menos: deixa de repetir rodadas que não mudam nada, de reprovar por dívida antiga e de descartar aprovação por evento que não é objeção.
