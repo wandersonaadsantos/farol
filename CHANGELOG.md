@@ -9,6 +9,30 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.42
+
+A revisão separa a dívida antiga do que o PR fez, e o mesmo PR não abre duas revisões no aparelho.
+
+### Novidades
+
+- Diagnóstico local de quedas da janela, desligado por padrão: com `"diagnosticoQuedas": true` no `~/.farol/config.json` e o Farol reiniciado, os minidumps ficam em `~/.farol/diagnostico-quedas`, sem envio para lugar nenhum. Eles podem conter trechos da memória, então ficam só no aparelho.
+
+### Melhorias
+
+- Dívida técnica antiga numa linha que o PR não alterou deixa de reprovar quando a construção inteira (a chamada, o template, o bloco do supressor) fica fora da mudança. Se a construção encosta no trecho alterado, continua bloqueando. Quando a revisão repete essa mesma dívida como bloqueio, ela corrige o parecer na mesma conversa; sem correção, nada é publicado e o motivo fica no card.
+- O pedido de mudanças já resolvido é retirado mesmo quando a verificação teve divergência entre passadas longe dele. A divergência no ponto de um pedido dito resolvido continua segurando a retirada.
+- A herança de dívida da production confere a production, a base e o head por SHA, e recusa rebaixar quando a evidência cita um arquivo que a base mudou. A citação vale pelo caminho inteiro: o próprio arquivo do achado, ou um homônimo em outra pasta, não segura mais o rebaixamento.
+- Resposta do autor do PR deixa de contar como objeção nova e de descartar a aprovação. Um review que chega durante a análise pode ser lido pela revisão e incorporado com o recibo do conteúdo; edição posterior continua descartando.
+- A ausência de uso fora do diff só é herdada com a árvore do repositório idêntica, e import visto no mapa do head contradiz a declaração.
+
+### Correções
+
+- O mesmo PR não abre duas revisões neste aparelho, contando a sessão de terminal, inclusive com dois cliques simultâneos. Se o aviso de fim da janela do terminal se perde, o cartão dela oferece **Liberar PR**: o PR volta a poder ser revisado, e a janela, que não é fechada, perde a permissão de publicar a revisão pelo Farol.
+- A autoanálise volta a ser recusada quando há revisão comum do mesmo PR na fila, como antes.
+- O Refazer de recibo órfão recusa sem apagar nada quando há revisão do mesmo PR em curso no aparelho.
+- A troca de regras não antecipa o recuo da recuperação já agendado.
+- A janela que cai se recupera sem rejeição não tratada, e a saída limpa do processo não é registrada como queda.
+
 ## v2.78.41
 
 O Panorama e os Meus PRs de outros aparelhos aparecem só no aparelho admin.

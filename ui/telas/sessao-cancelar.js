@@ -16,7 +16,7 @@ export function atualizarCancelamento(sessao, box) {
 const PERGUNTA_DO_TERMINAL = {
   title: 'Liberar este PR?', danger: true,
   confirmLabel: 'Liberar PR', cancelLabel: 'Manter',
-  body: '<p>O Farol deixa de contar esta janela de terminal como revisão em curso, e o PR volta a poder ser revisado neste aparelho.</p><p>A janela não é fechada: feche-a você, se ainda estiver aberta.</p>',
+  body: '<p>O Farol deixa de contar esta janela de terminal como revisão em curso, e o PR volta a poder ser revisado neste aparelho.</p><p>A janela não é fechada, mas perde a permissão de publicar a revisão pelo Farol: se ela ainda estiver aberta, feche-a você.</p>',
 };
 
 const PERGUNTA_DA_SESSAO = {

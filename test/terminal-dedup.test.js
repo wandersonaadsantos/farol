@@ -133,3 +133,25 @@ test('autoanálise continua recusada com revisão automática ativa do mesmo PR'
   e.activeReviews.delete('headless');
   assert.notDeepEqual(e.enqueueHeadless({ ...pr(1), kind: 'self' }), { ok: false, code: 'duplicado' });
 });
+
+test('autoanálise continua recusada com revisão comum do mesmo PR na fila, como antes da guarda do terminal', () => {
+  const e = motor();
+  e.headlessQueue.push(pr(1));
+  assert.deepEqual(e.enqueueHeadless({ ...pr(1), key: 'ORG/Repo#1', kind: 'self' }), { ok: false, code: 'duplicado' });
+  assert.notDeepEqual(e.enqueueHeadless({ ...pr(2), kind: 'self' }), { ok: false, code: 'duplicado' }, 'outro PR segue livre');
+  const so = motor();
+  so.activeReviews.set('t9', { id: 't9', mode: 'terminal', keys: [pr(3).key] });
+  assert.notDeepEqual(so.enqueueHeadless({ ...pr(3), kind: 'self' }), { ok: false, code: 'duplicado' }, 'o terminal não segura a autoanálise');
+});
+
+test('Liberar PR revoga a postagem da janela e não solta terminal sem PR', async () => {
+  const e = motor();
+  const revogados = [];
+  e.revokeReviewPostCapabilitiesByOwner = (id) => revogados.push(id);
+  assert.equal((await e.launchReview([pr(1).url], 'terminal', 'clique')).ok, true);
+  assert.equal(e.cancelSession('terminal-0').liberado, true);
+  assert.deepEqual(revogados, ['terminal-0'], 'a janela que ficou aberta não publica mais pelo Farol');
+  e.activeReviews.set('sem-pr', { id: 'sem-pr', mode: 'terminal', keys: [] });
+  assert.notEqual(e.cancelSession('sem-pr').liberado, true);
+  assert.equal(e.activeReviews.has('sem-pr'), true);
+});
