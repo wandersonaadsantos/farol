@@ -492,6 +492,17 @@ test('prova esgotada sem lacuna dispensada retira como qualquer rodada', async (
   assert.equal(provaDaRetirada(e, PR(60), { ...base, provaEsgotada: true }), 'sim');
 });
 
+test('divergência herdada não mantém pedido resolvido, com ou sem prova esgotada', async () => {
+  const { e, base } = await resultadoReal(61);
+  const verificationCheckpoint = { total: 2, conflicts: [{ entries: [{ file: ARQUIVO, line: 1, claim: 'a chamada pode falhar' }] }] };
+  for (const provaEsgotada of [false, true]) {
+    const resultado = { ...base, verificationCheckpoint, provaEsgotada };
+    assert.equal(provaDaRetirada(e, PR(61), resultado), 'sim');
+    assert.equal(provaDaRetirada(e, PR(61), { ...resultado, roundReview: { ...base.roundReview, unresolvedCount: 1 } }), 'nao');
+    assert.equal(provaDaRetirada(e, PR(61), { ...resultado, coverage: { total: 1, reviewed: [], missing: [ARQUIVO] } }), 'nao');
+  }
+});
+
 const SO_CI = [
   ['check vermelho', () => ({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] })],
   ['check pendente', () => ({ checksObrigatorios: [{ nome: 'test', estado: 'rodando' }] })],

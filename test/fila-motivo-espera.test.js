@@ -1,4 +1,4 @@
-import { test, afterEach, mock } from 'node:test';
+import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import { processHeadless } from '../lib/engine/headless-fila.js';
@@ -6,6 +6,10 @@ import { esperaParaTela } from '../lib/engine/conta-na-tela.js';
 import admissao from '../lib/engine/admissao.js';
 import { queueWaitingCardHtml } from '../ui/pure/radar.js';
 
+beforeEach(t => {
+  // A bancada mede memória e vagas de um usuário comum, sem herdar o UID do CI.
+  if (typeof process.getuid === 'function') t.mock.method(process, 'getuid', () => 1000);
+});
 afterEach(() => mock.restoreAll());
 
 const pr = (n, account = 'alice') => ({ key: `acme/app#${n}`, account, title: 'Corrige formulário', author: 'bob' });

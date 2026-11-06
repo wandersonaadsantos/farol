@@ -171,7 +171,9 @@ const Aparelhos = await import('../ui/telas/sistema-aparelhos.js');
 const { api: apiDaTela } = await import('../ui/telas/infra.js');
 const $ = (s) => document.querySelector(s);
 
-beforeEach(async () => {
+beforeEach(async t => {
+  // A prontidão da bancada não depende do UID do processo que roda os testes.
+  if (typeof process.getuid === 'function') t.mock.method(process, 'getuid', () => 1000);
   switchRadarSub('mim');
   fake.setTree(null);
   PEDIDOS.length = 0;

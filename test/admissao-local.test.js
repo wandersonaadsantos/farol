@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 process.env.FAROL_HOME = process.env.FAROL_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-admissao-'));
 
-import { test, afterEach } from 'node:test';
+import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 const admissao = (await import('../lib/engine/admissao.js')).default;
@@ -17,6 +17,12 @@ const { SYNC } = await import('../lib/constants.js');
 const AGORA = 1_800_000_000_000;
 const freememReal = os.freemem;
 const disponivelReal = process.availableMemory;
+
+beforeEach(t => {
+  // O caso define a medição do usuário, assim como define a memória. A guarda real
+  // continua exercitada, inclusive com uid zero no caso dedicado abaixo.
+  if (typeof process.getuid === 'function') t.mock.method(process, 'getuid', () => 1000);
+});
 
 afterEach(() => {
   os.freemem = freememReal;
@@ -127,6 +133,16 @@ test('requisitos duros: presença vencida, provedor não pronto e tipo desconhec
   const semProvedor = motor({ doctorInfo: { claude: null } });
   assert.equal(admissao.reservar(semProvedor, { agora: AGORA }).motivo, 'provedor-nao-pronto');
   assert.equal(admissao.reservar(motor(), { agora: AGORA, tipo: 'minerar' }).motivo, 'tipo-desconhecido');
+});
+
+test('uid zero continua recusado, inclusive com exceção de clique', { skip: typeof process.getuid !== 'function' }, t => {
+  comMemoria(4096);
+  t.mock.method(process, 'getuid', () => 0);
+  const e = motor();
+  for (const opcoes of [{}, { clique: true, excecao: true }]) {
+    assert.deepEqual(admissao.reservar(e, { agora: AGORA, ...opcoes }), { ok: false, motivo: 'root' });
+  }
+  assert.equal(admissao.resumo(e).total, 0);
 });
 
 test('o resumo conta por estado e por tipo, e nunca leva conteúdo', () => {
