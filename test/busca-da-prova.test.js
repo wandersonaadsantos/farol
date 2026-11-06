@@ -232,6 +232,26 @@ test('unidade: só a lacuna que não é dura vira ressalva, e o relatório com v
   assert.equal(busca.relatorioComViolacao({ verdict: 'pass', rules: [{ verdict: 'fail' }], findings: [] }), true);
 });
 
+// Revisão independente de 06/11/2026: sem diff medido a cobertura volta a ser só o que o modelo
+// declarou, e sem relatório técnico (com declaração cadastrada) nada foi avaliado. Os dois seguem
+// exigidos e na recuperação, mesmo com toda rodada decidindo; sem declaração continua ressalva.
+test('diff não medido e avaliação técnica ausente seguem exigidos na 1ª rodada; sem declaração segue ressalva', () => {
+  const base = { headSha: HEAD, ...criteriaFixture('approve'), analysisStatus: 'complete', checksVerifiedHead: HEAD, diffMedido: [],
+    verificationCheckpoint: { total: 0, conflicts: [] }, technicalReview: technicalReport(HEAD), protocolo: { prReviewer: 'rodou' },
+    coverage: { total: 0, reviewed: [], missing: [] }, provaEsgotada: true };
+  assert.deepEqual(busca.lacunasExigidas(base), [], 'controle');
+  const semDiff = { ...base, diffMedido: undefined };
+  assert.deepEqual(busca.lacunasExigidas(semDiff), ['diff não medido independentemente']);
+  assert.deepEqual(busca.pontosDaProvaEsgotada(semDiff), [], 'não vira ressalva');
+  const semRelatorio = { ...base, technicalReview: null };
+  assert.deepEqual(busca.lacunasExigidas(semRelatorio), ['avaliação técnica atual ausente']);
+  assert.deepEqual(busca.pontosDaProvaEsgotada(semRelatorio), [], 'não vira ressalva');
+  assert.ok(armou(motor(), semRelatorio), 'entra na recuperação');
+  assert.ok(armou(motor(), semDiff), 'entra na recuperação');
+  const semDeclaracao = { ...base, technicalReview: { semDeclaracao: true } };
+  assert.deepEqual(busca.lacunasExigidas(semDeclaracao), [], 'repositório sem declaração segue ressalva');
+});
+
 // Edicoes-CNBB/biblioteca-cnbb-web#182, 05/11/2026: a mesma divergência entre passadas, num
 // arquivo inalterado, voltou em 7 commits e cada um gastou as duas buscas antes de virar
 // ressalva. O checkpoint é só de acréscimo: outra tentativa nunca desfaz a divergência.
