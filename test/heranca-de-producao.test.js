@@ -361,3 +361,19 @@ test('contexto alterado só segura quando a evidência cita o caminho inteiro, n
   assert.equal(rebaixarHeranca(achado('Mesmo trecho em package.json.bak, igual à production.'), [proprio], ['package.json']), 1, 'outro arquivo com o nome como prefixo');
   assert.equal(rebaixarHeranca(achado(igual), [proprio], ['']), 1, 'caminho vazio não cita nada (e não prende o laço)');
 });
+
+test('o prefixo a/ e b/ só sai no cabeçalho de diff; solto no texto, é a pasta real', async () => {
+  const { rebaixarHeranca } = await import('../lib/engine/heranca-de-producao.js');
+  const proprio = 'apps/web/src/aviso.test.tsx';
+  const achado = (evidence) => ({ findings: [{ ...HERDADO, file: proprio, evidence }] });
+  const segura = (texto, caminho) => rebaixarHeranca(achado(texto), [proprio], [caminho]) === 0;
+  for (const cabecalho of ['--- a/package.json', '+++ b/package.json', 'diff --git a/package.json b/package.json', 'No diff (`--- a/package.json`).']) {
+    assert.equal(segura(cabecalho, 'package.json'), true, cabecalho);
+  }
+  assert.equal(segura('diff --git a/src/a.ts b/package.json', 'package.json'), true, 'o lado b/ do diff --git');
+  assert.equal(segura('A base mudou a/package.json.', 'package.json'), false, 'a/package.json solto é o arquivo da pasta a, não o da raiz');
+  assert.equal(segura('Ver `b/package.json`, igual à production.', 'package.json'), false, 'b/package.json solto também');
+  assert.equal(segura('A base mudou a/package.json.', 'a/package.json'), true, 'a pasta real a cita o próprio caminho');
+  assert.equal(segura('--- a/a/package.json', 'a/package.json'), true, 'cabeçalho de diff da pasta real a');
+  assert.equal(segura('--- a/a/package.json', 'package.json'), false, 'o cabeçalho da pasta a não cita o package.json da raiz');
+});

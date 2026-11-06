@@ -144,6 +144,15 @@ test('autoanálise continua recusada com revisão comum do mesmo PR na fila, com
   assert.notDeepEqual(so.enqueueHeadless({ ...pr(3), kind: 'self' }), { ok: false, code: 'duplicado' }, 'o terminal não segura a autoanálise');
 });
 
+test('a identidade do PR é canônica dos dois lados: fila ou revisão ativa em caixa diferente da autoanálise', () => {
+  const e = motor();
+  e.headlessQueue.push({ ...pr(1), key: 'ORG/Repo#1' });
+  assert.deepEqual(e.enqueueHeadless({ ...pr(1), kind: 'self' }), { ok: false, code: 'duplicado' }, 'fila em maiúsculas, autoanálise em minúsculas');
+  const ativa = motor();
+  ativa.activeReviews.set('headless', { id: 'headless', mode: 'auto', keys: ['ORG/Repo#1'] });
+  assert.deepEqual(ativa.enqueueHeadless({ ...pr(1), kind: 'self' }), { ok: false, code: 'duplicado' }, 'revisão ativa em maiúsculas');
+});
+
 test('Liberar PR revoga a postagem da janela e não solta terminal sem PR', async () => {
   const e = motor();
   const revogados = [];
