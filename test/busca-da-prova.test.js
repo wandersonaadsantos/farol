@@ -325,11 +325,16 @@ test('PR #248, achado 1: com a prova esgotada, base nova ou objeção nova recus
   // sem base nem impressão gravadas (a avaliação falhou antes de ler) não há com o que comparar.
   // Desde 18/10/2026 (a decisão sem mesa) o pedido de mudanças de uma pessoa não segura a
   // aprovação que a conta mandou sair, então ele não substitui a impressão que falta.
-  const semContexto = { schema: 1, verdict: 'not-run', error: 'ferramenta ausente' };
+  // A execução que não concluiu é a lacuna que a rodada dispensa; relatório sem ferramenta
+  // nenhuma (avaliação técnica atual ausente) segue exigido desde 06/11/2026 (abaixo).
+  const semContexto = { schema: 1, verdict: 'not-run', failure: 'assessment', error: 'ferramenta ausente' };
   const comPedido = motor(semContexto, { bloqueadoPorHistorico: async () => ({ bloqueado: false, decisivos: [], pediramMudancas: ['colega'] }) });
   assert.equal(await approvalRefusal(comPedido, pr, payload), null);
   const semPedido = motor(semContexto, { bloqueadoPorHistorico: async () => ({ bloqueado: false, decisivos: [] }) });
   assert.equal(await approvalRefusal(semPedido, pr, payload), null);
+  const semFerramenta = await approvalRefusal(motor({ schema: 1, verdict: 'not-run', error: 'ferramenta ausente' }), pr, payload);
+  assert.equal(semFerramenta && semFerramenta.error, 'avaliação técnica atual ausente', 'com declaração, sem avaliação nenhuma não é ressalva');
+  assert.equal(semFerramenta.needsReview, true);
   const leituraFalha = motor(report);
   technicalRuntime.targetFor = async () => { throw new Error('rede'); };
   assert.equal((await approvalRefusal(leituraFalha, pr, payload)).error, 'não foi possível reconfirmar a base e as objeções da revisão');
