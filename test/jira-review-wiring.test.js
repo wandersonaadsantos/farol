@@ -46,10 +46,9 @@ test('o bloco do card CHEGA no promptFinal do headless', () => {
   assert.match(FONTE, /promptFinal \+= criteriaCtx\.prompt/);
 });
 
-test('os argumentos do mcp CHEGAM no streamOpts do headless', () => {
-  const trecho = FONTE.slice(FONTE.indexOf('const streamOpts = {'), FONTE.indexOf('const sid ='));
-  assert.match(trecho, /extraArgs: jiraMod\.mcpArgsFor\(engine, cardRes\.site\)/);
-});
+// Os argumentos que o lançador RECEBE (MCP do Jira e guardas da sessão) são observados na revisão
+// de verdade, com o runClaudeStream dublado, em test/caminho-protegido-fiacao.test.js: conferir a
+// grafia do fonte passava verde com o argumento fora do lançamento (revisão do PR #350).
 
 test('card não lido com o Jira ligado derruba o cardMet', () => {
   assert.match(FONTE, /if \(!cardRes\.ok && jiraLigado\) result\.cardMet = false/);
