@@ -11,7 +11,8 @@
 //      GitHub, e o Merge de Meus PRs diz por que está desabilitado;
 //   3. dado indisponível (visão desligada, bloqueada, sem outro aparelho, sem chave), leitura
 //      que falhou e leitura velha são estados diferentes, com frases diferentes. A idade limite
-//      vem do engine (`limiteMs`), a tela não define regra de dado.
+//      vem do engine (`limiteMs`), a tela não define regra de dado. Aparelho que não é o admin
+//      recebe `so-admin` e não mostra nada: nem linha, nem faixa (decisão do dono, 06/11/2026).
 import { esc, fmtClock, plural } from './comum.js';
 import { personMention, prRefMention } from './mencoes.js';
 import { visaoCompartilhada } from './compartilhado.js';
@@ -40,6 +41,8 @@ export function estadoDasListas(listas, sync) {
   if (!listas || typeof listas !== 'object') return { estado: 'aguardando', texto: GERAL.aguardando };
   if (listas.estado === 'ligada') return { estado: 'ligada', texto: '' };
   if (listas.estado === 'aguardando') return { estado: 'aguardando', texto: GERAL.aguardando };
+  // só o admin vê as listas dos outros (lib/engine/sync-listas.js); aqui não há o que dizer
+  if (listas.estado === 'so-admin') return { estado: 'so-admin', texto: '' };
   return { estado: 'indisponivel', texto: INDISPONIVEL[listas.estado] || 'As listas dos outros aparelhos não estão disponíveis agora.' };
 }
 
@@ -111,7 +114,7 @@ function resumoDaOrigem(m) {
 
 function avisosHtml(m) {
   const partes = [];
-  if (m.geral && m.geral.estado !== 'ligada' && m.geral.estado !== 'desligada') {
+  if (m.geral && m.geral.texto && m.geral.estado !== 'ligada' && m.geral.estado !== 'desligada') {
     partes.push(`<div class="md-faixa md-remoto-estado" data-estado="${esc(m.geral.estado)}"><span class="sync-chip mute">${esc(m.geral.estado)}</span><span>${esc(m.geral.texto)}</span></div>`);
   }
   for (const a of m.avisos) {
