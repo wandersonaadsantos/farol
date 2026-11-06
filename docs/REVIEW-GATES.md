@@ -1453,6 +1453,18 @@ o consultam:
   `config.txt` traz no patch o conteúdo de antes, então os metadados do diff (`previousPath`) seguem
   até cada filtro da prova: o inventário medido pelo `gh` (`pr-inventory.js`), o escopo materializado
   (`arquivos` em `pr-scope.js`), a autoanálise, a prova por arquivo e o índice entre PRs.
+- **Marcador não é conteúdo.** Arquivo cuja representação no escopo não tem o conteúdo integral (patch
+  ausente ou binário, protegido sem projeção, patch truncado pelo GitHub) é gravado como marcador ou
+  fragmento e entra em `semConteudoIntegral` (`pr-scope.js`, guardado no registro da sessão). Lê-lo inteiro
+  não credita nada: `read-evidence.js` recusa a prova do retorno (`sem-conteudo-integral`) e a regra do
+  Read, então ele não entra em `provados` nem em `filesRead`, e a autoanálise o deixa em `missing`. Na
+  revisão, `prepararCoberturaParaOGate` recebe a lista e grava `result.semConteudoIntegral`, que o
+  `coverageGap` lê como lacuna (`arquivo sem conteúdo integral no escopo (patch ausente, binário ou
+  truncado): ...`) mesmo declarado ou herdado; o protegido nessa situação já sai como protegido sem
+  leitura. A prova por arquivo e o índice entre PRs não o guardam como lido. O escopo do terminal grava o
+  mesmo marcador, dizendo que lê-lo não cobre nada. A exceção é a renomeação pura (`renamed` sem nenhuma
+  linha alterada): não há conteúdo novo a ler, e o marcador dela conta. Consequência: PR com arquivo
+  binário ou grande demais para a API tem essa lacuna, e ela segue o caminho de toda lacuna de cobertura.
 
   **Limitação conhecida, de propósito:** a leitura observada vive em memória, no stream do Claude
   desta sessão. Codex e Antigravity não emitem evento de leitura de arquivo, e a sessão retomada depois

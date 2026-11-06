@@ -264,3 +264,77 @@ test('rename de .env.example para config.txt: o inventário medido pelo gh guard
   const item = e.decisions.pending[0] || e.decisions.resolved[0];
   assert.match(motivosDe(item), LACUNA_DO_RENAME, 'declarado sem leitura observada, o destino do rename é lacuna');
 });
+
+/* ---------- representação sem conteúdo integral (revisão do head b97f27f4) ---------- */
+
+// Patch ausente (protegido sem projeção, binário) ou truncado: o escopo grava um marcador ou um
+// fragmento, e ler isso inteiro nunca pode virar cobertura, nem do protegido nem do comum.
+const SEM_PATCH = [
+  { path: 'src/a.js', sha: 'd'.repeat(40), status: 'modified', patch: '@@ -1 +1 @@\n-old\n+new', patchStatus: 'available' },
+  { path: '.env.example', sha: 'e'.repeat(40), status: 'modified', patch: '', patchStatus: 'unavailable' },
+  { path: 'img/logo.png', sha: '1'.repeat(40), status: 'modified', patch: '', patchStatus: 'unavailable' },
+  { path: 'src/grande.js', sha: '2'.repeat(40), status: 'modified', patch: '@@ -1,900 +1,900 @@\n-x\n+y', patchStatus: 'partial' },
+];
+const INCOMPLETOS = ['.env.example', 'img/logo.png', 'src/grande.js'];
+
+// Lê do escopo o que estiver gravado (marcador, fragmento ou patch), com a entrega inteira conferível.
+function lerTudoDoEscopo(e, opts, caminhos) {
+  const session = e.activeReviews.get(opts.id);
+  for (const [i, caminho] of caminhos.entries()) {
+    const filePath = arquivoMaterializado(session.scopeRoot, caminho);
+    const texto = fs.readFileSync(filePath, 'utf8');
+    const block = { type: 'tool_use', id: `r-${i}`, name: 'Read', input: { file_path: filePath } };
+    observeReadEvent(e, opts, { type: 'assistant', message: { content: [block] } });
+    observarLeitura(e, opts, block);
+    const linhas = texto.replace(/\n$/, '').split('\n');
+    observeReadEvent(e, opts, { type: 'user', tool_use_result: { type: 'text', file: { filePath, content: linhas.join('\n'), startLine: 1, numLines: linhas.length } },
+      message: { content: [{ type: 'tool_result', tool_use_id: `r-${i}`, content: linhas.map((l, n) => `${n + 1}→${l}`).join('\n') }] } });
+  }
+}
+
+test('patch ausente ou truncado: a autoanálise não conta como lido o marcador nem o fragmento, protegido ou comum', async () => {
+  const e = setup();
+  sourceRuntime.prepareSources = async () => source(SEM_PATCH);
+  e.runClaudeStream = async (_prompt, opts) => {
+    const session = e.activeReviews.get(opts.id);
+    assert.match(fs.readFileSync(arquivoMaterializado(session.scopeRoot, 'img/logo.png'), 'utf8'), /não é o conteúdo do arquivo/);
+    lerTudoDoEscopo(e, opts, SEM_PATCH.map((f) => f.path));
+    return { text: JSON.stringify(selfResult()) };
+  };
+  await e.runSelfAnalysis({ ...pr });
+  const scope = e.selfAnalyses[pr.key].observed.scope;
+  assert.deepEqual(scope.reviewed, ['src/a.js'], JSON.stringify(scope));
+  assert.deepEqual(scope.missing, INCOMPLETOS);
+});
+
+test('patch ausente ou truncado: na revisão, ler o marcador ou o fragmento inteiro não cobre, e o declarado vira lacuna', async () => {
+  const e = setup();
+  sourceRuntime.prepareSources = async () => source(SEM_PATCH);
+  e.runClaudeStream = async (_prompt, opts) => {
+    lerTudoDoEscopo(e, opts, SEM_PATCH.map((f) => f.path));
+    return { text: JSON.stringify(reviewResult(SEM_PATCH.map((f) => f.path))) };
+  };
+  await e.runHeadlessReview({ ...pr });
+  const motivos = motivosDe(e.decisions.pending[0] || e.decisions.resolved[0]);
+  assert.match(motivos, /caminho protegido sem leitura observada da projeção redigida: \.env\.example/, 'o marcador do protegido não é projeção');
+  assert.match(motivos, /arquivo sem conteúdo integral no escopo \(patch ausente, binário ou truncado\): img\/logo\.png/);
+  assert.match(motivos, /arquivo sem conteúdo integral no escopo \(patch ausente, binário ou truncado\): src\/grande\.js/);
+  assert.doesNotMatch(motivos, /sem conteúdo integral no escopo \(patch ausente, binário ou truncado\): src\/a\.js/);
+});
+
+test('patch ausente: o escopo do terminal grava o marcador dizendo que lê-lo não cobre nada', async () => {
+  const e = setup();
+  e.queue = [{ ...pr }];
+  e.bloqueiaAutomatico = async () => false;
+  io.run = async (_command, args) => (args.join(' ').includes('pulls/1/files')
+    ? { ok: true, stdout: JSON.stringify([[{ filename: 'img/logo.png', status: 'modified' }, { filename: '.env', status: 'modified' }]]) }
+    : { ok: true, stdout: '[]' });
+  const abertos = [];
+  e.spawnConsole = (slash) => { abertos.push(slash); return { ok: true }; };
+  await e.launchReview([pr.url], 'terminal', 'clique');
+  const raiz = path.join(WORKSPACE, ...abertos[0].match(/escopo=(\S+)/)[1].split('/'));
+  for (const caminho of ['img/logo.png', '.env']) {
+    const texto = fs.readFileSync(path.join(raiz, ...nomeMaterializado(caminho).split('/')), 'utf8');
+    assert.match(texto, /não é o conteúdo do arquivo: lê-lo não cobre nada, declare o caminho em coverage\.missing/, caminho);
+  }
+});

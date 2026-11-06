@@ -404,3 +404,51 @@ test('lidosComProtegidoProvado usa os metadados do diff para o rename vindo de p
   assert.deepEqual([...lidosComProtegidoProvado(engine, 'x', lidos, [{ path: 'config.txt', previousPath: '.env.example' }, { path: 'src/a.js' }])], ['src/a.js']);
   assert.deepEqual([...lidosComProtegidoProvado(engine, 'x', lidos, [{ path: 'config.txt', previousPath: 'docs/old.txt' }])].sort(), ['config.txt', 'src/a.js']);
 });
+
+test('representação sem conteúdo integral: o escopo marca, a leitura não credita, o gate acusa e a prova não guarda', async () => {
+  const repoProof = await import('../lib/engine/prova-do-repositorio.js');
+  const root = path.join(FAROL_HOME, 'sem-conteudo');
+  const escopo = materializeScope(root, [
+    { path: 'src/a.js', patch: PATCH_COMUM, status: 'modified', patchStatus: 'available' },
+    { path: 'img/logo.png', patch: '', status: 'modified' },
+    { path: 'src/grande.js', patch: '@@ -1 +1 @@\n-x\n+y', status: 'modified', patchStatus: 'partial' },
+    { path: 'src/movido.js', previousPath: 'src/antigo.js', patch: '', status: 'renamed', lines: 0 },
+    { path: 'src/movido2.js', previousPath: 'src/antigo2.js', patch: '', status: 'renamed', lines: 4 },
+  ]);
+  assert.deepEqual(escopo.semConteudoIntegral, ['img/logo.png', 'src/grande.js', 'src/movido2.js'],
+    'a renomeação pura não tem o que ler; a com linhas alteradas e sem patch tem');
+  assert.match(fs.readFileSync(arquivoMaterializado(root, 'src/movido.js'), 'utf8'), /renomeação sem nenhuma linha alterada/);
+  const f = fixture(root);
+  f.review.semConteudoIntegral = new Set(escopo.semConteudoIntegral);
+  for (const [i, caminho] of ['img/logo.png', 'src/grande.js'].entries()) {
+    const filePath = arquivoMaterializado(root, caminho);
+    const linhas = fs.readFileSync(filePath, 'utf8').replace(/\n$/, '').split('\n');
+    f.request(filePath, `s${i}`);
+    f.response(filePath, `s${i}`, linhas);
+  }
+  assert.equal(leiturasProvadas(f.engine, 'rev').size, 0, 'a entrega inteira do marcador ou do fragmento não é prova');
+  assert.equal(f.review.filesRead.size, 0, 'nem a regra do Read credita');
+  // o gate: declarado ou herdado, o sem conteúdo é lacuna; o comum com patch não
+  const atuais = [{ path: 'src/a.js', sha: 'a' }, { path: 'img/logo.png', sha: 'l' }, { path: 'src/grande.js', sha: 'g' }];
+  const result = { coverage: { reviewed: ['src/a.js', 'img/logo.png', 'src/grande.js'], missing: [] } };
+  prepararCoberturaParaOGate(result, atuais, { ativa: true, unchanged: ['img/logo.png'], changed: [] }, new Set(), new Set(escopo.semConteudoIntegral));
+  assert.deepEqual(result.semConteudoIntegral, ['img/logo.png', 'src/grande.js']);
+  assert.deepEqual(coverageGap(result).filter((g) => g.startsWith('arquivo sem conteúdo integral')).length, 2);
+  // valor vindo do modelo nunca vale
+  const forjado = { coverage: { reviewed: ['src/a.js'], missing: [] }, semConteudoIntegral: [] };
+  prepararCoberturaParaOGate(forjado, [{ path: 'src/a.js', sha: 'a' }], { ativa: false }, new Set(), new Set(['src/a.js']));
+  assert.deepEqual(forjado.semConteudoIntegral, ['src/a.js']);
+  const semMedicao = { coverage: { reviewed: [] }, semConteudoIntegral: ['inventado.js'] };
+  prepararCoberturaParaOGate(semMedicao, null, { ativa: false }, new Set(), new Set());
+  assert.equal(semMedicao.semConteudoIntegral, undefined, 'sem o diff medido, a lista do modelo é descartada');
+  // a prova por arquivo não guarda o sem conteúdo como lido, e o índice entre PRs também não
+  salvarProvaDaSessao({ key: 'o/sc#1' }, 'h1', atuais.map((a) => ({ ...a, status: 'modified', lines: 1 })), result);
+  assert.deepEqual(readFileProof('o/sc#1').reviewed, ['src/a.js']);
+  const comPatch = [{ path: 'src/a.js', sha: 'a', status: 'modified', patch: PATCH_COMUM, patchStatus: 'available' },
+    { path: 'img/logo.png', sha: 'l', status: 'modified', patch: 'forjado', patchStatus: 'available' }];
+  repoProof.registrarNoIndiceDoRepositorio({ key: 'o/sc#1', repo: 'o/sc' }, 'h1', comPatch,
+    { coverage: { reviewed: ['src/a.js', 'img/logo.png'], missing: [] }, semConteudoIntegral: ['img/logo.png'] }, {});
+  assert.deepEqual(Object.values(repoProof.lerIndiceDoRepositorio('o/sc')).map((e) => e.caminho), ['src/a.js']);
+  // a autoanálise também tira o sem conteúdo, mesmo que alguém o tenha posto em filesRead
+  assert.deepEqual([...lidosComProtegidoProvado(f.engine, 'rev', new Set(['src/a.js', 'img/logo.png']))], ['src/a.js']);
+});
