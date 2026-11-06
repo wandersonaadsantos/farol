@@ -107,6 +107,9 @@ const resolvida = (e) => e.decisions.resolved.find((x) => x.key === PR.key);
 const esperaVoce = (e) => { e.approvePolicyFor = () => 'wait'; e.rejectPolicyFor = () => 'wait'; return e; };
 const textos = (d) => (d.reasons || []).map((r) => r.text || r);
 const SEM_PROTOCOLO = { protocolo: { prReviewer: 'pulado' } };
+// Desde 06/11/2026 a lacuna que não é dura vira ressalva na própria rodada e não arma a espera:
+// o veículo da espera da prova nestes testes é a análise incompleta, que segue exigida.
+const INCOMPLETA = { analysisStatus: 'incomplete' };
 const REPROVA = {
   verdict: 'request_changes', decision: 'auto_request_changes',
   payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Falta tratar o erro de rede.' } },
@@ -123,7 +126,7 @@ async function revisado(e, pr, extra) {
 
 test('a marca nasce com a versão das regras do gate vigente', async () => {
   const e = motor();
-  const d = await revisado(e, PR, SEM_PROTOCOLO);
+  const d = await revisado(e, PR, INCOMPLETA);
   assert.ok(Number.isInteger(VERSAO_DAS_REGRAS) && VERSAO_DAS_REGRAS >= 1);
   assert.equal(d.esperaProva.regras, VERSAO_DAS_REGRAS);
 });
@@ -131,7 +134,7 @@ test('a marca nasce com a versão das regras do gate vigente', async () => {
 for (const [nome, regras] of [['sem carimbo (armada antes da v2.72.6)', undefined], ['com carimbo anterior', VERSAO_DAS_REGRAS - 1]]) {
   test(`espera ${nome}: relança no mesmo head sem gastar tentativa e sai carimbada`, async () => {
     const e = motor();
-    await revisado(e, PR, SEM_PROTOCOLO);
+    await revisado(e, PR, INCOMPLETA);
     const marca = pendente(e).esperaProva;
     Object.assign(marca, { regras, tentativas: 1, lacunas: ['critérios necessários do card não comprovados'] });
     if (regras === undefined) delete marca.regras;
@@ -151,13 +154,13 @@ for (const [nome, regras] of [['sem carimbo (armada antes da v2.72.6)', undefine
 
 test('espera do celular (biud-messaging-waba#52): sem carimbo e com as tentativas gastas, a rodada nova fecha o caso sem laço', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   const marca = pendente(e).esperaProva;
   delete marca.regras;
   Object.assign(marca, { tentativas: esperaProva.MAX_TENTATIVAS, lacunas: ['dependência necessária ainda aberta'] });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'relança pela regra');
   assert.equal(pendente(e).esperaProva.tentativas, esperaProva.MAX_TENTATIVAS);
-  // a rodada relançada é a da prova esgotada: a lacuna que sobrou vira ressalva e a política aprova
+  // a rodada relançada decide: a lacuna que não é dura vira ressalva e a política aprova
   await revisado(e, PR, SEM_PROTOCOLO);
   assert.equal(envios.length, 1, 'aprovou com ressalvas');
   assert.equal(envios[0].event, 'APPROVE');
@@ -167,7 +170,7 @@ test('espera do celular (biud-messaging-waba#52): sem carimbo e com as tentativa
 
 test('carimbo atual: a busca gasta tentativa normalmente', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   assert.equal(pendente(e).esperaProva.regras, VERSAO_DAS_REGRAS);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.equal(pendente(e).esperaProva.tentativas, 1);
@@ -177,7 +180,7 @@ test('carimbo atual: a busca gasta tentativa normalmente', async () => {
 
 test('relançamento pela regra respeita o recibo de outro aparelho: não relança nem carimba', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   const marca = pendente(e).esperaProva;
   delete marca.regras;
   marca.tentativas = esperaProva.MAX_TENTATIVAS;
@@ -268,7 +271,7 @@ test('controle: PR de outra pessoa segue aprovando e reprovando sozinho', async 
 
 test('espera da prova que já existia em PR da própria conta, conta aprovando sozinha: a varredura comenta e resolve', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   pendente(e).pr.author = 'EU';
   assert.equal(await esperaProva.varrerEsperas(e), 1);
   assert.equal(pendente(e), undefined);
@@ -281,7 +284,7 @@ test('espera da prova que já existia em PR da própria conta, conta aprovando s
 
 test('espera da prova que já existia em PR da própria conta, conta esperando você: larga, mesa com o motivo, aviso uma vez', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   pendente(e).pr.author = 'EU';
   esperaVoce(e);
   assert.equal(await esperaProva.varrerEsperas(e), 1);
@@ -297,7 +300,7 @@ test('espera da prova que já existia em PR da própria conta, conta esperando v
 
 test('espera sem autor gravado: o autor lido do GitHub na varredura também conta, e o comentário sai', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   pendente(e).pr.author = '';
   gh.autor = 'eu';
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
@@ -308,7 +311,7 @@ test('espera sem autor gravado: o autor lido do GitHub na varredura também cont
 
 test('espera do CI que já existia em PR da própria conta também é largada e comentada', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   const d = pendente(e);
   d.esperaProva = null;
   d.esperaCi = { desde: 1, checks: [], pontos: [] };
@@ -321,7 +324,7 @@ test('espera do CI que já existia em PR da própria conta também é largada e 
 
 test('espera do CI em PR da própria conta com a conta esperando você: larga e vai para a mesa', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   const d = pendente(e);
   d.esperaProva = null;
   d.esperaCi = { desde: 1, checks: [], pontos: [] };
@@ -362,12 +365,12 @@ test('PR #248, achado 3: a pendência de PR próprio não oferece Aprovar nem Pe
   envios = [];
   await e.decide(d.id, 'approve').catch(() => { });
   assert.deepEqual(envios, []);
-  assert.equal(staleCardMeta(e.decisionForUi(await revisado(motor(), PR, SEM_PROTOCOLO)), null).semDecisivos, undefined, 'PR de outra pessoa segue com os botões');
+  assert.equal(staleCardMeta(e.decisionForUi(await revisado(motor(), PR, INCOMPLETA)), null).semDecisivos, undefined, 'PR de outra pessoa segue com os botões');
 });
 
 test('PR #248, achado 4: largar a espera de PR próprio durante a rodada complementar limpa o estado de commit novo', async () => {
   const e = motor();
-  await revisado(e, PR, SEM_PROTOCOLO);
+  await revisado(e, PR, INCOMPLETA);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'a busca relançou no mesmo head');
   assert.equal(pendente(e).blockedKind, 'stale_head');
   pendente(e).pr.author = 'eu';
