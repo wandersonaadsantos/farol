@@ -12,6 +12,7 @@ const PREFERENCE_LABELS = {
   updateRepo: 'Repositório das atualizações', autoUpdate: 'Atualizações automáticas', reReviewResume: 'Retomar revisões',
   reviewFast: 'Revisão rápida', coAssinarReview: 'Aprovar junto com quem pegou o PR',
   revisarComOutrosRevisando: 'Revisar com outra pessoa revisando', aguardarCiParaRevisar: 'Aguardar CI para revisar',
+  aguardarCiParaAprovar: 'CI obrigatório antes da aprovação',
   mergeBlockedRepos: 'Repositórios com merge bloqueado', defaultReviewers: 'Revisores por organização',
   projectReviewers: 'Revisores por projeto', people: 'Papéis e conhecimentos das pessoas', reviewModel: 'Modelo do Claude',
   reviewEffort: 'Esforço do Claude', codexReviewModel: 'Modelo do Codex', codexReviewEffort: 'Esforço do Codex',

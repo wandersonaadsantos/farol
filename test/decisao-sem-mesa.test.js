@@ -77,8 +77,11 @@ beforeEach(() => {
 });
 
 // a conta em automático nas três classes, a não ser que o teste diga outra coisa
-function motor({ checks = [], aprova = 'approve', reprova = 'request_changes' } = {}) {
+// `ciObrigatorio`: a chave "CI obrigatório antes da aprovação" (06/11/2026). Os casos daqui nasceram
+// com ela ligada (comportamento de 17/10 a 06/11/2026), e o desligado tem casos próprios.
+function motor({ checks = [], aprova = 'approve', reprova = 'request_changes', ciObrigatorio = true } = {}) {
   const e = new Engine();
+  e.config.aguardarCiParaAprovar = ciObrigatorio;
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
   // política da conta gravada por extenso e lida pelos métodos reais do motor (contas-config.js)
@@ -842,4 +845,77 @@ test('pendência do conflito vira revisão nova quando chega commit', async () =
   assert.equal(await marcarCommitNovo(e), 1);
   assert.equal(pendente(e, 81).blockedKind, 'stale_head');
   assert.equal(pendente(e, 81).blockedHead, HEAD_NOVO);
+});
+
+/* ---------- "CI obrigatório antes da aprovação" desligado (padrão desde 06/11/2026) ----------
+   Pedido do dono: o estado do CI obrigatório não segura, não adia e não barra a decisão. O merge
+   continua barrado pelo GitHub. Cada caso abaixo é o par desligado de um caso ligado acima. */
+
+test('desligada: CI vermelho com a conta reprovando sozinha sai como APPROVE, nunca como pedido pelo CI', async () => {
+  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }], ciObrigatorio: false });
+  await revisar(e, 90);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.equal(envios[0].commit_id, HEAD);
+  assert.doesNotMatch(envios[0].body, /audit|check/, 'o estado do CI não entra no texto do PR');
+  const r = resolvida(e, 90);
+  assert.equal(r.status, 'auto_approved');
+  assert.match(r.attention.map((p) => p.text).join(' | '), /vermelho no head \(audit\)/, 'o CI fica como nota no app');
+  assert.equal(pendente(e, 90), undefined);
+  semMesa(e);
+});
+
+test('desligada: CI rodando não arma espera; a aprovação sai na hora', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }], ciObrigatorio: false });
+  await revisar(e, 91);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.equal(pendente(e, 91), undefined);
+  assert.equal(e.toasts.some((t) => /esperando o CI/.test(t)), false);
+});
+
+test('desligada: pedido de mudanças sustentado só pelo CI vermelho não sai sozinho, e o card diz por quê', async () => {
+  const e = motor({ ciObrigatorio: false });
+  e.bloqueadoPorChecks = async () => ({ verifiedHead: HEAD, faltando: [{ nome: 'audit', estado: 'vermelho' }] });
+  const body = `Não encontrei nada bloqueante no código. Os checks obrigatórios estão falhando no commit ${HEAD.slice(0, 7)}.`;
+  await revisar(e, 92, { extra: { verdict: 'request_changes', findings: [], payloads: { request_changes: { event: 'REQUEST_CHANGES', body } } } });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 92);
+  assert.equal(d.esperaCi, undefined, 'sem espera do CI');
+  assert.match(textos(d).join(' | '), /CI está fora da decisão/);
+});
+
+test('desligada: bloqueio declarado só de ci não arma a espera do CI e não publica nada', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }], ciObrigatorio: false });
+  await revisar(e, 93, { extra: reprovando(['ci']) });
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 93);
+  assert.equal(d.esperaCi, undefined);
+  assert.match(textos(d).join(' | '), /CI está fora da decisão/);
+  assert.equal(await e.varrerEsperas(), 0);
+  assert.deepEqual(envios, []);
+});
+
+test('desligada depois de armada: a espera de um pedido só pelo CI vai para você, sem laço', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
+  await revisar(e, 94, { extra: reprovando(['ci']) });
+  assert.ok(pendente(e, 94).esperaCi, 'ligada: espera');
+  e.config.aguardarCiParaAprovar = false;
+  assert.equal(await e.varrerEsperas(), 0);
+  const d = pendente(e, 94);
+  assert.equal(d.esperaCi, null);
+  assert.match(textos(d)[0], /a espera do CI foi desligada/);
+  assert.deepEqual(envios, [], 'CI fora da decisão não vira APPROVE do que a revisão reprovou');
+  assert.ok(e.eventos.some(([t]) => t === 'needs-decision'));
+  assert.equal(await e.varrerEsperas(), 0, 'nada volta a esperar');
+  assert.deepEqual(envios, []);
+});
+
+test('desligada depois de armada: a aprovação que esperava o CI vermelho sai no próximo ciclo, sem pedido pelo CI', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
+  await revisar(e, 95);
+  assert.ok(pendente(e, 95).esperaCi);
+  gh.rollup = [check('test', 'FAILURE'), check('audit', 'SUCCESS')];
+  e.config.aguardarCiParaAprovar = false;
+  assert.equal(await e.varrerEsperas(), 1);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.equal(resolvida(e, 95).status, 'auto_approved');
 });

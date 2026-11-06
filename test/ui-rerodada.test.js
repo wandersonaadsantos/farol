@@ -171,7 +171,7 @@ test('todo contador local de pendência exclui a espera do CI, e a tela tem a se
   // o texto só prova a régua comum; o resultado da contagem por conta é observado em
   // test/ui-fila-revisoes-ativas.test.js (attentionCount soma as pendências que precisam de você)
   assert.match(ler('ui/telas/contas.js'), /separarPendentes\(estado\(\)\.decisions\?\.pending\)\.precisam\.filter\(/, 'contagem por conta pela mesma régua da seção');
-  assert.match(ler('ui/telas/paleta.js'), /comandosDasPendencias\(estado\(\)\?\.decisions\?\.pending, \{ scopeVisible, decide, decideComConfirmacao \}\)/, 'paleta usa a projeção comum de ações');
+  assert.match(ler('ui/telas/paleta.js'), /comandosDasPendencias\(estado\(\)\?\.decisions\?\.pending, \{ scopeVisible, decide, decideComConfirmacao, ciObrigatorio: estado\(\)\?\.config\?\.aguardarCiParaAprovar === true \}\)/, 'paleta usa a projeção comum de ações');
   const radar = ler('ui/telas/radar.js');
   assert.match(radar, /const \{ precisam: pending, esperandoCi \} = separarPendentes\(/);
   assert.match(radar, /\$\('#decisionsCount'\)\.textContent = pending\.length/, 'o contador da seção (e o da sub-aba, que o lê) só vê quem precisa de você');

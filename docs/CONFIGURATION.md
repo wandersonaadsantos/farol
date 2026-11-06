@@ -85,6 +85,19 @@ enquanto esperava vaga volta à fila visível, sem perder a referência de retom
 Uma sessão que já começou não é cancelada pela edição. Aprovar e pedir mudanças
 continuam obedecendo às opções de publicação existentes na conta.
 
+### Os padrões de Sistema > Automação (06/11/2026)
+
+Pedido do dono, literal: "CI obrigatório antes da aprovação: isso aqui tem que ter como desativar no Farol, acredito que isso é a maior falha, e deve vir por default como desabilitado. Devem vir habilitados por default: Retomar a sessão na segunda rodada; Sessão no terminal sem pedir permissões; Atualizar sozinho."
+
+| linha | chave | padrão | o que faz |
+|---|---|---|---|
+| CI obrigatório antes da aprovação | `aguardarCiParaAprovar` | **desligado** | ligado, a aprovação espera os checks obrigatórios verdes no commit revisado (revisão automática, clique em Aprovar, publicação) e, com a conta reprovando sozinha, o CI vermelho vira pedido de mudanças; desligado, o estado do CI não segura, não adia e não barra a decisão, e fica só como nota no app. O merge continua barrado pelo GitHub enquanto um check obrigatório do ruleset não passar. Detalhe em [`REVIEW-GATES.md`](REVIEW-GATES.md), "CI obrigatório antes da aprovação é opt-in" |
+| Retomar a sessão na segunda rodada | `reReviewResume` | **ligado** | a re-revisão depois do seu pedido de mudanças continua a conversa da rodada anterior (só no Claude Code; sessão antiga que não existe mais recomeça do zero sozinha) |
+| Sessão no terminal sem pedir permissões | `skipPermissions` | **ligado** | a sessão interativa do terminal (e a de login) abre com `--dangerously-skip-permissions`, no Windows e no macOS; a revisão em segundo plano sempre rodou assim. Rodando como root (proot do Termux), o Claude Code recusa a flag: o Diagnóstico já avisa (`doctor.root`), e a saída é um usuário comum |
+| Atualizar sozinho | `autoUpdate` | **ligado** (desde a v2.46.0) | aplica a atualização baixada quando nada está rodando. Instalação com atualização administrada por fora (`FAROL_UPDATE_MANAGER=external`, a Hostinger) ou checkout git no modo servidor não se atualiza por aqui, com a chave ligada ou não (`update-indisponivel.js`): o ciclo nem tenta, e o atualizador externo segue sendo o dono |
+
+**A migração do esquema 2 (`migrarPadroes`, `lib/engine/contas-migracao.js`).** O `saveConfig` grava a config inteira, então o padrão antigo estava escrito no `config.json` de todo mundo sem ninguém ter escolhido: `reReviewResume: false` e `skipPermissions: false` desde sempre, e `aguardarCiParaAprovar: true` desde 17/10/2026 (o saneador forçava e a tela não tinha chave). O arquivo não diz o que foi escolha, então a migração vale UMA vez, pelo marcador explícito `esquemaConfig` (sobe de 1 para 2, depois da migração do paralelismo): liga as duas primeiras, desliga a do CI (com origem "migração" no rastro da política) e grava o marcador. O que você escolher depois dela fica, porque ela não roda de novo. `autoUpdate` fica de fora de propósito: o padrão dele é ligado desde que a chave nasceu, então um `false` no arquivo é escolha de alguém. Instalação nova já nasce com os quatro padrões e o marcador.
+
 ### Paralelismo: cada número diz uma coisa só
 
 | número | onde | o que é |

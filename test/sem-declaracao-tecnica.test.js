@@ -77,7 +77,9 @@ test('sem declaração vira ressalva com texto próprio, e a política de ressal
   assert.deepEqual(shouldAutoApprove(engineCom('approve'), PEDIDO, result()), { ok: true, motivo: null });
   assert.deepEqual(shouldAutoApprove(engineCom('wait'), PEDIDO, result()), { ok: false, motivo: 'politica' });
   const vermelho = result({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] });
-  assert.equal(shouldAutoApprove(engineCom('approve'), PEDIDO, vermelho).motivo, 'ci_vermelho', 'CI vermelho continua bloqueando');
+  assert.equal(shouldAutoApprove({ ...engineCom('approve'), config: { aguardarCiParaAprovar: true } }, PEDIDO, vermelho).motivo, 'ci_vermelho',
+    'com "CI obrigatório antes da aprovação" ligado, o CI vermelho continua bloqueando');
+  assert.deepEqual(shouldAutoApprove(engineCom('approve'), PEDIDO, vermelho), { ok: true, motivo: null }, 'desligado (padrão), não');
 });
 
 test('a tela diz que não há declaração, sem o rótulo de verificação pendente', () => {
@@ -98,10 +100,20 @@ test('o envelope não escreve a marca: o fechamento usa o contexto medido pelo r
   assert.deepEqual(measured.technicalReview, SEM_DECLARACAO);
 });
 
-function motorDaPublicacao(checks) {
+// "CI obrigatório antes da aprovação" ligado por padrão aqui: os casos nasceram com ele obrigatório
+function motorDaPublicacao(checks, ciObrigatorio = true) {
   const evidencias = new Map([['org/sem-declaracao#1', { report: SEM_DECLARACAO, evidence: [] }]]);
-  return { technicalApprovals: evidencias, decisions: { pending: [] }, bloqueadoPorChecks: async () => checks };
+  return { config: { aguardarCiParaAprovar: ciObrigatorio }, technicalApprovals: evidencias, decisions: { pending: [] }, bloqueadoPorChecks: async () => checks };
 }
+
+test('publicação sem declaração com a chave desligada: CI rodando, vermelho ou de outro commit não segura', async () => {
+  for (const checks of [{ verifiedHead: head, faltando: [{ nome: 'test', estado: 'rodando' }] },
+    { verifiedHead: head, faltando: [{ nome: 'test', estado: 'vermelho' }] }, { verifiedHead: 'c'.repeat(40), faltando: [] }, null]) {
+    assert.equal(await approvalRefusal(motorDaPublicacao(checks, false), PR, { event: 'APPROVE', commit_id: head }), null, JSON.stringify(checks));
+  }
+  const semCommit = await approvalRefusal(motorDaPublicacao(null, false), PR, { event: 'APPROVE' });
+  assert.equal(semCommit.error, 'aprovação sem commit confirmado', 'o commit continua obrigatório');
+});
 const PR = { key: 'org/sem-declaracao#1', repo: 'org/sem-declaracao' };
 
 test('publicação sem declaração: sai com commit confirmado e checks verdes nele', async () => {

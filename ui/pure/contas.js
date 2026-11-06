@@ -393,6 +393,15 @@ function opcoesDaPolitica(campo, atual) {
     .map(([v, texto]) => `<option value="${esc(String(v))}"${sel(v === atual)}>${esc(texto)}</option>`).join('');
 }
 
+// O que o CI obrigatório faz com a aprovação, conforme "CI obrigatório antes da aprovação"
+// (Sistema > Automação, 06/11/2026). Desligada, que é o padrão, nada pode prometer espera do CI.
+export function fraseDoCi(config) {
+  if (config && config.aguardarCiParaAprovar === true) {
+    return 'CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit';
+  }
+  return 'O estado do CI obrigatório não segura nem adia a aprovação (CI obrigatório antes da aprovação está desligado em Automação); o merge continua barrado pelo GitHub enquanto um check obrigatório não passar';
+}
+
 export function accountsManagerHtml(ctx) {
   // não re-renderiza enquanto você edita um campo (senão apaga o que está digitando)
   const accounts = (ctx.accounts || []);
@@ -412,6 +421,7 @@ export function accountsManagerHtml(ctx) {
     // os quatro seletores mostram o valor da conta, sem opção de herdar (30/09/2026). Com o
     // "sem ressalvas" esperando você, o "com ressalvas" não tem escolha: fica desligado e diz por quê
     const pol = politicaDaContaNaTela(a);
+    const frase = { ci: fraseDoCi(ctx.config) };
     const ressalvaPresa = pol.onClean === 'wait';
     let opcoesRessalva = opcoesDaPolitica('onCaveats', pol.onCaveats);
     if (ressalvaPresa) opcoesRessalva = `<option value="wait" selected>${esc(T.onCaveats.presoAoLimpo)}</option>`;
@@ -442,11 +452,11 @@ export function accountsManagerHtml(ctx) {
               ${opcoesDaPolitica('autoReview', pol.autoReview)}
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">${T.onClean.rotulo}</span>
-            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas. CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit">
+            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas. ${frase.ci}">
               ${opcoesDaPolitica('onClean', pol.onClean)}
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">${T.onCaveats.rotulo}</span>
-            <select class="acct-oncaveats" data-user="${esc(a.user)}"${travaRessalva} title="PR aprovável, mas com pontos de atenção anotados: o que a revisão levantou, PR sem card do Jira (quando o Jira está ligado), leitura que não cobriu o diff inteiro, dependência em aberto ou discordância de outro review. O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR. CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit">
+            <select class="acct-oncaveats" data-user="${esc(a.user)}"${travaRessalva} title="PR aprovável, mas com pontos de atenção anotados: o que a revisão levantou, PR sem card do Jira (quando o Jira está ligado), leitura que não cobriu o diff inteiro, dependência em aberto ou discordância de outro review. O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR. ${frase.ci}">
               ${opcoesRessalva}
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">${T.onReject.rotulo}</span>
