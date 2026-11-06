@@ -111,13 +111,17 @@ async function revisado(e, extra) {
   return pendente(e);
 }
 
-// leva o PR até a rodada da prova esgotada: original, duas buscas, e devolve o motor pronto
+// leva o PR até a rodada da prova esgotada: original, duas buscas, e devolve o motor pronto.
+// A tentativa conta na CONCLUSÃO da rodada (06/11/2026), não no agendamento.
 async function ateEsgotar(e) {
   await revisado(e, SEM_PROTOCOLO);
   for (let i = 1; i <= busca.MAX_TENTATIVAS; i++) {
     assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, `busca ${i}`);
-    assert.equal(pendente(e).esperaProva.tentativas, i);
-    if (i < busca.MAX_TENTATIVAS) await revisado(e, SEM_PROTOCOLO);
+    assert.equal(pendente(e).esperaProva.tentativas, i - 1, 'o agendamento não conta');
+    if (i < busca.MAX_TENTATIVAS) {
+      await revisado(e, SEM_PROTOCOLO);
+      assert.equal(pendente(e).esperaProva.tentativas, i, 'a rodada concluída conta');
+    }
   }
 }
 
@@ -128,7 +132,7 @@ test('a busca é imediata: o primeiro ciclo relança no mesmo commit, sem o PR m
   const d = pendente(e);
   assert.equal(d.blockedKind, 'stale_head');
   assert.equal(d.blockedHead, HEAD);
-  assert.equal(d.esperaProva.tentativas, 1);
+  assert.equal(d.esperaProva.tentativas, 0, 'conta quando a rodada conclui, não ao relançar');
   const gate = reviewMod.explicaReRound(e, { ...PR }, new Set(), Date.now());
   assert.equal(gate.estado, 'relanca', JSON.stringify(gate));
   assert.deepEqual(e.eventos, []);

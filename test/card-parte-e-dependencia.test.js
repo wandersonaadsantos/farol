@@ -149,7 +149,10 @@ test('caminho protegido sem projeção vai direto para a pessoa, antes de qualqu
     assert.doesNotMatch(texto, /Aprovar/, 'a saída pode ser reprovar ou comentar');
   }
 });
-test('valor oculto com cobertura pendente segue para a recuperação da prova, não direto para a pessoa', () => {
+// 06/11/2026: invertido. O valor oculto com autor sem papel não muda com sessão nenhuma, então
+// vem ANTES da prova: com cobertura pendente a busca gastava duas sessões para terminar na mesa igual.
+test('valor oculto com cobertura pendente vai direto para a pessoa, antes de armar a recuperação da prova', () => {
   const r = { ...comAmbiente(1), coverage: { total: 1, reviewed: [], missing: ['a.md'] } };
-  assert.equal(shouldAutoApprove(engineComPapel('junior'), DA_ANA, r).motivo, 'prova_tecnica_incompleta');
+  assert.equal(shouldAutoApprove(engineComPapel('junior'), DA_ANA, r).motivo, 'valor_oculto_de_ambiente');
+  assert.equal(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, r).motivo, 'prova_tecnica_incompleta', 'Tech Lead: a busca segue');
 });

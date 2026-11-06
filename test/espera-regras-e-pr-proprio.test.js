@@ -165,11 +165,13 @@ test('espera do celular (biud-messaging-waba#52): sem carimbo e com as tentativa
   for (let ciclo = 0; ciclo < 2; ciclo++) assert.equal(await esperaProva.varrerEsperas(e), 0);
 });
 
-test('carimbo atual: a busca gasta tentativa normalmente', async () => {
+test('carimbo atual: a busca relança pela falta de prova, e a tentativa conta quando a rodada conclui', async () => {
   const e = motor();
   await revisado(e, PR, SEM_PROTOCOLO);
   assert.equal(pendente(e).esperaProva.regras, VERSAO_DAS_REGRAS);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(pendente(e).esperaProva.tentativas, 0);
+  await revisado(e, PR, SEM_PROTOCOLO);
   assert.equal(pendente(e).esperaProva.tentativas, 1);
   assert.doesNotMatch(textos(pendente(e))[0], /regras do gate/);
 });

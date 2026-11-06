@@ -191,7 +191,7 @@ test('recuperação com CI obrigatório vermelho não agenda nem conta outra ten
   assert.match(d.esperaProva.impedimento, /Aguardando os checks/);
   e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  assert.equal(d.esperaProva.tentativas, 1);
+  assert.equal(d.esperaProva.tentativas, 0, 'relançar não conta: a tentativa conta quando a rodada conclui');
 });
 
 for (const headAtual of [HEAD, HEAD_NOVO]) {
@@ -215,7 +215,7 @@ test(`retomada pela fila normal substitui a recuperação sem knownHead, no head
   await e.runOneHeadless({ ...PR }, 'eu');
   assert.equal(pendente(e), undefined, 'recordDecision real remove a recuperação anterior');
   assert.deepEqual(envios.map(x => [x.event, x.commit_id]), [['APPROVE', headAtual]]);
-  assert.equal(marcaAnterior.tentativas, headAtual === HEAD ? 1 : 0, 'commit novo não consome tentativa do anterior');
+  assert.equal(marcaAnterior.tentativas, 0, 'nem o agendamento nem a rodada que aprovou consomem tentativa');
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'não agenda outra rodada depois da aprovação');
 });
 }
@@ -253,7 +253,7 @@ test('CI muda após o agendamento: ciclo completo espera sem virar órfã e reto
   assert.equal(e.headlessQueue.length, 1);
   await e.runOneHeadless(e.headlessQueue.shift(), 'eu');
   assert.equal(executadas, 1);
-  assert.equal(d.esperaProva.tentativas, 1);
+  assert.equal(d.esperaProva.tentativas, 0, 'a sessão que não concluiu (stub) não conta');
 });
 
 test('head não confirmado entra na recuperação e só publica após uma nova análise ancorada', async () => {
@@ -287,11 +287,12 @@ test('recuperação sem head original preserva prazo e detecta rodada órfã ap�
   e.reReviewLaunched[PR.key] = { head: HEAD, at: 1 };
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'reagenda órfã mesmo sem head original');
   assert.equal(d.blockedKind, undefined);
-  assert.equal(d.esperaProva.tentativas, 1);
+  assert.equal(d.esperaProva.tentativas, 0, 'a rodada interrompida não gasta tentativa');
+  assert.equal(d.esperaProva.interrupcoes, 1);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'prazo continua respeitado');
   d.esperaProva.proximaEm = Date.now() - 1;
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  assert.equal(d.esperaProva.tentativas, 2);
+  assert.equal(d.esperaProva.tentativas, 0);
   assert.equal(d.blockedHead, HEAD);
   assert.deepEqual(envios, []);
   assert.deepEqual(e.eventos, []);
@@ -619,7 +620,8 @@ test('cancelamento explícito não é desfeito pela recuperação e aparece como
   assert.equal(e.autoReviewParked.has(PR.key), true);
   assert.match(d.esperaProva.impedimento, /cancelada por você/);
   assert.match(staleCardMeta(e.decisionForUi(d)).statusHtml, /cancelada por você/);
-  assert.deepEqual(e.eventos, []);
+  // a pausa que só você desfaz é "precisa de você", avisada uma vez (06/11/2026)
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });
 
 test('autenticação vencida pausa a execução e segue recuperável após restabelecer o perfil', async () => {
@@ -632,7 +634,7 @@ test('autenticação vencida pausa a execução e segue recuperável após resta
   e.autoReviewParked.delete(PR.key); // O fluxo de login existente libera o estacionamento.
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.equal(d.esperaProva.impedimento, '');
-  assert.deepEqual(e.eventos, []);
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]], 'a pausa pelo login avisou uma vez');
 });
 
 test('fila, sessão e retry existentes impedem uma recuperação concorrente', async () => {
@@ -698,7 +700,7 @@ test('automação desligada pausa a recuperação sem descartar a pendência', a
   assert.match(d.esperaProva.impedimento, /desativada/);
   e.autoReviewFor = () => true;
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  assert.deepEqual(e.eventos, []);
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]], 'a pausa pela automação avisou uma vez');
 });
 
 test('orçamento restabelecido libera a recuperação sem exigir uma revisão manual', async () => {
@@ -713,7 +715,7 @@ test('orçamento restabelecido libera a recuperação sem exigir uma revisão ma
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   assert.equal(e.autoReviewParked.has(PR.key), false);
   assert.equal(d.esperaProva.impedimento, '');
-  assert.deepEqual(e.eventos, []);
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]], 'a pausa pelo orçamento avisou uma vez');
 });
 
 test('clique avulso e PR da própria conta não ganham recuperação com publicação automática', () => {

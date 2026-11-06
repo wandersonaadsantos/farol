@@ -170,7 +170,9 @@ export function reRoundBoxHtml(st) {
 // separa do mesmo jeito em ui/pure/aparelhos-fila.js.
 // A que busca a prova técnica (17/10/2026, lib/engine/espera-prova.js) também não precisa:
 // o Farol recupera a análise no mesmo commit, com recuo entre tentativas, na mesma seção.
-const aprovaSozinho = d => !!(d.esperaCi || d.esperaProva);
+// A recuperação PAUSADA por algo que só uma pessoa desfaz (`pedeVoce`: automação desligada,
+// login, ferramenta, cancelamento) precisa, sim (06/11/2026): volta ao contador e à seção.
+const aprovaSozinho = d => !!(d.esperaCi || (d.esperaProva && d.esperaProva.pedeVoce !== true));
 export function separarPendentes(pending) {
   const lista = Array.isArray(pending) ? pending.filter(Boolean) : [];
   return { precisam: lista.filter(d => !aprovaSozinho(d)), esperandoCi: lista.filter(aprovaSozinho) };
@@ -212,11 +214,13 @@ export function esperaCiCardMeta(d) {
 // Recuperação automática da análise, inclusive quando uma execução foi interrompida (PR #253).
 // Depois de duas tentativas no mesmo commit, o que faltar e não for impeditivo vira ressalva e a
 // política da conta decide (decisão do dono de 19/10/2026, que supera o PR #250 e o PR #253).
+// `tentativas` conta as rodadas concluídas neste commit; a que roda, ou a próxima, é a seguinte.
 function tentativaDaProva(d) {
-  const feitas = Number(d && d.esperaProva && d.esperaProva.tentativas) || 0;
-  const n = d && d.blockedKind === 'stale_head' ? feitas : feitas + 1;
-  return Math.max(n, 1);
+  return (Number(d && d.esperaProva && d.esperaProva.tentativas) || 0) + 1;
 }
+// O que destrava a pausada que pede você. Pedir mudanças, comentar e pular já são possíveis;
+// aprovar continua exigindo a prova.
+const DESTRAVA_DA_PAUSA = 'Para destravar: resolva o impedimento (ligue a revisão automática da conta, se for ela), revise de novo (a segunda revisão sua neste commit fecha a busca e traz a decisão para a mesa) ou decida aqui: pedir mudanças, comentar ou pular; aprovar exige a prova.';
 function esperaProvaCardMeta(d, execucao = {}) {
   const marca = d.esperaProva || {};
   const horario = marca.proximaEm > Date.now() ? new Date(marca.proximaEm).toLocaleString('pt-BR') : '';
@@ -229,16 +233,22 @@ function esperaProvaCardMeta(d, execucao = {}) {
     texto: marca.impedimento || texto,
   };
   if (marca.impedimento) st.lead = 'Recuperação pausada.';
+  const pedeVoce = marca.pedeVoce === true;
+  if (pedeVoce) Object.assign(st, { tom: 'warn', lead: 'Recuperação pausada: precisa de você.', texto: `${marca.impedimento} ${DESTRAVA_DA_PAUSA}` });
   if (marca.aguardandoCi) {
     st.lead = 'Aguardando o CI antes de retomar.';
     st.texto = 'Os checks obrigatórios precisam ficar verdes para iniciar outra sessão. A análise anterior foi preservada; esta espera não consome tentativa.';
   }
   if (execucao.aguardando) st.lead = 'Aguardando executor para recuperar a análise.';
   if (execucao.ativa) st.lead = `Concluindo a análise (tentativa ${tentativaDaProva(d)}).`;
+  // pausada e sem sessão rodando: é sua, com o botão de revisar de novo em primeiro plano
+  const suaVez = pedeVoce && !execucao.ativa;
+  const verdictHtml = pedeVoce ? '<span class="verdict pending">RECUPERAÇÃO PAUSADA</span>' : '<span class="verdict pending">RECUPERANDO A ANÁLISE</span>';
+  const cardClass = suaVez ? 'urgent' : 'working';
+  const reviewBtn = suaVez ? 'primary' : '';
   return {
-    stale: false, cardClass: 'working', approveDisabled: true,
-    verdictHtml: '<span class="verdict pending">RECUPERANDO A ANÁLISE</span>',
-    reasons: Array.isArray(d.reasons) ? d.reasons : [], statusHtml: reRoundBoxHtml(st), reviewBtn: '',
+    stale: false, cardClass, approveDisabled: true, verdictHtml,
+    reasons: Array.isArray(d.reasons) ? d.reasons : [], statusHtml: reRoundBoxHtml(st), reviewBtn,
   };
 }
 
@@ -292,6 +302,7 @@ export function reviewBoxHtml(d) {
   const razoes = Array.isArray(d.reasons) ? d.reasons : [];
   let titulo = d.esperaCi && !label ? 'Esperando o CI para aprovar sozinho' : 'Por que precisa de você';
   if (d.esperaProva) titulo = `Recuperando a análise (tentativa ${tentativaDaProva(d)}), sem decisão manual`;
+  if (d.esperaProva && d.esperaProva.pedeVoce === true) titulo = 'Recuperação pausada: por que precisa de você';
   return `<div class="review-box">
     <div class="review-box-head">
       <span class="verdict ${cls}">${esc(v)}</span>
@@ -320,7 +331,8 @@ const CHIP_DO_GH = {
 export function reviewChip(pr, actions, estadosGh) {
   const a = (actions || {})[pr.key];
   if (a && a.kind === 'pending' && a.esperaCi) return '<span class="badge rev-ok" title="Aprovável. O Farol espera o CI obrigatório e aprova sozinho quando ele fechar verde neste commit">⏳ esperando o CI</span>';
-  if (a && a.kind === 'pending' && a.esperaProva) return '<span class="badge rev-pend" title="A análise está em recuperação automática. Nada é publicado sem evidência; não exige decisão manual">⏳ recuperando a análise</span>';
+  if (a && a.kind === 'pending' && a.esperaProva && a.pedeVoce !== true) return '<span class="badge rev-pend" title="A análise está em recuperação automática. Nada é publicado sem evidência; não exige decisão manual">⏳ recuperando a análise</span>';
+  if (a && a.kind === 'pending' && a.esperaProva) return '<span class="badge rev-pend" title="A recuperação da análise está pausada por algo que só você resolve; o card em Precisa de você diz o quê">🟡 aguardando você (recuperação pausada)</span>';
   if (a && a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
   const gh = String((estadosGh || {})[pr.key]);
   if (Object.hasOwn(CHIP_DO_GH, gh)) return CHIP_DO_GH[gh];

@@ -163,10 +163,12 @@ test('reviewChip: no Panorama, pendência em espera do CI não diz "aguardando v
 test('todo contador local de pendência exclui a espera do CI, e a tela tem a seção própria', async () => {
   const fs = await import('node:fs');
   const ler = (rel) => fs.readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
-  // a espera da prova técnica (17/10/2026) também não pede você
-  assert.match(ler('lib/engine/avisos-nativos.js'), /pendentes\.filter\(d => d && !d\.esperaCi && !d\.esperaProva\)\.length/, 'badge e tooltip da bandeja');
+  // a espera da prova técnica (17/10/2026) também não pede você; a pausada por algo que só uma
+  // pessoa desfaz (`pedeVoce`, 06/11/2026) pede, e todo contador lê o mesmo predicado
+  assert.match(ler('lib/engine/avisos-nativos.js'), /pendentes\.filter\(d => d && !resolveSozinha\(d\)\)\.length/, 'badge e tooltip da bandeja');
+  assert.match(ler('lib/engine/avisos-nativos.js'), /d\.esperaProva && d\.esperaProva\.pedeVoce !== true/, 'a pausada que pede você conta no ícone');
   assert.match(ler('main.js'), /badgeDe\(snapshot\)/, 'o Electron conta pela mesma fonte');
-  assert.match(ler('ui/telas/contas.js'), /filter\(p => !p\.esperaCi && !p\.esperaProva && /, 'contagem por conta');
+  assert.match(ler('ui/telas/contas.js'), /separarPendentes\(estado\(\)\.decisions\?\.pending\)\.precisam\.filter\(/, 'contagem por conta pela mesma régua da seção');
   assert.match(ler('ui/telas/paleta.js'), /comandosDasPendencias\(estado\(\)\?\.decisions\?\.pending, \{ scopeVisible, decide, decideComConfirmacao \}\)/, 'paleta usa a projeção comum de ações');
   const radar = ler('ui/telas/radar.js');
   assert.match(radar, /const \{ precisam: pending, esperandoCi \} = separarPendentes\(/);
