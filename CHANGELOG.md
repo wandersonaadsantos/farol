@@ -20,7 +20,7 @@ A revisão automática decide na primeira rodada e aproveita o que já foi lido 
 ### Melhorias
 
 - A revisão decide na primeira rodada. O que falta e não impede a decisão (leitura incompleta de algum arquivo, uso fora do diff não declarado, protocolo, divergência entre passadas) vira ressalva na hora, e a configuração da conta decide entre aprovar com ressalvas e esperar você. Acabou a segunda sessão no mesmo commit e o cartão "Recuperando a análise" para esses casos. Medido: cinco PRs foram mergeados enquanto esperavam essa segunda rodada, sem o Farol postar.
-- Arquivo que já foi lido num PR do mesmo repositório, com o mesmo caminho, o mesmo conteúdo e o mesmo trecho alterado, não é relido em outro PR: a revisão só lê o que é novo e diz no pedido de onde veio cada leitura. Vale para réplicas e promoções que trazem o mesmo código. Uso fora do diff com chamador é conferido de novo no commit do PR novo, "sem uso fora do diff" é declarado de novo, e a avaliação técnica e o veredito são sempre do PR novo.
+- Arquivo que já foi lido num PR do mesmo repositório, com o mesmo caminho, o mesmo conteúdo e o mesmo trecho alterado, não é relido em outro PR: a revisão só lê o que é novo e diz no pedido de onde veio cada leitura. Vale para réplicas e promoções que trazem o mesmo código. Uso fora do diff com chamador é conferido de novo no commit do PR novo, "sem uso fora do diff" é declarado de novo, e a avaliação técnica e o veredito são sempre do PR novo. Leitura de uma revisão que pediu mudanças ou deixou bloqueio em aberto não é aproveitada: o PR novo com o mesmo trecho relê o arquivo e reavalia o defeito.
 
 ### Correções
 

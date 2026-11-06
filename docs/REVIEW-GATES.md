@@ -1106,7 +1106,10 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   CI; texto incoerente, commit não confirmado e as outras lacunas duras ficam de fora; revisão
   independente de 06/11/2026; desde a segunda, também sem lacuna dispensada sobre a qualidade da
   leitura, como protocolo não comprovado, verificação de afirmações ausente ou divergência no
-  checkpoint, tolerada só a pendência de cobertura), e só com o que a sessão LEU: arquivo do diff medido, com blob,
+  checkpoint, tolerada só a pendência de cobertura; desde a thread do PR #351, também sem bloqueio
+  em aberto: achado bloqueante vigente, pedido de mudanças ou bloqueio de rodada anterior que a
+  memória ainda conta, porque o índice guarda só a leitura e a memória de rodadas é por PR, e o PR
+  seguinte com o patch idêntico herdaria o arquivo sem reavaliar o defeito conhecido), e só com o que a sessão LEU: arquivo do diff medido, com blob,
   em `coverage.reviewed`, fora de `missing` e fora de `inherited` (o herdado mantém a origem de
   quem leu primeiro); o alcance é o mesmo `alcanceDaProva` da prova do PR (só o que fechou).
   Teto de 4000 entradas por repositório (ficam as leituras mais recentes) e poda pela idade da

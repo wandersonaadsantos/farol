@@ -37,6 +37,7 @@ io.run = function runDuble(cmd, args) {
 
 const fileProof = await import('../lib/engine/file-proof.js');
 const repoProof = await import('../lib/engine/prova-do-repositorio.js');
+const { isCiGap } = await import('../lib/technical-review/verdict.js');
 const analysis = await import('../lib/engine/analysis-source.js');
 const { Engine } = await import('../server.js');
 
@@ -415,4 +416,39 @@ test('herança encadeada: o herdado de outro PR na prova própria exige o mesmo 
   const proprio = { ...prova, origens: {} };
   assert.deepEqual(fileProof.splitByProof([arquivo('src/elo.ts', 'blob-elo', 'modified', 'patch-2')], proprio).unchanged, ['src/elo.ts'],
     'a leitura do próprio PR segue pela regra de sempre (blob e status)');
+});
+
+// Thread do PR #351 (06/11/2026): pedido de mudanças completo e coerente, com bloqueio de código
+// não resolvido, passava na guarda. Os arquivos entravam no índice sem o achado, e um segundo PR
+// com o patch idêntico herdava a leitura como feita, sem a memória do bloqueio (ela é por PR).
+test('PR A com bloqueio de código não resolvido não alimenta o índice, e o PR B com o mesmo patch relê', async () => {
+  const a = { key: 'acme/catorze#1', repo: 'acme/catorze', number: 1, url: 'https://github.com/acme/catorze/pull/1', author: 'dev', requested: true };
+  const f = arquivo('src/catorze.md', 'blob-catorze');
+  const achado = { ...criteriaFixture('request_changes').findings[0], file: f.path, line: 1 };
+  const rodadas = { atual: { head: 'abcdef07', files: [f], coverage: { total: 1, reviewed: [f.path], missing: [] }, alcance: [],
+    extra: { verdict: 'request_changes', decision: 'request_changes', findings: [achado],
+      payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'O fluxo viola o contrato em src/catorze.md:1.' } } } } };
+  const e = motor(rodadas, []);
+  await e.runHeadlessReview({ ...a });
+  assert.equal(daRodada(e, a, 'abcdef07').approvalEvidence.filter((g) => !isCiGap(g)).length, 0,
+    'controle: a rodada é completa e coerente, só o bloqueio a segura');
+  assert.deepEqual(repoProof.lerIndiceDoRepositorio('acme/catorze'), {});
+  assert.deepEqual(fileProof.readFileProof(a.key).reviewed, [f.path], 'a prova do próprio PR continua');
+  const h = await ler({ key: 'acme/catorze#2', repo: 'acme/catorze', number: 2 }, H2, [f]);
+  assert.deepEqual(h.unchanged, [], 'o PR B relê o arquivo e reavalia o bloqueio');
+});
+
+test('a guarda do índice barra bloqueio vigente, pedido de mudanças e bloqueio de rodada anterior em aberto', () => {
+  const limpo = { analysisStatus: 'complete', approvalEvidence: [], headSha: H1, checksVerifiedHead: H1, diffMedido: [],
+    verificationCheckpoint: { total: 0, conflicts: [] }, protocolo: { prReviewer: 'rodou' }, technicalReview: { semDeclaracao: true },
+    coverage: { total: 0, reviewed: [], missing: [] } };
+  const bloqueio = { severity: 'blocking', causa: 'defeito_codigo', title: 'Defeito', summary: 'O fluxo viola o contrato.', file: 'a.js', line: 1 };
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, verdict: 'approve', findings: [] }), true, 'controle');
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, findings: [bloqueio] }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, verdict: 'request_changes', findings: [] }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, findings: 'lixo' }), false, 'achados ilegíveis não viram herança');
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, findings: [{ ...bloqueio, causa: undefined }] }), false, 'bloqueio fora do contrato não vira herança');
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, roundReview: { schema: 1, unresolvedCount: 1 } }), false);
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, findings: [{ ...bloqueio, ref: 'f1', status: 'resolvido' }] }), true, 'bloqueio resolvido não segura');
+  assert.equal(repoProof.podeEntrarNoIndice({ ...limpo, findings: [{ ...bloqueio, severity: 'suggestion' }] }), true, 'sugestão não segura');
 });
