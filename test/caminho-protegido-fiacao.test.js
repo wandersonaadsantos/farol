@@ -174,10 +174,12 @@ test('o terminal grava o escopo, passa escopo= e abre o claude com as guardas', 
   assert.doesNotMatch(m[2], /%|\\/, 'a raiz atravessa o .cmd do Windows: sem % e sem barra invertida');
   const raiz = path.join(WORKSPACE, ...m[2].split('/'));
   assert.equal(fs.readFileSync(path.join(raiz, 'src', 'a.js'), 'utf8'), PATCHES_DO_GITHUB[0].patch);
+  // `apps/.env.d/` é pasta protegida, então o arquivo não tem projeção: nem o marcador é gravado
+  // (a leitura dele seria uma entrega conferível de um conteúdo que a sessão nunca viu)
   const redigido = path.join(raiz, ...nomeMaterializado('apps/.env.d/prod.env').split('/'));
-  const projecao = fs.readFileSync(redigido, 'utf8');
-  assert.doesNotMatch(projecao, /velho/, 'o valor antigo do protegido não chega ao disco da sessão');
+  assert.equal(fs.existsSync(redigido), false, 'protegido sem projeção não tem arquivo no escopo');
   assert.equal(fs.existsSync(path.join(raiz, 'apps', '.env.d')), false, 'nada no caminho original');
+  assert.doesNotMatch(fs.readdirSync(raiz).join(' '), /velho/);
 
   const win = e.buildSessionScript(abertos[0].slash, 'fixture', 'cap');
   assert.ok(win.includes(`claude --settings "${ARQUIVO_DE_GUARDAS}" "${abertos[0].slash}"`), win);

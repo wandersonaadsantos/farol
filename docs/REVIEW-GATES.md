@@ -1453,6 +1453,12 @@ o consultam:
   `config.txt` traz no patch o conteúdo de antes, então os metadados do diff (`previousPath`) seguem
   até cada filtro da prova: o inventário medido pelo `gh` (`pr-inventory.js`), o escopo materializado
   (`arquivos` em `pr-scope.js`), a autoanálise, a prova por arquivo e o índice entre PRs.
+  **Protegido SEM projeção não tem arquivo nenhum no escopo** (review do PR #350, 06/11/2026): o
+  caminho comum sem patch recebe um marcador de indisponibilidade, e no protegido esse marcador
+  seria uma entrega inteira conferível, creditada em `provados` por um conteúdo que a sessão nunca
+  viu. `materializeScope` não grava nada para ele (fica no total, em `semProjecao`, e o prompt manda
+  declará-lo em `coverage.missing`), e a disponibilidade viaja até o crédito: `arquivos[].projecao`
+  é `false` e `lidosComProtegidoProvado` o tira dos lidos mesmo com uma entrega conferida.
 
   **Limitação conhecida, de propósito:** a leitura observada vive em memória, no stream do Claude
   desta sessão. Codex e Antigravity não emitem evento de leitura de arquivo, e a sessão retomada depois
