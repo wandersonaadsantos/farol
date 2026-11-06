@@ -35,7 +35,7 @@ function irParaSubDoRadar(sub, secaoId) {
    abertura. Em janela estreita a paleta deixa de ser atalho de gente avançada e vira a
    rota principal pra tudo que não cabe na tira de abas. */
 function cmdStatic() { return [
-  ...comandosDasPendencias(estado()?.decisions?.pending, { scopeVisible, decide, decideComConfirmacao }),
+  ...comandosDasPendencias(estado()?.decisions?.pending, { scopeVisible, decide, decideComConfirmacao, ciObrigatorio: estado()?.config?.aguardarCiParaAprovar === true }),
   ...[...document.querySelectorAll('.nav-item:not(.cmd-open)')].filter(b => !b.hidden).map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => _switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
   // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.

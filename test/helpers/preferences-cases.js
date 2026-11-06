@@ -1,5 +1,6 @@
 // Domínios e exemplos concretos das preferências para os testes de transferência.
 import { SETTINGS, defaults } from '../../lib/settings.js';
+import { ESQUEMA_PADROES } from '../../lib/engine/contas-migracao.js';
 import { MODEL_ALIASES, EFFORT_LEVELS, CODEX_EFFORT_LEVELS, AGY_EFFORT_LEVELS } from '../../lib/parse.js';
 import { catalogoParaTela, modeloEquivalente } from '../../lib/modelos.js';
 import { PAPEL_LEVELS, DOMAINS, DOMAIN_LEVELS } from '../../lib/taxonomy.js';
@@ -16,7 +17,8 @@ const sync = {
   databaseUrl: 'https://demo.firebaseio.com', projectId: 'demo',
 };
 function baseConfig() {
-  return { ...structuredClone(defaults(0)), esquemaConfig: 1, ghUser: 'dev', owners: ['acme'], accounts: [structuredClone(account)],
+  // a config de um aparelho que já passou pelas migrações de esquema (a recarga não migra de novo)
+  return { ...structuredClone(defaults(0)), esquemaConfig: ESQUEMA_PADROES, ghUser: 'dev', owners: ['acme'], accounts: [structuredClone(account)],
     claudeProfiles: structuredClone(profiles), cadeiaPerfis: profiles.map(p => ({ id: p.id, ativo: false })), sync: structuredClone(sync) };
 }
 function configForField(key) {

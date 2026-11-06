@@ -16,6 +16,10 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.42', [
+    '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho',
+    '"Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas; "Atualizar sozinho" continua ligada',
+  ]],
   ['2.78.41', [
     'Panorama e Meus PRs de outros aparelhos aparecem só no aparelho admin; nos outros, as abas mostram só os PRs do próprio aparelho',
   ]],

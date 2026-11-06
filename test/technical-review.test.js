@@ -41,7 +41,9 @@ function result(extra = {}) {
     verificationCheckpoint: { total: 0, conflicts: [] }, protocolo: { prReviewer: 'rodou' },
     payloads: { approve: { event: 'APPROVE', body: 'O comportamento foi conferido.' } }, ...extra };
 }
-const engine = { config: { aguardarCiParaAprovar: false }, accountForPr: () => 'reviewer',
+// "CI obrigatório antes da aprovação" ligado nos casos que nasceram com ele obrigatório; o desligado
+// (padrão desde 06/11/2026) tem casos próprios mais abaixo
+const engine = { config: { aguardarCiParaAprovar: true }, accountForPr: () => 'reviewer',
   attentionPoints: () => [], approvePolicyFor: () => 'approve' };
 
 test('conformidade técnica e prova suficiente permitem a preferência de aprovar', () => {
@@ -90,10 +92,20 @@ for (const [name, patch] of Object.entries({
   assert.equal(shouldAutoApprove(engine, { requested: true }, result(patch)).ok, false);
 });
 
-test('CI obrigatório segura mesmo com a opção antiga de espera desligada', () => {
+test('CI obrigatório segura com "CI obrigatório antes da aprovação" ligado', () => {
   const r = result({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] });
   assert.equal(shouldAutoApprove(engine, { requested: true }, r).motivo, 'ci_vermelho');
   assert.equal(shouldAutoApprove(engine, { requested: true }, result({ checksVerifiedHead: null })).motivo, 'ci_em_andamento');
+});
+
+test('com a chave desligada (padrão) o CI vermelho, rodando ou não lido não segura o gate', () => {
+  for (const config of [{}, { aguardarCiParaAprovar: false }, { aguardarCiParaAprovar: 'true' }]) {
+    const semCi = { ...engine, config };
+    for (const patch of [{ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] },
+      { checksObrigatorios: [{ nome: 'test', estado: 'rodando' }] }, { checksVerifiedHead: null }]) {
+      assert.deepEqual(shouldAutoApprove(semCi, { requested: true }, result(patch)), { ok: true, motivo: null }, JSON.stringify([config, patch]));
+    }
+  }
 });
 
 test('alteração de declaração e troca de repositório invalidam prova', () => {
@@ -196,7 +208,15 @@ test('aprovação reconfirma base, objeções, declaração e CI na fronteira co
     assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review');
     technicalRuntime.targetFor = async () => ({ head, base: proof.base });
     e.bloqueadoPorChecks = async () => ({ verifiedHead: head, faltando: [{ nome: 'test', estado: 'rodando' }] });
-    assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review');
+    assert.equal((await approvalRefusal(e, pr, payload)).waitForCi, true);
+    // desligada (padrão): o clique e a postagem automática não leem nem esperam o CI
+    e.config = { aguardarCiParaAprovar: false };
+    let leituras = 0;
+    e.bloqueadoPorChecks = async () => { leituras++; return { faltando: [{ nome: 'test', estado: 'vermelho' }] }; };
+    assert.equal(await approvalRefusal(e, pr, payload), null, 'sem a chave, o CI não barra a publicação');
+    assert.equal(leituras, 0, 'nem consulta o CI');
+    receipt.evidence = approvalGaps(result({ analysisStatus: 'partial' }));
+    assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review', 'o resto da prova continua exigido');
   } finally { Object.assign(technicalRuntime, original); }
 });
 

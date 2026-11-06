@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.42
+
+"CI obrigatório antes da aprovação" volta a ser uma chave, desligada por padrão, e três opções de Automação passam a vir ligadas.
+
+### Melhorias
+
+- Em Sistema > Automação, "CI obrigatório antes da aprovação" voltou a ser uma chave, e vem desligada. Desligada, o estado do CI obrigatório não segura, não adia e não barra a decisão: a aprovação sai assim que a revisão conclui e a configuração da conta permite, o botão Aprovar não espera o CI, o CI vermelho não vira pedido de mudanças, e o estado da pipe fica anotado no app, nunca no PR. Só desligue onde o check é obrigatório no ruleset: sem isso, o Farol pode aprovar com o CI vermelho e o GitHub não barra o merge. Ligada, tudo funciona como até agora: a aprovação espera os checks obrigatórios verdes no commit revisado e sai sozinha quando eles fecham. Uma espera do CI que já estava armada se resolve no ciclo seguinte quando a chave é desligada: a aprovação sai pela configuração da conta, e o pedido de mudanças sustentado só pelo CI vem para você.
+- "Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas, e "Atualizar sozinho" continua ligada por padrão. Rodando como root (proot do Termux), a sessão de terminal abre sem a flag de permissões mesmo com a chave ligada, porque o Claude Code a recusa ali. Na primeira abertura desta versão, as duas primeiras são ligadas e a do CI é desligada uma vez só, porque o valor antigo estava gravado sem ninguém ter escolhido. Depois disso, o que você escolher fica.
+
 ## v2.78.41
 
 O Panorama e os Meus PRs de outros aparelhos aparecem só no aparelho admin.

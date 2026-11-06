@@ -422,6 +422,7 @@ test('desfecho nova: referência descartada vira sessão nova, rotulada nova', a
 
 test('desfecho nenhuma: sem referência, e também com o resumeSid incremental desligado', async () => {
   const e = motor();
+  e.config.reReviewResume = false; // ligado por padrão desde 06/11/2026; aqui o caso é o desligado
   await e.runHeadlessReview({ ...PR, resumeSid: 'zzz-98765-xx' });
   assert.equal(e.chamadas[0].opcao, 'nenhuma');
   assert.equal(e.chamadas[0].registro, 'nenhuma');

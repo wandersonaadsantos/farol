@@ -43,6 +43,9 @@ const CONGELADA = [
   "textoDoMergeDesbloqueado",
   "tirarRepo",
   "tituloDoMergeBloqueado",
+  // "CI obrigatório antes da aprovação" de novo opcional (06/11/2026): ui/pure/review.js e ui/pure/contas.js
+  "tituloDoAprovarDesligado",
+  "fraseDoCi",
   // outra pessoa revisando e limite do plano no card da fila (02/10/2026): ui/pure/revisando.js
   "avisosDoCard",
   "contasNoLimiteDaFila",
