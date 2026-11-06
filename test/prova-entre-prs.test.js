@@ -49,8 +49,8 @@ after(() => {
 
 const CHAMADOR = 'import { montar } from "./veredito";\n\nexport function rota() {\n  return montar(1);\n}\n';
 const DECLARACAO = { alterado: 'src/veredito.ts', chamadores: [{ arquivo: 'src/rota.ts', linha: 4, simbolo: 'montar' }] };
-const VEREDITO = { path: 'src/veredito.ts', sha: 'blob-veredito', status: 'modified', lines: 10 };
-const DOC = { path: 'docs/guia.md', sha: 'blob-guia', status: 'modified', lines: 4 };
+const VEREDITO = { path: 'src/veredito.ts', sha: 'blob-veredito', status: 'modified', lines: 10, patch: '@@ -1 +1 @@\n-a\n+b', patchStatus: 'available' };
+const DOC = { path: 'docs/guia.md', sha: 'blob-guia', status: 'modified', lines: 4, patch: '@@ -2 +2 @@\n-c\n+d', patchStatus: 'available' };
 
 /* ---------- ponta a ponta: o PR novo com os mesmos blobs não relê nada ---------- */
 
@@ -118,15 +118,15 @@ test('PR novo com os mesmos blobs de um PR já revisado do repositório herda to
   assert.ok(decisao.provas.cobertura.entrePrs.amostra.includes('src/veredito.ts: lido em acme/app#51, commit aaaaaaa1'),
     'a origem fica nas provas da decisão para auditoria');
   const indice = repoProof.lerIndiceDoRepositorio('acme/app');
-  assert.equal(indice[repoProof.chaveDoIndice(VEREDITO.path, VEREDITO.sha)].pr, origem.key,
+  assert.equal(indice[repoProof.chaveDoArquivo(VEREDITO)].pr, origem.key,
     'o PR que herdou não reescreve a origem da leitura');
 });
 
 /* ---------- a leitura antes da sessão ---------- */
 
 const H1 = '1'.repeat(40), H2 = '2'.repeat(40);
-function arquivo(p, sha, status = 'modified') {
-  return { path: p, sha, status, patch: '@@ -1 +1 @@\n-x\n+y', patchStatus: 'available' };
+function arquivo(p, sha, status = 'modified', patch = '@@ -1 +1 @@\n-x\n+y') {
+  return { path: p, sha, status, patch, patchStatus: 'available' };
 }
 function fonte(head, files) {
   return { status: 'complete', manifest: { H: head, B: 'b'.repeat(40), M: 'c'.repeat(40), files, limitations: [] },
@@ -141,7 +141,7 @@ function engineDaLeitura() {
 }
 // grava a leitura completa de um PR, como o fim da sessão grava
 function revisado(pr, head, files, extra = {}) {
-  const arquivos = files.map(({ path: p, sha, status }) => ({ path: p, sha, status }));
+  const arquivos = files.map(({ path: p, sha, status, patch, patchStatus }) => ({ path: p, sha, status, patch, patchStatus }));
   const result = { coverage: { total: arquivos.length, reviewed: arquivos.map((f) => f.path), missing: [] },
     diffMedido: arquivos.map((f) => f.path), sessionId: 'sess-1', ...extra };
   fileProof.salvarProvaDaSessao(pr, head, arquivos, result);
@@ -183,21 +183,55 @@ test('mesmo blob em outro repositório, caminho diferente ou blob vazio não her
   assert.equal(renomeado.ativa, false, 'caminho diferente não herda, mesmo com o mesmo conteúdo');
 
   revisado({ key: 'org/dois#3', repo: 'org/dois' }, H1, [arquivo('src/vazio.md', '')]);
-  assert.equal(repoProof.lerIndiceDoRepositorio('org/dois')[repoProof.chaveDoIndice('src/vazio.md', '')], undefined, 'blob vazio nem entra no índice');
-  const entradas = { [repoProof.chaveDoIndice('src/vazio.md', '')]: { pr: 'org/dois#9', head: H1, at: Date.now(), status: 'modified' } };
-  const puro = repoProof.herancaDoRepositorio({ key: 'org/dois#4' }, [{ path: 'src/vazio.md', sha: '', status: 'modified' }], entradas, []);
+  assert.equal(Object.values(repoProof.lerIndiceDoRepositorio('org/dois')).some((e) => e.caminho === 'src/vazio.md'), false, 'blob vazio nem entra no índice');
+  const vazio = arquivo('src/vazio.md', '');
+  const entradas = { [`:${repoProof.hashDoPatch(vazio.patch)}:src/vazio.md`]: { pr: 'org/dois#9', head: H1, at: Date.now(), status: 'modified' } };
+  const puro = repoProof.herancaDoRepositorio({ key: 'org/dois#4' }, [vazio], entradas, []);
   assert.deepEqual(puro.unchanged, [], 'blob vazio nunca prova igualdade');
 });
 
-test('status compatível: conteúdo presente herda entre added e modified; removido só com removido', () => {
-  const k = (p, s) => repoProof.chaveDoIndice(p, s);
-  const entradas = {
-    [k('src/a.md', 'sa')]: { pr: 'o/r#1', head: H1, at: Date.now(), status: 'added' },
-    [k('src/b.md', 'sb')]: { pr: 'o/r#1', head: H1, at: Date.now(), status: 'removed' },
-  };
-  const h = repoProof.herancaDoRepositorio({ key: 'o/r#2' },
-    [{ path: 'src/a.md', sha: 'sa', status: 'modified' }, { path: 'src/b.md', sha: 'sb', status: 'modified' }], entradas, []);
-  assert.deepEqual(h.unchanged, ['src/a.md']);
+// Revisão independente de 06/11/2026: o que se revisa é o patch contra o merge-base, e ele muda
+// entre PRs com o mesmo blob (réplica do GitFlow, promoção com outras tasks na base). A chave é
+// caminho, blob E patch, e o status tem de ser igual.
+const entrada = (f, extra = {}) => ({ [repoProof.chaveDoArquivo(f)]: { caminho: f.path, pr: 'o/r#1', head: H1, at: Date.now(), status: f.status, ...extra } });
+
+test('mesmo blob com patch diferente não herda: o PR B traz linhas de outras tasks no patch contra a base dele', async () => {
+  const lidoEmA = arquivo('src/x.ts', 'blob-x', 'modified', '@@ -10,3 +10,3 @@\n-a\n+b');
+  revisado({ key: 'org/nove#1', repo: 'org/nove' }, H1, [lidoEmA]);
+  const emB = arquivo('src/x.ts', 'blob-x', 'modified', '@@ -10,3 +10,3 @@\n-a\n+b\n@@ -100,200 +100,200 @@\n-outra\n+task');
+  const h = await ler({ key: 'org/nove#2', repo: 'org/nove', number: 2 }, H2, [emB]);
+  assert.equal(h.ativa, false);
+  assert.deepEqual(h.unchanged, [], 'o patch de B é outro: o arquivo volta a ser lido');
+  const igual = await ler({ key: 'org/nove#3', repo: 'org/nove', number: 3 }, H2, [arquivo('src/x.ts', 'blob-x', 'modified', '@@ -10,3 +10,3 @@\n-a\n+b')]);
+  assert.deepEqual(igual.unchanged, ['src/x.ts'], 'controle: mesmo blob e mesmo patch herdam');
+});
+
+test('status diferente não herda, nem entre added e modified', () => {
+  const a = { path: 'src/a.md', sha: 'sa', status: 'modified', patch: 'p', patchStatus: 'available' };
+  const h = repoProof.herancaDoRepositorio({ key: 'o/r#2' }, [a], entrada(a, { status: 'added' }), []);
+  assert.deepEqual(h.unchanged, []);
+  const r = { ...a, status: 'removed' };
+  assert.deepEqual(repoProof.herancaDoRepositorio({ key: 'o/r#2' }, [r], entrada(r), []).unchanged, ['src/a.md'], 'controle: status igual herda');
+});
+
+test('arquivo sem patch (grande ou binário) ou com patch parcial não herda nem entra no índice', () => {
+  const semPatch = { path: 'src/grande.json', sha: 'sg', status: 'modified' };
+  const parcial = { path: 'src/parcial.ts', sha: 'sp', status: 'modified', patch: '@@ -1 +1 @@', patchStatus: 'partial' };
+  assert.equal(repoProof.chaveDoArquivo(semPatch), '');
+  assert.equal(repoProof.chaveDoArquivo(parcial), '');
+  const pr = { key: 'org/dez#1', repo: 'org/dez' };
+  fileProof.salvarProvaDaSessao(pr, H1, [semPatch, parcial], { coverage: { reviewed: [semPatch.path, parcial.path] } });
+  assert.deepEqual(repoProof.lerIndiceDoRepositorio('org/dez'), {});
+  const forjada = { [`sg::src/grande.json`]: { pr: 'o/r#1', head: H1, at: Date.now(), status: 'modified' },
+    [`sg:${repoProof.hashDoPatch('')}:src/grande.json`]: { pr: 'o/r#1', head: H1, at: Date.now(), status: 'modified' } };
+  assert.deepEqual(repoProof.herancaDoRepositorio({ key: 'o/r#2' }, [semPatch], forjada, []).unchanged, []);
+});
+
+test('a chave carrega o patch: tirar o patch da chave faria o PR B herdar', () => {
+  const a = arquivo('src/k.ts', 'blob-k', 'modified', 'patch-a');
+  const b = arquivo('src/k.ts', 'blob-k', 'modified', 'patch-b');
+  assert.notEqual(repoProof.chaveDoArquivo(a), repoProof.chaveDoArquivo(b));
+  assert.ok(repoProof.chaveDoArquivo(a).includes(repoProof.hashDoPatch('patch-a')));
 });
 
 test('alcance herdado entre PRs cuja conferência no head novo falha: perde a herança e o arquivo volta a ser lido', async () => {
@@ -238,15 +272,14 @@ test('prova própria do PR vence a do índice; no mesmo head fora da rodada comp
 });
 
 test('o índice não serve ao próprio PR que o gravou', () => {
-  const entradas = { [repoProof.chaveDoIndice('src/a.md', 'sa')]: { pr: 'o/r#7', head: H1, at: Date.now(), status: 'modified' } };
-  const h = repoProof.herancaDoRepositorio({ key: 'o/r#7' }, [{ path: 'src/a.md', sha: 'sa', status: 'modified' }], entradas, []);
+  const a = arquivo('src/a.md', 'sa');
+  const h = repoProof.herancaDoRepositorio({ key: 'o/r#7' }, [a], entrada(a, { pr: 'o/r#7' }), []);
   assert.deepEqual(h.unchanged, []);
 });
 
 test('o índice só guarda o que a sessão leu: nem o herdado, nem o que ficou em missing, nem fora do diff medido', () => {
   const pr = { key: 'org/seis#1', repo: 'org/seis' };
-  const arquivos = [{ path: 'src/lido.md', sha: 's1', status: 'modified' }, { path: 'src/herdado.md', sha: 's2', status: 'modified' },
-    { path: 'src/faltou.md', sha: 's3', status: 'modified' }];
+  const arquivos = [arquivo('src/lido.md', 's1'), arquivo('src/herdado.md', 's2'), arquivo('src/faltou.md', 's3')];
   const result = { coverage: { total: 3, reviewed: ['src/lido.md', 'src/herdado.md', 'src/inventado.md'], missing: ['src/faltou.md'], inherited: ['src/herdado.md'] } };
   fileProof.salvarProvaDaSessao(pr, H1, arquivos, result);
   const indice = repoProof.lerIndiceDoRepositorio('org/seis');
@@ -256,20 +289,20 @@ test('o índice só guarda o que a sessão leu: nem o herdado, nem o que ficou e
 test('teto e poda do índice: o velho sai e, acima do teto, ficam as leituras mais recentes', () => {
   const agora = 10 * 24 * 3600 * 1000;
   const entradas = {};
-  for (let i = 0; i < 6; i++) entradas[repoProof.chaveDoIndice(`f${i}`, `s${i}`)] = { caminho: `f${i}`, pr: 'o/r#1', head: H1, at: agora - i * 1000, status: 'modified' };
-  entradas[repoProof.chaveDoIndice('velho', 'sv')] = { caminho: 'velho', pr: 'o/r#1', head: H1, at: agora - 5 * 24 * 3600 * 1000, status: 'modified' };
+  for (let i = 0; i < 6; i++) entradas[repoProof.chaveDoArquivo(arquivo(`f${i}`, `s${i}`))] = { caminho: `f${i}`, pr: 'o/r#1', head: H1, at: agora - i * 1000, status: 'modified' };
+  entradas[repoProof.chaveDoArquivo(arquivo('velho', 'sv'))] = { caminho: 'velho', pr: 'o/r#1', head: H1, at: agora - 5 * 24 * 3600 * 1000, status: 'modified' };
   const podado = repoProof.podarIndice(entradas, { agora, maxAgeMs: 24 * 3600 * 1000, teto: 4 });
   assert.deepEqual(Object.values(podado).map((e) => e.caminho).sort(), ['f0', 'f1', 'f2', 'f3']);
 
   // a gravação aplica a poda
   const pr = { key: 'org/sete#1', repo: 'org/sete' };
-  const arquivos = Array.from({ length: 5 }, (_, i) => ({ path: `src/${i}.md`, sha: `b${i}`, status: 'modified' }));
+  const arquivos = Array.from({ length: 5 }, (_, i) => arquivo(`src/${i}.md`, `b${i}`));
   repoProof.registrarNoIndiceDoRepositorio(pr, H1, arquivos, { coverage: { reviewed: arquivos.map((f) => f.path) } }, {}, { teto: 3 });
   assert.equal(Object.keys(repoProof.lerIndiceDoRepositorio('org/sete')).length, 3);
 });
 
 test('poda do diretório: índice de repositório sem uso há mais que a idade máxima sai inteiro', () => {
-  repoProof.registrarNoIndiceDoRepositorio({ key: 'org/oito#1', repo: 'org/oito' }, H1, [{ path: 'a.md', sha: 'x', status: 'added' }], { coverage: { reviewed: ['a.md'] } }, {});
+  repoProof.registrarNoIndiceDoRepositorio({ key: 'org/oito#1', repo: 'org/oito' }, H1, [arquivo('a.md', 'x', 'added')], { coverage: { reviewed: ['a.md'] } }, {});
   const alvo = repoProof.indiceDoRepositorioPath('org/oito');
   const antigo = new Date(Date.now() - 40 * 24 * 3600 * 1000);
   fs.utimesSync(alvo, antigo, antigo);
@@ -285,4 +318,12 @@ test('o bloco do prompt separa a leitura deste PR da leitura de outro PR, com PR
   const soDeOutro = fileProof.fileProofBlock({ ativa: true, unchanged: ['src/b.md'], changed: [],
     origens: { 'src/b.md': { pr: 'o/r#1843', head: 'abcdef1234567890' } } }, undefined);
   assert.doesNotMatch(soDeOutro, /Sua revisão anterior deste PR leu/, 'sem prova própria, o texto não finge leitura deste PR');
+});
+
+test('o arquivo do índice tem nome em minúsculas e o repositório gravado é conferido sem caixa', () => {
+  const a = arquivo('src/caixa.md', 'blob-caixa');
+  repoProof.registrarNoIndiceDoRepositorio({ key: 'Org/Caixa#1', repo: 'Org/Caixa' }, H1, [a], { coverage: { reviewed: [a.path] } }, {});
+  assert.equal(path.basename(repoProof.indiceDoRepositorioPath('Org/Caixa')), path.basename(repoProof.indiceDoRepositorioPath('org/caixa')));
+  assert.equal(path.basename(repoProof.indiceDoRepositorioPath('Org/Caixa')), `${encodeURIComponent('org/caixa')}.json`);
+  assert.ok(repoProof.lerIndiceDoRepositorio('org/caixa')[repoProof.chaveDoArquivo(a)], 'a outra grafia lê o mesmo índice');
 });
