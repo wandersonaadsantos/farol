@@ -1,28 +1,27 @@
 {
   "data": "2026-11-06",
-  "base": "c9aa06f28e2199c967471b2b885796ae8dd4447e",
+  "base": "34c2d887fa3af8ad393311331f895273ab953a4c",
   "branch": "fix/revisao-desfecho-configuracoes",
   "node": "24.22.1",
   "check": {
     "exitCode": 0,
-    "arquivosJs": 1249
+    "arquivosJs": 1254
   },
   "lint": {
     "exitCode": 0
   },
   "suiteFinal": {
     "exitCode": 0,
-    "totalContabilizado": 7644,
-    "aprovados": 7562,
+    "totalContabilizado": 7695,
+    "aprovados": 7613,
     "falhas": 0,
     "cancelados": 0,
     "skipsCondicionais": 82,
     "casosExcluidosPorArgumento": 4,
-    "duracaoMs": 143117.505138,
+    "duracaoMs": 145274.009057,
     "semSaidaForcada": true,
-    "resultadosTap": 7644,
-    "anunciosSemResultado": 0,
-    "resultadosConhecidosOmitidos": 0
+    "resultadosTap": 7695,
+    "anunciosSemResultado": 0
   },
   "casosExcluidos": [
     {
@@ -59,6 +58,14 @@
     "politicasReaisDaConta": {
       "pass": 11,
       "fail": 0
+    },
+    "integracaoPr351": {
+      "alcanceEntrePrs": 86,
+      "decisaoEsperaRetirada": 155,
+      "escopoPublicacao": 65,
+      "gruposPossuemSobreposicao": true,
+      "falhas": 0,
+      "skips": 0
     }
   },
   "engBehaviour": {
@@ -97,5 +104,12 @@
     "ipv6": "13/13 no arquivo vindo da main, na base intacta e integrada; nenhuma exclusão adicional.",
     "saidaForcada": "Override --no-test-force-exit: a opção anterior omitia resultados variáveis apesar de retornar zero; runner e testes não foram alterados."
   },
-  "reviewsDeTestePublicados": false
+  "reviewsDeTestePublicados": false,
+  "integracoes": [
+    "c9aa06f28e2199c967471b2b885796ae8dd4447e",
+    "34c2d887fa3af8ad393311331f895273ab953a4c"
+  ],
+  "versaoApp": "2.78.40",
+  "versaoDasRegras": 8,
+  "pr": "https://github.com/wandersonaadsantos/farol/pull/352"
 }

@@ -3,7 +3,7 @@
 Data: 06/11/2026. Repositório: `wandersonaadsantos/farol`.
 
 Base inicial analisada: `f2fabc2811b9e9b1b33ef920442e76b585156863`, versão `2.78.39`.
-Integração antes da publicação: `c9aa06f28e2199c967471b2b885796ae8dd4447e` (PR #348, autoanálise por agente), sem conflitos de conteúdo.
+Integrações da base: `c9aa06f28e2199c967471b2b885796ae8dd4447e` (PR #348, autoanálise por agente) e `34c2d887fa3af8ad393311331f895273ab953a4c` (PR #351, prova na primeira rodada, leitura entre PRs e recuperação encerrada por decisão humana). O segundo merge foi incorporado à branch depois da abertura do PR #352, com resolução explícita dos conflitos.
 Branch de trabalho: `fix/revisao-desfecho-configuracoes`.
 
 ## Resultado e critério da correção
@@ -12,7 +12,7 @@ O levantamento contém defeitos reproduzíveis, oportunidades de redução de cu
 
 O objetivo de não travar a revisão tem duas partes: um resultado tecnicamente suficiente deve alcançar o desfecho configurado; uma execução incompleta deve conservar uma recuperação válida ou mostrar uma inconclusão explícita, sem repetir indefinidamente a mesma sessão. Aprovar um resultado contraditório para desocupar a fila não cumpre esse objetivo.
 
-As alterações são de código, testes e documentação. A versão da release e `VERSAO_DAS_REGRAS` permanecem, respectivamente, `2.78.39` e `7`. Este registro documenta a implementação e sua validação; o PR acompanha o estado da publicação. A preparação não instalou o app nos aparelhos nem publicou reviews, merge ou release.
+As alterações são de código, testes e documentação. A integração preserva a versão `2.78.40` e `VERSAO_DAS_REGRAS = 8` adotadas pela `main`; esta correção não acrescenta outro bump de versão. Este registro documenta a implementação e sua validação; o PR acompanha o estado da publicação. A preparação não instalou o app nos aparelhos nem publicou reviews, merge ou release.
 
 ## Situação dos doze pontos
 
@@ -28,7 +28,7 @@ As alterações são de código, testes e documentação. A versão da release e
 | 8. Causa da queda da janela | Causa ainda não demonstrada | Diagnóstico local opt-in, sem upload, em `FAROL_HOME`; tratamento da rejeição assíncrona ao recarregar e exclusão de saída limpa. Não declarar correção da causa. |
 | 9. Estado grande enviado à tela | Peso confirmado por inspeção e fixture; alegação de ausência total de retenção era excessiva | Projeção de uso e ações somente para os consumidores da tela, preservando séries, totais, limites, trabalho visível e consulta histórica. |
 | 10. Divergência duplicada no card | Defeito de apresentação confirmado | Um único ponto de divergência, inclusive com prova esgotada. Evidência usada pelo gate fica separada do texto da UI. |
-| 11. Ratchet desatualizado | Confirmado | `review.js`: 707 → 700, medido após integrar a `main` atual. `server.js`: 936 → 929; `decision.js`: 257 → 256, além da redução de outras dívidas nesses arquivos tocados. Nenhuma baseline aumentou em relação à base publicada. |
+| 11. Ratchet desatualizado | Confirmado | `review.js`: 707 → 704, medido após integrar a `main` atual. `server.js`: 936 → 929; `decision.js`: 257 → 256, além da redução de outras dívidas nesses arquivos tocados. Nenhuma baseline aumentou em relação à base publicada. |
 | 12. Herança de production, compare e terminal duplicado | Conjunto de defeitos e limites distintos | Pontas P/B/H fixadas, ancestralidade e completude conferidas, renomes e interação causal observada preservados; compare real exercitado; terminal incluído na exclusão local. Limites semânticos e coordenação humana entre aparelhos explicitados abaixo. |
 
 ## Decisão correta sem nova trava
@@ -62,7 +62,7 @@ A classificação tem versão própria, `foraDasLinhas.versao = 2`. Somente rela
 
 ### Recuperação limitada e retomável
 
-A correção usa o limite existente de até duas continuações na mesma conversa. O app exige um novo envelope quando reclassifica a dívida; não fabrica um veredito de aprovação usando o texto antigo.
+A correção usa o limite existente de até duas continuações na mesma conversa. O app exige um novo envelope quando reclassifica a dívida; não fabrica um veredito de aprovação usando o texto antigo. São correções do resultado dentro da sessão em curso. A integração preserva a decisão da primeira rodada adotada pelo PR #351: lacuna não dura vira ressalva pela política da conta, sem gerar outra rodada; análise incompleta e as duas marcas de escopo continuam impedindo texto pendente de correção.
 
 | Situação | Comportamento |
 |---|---|
@@ -87,6 +87,8 @@ Uma busca textual por um único símbolo não cobre de modo confiável aliases, 
 A auditoria encontrou um caso que a primeira implementação ainda deixava passar: `tsconfig.json` já estava no diff e alterava um alias, enquanto o alvo e um consumidor externo permaneciam idênticos. Excluir todos os arquivos do diff do digest preservava indevidamente a ausência. A versão final inclui esses arquivos, e o caso foi revalidado com o mapa desligado.
 
 Quando a identidade muda, somente a declaração de alcance perde a herança. A leitura comprovada do blob inalterado permanece aproveitada; a sessão que já estava prevista confere o alcance atual. Não há nova sessão paga apenas por essa invalidação nem ativação de mapa que estava desligado.
+
+O índice de leitura entre PRs que entrou na `main` foi preservado: a prova própria é combinada com esse índice antes de aplicar o contexto, conservando a origem. O índice exige mesmo caminho, blob, patch e status; ele não herda declarações de ausência de consumidores entre PRs. A prova própria do mesmo PR continua sujeita ao digest completo. A regressão de integração exercita esses dois caminhos com o mapa desligado.
 
 Árvore parcial, head diferente ou registro antigo/corrompido não comprova ausência. Se o mapa já habilitado mostrar um import estático exato contraditório, a ausência também não entra na prova herdável. O limite permanece: isso garante frescor de contexto, não prova universal da declaração semântica inicial.
 
@@ -141,9 +143,9 @@ A checagem final usou Node **24.22.1**. Os testes usam `FAROL_HOME` temporário 
 
 | Verificação | Resultado |
 |---|---|
-| `npm run check` | Aprovado: 1.249 arquivos JavaScript conferidos após integrar a `main`. |
+| `npm run check` | Aprovado: 1.254 arquivos JavaScript conferidos após integrar a `main`. |
 | `npm run lint` | Aprovado: gate de qualidade sem regressão e higiene sem apontamento. |
-| Suíte final, com as quatro exclusões ambientais abaixo | 7.644 testes contabilizados: 7.562 aprovados, 82 skips condicionais da suíte, zero falhas/cancelamentos. Os quatro casos excluídos pelo argumento não entram nessa contagem. |
+| Suíte final, com as quatro exclusões ambientais abaixo | 7.695 testes contabilizados: 7.613 aprovados, 82 skips condicionais da suíte, zero falhas/cancelamentos. Os quatro casos excluídos pelo argumento não entram nessa contagem. |
 | Dívida/retomada/histórico/envelope/espera, após o ajuste da pendência | 67/67 aprovados. |
 | Migração das esperas e política de PR próprio | 68/68 aprovados. |
 | Fixtures de admissão/distribuição, incluindo recusa de UID 0 | 214/214 aprovados. |
@@ -166,11 +168,11 @@ O diagnóstico reproduziu `process.pid = 5`, mas `/proc/self/stat` mostrava PID 
 
 Os dois arquivos de teste e os módulos correspondentes são idênticos à base. A base reproduziu as asserções de capacidade e fechamento da entrada; um fixture controlado nos dois checkouts confirmou que o fallback por PPID também não encontra o filho nesse ambiente. Somente os filhos sintéticos conhecidos foram encerrados. Não foram adicionados skips aos arquivos nem modificados os módulos de produção para ocultar essas falhas. Isso mantém uma limitação preexistente para Linux com `/proc` incompatível, a ser verificada em CI com namespace normal.
 
-**Integração e configuração real:** a `main` atual acrescentou a autoanálise por agente. A revisão independente confirmou a permanência do guard de gasto antes da execução, a liberação de vaga após recusa e a separação do dedup da autoanálise. A projeção do estado não alimenta os freios de gasto nem elimina a informação lida pelo agente. Nos testes de desfecho, as políticas passaram a ser lidas de `config.accounts`: o caso `onClean = approve` e `onCaveats = wait` comprova que a ressalva escolhe a política correta.
+**Integração e configuração real:** a `main` atual acrescentou a autoanálise por agente. A revisão independente confirmou a permanência do guard de gasto antes da execução, a liberação de vaga após recusa e a separação do dedup da autoanálise. O merge posterior do PR #351 também preserva a nova primeira rodada, o índice entre PRs, o limite de inventário e a dispensa da recuperação quando uma pessoa já decidiu no mesmo head. Os conflitos foram resolvidos mantendo as lacunas duras de escopo, a retirada sem bloqueio por divergência, o recuo e a substituição da pendência por uma decisão nova. As três revisões de integração passaram em 86/86, 155/155 e 65/65 casos dirigidos, com sobreposição entre grupos; essas contagens não devem ser somadas como testes distintos. A projeção do estado não alimenta os freios de gasto nem elimina a informação lida pelo agente. Nos testes de desfecho, as políticas passaram a ser lidas de `config.accounts`: o caso `onClean = approve` e `onCaveats = wait` comprova que a ressalva escolhe a política correta.
 
 **IPv6 e proxy do executor:** um teste novo da `main`, que acessa um motor em `::1`, falhou igualmente na base intacta e na branch. O listener e `node:http` funcionavam; `fetch` herdava `NODE_USE_ENV_PROXY=1` e o endereço entre colchetes não constava da exceção. Acrescentar `::1,[::1]` a `NO_PROXY` e `no_proxy`, preservando o restante e somente no processo de testes, fez o arquivo passar em 13/13 nas duas árvores. Não houve exclusão desse teste nem mudança no código de rede.
 
-**Completude do relatório de testes:** neste executor, `--test-force-exit` produziu contagens variáveis e deixou resultados TAP ausentes, apesar de retornar zero. Sete arquivos contabilizaram 560 casos com a opção e 572 sem ela. O override já aceito pelo runner, `--no-test-force-exit`, manteve os limites de tempo e concorrência. A rodada final contém os 7.633 resultados distintos por ocorrência da união das duas rodadas integradas anteriores, mais 11 resultados preexistentes que ambas haviam omitido. Todos os 7.644 anúncios têm resultado; não há omissão conhecida. As contagens anteriores com saída forçada ficam substituídas pela rodada final.
+**Completude do relatório de testes:** neste executor, `--test-force-exit` produziu contagens variáveis e deixou resultados TAP ausentes, apesar de retornar zero. Sete arquivos contabilizaram 560 casos com a opção e 572 sem ela. O override já aceito pelo runner, `--no-test-force-exit`, manteve os limites de tempo e concorrência. A rodada após o PR #348 contém os 7.633 resultados distintos por ocorrência da união das duas rodadas anteriores, mais 11 resultados preexistentes que ambas haviam omitido. Todos os 7.644 anúncios daquela rodada têm resultado, sem omissão conhecida. Após incorporar o PR #351 e suas regressões de integração, a rodada final passou a 7.695 anúncios e 7.695 resultados, novamente sem falhas ou cancelamentos. As contagens com saída forçada ficam substituídas pelas execuções completas.
 
 Comandos finais (os ajustes de ambiente valem somente para a execução da suíte):
 

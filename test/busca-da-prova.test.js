@@ -1,13 +1,11 @@
 import { criteriaFixture } from './helpers/criteria-fixture.js';
-// O Farol vai atrás da prova, e depois de duas tentativas deixa de exigir (v2.72.6, 17/10/2026).
-//
-// Decisão do dono: "o Farol não pode esperar uma ação externa; o próprio Farol precisa ir atrás
-// das provas e não exigir mais provas". Resultado aprovável com lacuna de prova relança NA HORA
-// uma revisão complementar do mesmo commit (sem esperar o PR mudar nem o relógio de PR quieto),
-// com o prompt dizendo o que faltou; no máximo duas por commit. A rodada que nasce com as duas
-// gastas deixa de exigir a lacuna que sobrou: vira ressalva e a política da conta decide. CI
+// A primeira rodada decide (decisão do dono de 06/11/2026, que encerra a rodada complementar da
+// v2.72.6). Resultado aprovável com lacuna de prova que não é dura (cobertura, protocolo,
+// checkpoint, falha da ferramenta técnica) vira ressalva já na rodada que a encontrou, e a
+// política da conta decide: sem espera da prova e sem segunda sessão no mesmo commit. CI
 // vermelho, violação técnica confirmada e a parte do card deste PR dita não entregue seguem
-// impedindo.
+// impedindo. A recuperação imediata no mesmo commit continua para o que segue exigido (análise
+// incompleta, lacuna dura que não é defeito do PR), com o prompt dizendo o que faltou.
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -48,6 +46,7 @@ const { PROFILE_FILE, profileFor } = await import('../lib/technical-review/profi
 const esperaProva = (await import('../lib/engine/espera-prova.js')).default;
 const busca = (await import('../lib/engine/busca-da-prova.js')).default;
 const reviewMod = (await import('../lib/engine/review.js')).default;
+const { textoDaRecusa } = await import('../lib/engine/approval-policy.js');
 
 const finishOriginal = technicalRuntime.finishTechnicalReview;
 const targetOriginal = technicalRuntime.targetFor;
@@ -111,19 +110,12 @@ async function revisado(e, extra) {
   return pendente(e);
 }
 
-// leva o PR até a rodada da prova esgotada: original, duas buscas, e devolve o motor pronto
-async function ateEsgotar(e) {
-  await revisado(e, SEM_PROTOCOLO);
-  for (let i = 1; i <= busca.MAX_TENTATIVAS; i++) {
-    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, `busca ${i}`);
-    assert.equal(pendente(e).esperaProva.tentativas, i);
-    if (i < busca.MAX_TENTATIVAS) await revisado(e, SEM_PROTOCOLO);
-  }
-}
+// A análise incompleta segue exigida: é o veículo da recuperação no mesmo commit.
+const INCOMPLETA = { analysisStatus: 'incomplete' };
 
-test('a busca é imediata: o primeiro ciclo relança no mesmo commit, sem o PR mudar e sem o relógio de PR quieto', async () => {
+test('a recuperação é imediata: o primeiro ciclo relança no mesmo commit, sem o PR mudar e sem o relógio de PR quieto', async () => {
   const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
+  await revisado(e, INCOMPLETA);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   const d = pendente(e);
   assert.equal(d.blockedKind, 'stale_head');
@@ -134,37 +126,59 @@ test('a busca é imediata: o primeiro ciclo relança no mesmo commit, sem o PR m
   assert.deepEqual(e.eventos, []);
 });
 
-test('o prompt da rodada complementar lista o que faltou, como dado delimitado', async () => {
+test('o prompt da recuperação lista o que faltou, como dado delimitado', async () => {
   const e = motor();
-  assert.doesNotMatch(e.headlessPromptFor(PR.url, 'dev'), /Revisão complementar/, 'sem busca, sem bloco');
-  await revisado(e, SEM_PROTOCOLO);
+  assert.doesNotMatch(e.headlessPromptFor(PR.url, 'dev'), /Revisão complementar/, 'sem recuperação, sem bloco');
+  await revisado(e, INCOMPLETA);
   await esperaProva.reverQuandoAProvaMudar(e);
   const prompt = e.headlessPromptFor(PR.url, 'dev');
   assert.match(prompt, /## Revisão complementar \(tentativa 1 neste commit\)/);
-  assert.match(prompt, /<<<LACUNAS-DA-TENTATIVA-ANTERIOR\n- protocolo de revisão não comprovado\nLACUNAS-DA-TENTATIVA-ANTERIOR/);
+  assert.match(prompt, /<<<LACUNAS-DA-TENTATIVA-ANTERIOR\n- análise incompleta\nLACUNAS-DA-TENTATIVA-ANTERIOR/);
 });
 
-test('no máximo duas buscas por commit; a rodada seguinte aprova com a lacuna como ressalva', async () => {
-  const e = motor();
-  await ateEsgotar(e);
-  // a rodada da prova esgotada volta com a MESMA lacuna
-  await revisado(e, SEM_PROTOCOLO);
-  assert.equal(envios.length, 1, 'aprovou');
+// A decisão de 06/11/2026, travada: só lacuna de cobertura (não dura) na rodada 1, conta aprovando
+// com ressalvas. O APPROVE sai nesta rodada, com a ressalva, sem espera da prova e sem outra sessão.
+test('decidir na 1ª rodada: só lacuna de cobertura, conta aprovando com ressalvas, posta APPROVE com a ressalva e não cria espera da prova', async () => {
+  const e = motor(['approve', 'approve']);
+  sessao(e, { coverage: { total: 2, reviewed: ['src/a.js'], missing: ['src/b.js'] } });
+  const original = e.runClaudeStream;
+  let sessoes = 0;
+  e.runClaudeStream = async (...args) => { sessoes++; return original(...args); };
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(sessoes, 1, 'uma sessão só');
+  assert.equal(envios.length, 1, JSON.stringify(e.eventos));
   assert.equal(envios[0].event, 'APPROVE');
   assert.equal(envios[0].commit_id, HEAD);
   const aprovado = e.eventos.find((x) => x[0] === 'auto-approved');
   assert.ok(aprovado, JSON.stringify(e.eventos));
-  assert.ok(aprovado[2].some((t) => /faltou prova depois das minhas 2 tentativas neste commit, então segue como ressalva: protocolo de revisão não comprovado/.test(t)), aprovado[2].join(' | '));
+  const deCobertura = aprovado[2].filter((t) => /cobertura da leitura/i.test(t));
+  assert.equal(deCobertura.length, 1, `a ressalva da cobertura sai uma vez: ${aprovado[2].join(' | ')}`);
+  assert.match(deCobertura[0], /^faltou prova nesta revisão, então segue como ressalva: a cobertura da leitura tem \d+ pendência\(s\): src\/b\.js/);
+  assert.equal(pendente(e), undefined, 'nada fica pendente');
+  assert.equal(e.decisions.pending.some((d) => d.esperaProva), false, 'sem espera da prova');
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'a varredura não relança nada');
+  assert.equal(sessoes, 1, 'sem segunda sessão no mesmo commit');
   assert.equal(e.eventos.some((x) => x[0] === 'needs-decision'), false, 'ninguém foi chamado');
-  assert.equal(pendente(e), undefined);
 });
 
-test('falta de prova não é ressalva que transfere uma decisão ainda bloqueada', async () => {
+test('lacuna que não é dura na rodada 1 com a conta esperando você nas ressalvas: mesa com a ressalva, sem espera da prova', async () => {
   const e = motor(['approve', 'wait']);
   const d = await revisado(e, SEM_PROTOCOLO);
+  assert.deepEqual(envios, []);
+  assert.equal(d.esperaProva, undefined);
+  assert.deepEqual(d.approvalEvidence, [], 'nada segue exigido: o Aprovar da mesa fica com você');
+  assert.ok(textos(d).some((t) => /^faltou prova nesta revisão, então segue como ressalva: protocolo de revisão não comprovado/.test(t)), textos(d).join(' | '));
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.equal(staleCardMeta(decisionForUi(d), null).approveDisabled, false);
+});
+
+test('falta de prova que segue exigida não é ressalva que transfere uma decisão ainda bloqueada', async () => {
+  const e = motor(['approve', 'wait']);
+  const d = await revisado(e, INCOMPLETA);
   assert.ok(d.esperaProva);
   assert.deepEqual(envios, []);
   assert.deepEqual(e.eventos, []);
+  assert.equal(staleCardMeta(decisionForUi(d), null).approveDisabled, true, 'análise incompleta não libera o Aprovar');
   await esperaProva.reverQuandoAProvaMudar(e);
   await revisado(e, {});
   assert.equal(envios.length, 1);
@@ -174,10 +188,9 @@ test('falta de prova não é ressalva que transfere uma decisão ainda bloqueada
 // Os três casos abaixo são da conta que NÃO reprova sozinha (onReject: wait). Com ela
 // reprovando sozinha, CI vermelho e defeito do PR viram REQUEST_CHANGES automático
 // (test/decisao-sem-mesa.test.js, 18/10/2026).
-test('esgotada não converte CI vermelho: a aprovação espera o CI sozinha, sem postar e sem chamar ninguém', async () => {
+test('a ressalva da rodada não converte CI vermelho: a aprovação espera o CI sozinha, sem postar e sem chamar ninguém', async () => {
   const e = motor();
   e.rejectPolicyFor = () => 'wait';
-  await ateEsgotar(e);
   e.bloqueadoPorChecks = async () => ({ faltando: [{ nome: 'test', estado: 'vermelho' }] });
   const d = await revisado(e, SEM_PROTOCOLO);
   assert.deepEqual(envios, []);
@@ -186,10 +199,9 @@ test('esgotada não converte CI vermelho: a aprovação espera o CI sozinha, sem
   assert.deepEqual(e.eventos, []);
 });
 
-test('esgotada não converte violação técnica confirmada: com a conta sem reprovar sozinha, vai para a mesa', async () => {
+test('a ressalva da rodada não converte violação técnica confirmada: com a conta sem reprovar sozinha, vai para a mesa', async () => {
   const e = motor();
   e.rejectPolicyFor = () => 'wait';
-  await ateEsgotar(e);
   technicalRuntime.finishTechnicalReview = async (ctx) => ({ ...technicalReport(ctx.head, ctx.repo), verdict: 'fail', rules: [{ rule: 'x', verdict: 'fail' }] });
   const d = await revisado(e, SEM_PROTOCOLO);
   assert.deepEqual(envios, []);
@@ -198,13 +210,12 @@ test('esgotada não converte violação técnica confirmada: com a conta sem rep
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });
 
-test('esgotada não converte a parte do card deste PR dita não entregue: com a conta sem reprovar sozinha, vai para a mesa', async () => {
+test('a ressalva da rodada não converte a parte do card deste PR dita não entregue: com a conta sem reprovar sozinha, vai para a mesa', async () => {
   const e = motor();
   e.rejectPolicyFor = () => 'wait';
-  await ateEsgotar(e);
-  const d = await revisado(e, { card: 'CARD-1', cardMet: false, cardParteDestePr: false });
+  const d = await revisado(e, { ...SEM_PROTOCOLO, card: 'CARD-1', cardMet: false, cardParteDestePr: false });
   assert.deepEqual(envios, []);
-  assert.equal(d.esperaProva, undefined, 'sem terceira busca: as tentativas deste commit acabaram');
+  assert.equal(d.esperaProva, undefined, 'defeito do PR não é recuperação');
   assert.ok(textos(d).includes('a parte do card que cabe a este PR não foi comprovada'), textos(d).join(' | '));
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });
@@ -220,6 +231,51 @@ test('unidade: só a lacuna que não é dura vira ressalva, e o relatório com v
   assert.deepEqual(busca.lacunasExigidas(violada), ['achados técnicos não resolvidos']);
   assert.equal(busca.relatorioComViolacao({ verdict: 'pass', rules: [], findings: [] }), false);
   assert.equal(busca.relatorioComViolacao({ verdict: 'pass', rules: [{ verdict: 'fail' }], findings: [] }), true);
+});
+
+// Revisão independente de 06/11/2026: sem diff medido a cobertura volta a ser só o que o modelo
+// declarou, e sem relatório técnico (com declaração cadastrada) nada foi avaliado. Os dois seguem
+// exigidos e na recuperação, mesmo com toda rodada decidindo; sem declaração continua ressalva.
+test('diff não medido e avaliação técnica ausente seguem exigidos na 1ª rodada; sem declaração segue ressalva', () => {
+  const base = { headSha: HEAD, ...criteriaFixture('approve'), analysisStatus: 'complete', checksVerifiedHead: HEAD, diffMedido: [],
+    verificationCheckpoint: { total: 0, conflicts: [] }, technicalReview: technicalReport(HEAD), protocolo: { prReviewer: 'rodou' },
+    coverage: { total: 0, reviewed: [], missing: [] }, provaEsgotada: true };
+  assert.deepEqual(busca.lacunasExigidas(base), [], 'controle');
+  const semDiff = { ...base, diffMedido: undefined };
+  assert.deepEqual(busca.lacunasExigidas(semDiff), ['diff não medido independentemente']);
+  assert.deepEqual(busca.pontosDaProvaEsgotada(semDiff), [], 'não vira ressalva');
+  const semRelatorio = { ...base, technicalReview: null };
+  assert.deepEqual(busca.lacunasExigidas(semRelatorio), ['avaliação técnica atual ausente']);
+  assert.deepEqual(busca.pontosDaProvaEsgotada(semRelatorio), [], 'não vira ressalva');
+  assert.ok(armou(motor(), semRelatorio), 'entra na recuperação');
+  // o caso que a produção gera: a medição do diff falhou de passagem e a análise ficou incompleta
+  const medicaoFalhou = { ...semDiff, analysisStatus: 'incomplete', inventarioDiff: { status: 'unavailable', reason: 'falha de rede' } };
+  assert.ok(esperaProva.armarEspera(motor(), { ...PR }, 'analise_incompleta', { ...medicaoFalhou, approvalEvidence: busca.lacunasExigidas(medicaoFalhou) }, []),
+    'medição que falhou de passagem entra na recuperação');
+  const semDeclaracao = { ...base, technicalReview: { semDeclaracao: true } };
+  assert.deepEqual(busca.lacunasExigidas(semDeclaracao), [], 'repositório sem declaração segue ressalva');
+});
+
+// Segunda revisão independente de 06/11/2026: PR com mais arquivos do que a lista do GitHub
+// devolve (3000) tem o inventário incompleto para sempre. Outra revisão dá o mesmo resultado, então
+// é desfecho terminal: a decisão é sua, sem recuperação e sem revisão nova pelo clique; o APPROVE
+// automático continua impedido.
+const NO_LIMITE = { status: 'incomplete', reason: 'lista incompleta ou duplicada: 3000 de 3500 arquivos', changedFiles: 3500 };
+test('inventário acima do limite do GitHub: desfecho terminal, a decisão é sua, sem recuperação e sem revisão nova pelo clique', () => {
+  const r = { headSha: HEAD, ...criteriaFixture('approve'), analysisStatus: 'complete', checksVerifiedHead: HEAD, verificationCheckpoint: { total: 0, conflicts: [] },
+    technicalReview: technicalReport(HEAD), protocolo: { prReviewer: 'rodou' }, coverage: { total: 0, reviewed: [], missing: [] }, provaEsgotada: true,
+    verdict: 'approve', payloads: { approve: { event: 'APPROVE', body: 'Leitura feita.' } }, inventarioDiff: NO_LIMITE };
+  const e = motor();
+  const gate = e.shouldAutoApprove({ ...PR }, r);
+  assert.equal(gate.ok, false, 'o APPROVE automático continua impedido');
+  assert.equal(gate.motivo, 'inventario_no_limite');
+  assert.match(textoDaRecusa(e, { ...PR }, gate.motivo, r), /3500 arquivos.*a decisão é sua/);
+  assert.equal(busca.lacunasExigidas(r).includes('diff não medido independentemente'), false, 'o clique da mesa não pede revisão nova que daria o mesmo');
+  assert.equal(esperaProva.armarEspera(e, { ...PR }, 'analise_incompleta', { ...r, analysisStatus: 'incomplete', approvalEvidence: ['análise incompleta'] }, []), null,
+    'nem a análise incompleta arma recuperação: outra rodada não mede o diff');
+  const passageiro = { ...r, inventarioDiff: { status: 'incomplete', reason: 'o head mudou', changedFiles: 132 } };
+  assert.ok(busca.lacunasExigidas(passageiro).includes('diff não medido independentemente'), 'controle: abaixo do limite segue exigido');
+  assert.notEqual(e.shouldAutoApprove({ ...PR }, passageiro).motivo, 'inventario_no_limite');
 });
 
 // Edicoes-CNBB/biblioteca-cnbb-web#182, 05/11/2026: a mesma divergência entre passadas, num
@@ -324,11 +380,18 @@ test('PR #248, achado 1: com a prova esgotada, base nova ou objeção nova recus
   // sem base nem impressão gravadas (a avaliação falhou antes de ler) não há com o que comparar.
   // Desde 18/10/2026 (a decisão sem mesa) o pedido de mudanças de uma pessoa não segura a
   // aprovação que a conta mandou sair, então ele não substitui a impressão que falta.
-  const semContexto = { schema: 1, verdict: 'not-run', error: 'ferramenta ausente' };
+  // A execução que não concluiu é a lacuna que a rodada dispensa; relatório sem ferramenta
+  // nenhuma (avaliação técnica atual ausente) segue exigido desde 06/11/2026 (abaixo).
+  // com a identidade da regra que o runtime grava na falha (runtime.js, identidadeDaFalha)
+  const semContexto = { schema: 1, verdict: 'not-run', failure: 'assessment', error: 'ferramenta ausente',
+    version: report.version, toolCommit: report.toolCommit, profile: report.profile };
   const comPedido = motor(semContexto, { bloqueadoPorHistorico: async () => ({ bloqueado: false, decisivos: [], pediramMudancas: ['colega'] }) });
   assert.equal(await approvalRefusal(comPedido, pr, payload), null);
   const semPedido = motor(semContexto, { bloqueadoPorHistorico: async () => ({ bloqueado: false, decisivos: [] }) });
   assert.equal(await approvalRefusal(semPedido, pr, payload), null);
+  const semFerramenta = await approvalRefusal(motor({ schema: 1, verdict: 'not-run', error: 'ferramenta ausente' }), pr, payload);
+  assert.equal(semFerramenta && semFerramenta.error, 'avaliação técnica atual ausente', 'com declaração, sem avaliação nenhuma não é ressalva');
+  assert.equal(semFerramenta.needsReview, true);
   const leituraFalha = motor(report);
   technicalRuntime.targetFor = async () => { throw new Error('rede'); };
   assert.equal((await approvalRefusal(leituraFalha, pr, payload)).error, 'não foi possível reconfirmar a base e as objeções da revisão');
@@ -342,7 +405,7 @@ test('PR #248, achado 2: com a prova esgotada e a política esperando você, o A
   const esgotada = decisionForUi({ ...base, provaEsgotada: true });
   assert.equal(esgotada.provaEsgotada, true, 'a marca chega à tela');
   assert.equal(esgotada.technical.state, 'ressalva');
-  assert.match(esgotada.technical.message, /avaliação técnica inconclusiva; depois de duas tentativas minhas neste commit, segue como ressalva/);
+  assert.match(esgotada.technical.message, /avaliação técnica inconclusiva; segue como ressalva desta revisão/);
   assert.equal(staleCardMeta(esgotada, null).approveDisabled, false);
   const exigida = decisionForUi(base);
   assert.equal(exigida.technical.state, 'pending', 'sem esgotar, segue exigida');

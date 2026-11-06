@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { linhaDoAchado, trechosDoDiff, trechosDoPatch, classificarPorLinhas, pontoDaDivida, VERSAO_DAS_LINHAS } from '../lib/technical-review/divida-fora-das-linhas.js';
-import { technicalGap, technicalSummary, relatorioComViolacao, TOOL } from '../lib/technical-review/verdict.js';
+import { technicalGap, technicalSummary, relatorioComViolacao, TOOL, VERSAO_DAS_REGRAS, REVIEW_COHERENCE_GAP } from '../lib/technical-review/verdict.js';
 import { relatorioTecnico } from '../lib/technical-review/runtime.js';
 import { attentionPoints } from '../lib/engine/ressalvas.js';
 
@@ -148,8 +148,24 @@ test('desconto antigo sem intervalo verificado exige reconferência só da dívi
   assert.equal(c.resumo.versao, VERSAO_DAS_LINHAS);
   const antigo = relatorio(c.rules, c.findings, { foraDasLinhas: { ...c.resumo, versao: undefined } });
   assert.equal(technicalGap(antigo), 'classificação da dívida anterior requer reconferência');
-  assert.equal(technicalSummary(antigo, [], { provaEsgotada: true, evidenceVersion: 7 }).state, 'pending');
+  for (const evidenceVersion of [7, VERSAO_DAS_REGRAS]) {
+    assert.equal(technicalSummary(antigo, [], { provaEsgotada: true, evidenceVersion }).state, 'pending', 'nem a decisão na primeira rodada dispensa reconferir dívida antiga');
+  }
   assert.equal(technicalGap(relatorio([{ rule: SUPRESSAO, verdict: 'pass' }], [])), '', 'relatório sem desconto continua válido sem versão nova');
+});
+
+test('decidir na primeira rodada não dispensa o texto cuja correção de escopo está pendente ou esgotada', () => {
+  const c = classificarPorLinhas({ rules: [fail(SUPRESSAO)], findings: [supressor(TESTE, 1973)] }, INVENTARIO, HEAD);
+  const r = relatorio(c.rules, c.findings, { foraDasLinhas: c.resumo });
+  const prova = { provaEsgotada: true, evidenceVersion: VERSAO_DAS_REGRAS };
+  assert.equal(technicalSummary(r, [], prova).state, 'pass', 'controle: a dívida medida sozinha não bloqueia');
+  for (const flag of ['escopoSessaoPendente', 'escopoSessaoInconclusivo']) {
+    const pendente = { ...r, [flag]: true };
+    assert.equal(technicalGap(pendente), REVIEW_COHERENCE_GAP);
+    const resumo = technicalSummary(pendente, [], prova);
+    assert.equal(resumo.state, 'pending', flag);
+    assert.equal(resumo.message, REVIEW_COHERENCE_GAP, 'a ressalva técnica não autoriza publicar o texto anterior');
+  }
 });
 
 // ------------------------------------------------------------------ o relatório público

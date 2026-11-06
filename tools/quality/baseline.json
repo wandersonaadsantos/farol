@@ -28,7 +28,7 @@
     "profundidadeExcedida": 1
   },
   "lib/engine/review.js": {
-    "maxLines": 700,
+    "maxLines": 704,
     "profundidadeExcedida": 3
   },
   "lib/engine/selfpr.js": {

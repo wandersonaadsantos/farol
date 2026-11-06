@@ -10,6 +10,7 @@ const { contextoExternoDoAlcance, revalidarAusenciaHerdada } = await import('../
 const { alcanceConferido, alcanceGap, verificarAlcance } = await import('../lib/engine/alcance.js');
 const fileProof = await import('../lib/engine/file-proof.js');
 const analysis = await import('../lib/engine/analysis-source.js');
+const { registrarNoIndiceDoRepositorio } = await import('../lib/engine/prova-do-repositorio.js');
 const runtimeOriginal = { ...analysis.sourceRuntime };
 afterEach(() => Object.assign(analysis.sourceRuntime, runtimeOriginal));
 after(() => fs.rmSync(temporario, { recursive: true, force: true }));
@@ -119,7 +120,8 @@ test('preparação perde a ausência antes do prompt e pede alcance na sessão j
   const pr = { key: 'org/app#91', repo: 'org/app', number: 91 };
   const anterior = fonte();
   const contexto = await contextoExternoDoAlcance(anterior, [FILE]);
-  fileProof.salvarProvaDaSessao(pr, A, [FILE], { diffMedido: [FILE.path], coverage: { reviewed: [FILE.path] }, alcance: [DECLARADO] }, contexto);
+  const guardado = fileProof.salvarProvaDaSessao(pr, A, [FILE], { diffMedido: [FILE.path], coverage: { reviewed: [FILE.path] }, alcance: [DECLARADO] }, contexto);
+  assert.equal(guardado[FILE.path].contextoExterno, contexto.digest, 'o alcance devolvido ao índice mantém a identidade conferida');
   assert.equal(fileProof.readFileProof(pr.key).alcance[FILE.path].contextoExterno, contexto.digest);
   analysis.sourceRuntime.prepareSources = async () => fonte([...entradas(), { ...OUTRO, path: 'src/novo-consumidor.js' }], { H: C });
   const leitura = await analysis.prepareReviewReading(motor(), pr, 's1', C);
@@ -127,6 +129,39 @@ test('preparação perde a ausência antes do prompt e pede alcance na sessão j
   assert.deepEqual(leitura.inheritance.alcance, {});
   assert.match(fileProof.fileProofBlock(leitura.inheritance, A), /SEM alcance conferido; declare o `alcance` deles nesta sessão/);
   await analysis.releaseAnalysisSource(leitura.prepared, motor());
+});
+
+test('herança própria e entre PRs preservam a identidade do alcance e a origem sem ligar o mapa', async () => {
+  const pr = { key: 'org/app#95', repo: 'org/app', number: 95 };
+  const origem = { key: 'org/app#94', repo: 'org/app', number: 94 };
+  const replica = { ...FILE, path: 'src/promocao.js', sha: '6'.repeat(40) };
+  const arquivos = [FILE, replica];
+  const arvore = [...entradas(), { path: replica.path, blob: replica.sha, mode: '100644', type: 'blob' }];
+  const contexto = await contextoExternoDoAlcance(fonte(arvore, { files: arquivos }), arquivos);
+  const declaracaoDaReplica = { ...DECLARADO, alterado: replica.path };
+  const lidoNaOrigem = { diffMedido: [replica.path], coverage: { reviewed: [replica.path] }, alcance: [declaracaoDaReplica] };
+  const alcanceNaOrigem = fileProof.salvarProvaDaSessao(origem, A, [replica], lidoNaOrigem, contexto);
+  registrarNoIndiceDoRepositorio(origem, A, [replica], lidoNaOrigem, alcanceNaOrigem);
+  fileProof.salvarProvaDaSessao(pr, A, arquivos, { diffMedido: arquivos.map(f => f.path),
+    coverage: { reviewed: [FILE.path] }, alcance: [DECLARADO] }, contexto);
+  analysis.sourceRuntime.prepareSources = async () => fonte(arvore, { H: C, files: arquivos });
+  analysis.sourceRuntime.buildMap = async () => { throw new Error('Configuração off não pode ligar o mapa.'); };
+  const engine = motor();
+  const leitura = await analysis.prepareReviewReading(engine, pr, 's1', C);
+  assert.equal(leitura.prepared.diagnostics.work.map, false);
+  assert.equal(leitura.contextoAlcance.digest, contexto.digest);
+  assert.deepEqual(leitura.inheritance.unchanged, arquivos.map(f => f.path));
+  assert.deepEqual(Object.keys(leitura.inheritance.alcance), [FILE.path], 'ausência mantém-se no próprio PR, mas é declarada de novo na réplica');
+  assert.deepEqual(leitura.inheritance.origens[replica.path], { pr: origem.key, head: A });
+  const result = { coverage: { reviewed: [], missing: arquivos.map(f => f.path) }, alcance: [declaracaoDaReplica] };
+  fileProof.prepararCoberturaParaOGate(result, arquivos, leitura.inheritance);
+  const guardado = fileProof.salvarProvaDaSessao(pr, C, arquivos, result, leitura.contextoAlcance);
+  assert.equal(guardado[FILE.path].contextoExterno, contexto.digest);
+  assert.equal(guardado[replica.path].contextoExterno, contexto.digest);
+  const prova = fileProof.readFileProof(pr.key);
+  assert.deepEqual(prova.origens[replica.path], { pr: origem.key, head: A }, 'gravar o digest não apaga a origem da cobertura');
+  assert.deepEqual(prova.alcance, guardado);
+  await analysis.releaseAnalysisSource(leitura.prepared, engine);
 });
 
 test('alias alterado no diff invalida ausência com mapa desligado e consumidor externo intacto', async () => {
