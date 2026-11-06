@@ -164,3 +164,12 @@ test('decisão de gente em outro head não resolve a recuperação deste', async
   assert.equal(e.decisions.resolved.some((x) => x.key === PR.key && x.status === 'approval_not_needed'), false);
   assert.deepEqual(envios, []);
 });
+
+test('o aviso marcado para este head apaga a marca de head antigo do mesmo PR, como o aviso do bloqueio', async () => {
+  const e = motor();
+  await recuperacaoRelancada(e);
+  e.historicoAvisado = new Set([`${PR.key}@${HEAD_NOVO}`, 'acme/outro#1@abc']);
+  historico(e, APROVOU);
+  await e.launchReReviews();
+  assert.deepEqual([...e.historicoAvisado].sort(), ['acme/outro#1@abc', `${PR.key}@${HEAD}`].sort());
+});
