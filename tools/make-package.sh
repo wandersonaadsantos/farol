@@ -46,7 +46,7 @@ for d in lib ui assets workspace-template installer; do
 done
 # jira-mcp.js e farol-parear.js sao runtime (ver o comentario no make-package.ps1)
 mkdir -p "$staging/tools"
-for t in jira-mcp.js farol-parear.js make-icons.ps1 pack-ico.js make-package.ps1 make-icns.sh; do
+for t in jira-mcp.js farol-parear.js farol-autoanalise.js make-icons.ps1 pack-ico.js make-package.ps1 make-icns.sh; do
   cp "$SRC/tools/$t" "$staging/tools/$t"
   do_pacote+=("tools/$t")
 done
