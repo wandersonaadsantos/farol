@@ -1448,7 +1448,11 @@ o consultam:
   (`prova-do-repositorio.js`) não registra nem herda caminho protegido: a declaração de outro PR não
   é observação desta revisão, e o protegido é relido. A autoanálise passa pela mesma régua:
   `lidosComProtegidoProvado` (`read-evidence.js`) tira do `observed.scope.reviewed` o protegido cuja
-  entrega não foi conferida, ainda que a regra do Read tenha visto o pedido.
+  entrega não foi conferida, ainda que a regra do Read tenha visto o pedido. Protegido quer dizer
+  protegido de um lado ou do outro do rename (`arquivoProtegido`): `.env.example` renomeado para
+  `config.txt` traz no patch o conteúdo de antes, então os metadados do diff (`previousPath`) seguem
+  até cada filtro da prova: o inventário medido pelo `gh` (`pr-inventory.js`), o escopo materializado
+  (`arquivos` em `pr-scope.js`), a autoanálise, a prova por arquivo e o índice entre PRs.
 
   **Limitação conhecida, de propósito:** a leitura observada vive em memória, no stream do Claude
   desta sessão. Codex e Antigravity não emitem evento de leitura de arquivo, e a sessão retomada depois

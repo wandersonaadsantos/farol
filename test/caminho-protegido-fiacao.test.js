@@ -33,12 +33,12 @@ const files = [
 const GUARDAS = ['--settings', `"${ARQUIVO_DE_GUARDAS}"`];
 
 // A execução isolada lê pela fonte (reader); as outras não precisam dele.
-function source(arquivos = files, comLeitor = false) {
+function source(arquivos = files, comLeitor = false, status = 'complete') {
   const reader = comLeitor ? { tree: async () => ({ complete: true, entries: arquivos.map((f) => ({ path: f.path, readable: true, mode: '100644' })) }),
     read: async () => ({ status: 'available', text: 'source' }) } : {};
-  return { status: 'complete', reason: '', reader,
+  return { status, reason: status === 'complete' ? '' : 'Fixture sem acesso à fonte.', reader,
     manifest: { scope: { account: 'fixture', repo: 'org/repo' }, H, B, M, files: arquivos, limitations: [] },
-    inventory: { status: 'complete', headSha: H, baseSha: B, files: arquivos, changedFiles: arquivos.length },
+    inventory: { status, headSha: H, baseSha: B, files: arquivos, changedFiles: arquivos.length },
     release: async () => {} };
 }
 function setup({ jira = true } = {}) {
@@ -65,9 +65,9 @@ function setup({ jira = true } = {}) {
 }
 
 // A leitura da projeção redigida como o stream do Claude a entrega: pedido e retorno conferível.
-function lerProjecao(e, opts, comRetorno) {
+function lerProjecao(e, opts, comRetorno, caminho = '.env.example') {
   const session = e.activeReviews.get(opts.id);
-  const filePath = arquivoMaterializado(session.scopeRoot, '.env.example');
+  const filePath = arquivoMaterializado(session.scopeRoot, caminho);
   assert.equal(fs.readFileSync(filePath, 'utf8'), PROJECAO, 'a projeção está no nome redigido');
   const block = { type: 'tool_use', id: 'r-env', name: 'Read', input: { file_path: filePath } };
   observeReadEvent(e, opts, { type: 'assistant', message: { content: [block] } });
@@ -78,10 +78,10 @@ function lerProjecao(e, opts, comRetorno) {
     message: { content: [{ type: 'tool_result', tool_use_id: 'r-env', content: linhas.map((l, i) => `${i + 1}→${l}`).join('\n') }] } });
 }
 
-function reviewResult() {
+function reviewResult(revisados = ['src/a.js', '.env.example']) {
   return { ...criteriaFixture('approve'), analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', reasons: [],
     findings: [], reportMarkdown: 'Análise sintética.', reviewMarkdown: 'Análise sintética.',
-    coverage: { total: 2, reviewed: ['src/a.js', '.env.example'], missing: [] },
+    coverage: { total: revisados.length, reviewed: revisados, missing: [] },
     alcance: [{ alterado: 'src/a.js', chamadores: [], semChamador: 'Fixture não declara consumidor externo.' }],
     payloads: { approve: { event: 'APPROVE', body: 'Análise sintética.' }, request_changes: { event: 'REQUEST_CHANGES', body: 'Análise sintética.' } } };
 }
@@ -202,4 +202,65 @@ test('o protocolo do pr-reviewer descreve a raiz de escopo do terminal e o nome 
   assert.match(agente, /_farol_redigido_\/_apps%2Fweb%2F\.env\.local\.redigido/);
   const comando = fs.readFileSync(path.join(import.meta.dirname, '..', 'workspace-template', '.claude', 'commands', 'pr-review.md'), 'utf8');
   assert.match(comando, /escopo=<raiz>/);
+});
+
+/* ---------- rename vindo de caminho protegido (revisão do head 3f580395) ---------- */
+
+// `.env.example` renomeado para `config.txt`: o destino tem nome comum, mas o patch traz o
+// conteúdo de antes. A prova de leitura tem de olhar os dois lados do rename.
+const RENOMEADO = { path: 'config.txt', previousPath: '.env.example', sha: 'f'.repeat(40), status: 'renamed', patch: PROJECAO, patchStatus: 'available' };
+const COM_RENAME = [files[0], RENOMEADO];
+const LACUNA_DO_RENAME = /caminho protegido sem leitura observada da projeção redigida: config\.txt/;
+
+test('rename de .env.example para config.txt: a autoanálise só conta o destino lido com a entrega conferida', async () => {
+  for (const comRetorno of [false, true]) {
+    const e = setup();
+    sourceRuntime.prepareSources = async () => source(COM_RENAME);
+    e.runClaudeStream = async (_prompt, opts) => { lerProjecao(e, opts, comRetorno, 'config.txt'); return { text: JSON.stringify(selfResult()) }; };
+    await e.runSelfAnalysis({ ...pr });
+    const scope = e.selfAnalyses[pr.key].observed.scope;
+    assert.equal(scope.reviewed.includes('config.txt'), comRetorno, JSON.stringify(scope));
+    assert.equal(scope.missing.includes('config.txt'), !comRetorno);
+  }
+});
+
+test('rename de .env.example para config.txt: a revisão só cobre o destino com a entrega conferida', async () => {
+  for (const comRetorno of [false, true]) {
+    const e = setup();
+    sourceRuntime.prepareSources = async () => source(COM_RENAME);
+    e.runClaudeStream = async (_prompt, opts) => {
+      lerProjecao(e, opts, comRetorno, 'config.txt');
+      return { text: JSON.stringify(reviewResult(['src/a.js', 'config.txt'])) };
+    };
+    await e.runHeadlessReview({ ...pr });
+    const item = e.decisions.pending[0] || e.decisions.resolved[0];
+    if (comRetorno) assert.doesNotMatch(motivosDe(item), LACUNA_DO_RENAME);
+    else assert.match(motivosDe(item), LACUNA_DO_RENAME, 'só o pedido do Read no destino do rename é lacuna');
+  }
+});
+
+test('rename de .env.example para config.txt: o inventário medido pelo gh guarda o lado de antes e a revisão o trata como protegido', async () => {
+  const e = setup();
+  sourceRuntime.prepareSources = async () => source(COM_RENAME, false, 'unavailable');
+  const chamadas = [];
+  io.run = async (_command, args) => {
+    const linha = args.join(' ');
+    chamadas.push(linha);
+    if (linha.includes('pulls/1/files')) {
+      return { ok: true, stdout: JSON.stringify([
+        { path: 'src/a.js', sha: files[0].sha, status: 'modified', lines: 2, previousPath: null },
+        { path: 'config.txt', sha: RENOMEADO.sha, status: 'renamed', lines: 2, previousPath: '.env.example' }]) };
+    }
+    if (linha.includes('repos/org/repo/pulls/1 ') || linha.endsWith('repos/org/repo/pulls/1')) {
+      return { ok: true, stdout: JSON.stringify({ headSha: H, baseSha: B, changedFiles: 2 }) };
+    }
+    if (args.includes('headRefOid')) return { ok: true, stdout: H };
+    if (args.includes('--json')) return { ok: true, stdout: JSON.stringify({ headRefOid: H, baseRefOid: B, statusCheckRollup: [] }) };
+    return { ok: false, code: 1, stdout: '', stderr: 'Operação externa bloqueada pela fixture.' };
+  };
+  e.runClaudeStream = async () => ({ text: JSON.stringify(reviewResult(['src/a.js', 'config.txt'])) });
+  await e.runHeadlessReview({ ...pr });
+  assert.ok(chamadas.some((c) => c.includes('pulls/1/files') && c.includes('previous_filename')), 'o jq pede o lado de antes do rename');
+  const item = e.decisions.pending[0] || e.decisions.resolved[0];
+  assert.match(motivosDe(item), LACUNA_DO_RENAME, 'declarado sem leitura observada, o destino do rename é lacuna');
 });

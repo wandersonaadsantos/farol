@@ -374,3 +374,33 @@ test('caminho protegido não entra no índice entre PRs nem herda de lá: declar
   const forjadaRename = { [repoProof.chaveDoArquivo(renomeado)]: { caminho: renomeado.path, pr: 'o/idx#1', head: H1, at: Date.now(), status: 'modified' } };
   assert.deepEqual(repoProof.herancaDoRepositorio({ key: 'o/idx#2' }, [renomeado], forjadaRename, []).unchanged, [], 'rename vindo de protegido também');
 });
+
+test('rename vindo de caminho protegido: inventário, prova por arquivo e índice entre PRs olham os dois lados', async () => {
+  const { parseFilesStdout } = await import('../lib/engine/pr-inventory.js');
+  const repoProof = await import('../lib/engine/prova-do-repositorio.js');
+  const medidos = parseFilesStdout(JSON.stringify([{ path: 'config.txt', sha: 'sc', status: 'renamed', lines: 2, previousPath: '.env.example' },
+    { path: 'src/a.js', sha: 'sa', status: 'modified', lines: 2 }]));
+  assert.equal(medidos[0].previousPath, '.env.example', 'o inventário não perde o lado de antes');
+  assert.equal(Object.hasOwn(medidos[1], 'previousPath'), false, 'arquivo comum mantém a forma de sempre');
+  // prova por arquivo sem a leitura observada não herda o destino do rename
+  const prova = { head: 'h1', files: medidos, reviewed: ['config.txt', 'src/a.js'] };
+  assert.deepEqual(splitByProof(medidos, prova).unchanged, ['src/a.js']);
+  assert.deepEqual(splitByProof(medidos, { ...prova, observados: ['config.txt'] }).unchanged.sort(), ['config.txt', 'src/a.js']);
+  // o destino do rename declarado sem leitura observada é lacuna
+  const result = { coverage: { reviewed: ['config.txt', 'src/a.js'], missing: [] } };
+  prepararCoberturaParaOGate(result, medidos, { ativa: false }, new Set());
+  assert.deepEqual(result.protegidosSemLeitura, ['config.txt']);
+  // e não entra no índice entre PRs
+  const H1 = '2'.repeat(40);
+  const comPatch = [{ path: 'config.txt', previousPath: '.env.example', sha: 'sc', status: 'renamed', patch: '+X=1', patchStatus: 'available' },
+    { path: 'src/a.js', sha: 'sa', status: 'modified', patch: PATCH_COMUM, patchStatus: 'available' }];
+  repoProof.registrarNoIndiceDoRepositorio({ key: 'o/ren#1', repo: 'o/ren' }, H1, comPatch, { coverage: { reviewed: ['config.txt', 'src/a.js'], missing: [] } }, {});
+  assert.deepEqual(Object.values(repoProof.lerIndiceDoRepositorio('o/ren')).map((e) => e.caminho), ['src/a.js']);
+});
+
+test('lidosComProtegidoProvado usa os metadados do diff para o rename vindo de protegido', () => {
+  const engine = { activeReviews: new Map() };
+  const lidos = new Set(['config.txt', 'src/a.js']);
+  assert.deepEqual([...lidosComProtegidoProvado(engine, 'x', lidos, [{ path: 'config.txt', previousPath: '.env.example' }, { path: 'src/a.js' }])], ['src/a.js']);
+  assert.deepEqual([...lidosComProtegidoProvado(engine, 'x', lidos, [{ path: 'config.txt', previousPath: 'docs/old.txt' }])].sort(), ['config.txt', 'src/a.js']);
+});
