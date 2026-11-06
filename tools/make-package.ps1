@@ -38,7 +38,7 @@ foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
 # farol-parear.js tambem e runtime: e o comando que gera o codigo de pareamento da API
 # local no proprio aparelho (A4). Sem ele na copia instalada nao ha como parear.
 New-Item -ItemType Directory -Force -Path (Join-Path $staging 'tools') | Out-Null
-foreach ($t in @('jira-mcp.js', 'farol-parear.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
+foreach ($t in @('jira-mcp.js', 'farol-parear.js', 'farol-autoanalise.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
   Copy-Item (Join-Path (Join-Path $Src 'tools') $t) (Join-Path (Join-Path $staging 'tools') $t)
   $doPacote += "tools/$t"
 }
