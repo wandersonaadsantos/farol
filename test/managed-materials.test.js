@@ -14,6 +14,7 @@ const life = await import('../lib/technical-review/cleanup.js');
 const records = await import('../lib/technical-review/material-record.js');
 const { manager, enqueue } = await import('../lib/technical-review/material-maintenance.js');
 const { processProbe } = await import('../lib/technical-review/material-process.js');
+const { recoveryProcesses } = await import('../lib/review-source/recovery-owner.js');
 after(() => { life.pararManutencaoMaterial(); fs.rmSync(home, { recursive: true, force: true }); });
 
 function material() {
@@ -113,16 +114,21 @@ test('remoção extensa é aguardada sem bloquear o loop e consumidor novo é re
     finish(); await pending; assert.equal(fs.existsSync(snapshot), false);
   } finally { life.remocao.rm = original; }
 });
-test('reinício não presume preparação interrompida abandonada por PID ou prazo', async () => {
-  const snapshot = material(), original = processProbe.read;
+// Até 06/11/2026 PID ausente sem decisão final nunca liberava; desde então libera só com a prova
+// da v2.78.10 (sem Git da família vivo nascido a partir da criação do registro, com 2 s de folga).
+test('reinício não presume abandono por PID ou prazo enquanto houver Git posterior vivo ou sem lista', async () => {
+  const snapshot = material(), original = processProbe.read, originalGit = recoveryProcesses.list;
   records.updateRecord(snapshot, r => ({ ...r, owner: { ...r.owner, instance: 'anterior', pid: 99999999, birth: 'antigo' }, createdAt: 1 }));
   processProbe.read = async () => ({ status: 'absent' });
   try {
+    recoveryProcesses.list = async () => null;
     await collectAll(Number.MAX_SAFE_INTEGER);
     assert.equal(fs.existsSync(snapshot), true);
+    recoveryProcesses.list = async () => [{ name: 'git.exe', born: Date.now() }];
+    await collectAll(); assert.equal(fs.existsSync(snapshot), true);
     manager().referenceState = () => 'ended';
     await collectAll(); assert.equal(fs.existsSync(snapshot), false);
-  } finally { processProbe.read = original; manager().referenceState = () => 'unknown'; }
+  } finally { processProbe.read = original; recoveryProcesses.list = originalGit; manager().referenceState = () => 'unknown'; }
 });
 test('PID reutilizado não se confunde com proprietário vivo e referências ainda protegem a sessão', async () => {
   const snapshot = material(), original = processProbe.read;
@@ -161,7 +167,7 @@ test('consumidor com identidade viva protege árvore após morte do proprietári
     await collectAll(); assert.equal(fs.existsSync(snapshot), false);
   } finally { processProbe.read = original; manager().referenceState = () => 'unknown'; }
 });
-test('legados sem manifesto são diagnosticados e nunca apagados automaticamente', async () => {
+test('legado recente sem manifesto é diagnosticado e não é apagado', async () => {
   const legacy = fs.mkdtempSync(path.join(root, 'review-'));
   fs.writeFileSync(path.join(legacy, 'preservar'), 'dados');
   const diagnostic = await life.diagnosticoLegados({ references: [legacy] });

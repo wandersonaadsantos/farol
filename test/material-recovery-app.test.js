@@ -11,9 +11,11 @@ const life = await import('../lib/technical-review/cleanup.js');
 const records = await import('../lib/technical-review/material-record.js');
 const { processProbe } = await import('../lib/technical-review/material-process.js');
 const { materialReferenceState } = await import('../lib/technical-review/material-session-proof.js');
+const { recoveryProcesses } = await import('../lib/review-source/recovery-owner.js');
+const originalGit = recoveryProcesses.list;
 const originalProbe = processProbe.read;
 const root = path.join(STATE_DIR, 'technical-review'), H = 'a'.repeat(40);
-after(() => { life.pararManutencaoMaterial(); processProbe.read = originalProbe; fs.rmSync(home, { recursive: true, force: true }); });
+after(() => { life.pararManutencaoMaterial(); processProbe.read = originalProbe; recoveryProcesses.list = originalGit; fs.rmSync(home, { recursive: true, force: true }); });
 function interrupted() {
   const snapshot = life.criarMaterial(root, { repo: 'org/repo', prKey: 'org/repo#7', account: 'fixture', head: H });
   fs.writeFileSync(path.join(snapshot, 'source.js'), 'durável somente até liberação');
@@ -57,10 +59,19 @@ test('sessão ativa, fila e retomada continuam protegendo material mesmo com dec
   await collect(); assert.equal(fs.existsSync(snapshot), true);
   engine.retomadas.clear(); await collect(); assert.equal(fs.existsSync(snapshot), false);
 });
-test('ausência de desfecho inclusive autoanálise não rastreada permanece desconhecida', async () => {
+// Sem desfecho a referência segue desconhecida; desde 06/11/2026 só a prova do SO (dono encerrado
+// e nenhum Git vivo nascido a partir da criação do registro) libera, com a evidência no registro.
+test('ausência de desfecho inclusive autoanálise não rastreada só libera com a prova do SO', async () => {
   processProbe.read = async () => ({ status: 'absent' });
-  const snapshot = interrupted(); await startApp(); await collect();
-  assert.equal(fs.existsSync(snapshot), true);
+  try {
+    recoveryProcesses.list = async () => [{ name: 'git.exe', born: Date.now() }];
+    const snapshot = interrupted(); await startApp(); await collect();
+    assert.equal(fs.existsSync(snapshot), true);
+    recoveryProcesses.list = async () => [];
+    await collect();
+    assert.equal(fs.existsSync(snapshot), false);
+    assert.equal(records.readRecord(snapshot).recovered.proof, 'owner-ended-without-git');
+  } finally { recoveryProcesses.list = originalGit; }
 });
 test('prova positiva exige mesmo PR, head, conta e desfecho posterior à preparação', async () => {
   const engine = await startApp();
