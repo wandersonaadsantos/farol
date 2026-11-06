@@ -1444,7 +1444,9 @@ o consultam:
   relido (é pequeno). Sem a medição do diff nada é conferido, e o gate `protegido_sem_leitura` da
   política continua segurando o protegido sem projeção. A dispensa da leitura vale só para a herança
   COMPROVADA pelo engine (`heranca.ativa`, `heranca.unchanged`): `coverage.inherited` escrito pelo
-  modelo numa rodada sem herança ativa não dispensa nada. A autoanálise passa pela mesma régua:
+  modelo numa rodada sem herança ativa não dispensa nada. O índice de leitura entre PRs do mesmo repositório
+  (`prova-do-repositorio.js`) não registra nem herda caminho protegido: a declaração de outro PR não
+  é observação desta revisão, e o protegido é relido. A autoanálise passa pela mesma régua:
   `lidosComProtegidoProvado` (`read-evidence.js`) tira do `observed.scope.reviewed` o protegido cuja
   entrega não foi conferida, ainda que a regra do Read tenha visto o pedido.
 

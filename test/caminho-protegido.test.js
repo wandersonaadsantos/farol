@@ -358,3 +358,19 @@ test('as guardas recusam o diff pedido por cabeçalho e deixam as leituras do pr
     'gh api repos/o/r/pulls/7 -H "Accept: application/vnd.github+json"',
   ]) assert.equal(negado(deny, legitimo), false, legitimo);
 });
+
+test('caminho protegido não entra no índice entre PRs nem herda de lá: declaração de outro PR não é leitura observada', async () => {
+  const repoProof = await import('../lib/engine/prova-do-repositorio.js');
+  const H1 = '1'.repeat(40);
+  const env = { path: '.env.example', sha: 'se', status: 'modified', patch: '+DEBUG=true', patchStatus: 'available' };
+  const comum = { path: 'src/a.js', sha: 'sa', status: 'modified', patch: PATCH_COMUM, patchStatus: 'available' };
+  repoProof.registrarNoIndiceDoRepositorio({ key: 'o/idx#1', repo: 'o/idx' }, H1, [env, comum],
+    { coverage: { reviewed: ['.env.example', 'src/a.js'], missing: [] } }, {});
+  assert.deepEqual(Object.values(repoProof.lerIndiceDoRepositorio('o/idx')).map((e) => e.caminho), ['src/a.js']);
+  // índice forjado com o protegido também não herda
+  const forjada = { [repoProof.chaveDoArquivo(env)]: { caminho: env.path, pr: 'o/idx#1', head: H1, at: Date.now(), status: 'modified' } };
+  assert.deepEqual(repoProof.herancaDoRepositorio({ key: 'o/idx#2' }, [env], forjada, []).unchanged, []);
+  const renomeado = { ...comum, path: 'config/app.txt', previousPath: '.env' };
+  const forjadaRename = { [repoProof.chaveDoArquivo(renomeado)]: { caminho: renomeado.path, pr: 'o/idx#1', head: H1, at: Date.now(), status: 'modified' } };
+  assert.deepEqual(repoProof.herancaDoRepositorio({ key: 'o/idx#2' }, [renomeado], forjadaRename, []).unchanged, [], 'rename vindo de protegido também');
+});
