@@ -22,8 +22,8 @@ A revisão automática fica mais assertiva e gasta menos: deixa de repetir rodad
 ### Correções
 
 - Divergência entre passadas de verificação vira ressalva na hora, e a política da conta decide. Antes, o Farol relançava a revisão duas vezes no mesmo commit sem chance de resolver, porque outra passada não desfaz as anteriores; num PR isso se repetiu em 7 commits seguidos. Com outra prova faltando junto, o Farol continua indo atrás dela.
-- Problema que a avaliação técnica acha em linha que o PR não alterou deixa de reprovar o PR: vira ressalva de dívida anterior, com arquivo e linha. Problema em linha que o PR mudou continua reprovando, e regra que vale para o arquivo inteiro também.
-- A aprovação já concluída só é descartada quando chega uma objeção nova de uma pessoa. Review de ferramenta (como o Acrity) e aprovação de colega com comentários menores deixam de jogar fora a revisão. Medido: 6 de 7 descartes recentes eram desse tipo.
+- Problema que a verificação técnica automática aponta numa linha fora do trecho alterado pelo PR deixa de reprovar o PR: vira ressalva de dívida anterior, com arquivo e linha. Problema no trecho alterado continua reprovando, assim como regra que vale para o arquivo inteiro e qualquer caso em que o Farol não consiga medir as linhas.
+- No histórico de reviews, só uma objeção nova de uma pessoa descarta a aprovação já concluída. Review de ferramenta (como o Acrity) e aprovação de colega com comentários menores deixam de jogar fora a revisão. Medido: 6 de 7 descartes recentes eram desse tipo. Base nova e checks continuam sendo conferidos antes de postar.
 
 ## v2.78.38
 

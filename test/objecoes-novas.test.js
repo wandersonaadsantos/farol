@@ -105,9 +105,13 @@ test('a impressão antiga continua a mesma: relatório pendente na atualização
   assert.deepEqual(Object.keys(snap.reviews[0]), ['id', 'author', 'state', 'head', 'body', 'file', 'line'], 'o que vai ao prompt não ganha campo');
 });
 
-test('o relatório da avaliação grava a lista das objeções de pessoa junto da impressão', () => {
-  const fonte = fs.readFileSync(new URL('../lib/technical-review/runtime.js', import.meta.url), 'utf8');
-  assert.match(fonte, /\.\.\.impressaoDasObjecoes\(context\.objections\)/);
+test('o relatório da avaliação grava a lista das objeções de pessoa junto da impressão', async () => {
+  const { relatorioTecnico } = await import('../lib/technical-review/runtime.js');
+  const objections = Object.defineProperty({ reviews: [], comments: [], fingerprint: 'impressao' }, 'objecoes', { value: ['r:1'], enumerable: false });
+  const rel = relatorioTecnico({ repo: 'o/r', base: 'b', head: 'h', profile: { fingerprint: 'p' }, objections },
+    { catalogFingerprint: 'c', verdict: 'pass', rules: [], findings: [], coverage: {} });
+  assert.equal(rel.humanReviewFingerprint, 'impressao');
+  assert.deepEqual(rel.humanObjections, ['r:1']);
   assert.deepEqual(Object.keys(impressaoDasObjecoes({ fingerprint: 'f', objecoes: ['a'] })), ['humanReviewFingerprint', 'humanObjections']);
 });
 

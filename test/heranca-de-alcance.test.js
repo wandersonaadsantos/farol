@@ -228,6 +228,11 @@ test('rodada complementar da busca da prova no MESMO head herda a leitura já pr
   const semEspera = await analysis.prepareReviewReading(engineDaLeitura([]), pr, 's1', H);
   await analysis.releaseAnalysisSource(semEspera.prepared, engineDaLeitura([]));
   assert.equal(semEspera.inheritance.ativa, false, 'revisão no mesmo head fora da busca da prova continua cheia');
+
+  const espera = [{ key: pr.key, headSha: H, esperaProva: { alvo: H, tentativas: 1 } }];
+  const clique = await analysis.prepareReviewReading(engineDaLeitura(espera), { ...pr, manual: true }, 's1', H);
+  await analysis.releaseAnalysisSource(clique.prepared, engineDaLeitura([]));
+  assert.equal(clique.inheritance.ativa, false, 'clique no mesmo head revisa cheio, mesmo com a busca da prova armada');
 });
 
 test('o bloco incremental diz de quais inalterados o alcance é herdado e de quais de código falta a declaração', () => {
