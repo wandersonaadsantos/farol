@@ -115,17 +115,19 @@ test('sessão no terminal sem pedir permissões: ligada por padrão, mas como ro
 test('o padrão ausente do card é o lado seguro, e todo chamador das telas passa a chave', () => {
   // ui/pure/review.js trata o argumento ausente como ligado (trava o Aprovar); o engine trata a
   // config ausente como desligada. Por isso nenhum chamador pode omitir o argumento.
-  const chamadas = [
-    ['ui/telas/radar.js', 'staleCardMeta('],
-    ['ui/telas/radar.js', 'tituloDoAprovarDesligado('],
-    ['ui/pure/paleta-decisoes.js', 'staleCardMeta('],
-    ['ui/pure/review.js', 'return esperaCiCardMeta('],
-  ];
-  for (const [arquivo, chamada] of chamadas) {
-    const linhas = ler(arquivo).split('\n').filter((l) => l.includes(chamada) && !l.includes('export function'));
-    assert.ok(linhas.length > 0, `${arquivo}: ${chamada}`);
-    for (const l of linhas) assert.ok(l.includes('ciObrigatorio)'), `${arquivo}: ${l.trim()}`);
+  // varre todo .js de ui/ (pure e telas): uma tela nova que esqueça o argumento também reprova
+  const raiz = new URL('../ui/', import.meta.url);
+  const arquivos = fs.readdirSync(raiz, { recursive: true }).map(String).filter((f) => f.endsWith('.js'));
+  const achadas = [];
+  for (const rel of arquivos) {
+    const linhas = fs.readFileSync(new URL(rel.split(String.fromCharCode(92)).join('/'), raiz), 'utf8').split('\n');
+    for (const l of linhas) {
+      if (l.includes('export function') || l.trim().startsWith('//')) continue;
+      if (/(staleCardMeta|esperaCiCardMeta|tituloDoAprovarDesligado)\(/.test(l)) achadas.push([rel, l.trim()]);
+    }
   }
+  assert.ok(achadas.length >= 4, 'os chamadores conhecidos (radar, paleta, review) foram achados');
+  for (const [rel, l] of achadas) assert.ok(l.includes('ciObrigatorio)'), `ui/${rel}: ${l}`);
 });
 
 test('Sistema > Automação: as chaves que nascem ligadas só desligam com false explícito', () => {
