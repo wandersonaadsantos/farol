@@ -185,7 +185,39 @@ const COMENTARIOS_SEM_FORMA = [
   ['comentário com login', '+# login admin pass hunter'],
   ['comentário em outro alfabeto', '+# тайный пароль для доступа'],
   ['lista de palavras em comentário', '+# cavalo bateria grampo correto'],
+  ['marcador TODO', '+# TODO: ajustar depois'],
+  ['marcador NOTE', '+# NOTE: usar a porta da zona'],
+  ['marcador OBS', '+# OBS: valor vem do Vault'],
+  ['marcador IMPORTANT', '+# IMPORTANT: nunca commitar'],
+  ['marcador DEPRECATED', '+# DEPRECATED: use NEW_VAR'],
+  ['valor padrão explicado', '+# Default = 3000'],
+  ['nome de segredo com valor de uma palavra', '+# header `Authorization: Bearer`'],
+  ['nome de segredo com marcador de exemplo', '+# API_KEY=<sua chave>'],
 ];
+// Credencial comentada com forma clara continua segurando (revisão independente do PR, 07/11/2026):
+// cada caso abaixo escapava da primeira versão desta mudança.
+const COMENTARIOS_COM_CREDENCIAL = [
+  ['rótulo em minúscula', `+# password: ${FICTICIO}`],
+  ['rótulo capitalizado', `+# Password: ${FICTICIO}`],
+  ['rótulo em português', `+# senha: ${FICTICIO}`],
+  ['rótulo com ponto', `+# db.password: ${FICTICIO}`],
+  ['atribuição depois de um prefixo', `+# exemplo: DB_PASSWORD=${FICTICIO}`],
+  ['atribuição depois de uma palavra', `+# antigo DB_PASSWORD=${FICTICIO}`],
+  ['atribuição em item de lista', `+# - DB_PASSWORD=${FICTICIO}`],
+  ['rótulo em item de lista', `+# * AUTH_SECRET: ${FICTICIO}`],
+  ['par entre aspas', `+# "AUTH_SECRET": "${FICTICIO}"`],
+  ['URL com usuário vazio', `+# redis://:${FICTICIO}@cache.interna:6379`],
+  ['URL com barra na senha', `+# postgres://u:pa/${FICTICIO}@db.interna/app`],
+  ['credencial sem esquema', `+# usuario:${FICTICIO}@db.interna`],
+  ['JWT', '+# eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcDEF123ghiJKL'],
+];
+for (const [nome, linha] of COMENTARIOS_COM_CREDENCIAL) {
+  test(`comentário com credencial segura: ${nome}`, () => {
+    const r = projetarMudancasDeAmbiente(`@@ -1 +1 @@\n${linha}`);
+    assert.equal(r.ocultos, 1, r.text);
+    assert.ok(!r.text.includes(linha.slice(1)), r.text);
+  });
+}
 for (const [nome, linha] of COMENTARIOS_SEM_FORMA) {
   test(`comentário fora da sessão sem segurar: ${nome}`, () => {
     const r = projetarMudancasDeAmbiente(`@@ -1 +1 @@\n${linha}`);
