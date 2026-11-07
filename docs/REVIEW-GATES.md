@@ -1420,8 +1420,10 @@ origem de uma URL http(s), sem caminho, credencial, query ou fragmento; chave co
 sempre oculta. Comentário nunca aparece: é texto livre, e nenhuma régua fechou (três rodadas de
 revisão adversarial acharam senha em comentário e em caminho de URL). Desde 07/11/2026
 (biud-core#548, decisão do dono) o comentário só conta como oculto quando tem forma de credencial:
-atribuição comentada (`# CHAVE=valor` ou `# CHAVE: valor`) cujo valor não é comprovadamente seguro,
-URL com usuário e senha, ou o que a máscara de segredo reconhece. Antes contava todo comentário que
+par com nome de segredo em qualquer ponto do comentário (`DB_PASSWORD=x`, `senha: x`,
+`"AUTH_SECRET": "x"`) cujo valor não é palavra simples nem marcador de exemplo, URL ou autoridade
+com usuário e senha (inclusive usuário vazio e sem esquema), JWT, ou o que a máscara de segredo
+reconhece. Marcador de documentação (`TODO:`, `NOTE:`) não tem nome de segredo e não segura. Antes contava todo comentário que
 não parecesse prosa, e o comentário que só explicava um token, com a variável vazia, mandava o PR à
 mesa. Chave fora da convenção esconde a linha inteira. Ler esse patch conta como
 cobertura. O arquivo inteiro continua recusado pelo leitor, e os demais caminhos protegidos seguem
@@ -1429,8 +1431,9 @@ sem patch. Valor oculto segura a aprovação automática (`valor_oculto_de_ambie
 com o motivo), salvo quando o autor tem o papel Tech Lead no cadastro local, por decisão do dono.
 Patch truncado pelo GitHub vai sempre para a pessoa, mesmo com Tech Lead: o que não veio não foi visto.
 Caminho protegido sem essa projeção segura para qualquer autor (`protegido_sem_leitura`). Limite
-conhecido: comentário com senha solta, sem forma de atribuição nem de URL (`# senha antiga xyz`),
-passa sem ser visto por ninguém; ele não chega à sessão, mas também não segura a aprovação.
+conhecido: comentário com senha solta, sem nome de segredo antes nem forma de URL
+(`# senha antiga xyz`), ou com valor de uma palavra só (`# password: hunter`), passa sem ser visto
+por ninguém; ele não chega à sessão, mas também não segura a aprovação.
 
 ### Projeção legível sob o deny do usuário e a leitura do protegido como prova (06/11/2026)
 
