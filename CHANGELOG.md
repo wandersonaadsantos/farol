@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.43
+
+A aprovação que o GitHub pode não segurar ganha um aviso no card do app, e duas opções de Automação aparecem ligadas na tela quando a configuração não diz nada.
+
+### Melhorias
+
+- Uma aprovação que sai num repositório sem check de CI obrigatório no ruleset ganha um aviso no card do app: se a branch também não tiver proteção clássica, o GitHub não barra o merge, e o card cita os checks que não estão verdes. Com "CI obrigatório antes da aprovação" desligado e um check obrigatório vermelho ou sem resultado, o card da aprovação também diz que ela saiu assim. O aviso entra também quando a aprovação só sai no reenvio, depois de uma falha passageira do GitHub, e nunca vai para o PR.
+- Em Sistema > Automação, "Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" aparecem ligadas quando a configuração não diz nada, como já acontecia com "Atualizar sozinho".
+
 ## v2.78.42
 
 "CI obrigatório antes da aprovação" volta a ser uma chave, desligada por padrão, e três opções de Automação passam a vir ligadas. A revisão separa a dívida antiga do que o PR fez, arquivo protegido só conta como lido quando a leitura da cópia redigida foi vista, a recuperação da prova ganha saída, o mesmo PR não abre duas revisões no aparelho, e a revisão começa minutos mais cedo, sem fila na preparação.
@@ -31,8 +40,6 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 - A ausência de uso fora do diff só é herdada com a árvore do repositório idêntica, e import visto no mapa do head contradiz a declaração.
 - Arquivo protegido do PR (`.env*`, credencial, chave) chega à revisão só como cópia redigida, num nome que a regra de bloqueio de leitura das suas configurações do Claude não barra, e só conta como lido quando o Farol vê a sessão lendo essa cópia. Declarar o arquivo como lido ou herdado não basta. A sessão também fica proibida de buscar o patch cru por outro caminho (`gh pr diff`, `/files`, diff pedido por cabeçalho), e isso vale para a revisão aberta no terminal, que agora recebe o mesmo escopo, com o diff de cada arquivo.
 - Arquivo binário, patch cortado pelo GitHub e arquivo protegido sem cópia disponível passam a aparecer como lacuna de cobertura, em vez de contar como lidos. Ler o aviso de conteúdo indisponível não vale como leitura. Renomear sem mudar nenhuma linha não conta como lacuna.
-- Uma aprovação que sai num repositório sem check de CI obrigatório no ruleset ganha um aviso no card do app: se a branch também não tiver proteção clássica, o GitHub não barra o merge, e o card cita os checks que não estão verdes. Com "CI obrigatório antes da aprovação" desligado e um check obrigatório vermelho ou sem resultado, o card da aprovação também diz que ela saiu assim. O aviso entra também quando a aprovação só sai no reenvio, depois de uma falha passageira do GitHub, e nunca vai para o PR.
-- Em Sistema > Automação, "Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" aparecem ligadas quando a configuração não diz nada, como já acontecia com "Atualizar sozinho".
 
 ### Correções
 

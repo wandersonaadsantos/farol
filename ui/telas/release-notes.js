@@ -18,8 +18,12 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.43', [
+    'A aprovação que sai num repositório sem check de CI obrigatório no ruleset, ou com o CI obrigatório fora do verde e a espera desligada, ganha aviso no card do app, inclusive quando só sai no reenvio; nunca no PR',
+    'Retomar a sessão na segunda rodada e Sessão no terminal sem pedir permissões aparecem ligadas na tela quando a configuração não diz nada',
+  ]],
   ['2.78.42', [
-    '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho; a aprovação que sai sem essa barreira ganha aviso no card do app, nunca no PR',
+    '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho',
     '"Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas; "Atualizar sozinho" continua ligada',
     'Dívida técnica antiga numa linha que o PR não mexeu deixa de reprovar quando a construção inteira fica fora da mudança; se a revisão repete a mesma dívida como bloqueio, ela corrige o parecer na mesma conversa',
     'Pedido de mudanças já resolvido é retirado mesmo com divergência entre passadas longe dele; a divergência no ponto do pedido continua segurando',
