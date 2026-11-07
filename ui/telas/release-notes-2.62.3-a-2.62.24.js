@@ -1,19 +1,8 @@
-// Notas de versão da 2.62.3 até a 2.63.1, que a tela Novidades mostra depois das recentes.
+// Notas de versão da 2.62.3 até a 2.62.24, que a tela Novidades mostra depois das recentes.
 // Arquivo FECHADO desde 06/11/2026: saiu de ./release-notes.js pelo mesmo motivo do
 // ./release-notes-2.60-a-2.62.js (o teto de tamanho), e nada entra aqui. Release nova vai para o
 // topo de ./release-notes.js.
-export const NOTAS_2_62_3_A_2_63 = [
-  ['2.63.1', [
-    "A aprovação automática espera você quando um check obrigatório ainda está rodando: a revisão fica na mesa com o nome do check, e você aprova quando a pipe fechar.",
-    "A aprovação automática também espera quando a revisão confere que o PR depende de outro PR, deploy ou aplicação ainda em aberto. O card diz qual.",
-  ]],
-  ['2.63.0', [
-    "O chat do PR exporta a conversa completa em Markdown ou JSON, ou copia o Markdown, com o id da sessão e a hora de cada mensagem no horário de Brasília. Token colado na conversa sai mascarado.",
-    "O id da sessão do Claude aparece no chat, com o botão Copiar id.",
-    "A conversa rola como uma coisa só: as respostas aparecem inteiras, sem a barra de rolagem dentro de cada uma.",
-    "No celular, o chat ficou legível: resposta na largura toda, o id e a exportação atrás de \"Id e exportar\", e o campo e o Enviar na mesma linha.",
-    "Blocos de código e listas numeradas das respostas do Claude aparecem formatados.",
-  ]],
+export const NOTAS_2_62_3_A_2_62_24 = [
   ['2.62.24', [
     "O modo Auto revisa todo PR com o Opus, e usa um raciocínio mais longo em repositório crítico, caminho sensível ou PR muito grande. Uma auditoria mostrou o Haiku e o Sonnet aprovando o que o Opus reprovaria.",
     "Revisão que não declara o que leu, ou que deixou um arquivo do PR de fora, não aprova sozinha: a decisão volta para você.",

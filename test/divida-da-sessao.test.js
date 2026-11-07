@@ -105,3 +105,17 @@ test('correlação usa o resultado técnico completo, inclusive o achado que nã
   assert.equal(report.findings.length, 10);
   assert.deepEqual(report.dividasDaSessao, [{ indice: 0, file: FILE, line: 12, rule: RULE }]);
 });
+
+test('a causa vale no lado declarado: linha só acrescentada no head não é remoção da base', () => {
+  const soAcrescimo = { ...inventario, files: [{ ...inventario.files[0], patch: '@@ -20,2 +20,3 @@\n contexto\n+novo\n contexto\n' }] };
+  const causa = { file: FILE, line: 21, evidence: 'O chamador novo transmite null à função antiga.' };
+  assert.equal(causaNoDiff(finding({ introduzidoPor: { ...causa, side: 'head' } }), soAcrescimo, HEAD), true);
+  assert.equal(causaNoDiff(finding({ introduzidoPor: { ...causa, side: 'base' } }), soAcrescimo, HEAD), false);
+});
+
+test('bloqueio de outra causa que não defeito de código não é rebaixado como dívida da ferramenta', () => {
+  const r = result(finding({ causa: 'card' }));
+  assert.deepEqual(conferirDividaDaSessao(r, inventario, HEAD), []);
+  assert.equal(r.findings[0].severity, 'blocking');
+  assert.equal(r.findings[0].dividaForaDasLinhasConfirmada, undefined);
+});

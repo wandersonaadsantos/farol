@@ -121,6 +121,8 @@ test('terminal de revisão pergunta Liberar PR e não promete fechar a janela', 
   const modal = doc.body.children.filter(el => el.className === 'modal-overlay').at(-1);
   assert.match(modal.innerHTML, /Liberar este PR/);
   assert.match(modal.innerHTML, /A janela não é fechada/);
+  // liberar revoga a capacidade de postagem da janela (handleSessionExit): a pergunta diz isso
+  assert.match(modal.innerHTML, /perde a permissão de publicar a revisão pelo Farol/);
   modal.querySelector('.modal-ok').onclick();
   await fim;
   assert.deepEqual(pedidos, [{ url: '/api/cancel', body: { id: 't7' } }]);

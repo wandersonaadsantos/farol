@@ -11,7 +11,11 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.78.42
 
-A revisão começa minutos mais cedo, sem fila na preparação, e "CI obrigatório antes da aprovação" volta a ser uma chave, desligada por padrão.
+"CI obrigatório antes da aprovação" volta a ser uma chave, desligada por padrão, e três opções de Automação passam a vir ligadas. A revisão separa a dívida antiga do que o PR fez, o mesmo PR não abre duas revisões no aparelho, e a revisão começa minutos mais cedo, sem fila na preparação.
+
+### Novidades
+
+- Diagnóstico local de quedas da janela, desligado por padrão: com `"diagnosticoQuedas": true` no `~/.farol/config.json` e o Farol reiniciado, os minidumps ficam em `~/.farol/diagnostico-quedas`, sem envio para lugar nenhum. Eles podem conter trechos da memória, então ficam só no aparelho.
 
 ### Melhorias
 
@@ -20,6 +24,11 @@ A revisão começa minutos mais cedo, sem fila na preparação, e "CI obrigatór
 - A conferência de espaço em disco que acompanha cada preparação passou a medir só o repositório em preparo, fora da trava global, e a segurar essa trava por milissegundos. Antes, a cada 250 ms ela percorria o cache inteiro e o material da análise técnica segurando a trava (de 1,6 s a 31 s por vez, medido em 06/11/2026), e as outras revisões só avançavam quando a anterior terminava: o preparo tinha mediana de 8,6 min no dia, para 1 a 3 min de modelo.
 - O tamanho do material da análise técnica fica gravado quando ele fica pronto, e a conferência não percorre mais a árvore dele a cada vez.
 - O cache guarda as últimas 8 bases e 8 heads de cada repositório. Alternar PRs entre production, homologation e development deixa de baixar a divergência de novo a cada troca (no biud-frontend a aquisição ia de 100 a 807 s).
+- Dívida técnica antiga numa linha que o PR não alterou deixa de reprovar quando a construção inteira (a chamada, o template, o bloco do supressor) fica fora da mudança. Se a construção encosta no trecho alterado, continua bloqueando. Quando a revisão repete essa mesma dívida como bloqueio, ela corrige o parecer na mesma conversa; sem correção, nada é publicado e o motivo fica no card.
+- O pedido de mudanças já resolvido é retirado mesmo quando a verificação teve divergência entre passadas longe dele. A divergência no ponto de um pedido dito resolvido continua segurando a retirada.
+- A herança de dívida da production confere a production, a base e o head por SHA, e recusa rebaixar quando a evidência cita um arquivo que a base mudou. A citação vale pelo caminho inteiro: o próprio arquivo do achado, ou um homônimo em outra pasta, não segura mais o rebaixamento. O prefixo `a/` ou `b/` só é descartado no cabeçalho de diff (`--- a/`, `+++ b/`, `diff --git`); fora dele, `a/package.json` é o arquivo da pasta `a`, não o `package.json` da raiz. Caminho escrito com barra invertida, no estilo do Windows, conta como o mesmo arquivo.
+- Resposta do autor do PR deixa de contar como objeção nova e de descartar a aprovação. Um review que chega durante a análise pode ser lido pela revisão e incorporado com o recibo do conteúdo; edição posterior continua descartando.
+- A ausência de uso fora do diff só é herdada com a árvore do repositório idêntica, e import visto no mapa do head contradiz a declaração.
 
 ### Correções
 
@@ -27,7 +36,11 @@ A revisão começa minutos mais cedo, sem fila na preparação, e "CI obrigatór
 - Pastas antigas de material sem registro, com mais de 7 dias e que nenhuma lease cita, passam a ser removidas, com evidência em `technical-review/legacy-removals.json` e no log. Em 06/11/2026 eram 237, com ~850 mil arquivos.
 - A limpeza deixou de gastar o ciclo relendo registros já removidos; material liberado é visto em poucos ciclos, e não em até ~34 min.
 - Arquivo protegido do PR (`.env.example` e parecidos) volta a ser lido pela revisão mesmo com regra de `deny` nas suas configurações do Claude: a cópia redigida ganhou um nome que o `deny` não casa. Protegido só conta como lido com a leitura observada dessa cópia, e a sessão não busca mais o arquivo cru no GitHub.
-- A revisão aberta no terminal passa a reservar o PR durante a preparação, então dois cliques seguidos não abrem duas janelas, e o patch entregue pela metade chega marcado como incompleto.
+- O mesmo PR não abre duas revisões neste aparelho, contando a sessão de terminal, inclusive com dois cliques simultâneos. Se o aviso de fim da janela do terminal se perde, o cartão dela oferece **Liberar PR**: o PR volta a poder ser revisado, e a janela, que não é fechada, perde a permissão de publicar a revisão pelo Farol.
+- A autoanálise volta a ser recusada quando há revisão comum do mesmo PR na fila, como antes.
+- O Refazer de recibo órfão recusa sem apagar nada quando há revisão do mesmo PR em curso no aparelho.
+- A troca de regras não antecipa o recuo da recuperação já agendado.
+- A janela que cai se recupera sem rejeição não tratada, e a saída limpa do processo não é registrada como queda.
 
 ## v2.78.41
 

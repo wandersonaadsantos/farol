@@ -11,8 +11,9 @@
 // SEMPRE no topo da lista abaixo. Quando este arquivo voltar a se aproximar do teto, a série
 // mais antiga daqui vai inteira para um arquivo próprio do mesmo jeito (um por faixa, nunca
 // editado depois), e o teto não sobe. A série 2.60 a 2.62 saiu assim em 05/11/2026, para
-// ./release-notes-2.60-a-2.62.js.
-import { NOTAS_2_62_3_A_2_63 } from './release-notes-2.62.3-a-2.63.js';
+// ./release-notes-2.60-a-2.62.js, e a série 2.62.3 a 2.62.24 em 06/11/2026, para
+// ./release-notes-2.62.3-a-2.62.24.js.
+import { NOTAS_2_62_3_A_2_62_24 } from './release-notes-2.62.3-a-2.62.24.js';
 import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
@@ -20,6 +21,12 @@ const RELEASE_NOTES_RECENTES = [
   ['2.78.42', [
     '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho',
     '"Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas; "Atualizar sozinho" continua ligada',
+    'Dívida técnica antiga numa linha que o PR não mexeu deixa de reprovar quando a construção inteira fica fora da mudança; se a revisão repete a mesma dívida como bloqueio, ela corrige o parecer na mesma conversa',
+    'Pedido de mudanças já resolvido é retirado mesmo com divergência entre passadas longe dele; a divergência no ponto do pedido continua segurando',
+    'Herança de dívida da production confere as três pontas por SHA e cita o arquivo alterado pela base pelo caminho inteiro',
+    'Resposta do autor do PR deixa de descartar a aprovação, e objeção lida durante a revisão pode ser incorporada com recibo do conteúdo',
+    'O mesmo PR não abre duas revisões neste aparelho, terminal incluído; o cartão do terminal ganha Liberar PR para quando o aviso de fim da janela se perde',
+    'Diagnóstico local de quedas da janela, opcional e desligado por padrão (diagnosticoQuedas no config.json)',
     'As revisões deixaram de fazer fila na preparação: a conferência de disco mede só o repositório em preparo',
     'Material velho da análise técnica (sessão morta, ou sem registro há 7 dias e sem referência) é limpo sozinho, com prova',
     'Alternar PRs entre bases diferentes do mesmo repositório não baixa de novo a divergência a cada troca',
@@ -332,8 +339,19 @@ const RELEASE_NOTES_RECENTES = [
   ['2.63.2', [
     "A revisão automática declara onde o código alterado é usado fora do PR, e o Farol abre esses arquivos no commit revisado para conferir. Sem essa prova, a aprovação automática não sai e a decisão fica com você.",
   ]],
+  ['2.63.1', [
+    "A aprovação automática espera você quando um check obrigatório ainda está rodando: a revisão fica na mesa com o nome do check, e você aprova quando a pipe fechar.",
+    "A aprovação automática também espera quando a revisão confere que o PR depende de outro PR, deploy ou aplicação ainda em aberto. O card diz qual.",
+  ]],
+  ['2.63.0', [
+    "O chat do PR exporta a conversa completa em Markdown ou JSON, ou copia o Markdown, com o id da sessão e a hora de cada mensagem no horário de Brasília. Token colado na conversa sai mascarado.",
+    "O id da sessão do Claude aparece no chat, com o botão Copiar id.",
+    "A conversa rola como uma coisa só: as respostas aparecem inteiras, sem a barra de rolagem dentro de cada uma.",
+    "No celular, o chat ficou legível: resposta na largura toda, o id e a exportação atrás de \"Id e exportar\", e o campo e o Enviar na mesma linha.",
+    "Blocos de código e listas numeradas das respostas do Claude aparecem formatados.",
+  ]],
 ];
 
-export const RELEASE_NOTES = [...RELEASE_NOTES_RECENTES, ...NOTAS_2_62_3_A_2_63, ...NOTAS_2_60_A_2_62, ...NOTAS_ATE_2_59];
+export const RELEASE_NOTES = [...RELEASE_NOTES_RECENTES, ...NOTAS_2_62_3_A_2_62_24, ...NOTAS_2_60_A_2_62, ...NOTAS_ATE_2_59];
 
 export default RELEASE_NOTES;

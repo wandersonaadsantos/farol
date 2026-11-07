@@ -111,6 +111,15 @@ test('import exato observado no mapa contradiz ausência, inclusive na primeira 
   assert.deepEqual(candidato.consumidores, [], 'pista parcial do mapa não vira contradição certa');
 });
 
+test('mapa de outro head não contradiz a ausência declarada no head revisado', async () => {
+  const mapa = { head: { relations: [{ from: OUTRO.path, to: FILE.path, line: 2, origin: 'parser', confidence: 'syntax-path' }] } };
+  const contexto = await contextoExternoDoAlcance(fonte(), [FILE], mapa);
+  const result = { diffMedido: [FILE.path], coverage: { reviewed: [FILE.path] }, alcance: [DECLARADO] };
+  await verificarAlcance({}, { repo: 'org/app' }, C, result, contexto);
+  assert.equal(result.alcanceVerificado, undefined, 'o import visto em A não fala do head C');
+  assert.deepEqual(Object.keys(alcanceConferido(result)), [FILE.path]);
+});
+
 function motor() {
   return { config: { reviewContextMode: 'off' }, activeReviews: new Map([['s1', { mode: 'auto', cancellable: true }]]),
     running: new Map(), decisions: { pending: [], resolved: [] }, log() {}, pushState() {}, killTree() { throw new Error('Não há processo nesta prova.'); } };

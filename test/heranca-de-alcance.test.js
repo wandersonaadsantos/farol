@@ -243,3 +243,41 @@ test('o bloco incremental diz de quais inalterados o alcance é herdado e de qua
   assert.match(bloco, /SEM alcance conferido; declare o `alcance` deles nesta sessão \(1\):\n- src\/b\.ts\n/);
   assert.doesNotMatch(bloco, /- docs\/x\.md\n$/, 'documentação não exige alcance');
 });
+
+/* ---------- a fiação do runHeadlessReview: identidade e mapa do alcance chegam à conferência e à prova ---------- */
+
+function fonteDoHead(head, arquivo, entradas) {
+  const manifest = { scope: { host: 'github.com', account: 'eu', repo: 'acme/app', repositoryId: 1 }, H: head, B: 'b'.repeat(40), M: 'c'.repeat(40),
+    files: [arquivo], limitations: [] };
+  return { status: 'complete', manifest,
+    inventory: { status: 'complete', headSha: head, baseSha: manifest.B, files: [arquivo], changedFiles: 1 },
+    reader: { async tree() { return { complete: true, commit: head, entries: entradas }; },
+      async read() { throw new Error('A identidade do alcance não lê conteúdo.'); } }, release: async () => { } };
+}
+
+test('runHeadlessReview grava a identidade do contexto na prova e confere a ausência contra o mapa do head', async () => {
+  const head = 'f'.repeat(40);
+  const arquivo = { path: 'src/preco.js', sha: '1'.repeat(40), status: 'modified', lines: 2, patchStatus: 'available', patch: '@@ -1 +1 @@\n-a\n+b' };
+  const entradas = [{ path: arquivo.path, blob: arquivo.sha, mode: '100644', type: 'blob' }, { path: 'src/loja.js', blob: '2'.repeat(40), mode: '100644', type: 'blob' }];
+  analysis.sourceRuntime.prepareSources = async () => fonteDoHead(head, arquivo, entradas);
+  let relacoes = [];
+  analysis.sourceRuntime.buildMap = async () => ({ complete: true, head: { relations: relacoes, metrics: {} }, previous: { metrics: {} }, limitations: [] });
+  const rodadas = { atual: { head, files: [arquivo], coverage: { total: 1, reviewed: [arquivo.path], missing: [] },
+    alcance: [{ alterado: arquivo.path, chamadores: [], semChamador: 'módulo ainda sem uso fora dos arquivos deste PR' }] } };
+
+  const livre = { key: 'acme/app#41', repo: 'acme/app', number: 41, url: 'https://github.com/acme/app/pull/41', author: 'dev', requested: true };
+  const e = motor(livre, rodadas);
+  e.config.reviewNavigationFacts = true;
+  await e.runHeadlessReview({ ...livre });
+  const guardado = fileProof.readFileProof(livre.key).alcance[arquivo.path];
+  assert.equal(typeof guardado?.contextoExterno, 'string', 'sem a identidade na prova, a ausência nunca mais é herdada');
+  assert.ok(guardado.contextoExterno.length > 0);
+
+  relacoes = [{ from: 'src/loja.js', to: arquivo.path, line: 3, origin: 'parser', confidence: 'syntax-path' }];
+  const contradito = { ...livre, key: 'acme/app#42', number: 42, url: 'https://github.com/acme/app/pull/42' };
+  const e2 = motor(contradito, rodadas);
+  e2.config.reviewNavigationFacts = true;
+  await e2.runHeadlessReview({ ...contradito });
+  assert.match(motivos(daRodada(e2, contradito, head)), /src\/loja\.js:3 .*declaração de ausência/, 'o import visto no head chega à conferência');
+  assert.equal(fileProof.readFileProof(contradito.key).alcance?.[arquivo.path], undefined, 'a ausência contradita não vira prova herdável');
+});
