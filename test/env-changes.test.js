@@ -64,14 +64,36 @@ for (const linha of MOSTRAM) {
   });
 }
 
-test('comentário nunca aparece; só o que parece prosa não segura a aprovação', () => {
+test('comentário nunca aparece; só o que tem forma de credencial segura a aprovação', () => {
   assert.equal(projetarMudancasDeAmbiente('@@ -1 +1 @@\n+# só uma nota de teste').ocultos, 0);
   const comentada = projetarMudancasDeAmbiente(`@@ -1 +1 @@\n+# AUTH_SECRET=${SEGREDO}`);
   assert.equal(comentada.ocultos, 1);
   assert.ok(!comentada.text.includes(SEGREDO));
+  // texto solto sem forma de credencial continua fora da sessão, mas não manda à pessoa
   const opaco = projetarMudancasDeAmbiente(`@@ -1 +1 @@\n+# senha antiga ${SEGREDO}`);
-  assert.equal(opaco.ocultos, 1);
+  assert.equal(opaco.ocultos, 0);
   assert.ok(!opaco.text.includes(SEGREDO));
+});
+
+// biud-core#548 (07/11/2026): o diff do .env.example só reescreveu o comentário que explica o
+// token, com a variável vazia, e o PR foi à mesa como "valor que pode ser credencial".
+test('comentário que só explica a variável não segura a aprovação', () => {
+  const r = projetarMudancasDeAmbiente([
+    '@@ -175,11 +175,12 @@ SMTP_URL=http://biud-smtp.dev:3000',
+    ' CORE_TO_SMTP_API_KEY=change_me',
+    '-# Token do par tenant-company → core (header `Authorization: Bearer`) da rota interna',
+    '-# PUT /api/internal/v1/zone-identities/**. 64 caracteres hexadecimais',
+    '+# Token do par tenant-company → legado (header `Authorization: Bearer`) das rotas internas',
+    '+# /api/internal/v1/zone-identities/** no core e também no billing (api-payment,',
+    '+# `ensure-trial`), que lê a MESMA variável. 64 caracteres hexadecimais',
+    ' # (`openssl rand -hex 32`), IGUAL ao CORE_DELIVERY_SERVICE_TOKEN da zona e exclusivo deste',
+    '-# local ou no Vault (`<env>/data/api-core`), nunca aqui.',
+    '+# local ou no Vault (`<env>/data/api-core` e `<env>/data/api-payment`), nunca aqui.',
+    ' TENANT_COMPANY_DELIVERY_TOKEN=',
+  ].join('\n'));
+  assert.equal(r.ocultos, 0, r.text);
+  assert.ok(!r.text.includes('Authorization'), 'o comentário continua fora da sessão');
+  assert.ok(!r.text.includes('change_me'), 'o contexto continua fora');
 });
 
 test('senha em comentário com cara de prosa não chega à sessão', () => {
@@ -122,9 +144,7 @@ test('só a família .env entra; os outros caminhos protegidos continuam de fora
 const FICTICIO = 'INVENTADOq7Zx2';
 const VAZAVAM = [
   ['comentário com rótulo e dois-pontos', `+# AUTH_SECRET: ${FICTICIO}`],
-  ['comentário com a palavra senha', `+# senha antiga ${FICTICIO}`],
   ['comentário com URL e credencial', `+# DB postgres://usuario:${FICTICIO}@db.interna/app`],
-  ['comentário com segredo curto colado em palavra', `+# rotacionar ${FICTICIO} amanhã`],
   ['linha base64 lida como chave vazia', '+INVENTADOZk3vQ9pLm2Xw7Rt5Yb8Nc1Df4Gh6='],
   ['linha base32 em maiúsculas lida como chave vazia', '+ABCDEFGH2345IJKLMN6789OPQRSTUV='],
   ['token conhecido como nome da chave', '+ghp_' + 'a'.repeat(30) + '=true'],
@@ -141,11 +161,6 @@ const VAZAVAM = [
   ['segredo picado em segmentos curtos', '+SERVICO=https://a.com/aB3dE9f/Gh7jK2m/Pq4rS8t/Vw1xY5z'],
   ['caminho só de dígitos', '+SERVICO=https://a.com/12345678901234567890123456789012'],
   ['host só de letras', '+SERVICO=https://kqzpwlvmnbtrsyuhgfdjcaeoiuytre.ngrok.io'],
-  ['comentário em maiúsculas', '+# KXQZPWLVMNBTRSYUHGFDJCAE'],
-  ['comentário de dígitos', '+# 4111 1111 1111 1111'],
-  ['comentário com login', '+# login admin pass hunter'],
-  ['comentário em outro alfabeto', '+# тайный пароль для доступа'],
-  ['lista de palavras em comentário', '+# cavalo bateria grampo correto'],
   ['chave com cara de token', '+AKIA_IOSFODNN7EXAMPLE='],
   ['chave picada', '+X9K2M7Q4T1Z8P3V='],
   ['nome de segredo com sufixo opaco', '+API_SECRET_K9X2M7Q4T1Z8='],
@@ -160,6 +175,57 @@ const VAZAVAM = [
   ['número de seis dígitos em chave de medida', '+SMS_TIMEOUT=654321'],
   ['chave com cara de senha', '+QWERTY123='],
 ];
+// Os mesmos furos em comentário sem forma de credencial (07/11/2026, decisão do dono): seguem fora
+// da sessão, mas comentário não muda o que o app executa e não manda mais a decisão à pessoa.
+const COMENTARIOS_SEM_FORMA = [
+  ['comentário com a palavra senha', `+# senha antiga ${FICTICIO}`],
+  ['comentário com segredo curto colado em palavra', `+# rotacionar ${FICTICIO} amanhã`],
+  ['comentário em maiúsculas', '+# KXQZPWLVMNBTRSYUHGFDJCAE'],
+  ['comentário de dígitos', '+# 4111 1111 1111 1111'],
+  ['comentário com login', '+# login admin pass hunter'],
+  ['comentário em outro alfabeto', '+# тайный пароль для доступа'],
+  ['lista de palavras em comentário', '+# cavalo bateria grampo correto'],
+  ['marcador TODO', '+# TODO: ajustar depois'],
+  ['marcador NOTE', '+# NOTE: usar a porta da zona'],
+  ['marcador OBS', '+# OBS: valor vem do Vault'],
+  ['marcador IMPORTANT', '+# IMPORTANT: nunca commitar'],
+  ['marcador DEPRECATED', '+# DEPRECATED: use NEW_VAR'],
+  ['valor padrão explicado', '+# Default = 3000'],
+  ['nome de segredo com valor de uma palavra', '+# header `Authorization: Bearer`'],
+  ['nome de segredo com marcador de exemplo', '+# API_KEY=<sua chave>'],
+];
+// Credencial comentada com forma clara continua segurando (revisão independente do PR, 07/11/2026):
+// cada caso abaixo escapava da primeira versão desta mudança.
+const COMENTARIOS_COM_CREDENCIAL = [
+  ['rótulo em minúscula', `+# password: ${FICTICIO}`],
+  ['rótulo capitalizado', `+# Password: ${FICTICIO}`],
+  ['rótulo em português', `+# senha: ${FICTICIO}`],
+  ['rótulo com ponto', `+# db.password: ${FICTICIO}`],
+  ['atribuição depois de um prefixo', `+# exemplo: DB_PASSWORD=${FICTICIO}`],
+  ['atribuição depois de uma palavra', `+# antigo DB_PASSWORD=${FICTICIO}`],
+  ['atribuição em item de lista', `+# - DB_PASSWORD=${FICTICIO}`],
+  ['rótulo em item de lista', `+# * AUTH_SECRET: ${FICTICIO}`],
+  ['par entre aspas', `+# "AUTH_SECRET": "${FICTICIO}"`],
+  ['URL com usuário vazio', `+# redis://:${FICTICIO}@cache.interna:6379`],
+  ['URL com barra na senha', `+# postgres://u:pa/${FICTICIO}@db.interna/app`],
+  ['credencial sem esquema', `+# usuario:${FICTICIO}@db.interna`],
+  ['JWT', '+# eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcDEF123ghiJKL'],
+];
+for (const [nome, linha] of COMENTARIOS_COM_CREDENCIAL) {
+  test(`comentário com credencial segura: ${nome}`, () => {
+    const r = projetarMudancasDeAmbiente(`@@ -1 +1 @@\n${linha}`);
+    assert.equal(r.ocultos, 1, r.text);
+    assert.ok(!r.text.includes(linha.slice(1)), r.text);
+  });
+}
+for (const [nome, linha] of COMENTARIOS_SEM_FORMA) {
+  test(`comentário fora da sessão sem segurar: ${nome}`, () => {
+    const r = projetarMudancasDeAmbiente(`@@ -1 +1 @@\n${linha}`);
+    assert.equal(r.ocultos, 0, r.text);
+    assert.ok(!r.text.includes(linha.slice(1)), r.text);
+    assert.ok(!r.text.includes(FICTICIO), r.text);
+  });
+}
 for (const [nome, linha] of VAZAVAM) {
   test(`furo fechado: ${nome}`, () => {
     const r = projetarMudancasDeAmbiente(`@@ -1 +1 @@\n${linha}`);
