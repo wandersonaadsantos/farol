@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.44
+
+Uma pasta que a declaração técnica cita e o commit não tem deixa de travar o repositório inteiro: ela fica de fora da avaliação técnica e aparece como ressalva no card.
+
+### Correções
+
+- Quando a declaração técnica de um repositório cita uma pasta que não existe no commit analisado, o Farol tira só essa pasta da avaliação técnica, avalia o resto e mostra no card, como ressalva, quais pastas ficaram de fora. A política da conta decide o que fazer com a ressalva. Antes, a avaliação parava em "recuperação pausada" até alguém editar a declaração no aparelho, o que acontecia sempre que a linha de desenvolvimento apagava uma pasta que a de produção ainda tinha. A pausa continua quando um campo da declaração ficaria sem pasta nenhuma, quando a lista é inválida ou quando há entrada que não é texto. Os PRs já pausados por esse motivo voltam a ser avaliados sozinhos.
+
 ## v2.78.43
 
 A aprovação que o GitHub pode não segurar ganha um aviso no card do app, e duas opções de Automação aparecem ligadas na tela quando a configuração não diz nada.

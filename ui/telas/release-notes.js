@@ -18,6 +18,9 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.44', [
+    'Pasta que a declaração técnica cita e o commit não tem fica de fora da avaliação técnica e vira ressalva no card, em vez de pausar a revisão; a pausa continua só quando um campo ficaria sem pasta nenhuma, e os PRs já pausados voltam sozinhos',
+  ]],
   ['2.78.43', [
     'A aprovação que sai num repositório sem check de CI obrigatório no ruleset, ou com o CI obrigatório fora do verde e a espera desligada, ganha aviso no card do app, inclusive quando só sai no reenvio; nunca no PR',
     'Retomar a sessão na segunda rodada e Sessão no terminal sem pedir permissões aparecem ligadas na tela quando a configuração não diz nada',
