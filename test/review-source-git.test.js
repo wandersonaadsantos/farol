@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto';
 import io from '../lib/io.js';
 import { envGitLimpo } from './helpers/git-limpo.js';
 import { SourceStore } from '../lib/review-source/store.js';
-import { GitSource } from '../lib/review-source/git.js';
+import { GitSource, RECENTES_POR_LADO } from '../lib/review-source/git.js';
 import { releaseMaterialReference } from '../lib/review-source/index.js';
 import { DEFAULTS } from '../lib/review-source/contract.js';
 
@@ -70,7 +70,104 @@ test('refs conhecidas sobrevivem à liberação para o próximo fetch negociar',
   await releaseMaterialReference(first.reference, first.destination, fx.options);
   const refs = (await first.source.run(['for-each-ref', '--format=%(refname) %(objectname)'], { cleanup: true })).trim().split(/\r?\n/);
   const [base, head] = [fx.git(['rev-parse', 'HEAD~1']), fx.git(['rev-parse', 'HEAD'])];
-  assert.deepEqual(refs.sort(), [`refs/farol/known/base ${base}`, `refs/farol/known/head ${head}`]);
+  assert.deepEqual(refs.filter(ref => !ref.startsWith('refs/farol/known/recent/')).sort(), [`refs/farol/known/base ${base}`, `refs/farol/known/head ${head}`]);
+  assert.deepEqual(refs.filter(ref => ref.startsWith('refs/farol/known/recent/')).map(ref => ref.replace(/\/\d{13}-[a-f0-9]{40} /, ' ')).sort(),
+    [`refs/farol/known/recent/base ${base}`, `refs/farol/known/recent/head ${head}`]);
+});
+// Medido em 06/11/2026: alternar PRs para production, homologation e development baixava a divergência
+// entre as bases de novo a cada troca (biud-frontend de 100 a 807 s por aquisição), porque known/{head,base}
+// guardam só o último alvo. O anel de recentes mantém as bases anteriores no anúncio do fetch.
+async function basesDivergentes(fx) {
+  const commit = async (ramo, de, arquivos, mensagem) => {
+    fx.git(['checkout', '--quiet', '-B', ramo, de]);
+    for (const [nome, conteudo] of arquivos) {
+      await fs.mkdir(path.dirname(path.join(fx.origin, nome)), { recursive: true });
+      await fs.writeFile(path.join(fx.origin, nome), conteudo);
+    }
+    fx.git(['add', '.']); fx.git(['commit', '--quiet', '-m', mensagem]);
+    return fx.git(['rev-parse', 'HEAD']);
+  };
+  const raiz = fx.git(['rev-parse', 'HEAD~1']);
+  // Acima do transfer.unpackLimit (100): a divergência chega como pack, e o in-pack mostra o que veio.
+  const muitos = lado => Array.from({ length: 150 }, (_, i) => [`${lado}/f${i}.txt`, `${lado} ${i} ${randomBytes(8).toString('hex')}\n`]);
+  const baseA = await commit('ramo-a', raiz, muitos('a'), 'base a');
+  const headA1 = await commit('pr-a1', baseA, [['a/pr.txt', 'a1\n']], 'pr a1');
+  const baseB = await commit('ramo-b', raiz, muitos('b'), 'base b');
+  const headB = await commit('pr-b', baseB, [['b/pr.txt', 'b\n']], 'pr b');
+  const headA2 = await commit('pr-a2', baseA, [['a/pr2.txt', 'a2\n']], 'pr a2');
+  return { baseA, headA1, baseB, headB, headA2 };
+}
+const objetos = async source => {
+  const saida = await source.run(['count-objects', '-v'], { cleanup: true });
+  const metricas = Object.fromEntries(saida.trim().split('\n').map(l => l.split(':').map(v => v.trim())));
+  return Number(metricas.count) + Number(metricas['in-pack']);
+};
+async function preparar(fx, alvo, nome) {
+  fx.alvo(alvo); const consumidor = await fx.make(nome);
+  await consumidor.source.prepare();
+  // Como depois da liberação: sem as refs do consumidor, só as known/ seguram o que o fetch anuncia.
+  for (const lado of ['head', 'base', 'mergeBase']) await consumidor.source.run(['update-ref', '-d', consumidor.source.ref(lado)], { cleanup: true });
+  return consumidor.source;
+}
+async function recentes(source, lado) {
+  const saida = await source.run(['for-each-ref', '--format=%(refname) %(objectname)', `refs/farol/known/recent/${lado}/`], { cleanup: true });
+  return saida.trim().split('\n').filter(Boolean).map(linha => linha.split(' ')[1]);
+}
+async function apagarAnel(source) {
+  const saida = await source.run(['for-each-ref', '--format=%(refname)', 'refs/farol/known/recent/'], { cleanup: true });
+  for (const nome of saida.trim().split('\n').filter(Boolean)) await source.run(['update-ref', '-d', nome], { cleanup: true });
+}
+test('alternar bases divergentes: a volta para a primeira base não baixa a divergência de novo', async t => {
+  const fx = await gitFixture(t), alvos = await basesDivergentes(fx);
+  await preparar(fx, { head: alvos.headA1, base: alvos.baseA }, 'a1');
+  const fonte = await preparar(fx, { head: alvos.headB, base: alvos.baseB }, 'b');
+  const antes = await objetos(fonte), fetchesAntes = fx.fetches();
+  await preparar(fx, { head: alvos.headA2, base: alvos.baseA }, 'a2');
+  assert.equal(fx.fetches(), fetchesAntes + 1, 'o head novo ainda precisa de um fetch');
+  const recebidos = await objetos(fonte) - antes;
+  assert.ok(recebidos < 20, `a volta à base A recebeu ${recebidos} objetos; esperado só o commit novo`);
+});
+test('controle: sem o anel, a mesma volta baixa a divergência inteira de novo', async t => {
+  const fx = await gitFixture(t), alvos = await basesDivergentes(fx);
+  await preparar(fx, { head: alvos.headA1, base: alvos.baseA }, 'a1');
+  const fonte = await preparar(fx, { head: alvos.headB, base: alvos.baseB }, 'b');
+  await apagarAnel(fonte);
+  const antes = await objetos(fonte);
+  await preparar(fx, { head: alvos.headA2, base: alvos.baseA }, 'a2');
+  const recebidos = await objetos(fonte) - antes;
+  assert.ok(recebidos > 150, `sem o anel a volta deveria trazer a divergência de novo, trouxe ${recebidos}`);
+});
+test('cache antigo só com known/{head,base}: o alvo guardado entra no anel antes de ser sobrescrito', async t => {
+  const fx = await gitFixture(t), alvos = await basesDivergentes(fx);
+  const fonte = await preparar(fx, { head: alvos.headA1, base: alvos.baseA }, 'a1');
+  await apagarAnel(fonte);
+  await preparar(fx, { head: alvos.headB, base: alvos.baseB }, 'b');
+  assert.deepEqual(await recentes(fonte, 'base'), [alvos.baseA, alvos.baseB]);
+  assert.deepEqual(await recentes(fonte, 'head'), [alvos.headA1, alvos.headB]);
+  const antes = await objetos(fonte);
+  await preparar(fx, { head: alvos.headA2, base: alvos.baseA }, 'a2');
+  assert.ok(await objetos(fonte) - antes < 20, 'a base do cache antigo segue anunciada');
+});
+test('anel poda os mais antigos no limite e não duplica o alvo repetido', async t => {
+  const fx = await gitFixture(t), cadeia = [fx.git(['rev-parse', 'HEAD'])];
+  for (let i = 0; i < RECENTES_POR_LADO + 2; i++) {
+    await fs.writeFile(path.join(fx.origin, 'source.js'), `export const x = ${i + 10};\n`);
+    fx.git(['add', '.']); fx.git(['commit', '--quiet', '-m', `c${i}`]); cadeia.push(fx.git(['rev-parse', 'HEAD']));
+  }
+  let fonte;
+  for (let i = 0; i < cadeia.length - 1; i++) {
+    fonte = await preparar(fx, { head: cadeia[i + 1], base: cadeia[i] }, `c${i}`);
+    await new Promise(pronto => setTimeout(pronto, 2)); // o carimbo é em ms: dois alvos no mesmo ms empatariam
+  }
+  assert.deepEqual(await recentes(fonte, 'base'), cadeia.slice(-1 - RECENTES_POR_LADO, -1), 'só as 8 bases mais recentes, da mais antiga para a mais nova');
+  assert.deepEqual(await recentes(fonte, 'head'), cadeia.slice(-RECENTES_POR_LADO));
+  // repetir um alvo que ainda está no anel o promove a mais recente, sem duplicar
+  const repetida = cadeia[cadeia.length - 1 - RECENTES_POR_LADO];
+  fonte = await preparar(fx, { head: cadeia[cadeia.length - RECENTES_POR_LADO], base: repetida }, 'repete');
+  const bases = await recentes(fonte, 'base');
+  assert.equal(bases.length, RECENTES_POR_LADO);
+  assert.equal(bases.filter(sha => sha === repetida).length, 1);
+  assert.equal(bases.at(-1), repetida);
 });
 test('fetch usa teto próprio para o cache frio e os demais comandos seguem com o teto comum', async t => {
   const fx = await gitFixture(t), first = await fx.make('cold'), inner = io.run, tetos = {};
