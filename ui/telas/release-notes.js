@@ -19,12 +19,16 @@ import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
   ['2.78.42', [
-    '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho',
+    '"CI obrigatório antes da aprovação" voltou a ser uma chave em Sistema > Automação, desligada por padrão: o estado do CI não segura a decisão; só desligue onde o check é obrigatório no ruleset, porque sem isso nada barra o merge com o CI vermelho; a aprovação que sai sem essa barreira ganha aviso no card do app, nunca no PR',
     '"Retomar a sessão na segunda rodada" e "Sessão no terminal sem pedir permissões" passam a vir ligadas; "Atualizar sozinho" continua ligada',
     'Dívida técnica antiga numa linha que o PR não mexeu deixa de reprovar quando a construção inteira fica fora da mudança; se a revisão repete a mesma dívida como bloqueio, ela corrige o parecer na mesma conversa',
     'Pedido de mudanças já resolvido é retirado mesmo com divergência entre passadas longe dele; a divergência no ponto do pedido continua segurando',
     'Herança de dívida da production confere as três pontas por SHA e cita o arquivo alterado pela base pelo caminho inteiro',
     'Resposta do autor do PR deixa de descartar a aprovação, e objeção lida durante a revisão pode ser incorporada com recibo do conteúdo',
+    'Arquivo protegido (.env, credencial, chave) chega à revisão só como cópia redigida e só conta como lido quando o Farol vê a sessão lendo essa cópia; o patch cru fica proibido, inclusive na revisão no terminal, que recebe o mesmo escopo',
+    'Arquivo binário, patch cortado pelo GitHub e protegido sem cópia viram lacuna de cobertura em vez de contar como lidos',
+    'A recuperação da prova tem saída: a tentativa conta quando a rodada conclui, sua revisão conta, e há teto de rodadas por commit',
+    'Recuperação pausada por algo que só você desfaz aparece em Precisa de você, no contador e no ícone, com um aviso só; o card não duplica',
     'O mesmo PR não abre duas revisões neste aparelho, terminal incluído; o cartão do terminal ganha Liberar PR para quando o aviso de fim da janela se perde',
     'Diagnóstico local de quedas da janela, opcional e desligado por padrão (diagnosticoQuedas no config.json)',
     'As revisões deixaram de fazer fila na preparação: a conferência de disco mede só o repositório em preparo',

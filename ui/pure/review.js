@@ -185,6 +185,10 @@ export function separarPendentes(pending) {
 // `ciObrigatorio` é a chave "CI obrigatório antes da aprovação" (06/11/2026). Desligada, a espera
 // armada antes sai no próximo ciclo sem olhar o CI (lib/engine/espera-ci.js), e o card não promete
 // espera nenhuma nem desliga o Aprovar por causa do CI. Ausente vale como ligada, o lado seguro.
+// A diferença para o engine é de propósito: lá a config ausente é o padrão (desligada); aqui o
+// argumento ausente é chamador que não disse, e na dúvida o card trava o Aprovar em vez de
+// prometer uma aprovação que o servidor pode recusar. Todo chamador das telas passa o valor lido
+// de `config.aguardarCiParaAprovar === true` (test/ci-obrigatorio-opcional.test.js confere).
 const TECHNICAL_LABEL = {
   violation: { title: 'Bloqueio técnico', cls: 'rc' },
   pending: { title: 'Verificação pendente', cls: 'pending' },

@@ -643,7 +643,7 @@ test('Codex 7: o texto reconstruído na espera do CI é o que fica para o reenvi
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   await e.varrerEsperas();
   const d = pendente(e, 64);
-  assert.deepEqual(d.postRetry, { event: 'approve', attempts: 0 });
+  assert.deepEqual(d.postRetry, { event: 'approve', attempts: 0, atencaoAoPublicar: [] }, 'o reenvio leva os pontos do card que publicar (aqui, nenhum)');
   assert.equal(d.payloads.approve.body, 'Leitura completa, sem bloqueios.', 'o reenvio manda o texto que passou na trava');
   gh.postFalha = '';
   envios = [];
@@ -918,4 +918,77 @@ test('desligada depois de armada: a aprovação que esperava o CI vermelho sai n
   assert.equal(await e.varrerEsperas(), 1);
   assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
   assert.equal(resolvida(e, 95).status, 'auto_approved');
+});
+
+/* ---------- o aviso no card da aprovação (06/11/2026) ----------
+   O APPROVE sai, e o card do app diz quando o GitHub pode não segurar o merge: repositório sem
+   check obrigatório no ruleset, ou a chave desligada com o check obrigatório fora do verde. */
+const avisos = (e, n) => (resolvida(e, n).attention || []).map((p) => p.text).join(' | ');
+
+test('aviso: chave desligada e check obrigatório vermelho, o card da aprovação diz que saiu assim', async () => {
+  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }], ciObrigatorio: false });
+  await revisar(e, 96);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.doesNotMatch(envios[0].body, /ruleset|segura o merge/, 'o aviso nunca vai para o PR');
+  assert.match(avisos(e, 96), /aprovado com check obrigatório vermelho no head \(audit\): o ruleset segura o merge até ele passar, salvo bypass/);
+});
+
+test('aviso: repositório sem check obrigatório no ruleset, com o CI vermelho, com a chave ligada ou desligada', async () => {
+  for (const [n, ciObrigatorio] of [[97, true], [98, false]]) {
+    envios = [];
+    const e = motor({ ciObrigatorio });
+    e.bloqueadoPorChecks = async () => ({ faltando: [], verifiedHead: HEAD, semExigencia: true, naoVerdes: [{ nome: 'lint', estado: 'vermelho' }] });
+    await revisar(e, n);
+    assert.deepEqual(envios.map((p) => p.event), ['APPROVE'], `chave ${ciObrigatorio}`);
+    assert.doesNotMatch(envios[0].body, /ruleset/, 'o aviso nunca vai para o PR');
+    assert.match(avisos(e, n), /aprovado sem check de CI obrigatório no ruleset da branch de destino: se a branch também não tiver proteção clássica, o GitHub não barra o merge, e o CI não está verde no head \(lint vermelho\)/, `chave ${ciObrigatorio}`);
+  }
+});
+
+test('aviso: com os checks obrigatórios verdes num repositório que os exige, o card não ganha aviso', async () => {
+  const e = motor({ ciObrigatorio: false });
+  // a leitura de um repositório que exige check e o tem verde: sem semExigencia, com o head conferido
+  e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [], verifiedHead: HEAD });
+  await revisar(e, 99);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.doesNotMatch(avisos(e, 99), /aprovado (sem|com) check obrigatório/);
+});
+
+test('aviso: com o APPROVE falhando, o motivo não diz "aprovado"', async () => {
+  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }], ciObrigatorio: false });
+  gh.postFalha = 'HTTP 422: erro passageiro de teste';
+  await revisar(e, 100);
+  const d = pendente(e, 100) || resolvida(e, 100);
+  const texto = (d.reasons || []).concat(d.attention || []).map((p) => p.text).join(' | ');
+  assert.match(texto, /check obrigatório vermelho no head \(audit\)/, 'o estado do CI segue dito');
+  assert.doesNotMatch(texto, /aprovado (com|sem) check/, 'o card não afirma uma aprovação que não saiu');
+});
+
+test('aviso: a aprovação que só sai no reenvio ganha o mesmo aviso no card', async () => {
+  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }], ciObrigatorio: false });
+  gh.postFalha = 'HTTP 502: Bad Gateway';
+  await revisar(e, 101);
+  assert.ok(pendente(e, 101).postRetry, 'falha passageira arma o reenvio');
+  gh.postFalha = '';
+  envios = [];
+  assert.equal(await e.retryFailedPosts(), 1);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.match(avisos(e, 101), /aprovado com check obrigatório vermelho no head \(audit\): o ruleset segura o merge/);
+  assert.doesNotMatch(avisos(e, 101), /falha ao postar/, 'o motivo de infra sai com a publicação');
+});
+
+test('aviso: a espera desligada cuja aprovação só sai no reenvio também ganha o aviso', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
+  await revisar(e, 102);
+  assert.ok(pendente(e, 102).esperaCi);
+  gh.rollup = [check('test', 'FAILURE'), check('audit', 'SUCCESS')];
+  e.config.aguardarCiParaAprovar = false;
+  gh.postFalha = 'HTTP 502: Bad Gateway';
+  assert.equal(await e.varrerEsperas(), 0);
+  assert.ok(pendente(e, 102).postRetry, 'falha passageira arma o reenvio');
+  gh.postFalha = '';
+  envios = [];
+  assert.equal(await e.retryFailedPosts(), 1);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.match(avisos(e, 102), /aprovado com check obrigatório vermelho no head \(test\)/);
 });
