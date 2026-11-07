@@ -27,6 +27,9 @@ const RELEASE_NOTES_RECENTES = [
     'Resposta do autor do PR deixa de descartar a aprovação, e objeção lida durante a revisão pode ser incorporada com recibo do conteúdo',
     'O mesmo PR não abre duas revisões neste aparelho, terminal incluído; o cartão do terminal ganha Liberar PR para quando o aviso de fim da janela se perde',
     'Diagnóstico local de quedas da janela, opcional e desligado por padrão (diagnosticoQuedas no config.json)',
+    'As revisões deixaram de fazer fila na preparação: a conferência de disco mede só o repositório em preparo',
+    'Material velho da análise técnica (sessão morta, ou sem registro há 7 dias e sem referência) é limpo sozinho, com prova',
+    'Alternar PRs entre bases diferentes do mesmo repositório não baixa de novo a divergência a cada troca',
   ]],
   ['2.78.41', [
     'Panorama e Meus PRs de outros aparelhos aparecem só no aparelho admin; nos outros, as abas mostram só os PRs do próprio aparelho',
