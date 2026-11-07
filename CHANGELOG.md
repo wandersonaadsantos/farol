@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.78.45
+
+Comentário de arquivo de ambiente que só explica uma variável deixa de mandar o PR para você.
+
+### Correções
+
+- Num PR que muda um arquivo `.env*`, o comentário continua escondido da revisão, mas só segura a aprovação automática quando tem forma de credencial: um nome de segredo seguido de valor (`DB_PASSWORD=...`, `senha: ...`), uma URL ou um endereço com usuário e senha, ou um JWT. Antes, qualquer comentário técnico, como o que explica para que serve um token, contava como "valor que pode ser credencial" e mandava o PR para "Precisa de você" mesmo com a conta configurada para decidir sozinha. Marcadores de documentação como `TODO:` e `NOTE:` também deixam de segurar.
+
 ## v2.78.44
 
 Uma pasta que a declaração técnica cita e o commit não tem deixa de travar o repositório inteiro: ela fica de fora da avaliação técnica e aparece como ressalva no card.

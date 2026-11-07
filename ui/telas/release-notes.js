@@ -18,6 +18,9 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.78.45', [
+    'Comentário de arquivo .env só segura a aprovação automática quando tem forma de credencial (nome de segredo com valor, URL ou endereço com usuário e senha, JWT); o que só explica uma variável, e marcadores como TODO:, deixam de mandar o PR para você',
+  ]],
   ['2.78.44', [
     'Pasta que a declaração técnica cita e o commit não tem fica de fora da avaliação técnica e vira ressalva no card, em vez de pausar a revisão; a pausa continua só quando um campo ficaria sem pasta nenhuma, e os PRs já pausados voltam sozinhos',
   ]],
