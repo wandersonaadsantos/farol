@@ -643,7 +643,7 @@ test('Codex 7: o texto reconstruído na espera do CI é o que fica para o reenvi
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   await e.varrerEsperas();
   const d = pendente(e, 64);
-  assert.deepEqual(d.postRetry, { event: 'approve', attempts: 0 });
+  assert.deepEqual(d.postRetry, { event: 'approve', attempts: 0, atencaoAoPublicar: [] }, 'o reenvio leva os pontos do card que publicar (aqui, nenhum)');
   assert.equal(d.payloads.approve.body, 'Leitura completa, sem bloqueios.', 'o reenvio manda o texto que passou na trava');
   gh.postFalha = '';
   envios = [];
@@ -962,4 +962,33 @@ test('aviso: com o APPROVE falhando, o motivo não diz "aprovado"', async () => 
   const texto = (d.reasons || []).concat(d.attention || []).map((p) => p.text).join(' | ');
   assert.match(texto, /check obrigatório vermelho no head \(audit\)/, 'o estado do CI segue dito');
   assert.doesNotMatch(texto, /aprovado (com|sem) check/, 'o card não afirma uma aprovação que não saiu');
+});
+
+test('aviso: a aprovação que só sai no reenvio ganha o mesmo aviso no card', async () => {
+  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }], ciObrigatorio: false });
+  gh.postFalha = 'HTTP 502: Bad Gateway';
+  await revisar(e, 101);
+  assert.ok(pendente(e, 101).postRetry, 'falha passageira arma o reenvio');
+  gh.postFalha = '';
+  envios = [];
+  assert.equal(await e.retryFailedPosts(), 1);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.match(avisos(e, 101), /aprovado com check obrigatório vermelho no head \(audit\): o ruleset segura o merge/);
+  assert.doesNotMatch(avisos(e, 101), /falha ao postar/, 'o motivo de infra sai com a publicação');
+});
+
+test('aviso: a espera desligada cuja aprovação só sai no reenvio também ganha o aviso', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
+  await revisar(e, 102);
+  assert.ok(pendente(e, 102).esperaCi);
+  gh.rollup = [check('test', 'FAILURE'), check('audit', 'SUCCESS')];
+  e.config.aguardarCiParaAprovar = false;
+  gh.postFalha = 'HTTP 502: Bad Gateway';
+  assert.equal(await e.varrerEsperas(), 0);
+  assert.ok(pendente(e, 102).postRetry, 'falha passageira arma o reenvio');
+  gh.postFalha = '';
+  envios = [];
+  assert.equal(await e.retryFailedPosts(), 1);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.match(avisos(e, 102), /aprovado com check obrigatório vermelho no head \(test\)/);
 });

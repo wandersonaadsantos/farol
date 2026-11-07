@@ -127,7 +127,11 @@ test('o padrão ausente do card é o lado seguro, e todo chamador das telas pass
     }
   }
   assert.ok(achadas.length >= 4, 'os chamadores conhecidos (radar, paleta, review) foram achados');
-  for (const [rel, l] of achadas) assert.ok(l.includes('ciObrigatorio)'), `ui/${rel}: ${l}`);
+  // a forma esperada é a chamada numa linha só terminando em `ciObrigatorio)`: quebrar a chamada em
+  // várias linhas ou passar outra variável também reprova, e a mensagem diz isso
+  for (const [rel, l] of achadas) {
+    assert.ok(l.includes('ciObrigatorio)'), `ui/${rel}: a chamada precisa passar a chave como último argumento, na mesma linha, terminando em "ciObrigatorio)": ${l}`);
+  }
 });
 
 test('Sistema > Automação: as chaves que nascem ligadas só desligam com false explícito', () => {

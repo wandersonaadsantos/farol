@@ -335,7 +335,9 @@ test('a postagem falhou depois do CI verde: passageira vai para o reenvio de sem
   assert.equal(await e.varrerEsperas(), 0);
   const d = pendente(e, 15);
   assert.equal(d.esperaCi, null);
-  assert.deepEqual(d.postRetry, { event: 'approve', attempts: 0 }, 'o retryFailedPosts assume');
+  const { atencaoAoPublicar, ...retry } = d.postRetry;
+  assert.deepEqual(retry, { event: 'approve', attempts: 0 }, 'o retryFailedPosts assume');
+  assert.ok(Array.isArray(atencaoAoPublicar), 'com os pontos que o card terá quando o reenvio publicar');
   assert.equal(d.reasons[0].kind, 'infra');
   assert.deepEqual(e.eventos, [], 'falha passageira não pede você');
   gh.postFalha = '';
