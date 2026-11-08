@@ -361,3 +361,18 @@ test('falha que não é de peso (rede) não repete a busca', async () => {
   await refreshBaseDosMeusPRs(e);
   assert.equal(chamadas.busca, 1);
 });
+
+test('conta cuja busca pesada estourou usa a leve direto até o intervalo passar', async () => {
+  estadoGh.pesada = true;
+  const { e } = motor();
+  await refreshBaseDosMeusPRs(e);
+  assert.equal(chamadas.busca, 2);
+  await refreshBaseDosMeusPRs(e);
+  assert.equal(chamadas.busca, 3, 'no ciclo seguinte só a leve, sem pagar o 502 de novo');
+  e.consultaPesadaEstourou.set('eu', 0);
+  estadoGh.pesada = false;
+  await refreshBaseDosMeusPRs(e);
+  assert.equal(chamadas.busca, 4, 'passado o intervalo, a pesada volta e responde');
+  assert.equal(e.consultaPesadaEstourou.has('eu'), false);
+  assert.equal(e.nosDosMeusPRs.size, 1);
+});

@@ -46,7 +46,7 @@ test('forma curta da Compacta e os pontos do Panorama com o texto completo', () 
   assert.deepEqual(formaCurtaDaProntidao(r), ['e2e falhou', 'Mudança pedida', 'Bloqueado']);
   const p = pontosDaProntidao(r);
   assert.deepEqual(p.tons, ['fail', 'fail', 'fail']);
-  assert.equal(p.rotulo, 'Checks obrigatórios: 1 falhando · e2e · Reviewers: Mudança pedida · Merge: Bloqueado · 2 motivos');
+  assert.equal(p.rotulo, 'Checks obrigatórios: 1 falhando · e2e · Reviewers: Mudança pedida · Merge: Bloqueado · 3 motivos');
 });
 
 test('Pra mim: reviewers incluem você ("Gabriel aprovou, falta você")', () => {
@@ -173,4 +173,13 @@ test('resumo de Pra mim: cada item leva à sua seção, e some quando não há n
   assert.match(html, /1 se resolve sozinho/);
   assert.match(html, /data-goto="aba:radar:#decisionsWrap"/);
   assert.equal(resumoPraMimHtml({}), '');
+});
+
+test('regra da branch não legível: a pílula diz isso, igual ao detalhe', () => {
+  const r = reg({}, { exigidos: null, regra: null });
+  const [c] = pilulasDaProntidao(r);
+  assert.deepEqual([c.tom, c.valor, c.curto], ['none', 'Regra não legível', 'Regra não legível']);
+  assert.match(linhasDoDetalhe('checks', r).nota, /Regra da branch não legível/);
+  const sem = reg({}, { exigidos: [] });
+  assert.equal(pilulasDaProntidao(sem)[0].valor, 'Nenhum exigido');
 });

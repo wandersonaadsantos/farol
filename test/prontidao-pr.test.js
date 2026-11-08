@@ -171,7 +171,8 @@ test('merge: BLOCKED por review diz quantas aprovações faltam', () => {
 test('merge: BLOCKED com check falhando e mudança pedida é vermelho, com os dois motivos', () => {
   const m = interp(no({ contexts: [run('build', 'COMPLETED', 'FAILURE'), verde('test')], reviews: [review('ana', 'CHANGES_REQUESTED')], mergeStateStatus: 'BLOCKED' })).merge;
   assert.equal(m.tom, 'fail');
-  assert.deepEqual(m.motivos, ['check-falhando', 'mudanca-pedida']);
+  // a branch exige 2 aprovações e nenhuma está no head: falta aprovação também é motivo
+  assert.deepEqual(m.motivos, ['check-falhando', 'mudanca-pedida', 'falta-aprovacao']);
 });
 
 test('merge: UNKNOWN é verificando, e o registro fica em transição', () => {
@@ -339,4 +340,45 @@ test('o fragmento pede só leitura e traz o que o interpretador lê', () => {
 test('radar na tela: o selo do GitHub segue só os PRs do panorama', () => {
   const e = { panorama: [{ key: 'a#1' }], staleInfo: { 'a#1': { lastState: 'APPROVED' }, 'b#2': { lastState: 'APPROVED' } } };
   assert.deepEqual(reviewStatesGh(e), { 'a#1': 'APPROVED' });
+});
+
+// --- achados da revisão independente (08/11/2026) ------------------------------------------
+
+test('merge: ruleset só com checks e reviewer pedido sem revisar, BLOCKED por check rodando, é azul', () => {
+  const soChecks = { legivel: true, temRegraDeReview: false, aprovacoes: 0, codeOwner: false, checks: ['build', 'test'] };
+  const r = interp(no({ pedidos: ['ana'], contexts: [verde('build'), run('test', 'IN_PROGRESS', null)], mergeStateStatus: 'BLOCKED' }), { regra: soChecks });
+  assert.equal(r.reviewers.tom, 'wait', 'a pílula de reviewers segue âmbar: tem gente marcada');
+  assert.deepEqual([r.merge.tom, r.merge.motivo, r.merge.motivos], ['run', 'esperando-checks', ['esperando-checks']]);
+  const zero = interp(no({ pedidos: ['ana'], contexts: [verde('build'), run('test', 'IN_PROGRESS', null)], mergeStateStatus: 'BLOCKED' }), { regra: { ...REGRA2, aprovacoes: 0 } });
+  assert.equal(zero.merge.motivo, 'esperando-checks', 'regra pull_request com 0 aprovações também não exige');
+});
+
+test('merge: falta aprovação quando a proteção clássica pede revisão ou o code owner falta', () => {
+  const classica = interp(no({ reviewDecision: 'REVIEW_REQUIRED', mergeStateStatus: 'BLOCKED', contexts: [verde('build'), verde('test')] }), { regra: null });
+  assert.equal(classica.merge.motivo, 'falta-aprovacao');
+  const dono = interp(no({ reviewDecision: 'REVIEW_REQUIRED', mergeStateStatus: 'BLOCKED', ...comTudo }), { regra: { ...REGRA2, codeOwner: true } });
+  assert.equal(dono.merge.motivo, 'falta-aprovacao');
+});
+
+test('regra da branch: leitura que falha depois do cache vencer preserva a regra anterior', async () => {
+  const e = motor([]);
+  const primeira = await regraDaBranch(e, 'acme/app', 'develop', 'eu');
+  assert.deepEqual(primeira.checks, ['build', 'test']);
+  e.regraDaBranchCache.get('acme/app@develop').at = 0;
+  regraFalha = true;
+  assert.deepEqual(await regraDaBranch(e, 'acme/app', 'develop', 'eu'), primeira);
+  assert.equal(chamadas.regra, 2);
+  assert.deepEqual(await regraDaBranch(e, 'acme/app', 'develop', 'eu'), primeira);
+  assert.equal(chamadas.regra, 2, 'a nova tentativa espera o intervalo curto da falha');
+  assert.equal(e.regraDaBranchCache.get('acme/app@develop').falhou, true);
+});
+
+test('regra da branch: conta em pausa por limite do GitHub não lê', async () => {
+  const e = motor([]);
+  const limite = (await import('../lib/engine/limite-gh.js')).default;
+  await limite.entrarEmEspera(e, 'eu');
+  chamadas.regra = 0;
+  assert.equal(limite.emEspera(e, 'eu'), true);
+  assert.equal(await regraDaBranch(e, 'acme/app', 'develop', 'eu'), null);
+  assert.equal(chamadas.regra, 0);
 });

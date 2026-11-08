@@ -25,6 +25,7 @@ function pilulaDosChecks(c) {
   const falhou = nomeDoCheck(c.lista || [], 'falhou');
   const rodando = nomeDoCheck(c.lista || [], 'rodando');
   const ausente = nomeDoCheck(c.lista || [], 'ausente');
+  if (c.tom === 'none' && c.regraLegivel === false) return { ...p, valor: 'Regra não legível', curto: 'Regra não legível' };
   if (c.tom === 'none') return { ...p, valor: 'Nenhum exigido', curto: 'Nenhum' };
   if (c.tom === 'fail') {
     return falhou.length === 1
