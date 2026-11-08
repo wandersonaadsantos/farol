@@ -100,6 +100,79 @@ test('PR com pendência na mesa não vira candidato por este caminho', () => {
   assert.notEqual(c[0] && c[0].tipo, 'revisado');
 });
 
+/* ---------- rodada que acabou sem review meu (08/11/2026) ---------- */
+
+const dispensado = () => { const e = engineBase(); Object.assign(e.decisions.resolved[0], { status: 'approval_not_needed', action: 'skip' }); return e; };
+
+test('rodada encerrada sem review meu: commit novo devolve o PR à fila', () => {
+  const e = dispensado();
+  const [cand] = candidatos(e);
+  assert.equal(cand.tipo, 'dispensado');
+  assert.equal(cand.desde, REVIEW_EM, 'a régua é o fim da rodada');
+  destrava.aplicarDestrave(e, cand, { tipo: 'push', at: PEDIDO_EM, head: 'b'.repeat(40) });
+  assert.equal(e.seen.has(KEY), false);
+  assert.equal(e.queue.some(p => p.key === KEY), true);
+  assert.match(e.toasts.join(' '), /chegou commit novo/);
+  assert.deepEqual(e.destravados[KEY], { at: PEDIDO_EM, tipo: 'push', head: 'b'.repeat(40) });
+});
+
+test('o mesmo push não vira sinal de novo quando o PR só recebe um comentário', async () => {
+  const e = dispensado();
+  const H2 = 'b'.repeat(40);
+  destrava.aplicarDestrave(e, candidatos(e)[0], { tipo: 'push', at: PEDIDO_EM, head: H2 });
+  e.seen.add(KEY);                                          // a rodada saiu sem decisão local
+  e.panorama[0].updatedAt = new Date(AGORA).toISOString();  // só um comentário depois
+  e.headSha = async () => H2;
+  const [cand] = candidatos(e);
+  assert.equal(cand.headConhecido, H2, 'conhece o head que a marca já consumiu');
+  const semEvento = async () => ({ ok: true, stdout: '' });
+  assert.equal(await destrava.sinalDeEstadoNovo(e, cand, semEvento), null);
+});
+
+test('commit realmente novo depois da marca volta a contar', async () => {
+  const e = dispensado();
+  destrava.aplicarDestrave(e, candidatos(e)[0], { tipo: 'push', at: PEDIDO_EM, head: 'b'.repeat(40) });
+  e.seen.add(KEY);
+  e.panorama[0].updatedAt = new Date(AGORA).toISOString();
+  e.headSha = async () => 'c'.repeat(40);
+  const sinal = await destrava.sinalDeEstadoNovo(e, candidatos(e)[0], async () => ({ ok: true, stdout: '' }));
+  assert.equal(sinal.tipo, 'push');
+  assert.equal(sinal.head, 'c'.repeat(40));
+});
+
+test('atividade sem estado novo não custa outra consulta até o PR mudar de novo', async () => {
+  const e = dispensado();
+  e.headSha = async () => HEAD;
+  let chamadas = 0;
+  const run = async () => { chamadas += 1; return { ok: true, stdout: '' }; };
+  await destrava.destravarPorEstadoNovo(e, run);
+  assert.equal(chamadas, 1);
+  assert.equal(e.queue.length, 0, 'comentário não é estado novo');
+  await destrava.destravarPorEstadoNovo(e, run);
+  assert.equal(chamadas, 1, 'o updatedAt não andou');
+  e.panorama[0].updatedAt = new Date(AGORA).toISOString();
+  await destrava.destravarPorEstadoNovo(e, run);
+  assert.equal(chamadas, 2);
+});
+
+test('rodada dispensada não volta sem pedido a mim, se ignorada, ou sem atividade depois dela', () => {
+  const base = dispensado;
+  const semPedido = base(); semPedido.mineKeys = new Set();
+  assert.deepEqual(candidatos(semPedido), [], 'não me pedem mais revisão');
+  const ignorado = base(); ignorado.ignorados = new Set([KEY]);
+  assert.deepEqual(candidatos(ignorado), [], 'descarte deliberado');
+  const quieto = base(); quieto.panorama[0].updatedAt = new Date(REVIEW_EM - MIN).toISOString();
+  assert.deepEqual(candidatos(quieto), [], 'nada mudou depois da rodada');
+});
+
+test('review postado segue pelo próprio caminho, e item substituído nunca é o último', () => {
+  for (const status of ['auto_approved', 'auto_rejected', 'superseded']) {
+    const e = engineBase();
+    e.decisions.resolved[0].status = status;
+    assert.deepEqual(candidatos(e), [], status);
+  }
+});
+
 /* ---------- o destrave devolve à fila e deixa rastro ---------- */
 
 test('pedido novo devolve o PR à fila, avisa e grava a marca com o tipo do sinal', () => {

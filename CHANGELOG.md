@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.5
+
+PR que continua pedindo a sua revisão volta a ser revisado quando chega commit novo, mesmo que a rodada anterior não tenha postado nada.
+
+### Correções
+
+- **Rodada dispensada não prende mais o PR.** Quando a revisão terminava sem postar porque outra pessoa já tinha decidido aquele commit, e o autor subia commits depois, o Farol não revisava de novo: não havia review seu para ficar velho nem pendência para acompanhar o commit. O PR seguia pedindo sua revisão e ficava parado. Agora commit novo ou pedido novo depois do fim da rodada devolve o PR à fila, e o Farol continua sem revisar por cima se alguém já decidiu o commit novo.
+
 ## v2.79.4
 
 A revisão diz o que está fazendo desde o primeiro segundo, e expandir e recolher ficam no mesmo lugar.

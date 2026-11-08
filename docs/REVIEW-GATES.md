@@ -1001,6 +1001,8 @@ objeto, preservando `dia`/`rodadas`; as duas abaixo continuam por decisão):
 
 ### Card que se explica e estado novo que destrava (v2.59.3)
 
+**Rodada que acabou sem review meu (08/11/2026, `candidatoDispensado`, `lib/engine/destrava.js`).** O gatilho de commit novo exige review meu postado ou pendência viva. Com a rodada encerrada como `approval_not_needed`, não há nenhum dos dois: em biudtech/commercial-governance#13 o autor subiu três commits e o PR seguiu visto, sem ninguém relançar. Commit novo ou pedido novo depois do fim da rodada devolve o PR à fila, e o gate de consciência continua decidindo se alguém já resolveu o commit novo. A marca `destravados` guarda o head consumido, para o mesmo push não virar sinal de novo a cada comentário, e o PR só com atividade sem estado novo não custa outra consulta até o `updatedAt` andar.
+
 Caso de campo: Edicoes-CNBB/biblioteca-cnbb-api#22, 09/09/2026. Force-push às 19:39
 com a sessão lendo o PR, card `stale_head` às 19:42 pedindo "Peça uma revisão nova", e
 às 19:44 a pergunta "Farol travou aí?". Não tinha travado: o gatilho B só podia armar às
