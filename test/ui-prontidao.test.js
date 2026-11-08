@@ -152,6 +152,7 @@ test('Pra mim na Compacta: frase e ação principal de cada card', () => {
   assert.equal(fraseDaFila({}, { posicao: 1 }).texto, '1º na fila');
   assert.equal(fraseDaFila({}, { checksRodando: true }).texto, 'Checks obrigatórios rodando');
   assert.equal(fraseDaFila({}, { parado: true }).tom, 'fail');
+  assert.equal(fraseDaFila({}, { manual: true, posicao: 2 }).texto, 'Revisão automática desligada');
   assert.equal(fraseDaEspera(true).tom, 'run');
 });
 

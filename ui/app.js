@@ -35,6 +35,7 @@ import {
   renderDecisions, renderQueue, renderPanorama, renderRadarNav, initResolvedTriggers, aoMudarRadarSub, switchRadarSub,
 } from './telas/radar.js';
 import { renderMyPRs, initReviewersButton, updateAnalysisProgress, contagemMeusPrs } from './telas/meus-prs.js';
+import { initDensidade } from './telas/densidade.js';
 import { renderUpdate } from './telas/sistema-atualizacao.js';
 import { sysGoTo, renderSettings, renderPlatformSettings } from './telas/sistema.js';
 import { initCaixaRevisao } from './telas/caixa-revisao.js';
@@ -367,6 +368,8 @@ const pinturas = criarAgendaVisual({
   agendar: fn => requestAnimationFrame(fn),
 });
 aoMudarRadarSub(() => { if (estado()) { pinturas.invalidar(); pinturas.pintar(); } });
+// densidade Compacta/Expandida e o que está aberto nela redesenham o Radar pelo mesmo caminho
+initDensidade(() => { if (estado()) { pinturas.invalidar(); pinturas.pintar(); } });
 function repintarPorEstado(campos, imediato = false) {
   if (!campos || campos.includes('config')) { syncTheme(estado().config); syncOptionalTabsVisibility(); }
   pinturas.invalidar(campos);

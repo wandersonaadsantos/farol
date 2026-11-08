@@ -21,6 +21,11 @@ import { renderPanoramaRemoto, contarRemotos } from './listas-remotas.js';
 import { groupedQueue } from '../pure/queue-groups.js';
 import { filaSemRevisoesAtivas, revisaoAtiva, mesmaRevisao } from '../pure/fila.js';
 import { markdownReutilizado as md } from './markdown.js';
+import { cardCheio, ehCompacta, recentesVisiveis } from './densidade.js';
+import {
+  faixaDe, setaDoCard, linhaDaDecisao, linhaDaFila, linhaDaFilaDeExecucao, rodapeDasRecentesHtml, renderResumoPraMim,
+  prontidaoDoPanorama, renderLegendaDoPanorama,
+} from './prontidao.js';
 
 let queueGrouping = 'none';
 const closedQueueGroups = new Set();
@@ -143,11 +148,14 @@ function renderDecisions() {
   $('#decisionsCount').textContent = pending.length;
   $('#esperaCiWrap').hidden = esperandoCi.length === 0;
   $('#esperaCiCount').textContent = esperandoCi.length;
+  const naEspera = new Set(esperandoCi);
   const card = d => {
     const m = acctMark(d);
     const author = (d.pr && d.pr.author) || d.author || '';
     // card de commit novo (v2.59.3): barra, veredito, motivos, aviso e botões saem daqui
     const meta = staleCardMeta(d, (estado().reRounds || {})[d.key], execucaoDaDecisao(d), ciObrigatorio);
+    // Compacta (07/11/2026): uma linha com a frase, o trio da prontidão e a ação principal
+    if (!cardCheio(d.key)) return linhaDaDecisao(d, meta, { mark: m, ciObrigatorio, espera: naEspera.has(d) });
     return `
     <div class="card decision ${meta.cardClass}" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
       <div class="decision-head">
@@ -156,9 +164,11 @@ function renderDecisions() {
         ${m.chip}
         ${d.card ? `<span class="pill">${esc(d.card)}</span>` : '<span class="pill">sem card</span>'}
         <span class="dec-when" title="${esc(fmtStamp(d.createdAt))}">${esc(fmtWhenDay(d.createdAt))}</span>
+        ${setaDoCard(d.key)}
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
       ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, people)}</div>` : ''}
+      ${faixaDe(d.key)}
       ${meta.reasons.length ? reasonGroupsHtml(meta.reasons, d.postRetry) : ''}
       ${meta.statusHtml}
       ${criterioTecnicoHtml(d.technical)}
@@ -207,8 +217,11 @@ function renderResolved() {
   if (!resolved.length) { $('#resolved').innerHTML = ''; return; }
   // a linha inteira mora no pure.js (testada); aqui só se resolve o que depende de
   // estado global: a etiqueta da conta (escopo/TWEAK) e o contador de conversas.
+  // Compacta: Revisões recentes vira uma linha "N resolvidas hoje · mostrar" (07/11/2026)
+  if (!recentesVisiveis()) { $('#resolved').innerHTML = rodapeDasRecentesHtml(resolved, false); return; }
+  const topo = ehCompacta() ? rodapeDasRecentesHtml(resolved, true) : '';
   const pushbacks = estado().pushbacks || {};
-  $('#resolved').innerHTML = resolved.map(r => resolvedRow(r, {
+  $('#resolved').innerHTML = topo + resolved.map(r => resolvedRow(r, {
     pushbacks,
     revisando: execucaoDaDecisao(r).ativa,
     markdown: md,
@@ -231,11 +244,21 @@ function dadosDaFila() {
   const total = q.length + aguardando.length;
   return { q, aguardando, distribuindo, total };
 }
+// O card da fila, ou a linha da Compacta com a frase, o trio da prontidão e o Revisar
+function cardDaFila(pr, posicao, ctx) {
+  if (!cardCheio(pr.key)) return linhaDaFila(pr, { mark: ctx.mark, posicao, parado: !!(ctx.parked || {})[pr.key], manual: ctx.mark.acct?.autoReview === false });
+  return queueCardHtml(pr, { ...ctx, pronCorpo: faixaDe(pr.key), pronLado: setaDoCard(pr.key) });
+}
+function cardDaFilaDeExecucao(pr, ctx) {
+  if (!cardCheio(pr.key)) return linhaDaFilaDeExecucao(pr, ctx);
+  return queueWaitingCardHtml(pr, ctx);
+}
 function renderQueue() {
   // A seleção do papel e os rascunhos não são substituídos por um snapshot.
   const qbox = $('#queue');
   if (document.activeElement && qbox.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
   const { q, aguardando, distribuindo, total } = dadosDaFila();
+  renderResumoPraMim(scopeVisible, total);
   const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   $('#queueCount').hidden = total === 0;
   // sem itens não há o que agrupar: o seletor some junto com a fila
@@ -286,11 +309,11 @@ function renderQueue() {
   const noTopo = contasNoLimiteDaFila(q, { contaDe, limiteDe, parked, revisarJunto });
   const varias = Object.keys(noTopo).length > 1;
   const avisos = Object.entries(noTopo).map(([conta, v]) => queueLimitHtml(acctOf({ account: conta }), v.ate, v.n, varias)).join('');
-  const rows = q.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: queueCardHtml(pr, {
+  const rows = q.map((pr, i) => ({ account: contaDe(pr), repo: pr.repo, html: cardDaFila(pr, i + 1, {
     people, mark: acctMark(pr), parked, sync: estado().sync,
     revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)],
     esperaConflito: estado().esperaConflito,
-  }) })).concat(aguardando.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: queueWaitingCardHtml(pr, {
+  }) })).concat(aguardando.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: cardDaFilaDeExecucao(pr, {
     mark: acctMark(pr), sync: estado().sync, distribuindo: distribuindo.has(pr.key),
     espera: (estado().headlessWaitingDetails || {})[pr.key],
   }) })));
@@ -307,6 +330,7 @@ function renderPanorama() {
   $('#panoOwners').textContent = list.length ? 'PRs abertos, os seus destacados' : '';
   const box = $('#panorama');
   const vs = listViewState({ lastCheckAt: estado().lastCheckAt, status: estado().status, length: list.length });
+  renderLegendaDoPanorama(vs === 'list');
   if (vs !== 'list') {
     box.style.display = 'block';
     box.innerHTML = `<div class="empty" style="border:0">${textoDaListaVazia(vs)}</div>`;
@@ -317,7 +341,7 @@ function renderPanorama() {
   const waitingKeys = estado().headlessWaiting || [];
   const ctxPano = { actions: estado().reviewActions || {}, staleStates: estado().staleStates || {}, reviewStatesGh: estado().reviewStatesGh || {}, running: runningKeys, waiting: waitingKeys,
     todasContas: escopo() === 'all', chats: estado().chats };
-  box.innerHTML = list.map(pr => panoramaRowHtml(pr, { ...ctxPano, mark: acctMark(pr, { noBar: true }) })).join('');
+  box.innerHTML = list.map(pr => panoramaRowHtml(pr, { ...ctxPano, mark: acctMark(pr, { noBar: true }), ...prontidaoDoPanorama(pr) })).join('');
 }
 
 /* ---------- gatilhos de #resolved (desfecho e nota de pushback, revisar de

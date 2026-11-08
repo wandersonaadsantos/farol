@@ -29,6 +29,8 @@ import { switchSistemaSection, sysSearchFilter } from './sistema.js';
 import { renderMeusPrsRemoto, contarRemotos } from './listas-remotas.js';
 import { festejar } from './confete.js';
 import { markdownReutilizado as md } from './markdown.js';
+import { cardCheio } from './densidade.js';
+import { faixaDe, barraDe, setaDoCard, linhaDoMeuPr, renderResumoDosMeus } from './prontidao.js';
 
 /* ---------- render: meus PRs (autoanálise) ---------- */
 // PRs cujo merge normal esbarrou na proteção de branch: mostram as saídas
@@ -117,6 +119,8 @@ function renderMyPRs() {
   // o estado de carregamento é do MOTOR, então olha a lista completa: com tudo oculto o
   // ciclo terminou bem e o vazio é escolha da pessoa, não falta de resposta
   const vs = listViewState({ lastCheckAt: estado().lastCheckAt, status: estado().status, length: todos.length });
+  // "1 pronto pra merge · 2 esperando · 1 travado", pela pílula Merge (07/11/2026)
+  renderResumoDosMeus(vs === 'list' ? visiveis : []);
   if (vs !== 'list' || !list.length) {
     $('#myPRs').innerHTML = `<div class="empty" style="border:0">${esc(myPRsEmptyMsg(vs, { escopoTodas: escopo() === 'all', ocultos: ocultos.length }))}</div>`;
     return;
@@ -171,6 +175,8 @@ function renderMyPRs() {
       return auto + (admin ? '\n         ' + admin : '');
     };
     let mergeBtns = '';
+    // a linha da Compacta só mostra o Merge quando dá pra mergear de fato (o mesmo caminho do botão livre)
+    let mergeLivre = false;
     // repo bloqueado é o PRIMEIRO teste desde 03/10/2026 (Claude Design): nesses repos o
     // Farol nem lê a mergeabilidade, e o bloqueio vale com qualquer análise, então o card
     // sempre diz por que não há Merge e leva à lista (ui/pure/merge-bloqueado.js)
@@ -187,10 +193,16 @@ function renderMyPRs() {
       else if (ms.mergeable === 'CONFLICTING' || ms.status === 'DIRTY') mergeBtns = btnMerge(true, 'O PR tem conflito com a branch de destino', daBase.id);
       else if (ms.status === 'BEHIND') mergeBtns = btnMerge(true, 'A branch está atrás da base, atualize antes de mergear');
       else if (ms.status === 'BLOCKED') mergeBtns = btnOptions();
-      else if (ms.status === 'CLEAN' || ms.status === 'UNSTABLE' || ms.status === 'HAS_HOOKS' || ms.mergeable === 'MERGEABLE')
+      else if (ms.status === 'CLEAN' || ms.status === 'UNSTABLE' || ms.status === 'HAS_HOOKS' || ms.mergeable === 'MERGEABLE') {
         mergeBtns = btnMerge(false, 'Atribui você ao PR se preciso, faz o merge na branch de destino e deleta a branch de origem se for descartável');
+        mergeLivre = true;
+      }
       else mergeBtns = btnMerge(true, `Não dá pra mergear agora (${ms.status || ms.mergeable || 'estado desconhecido'})`);
     }
+    // Compacta (07/11/2026): uma linha com o ponto da conta, repo#N, o trio da prontidão,
+    // o Merge só quando a regra atual permite e a seta que abre o card cheio
+    const barraDoSelo = sel => (sel ? BARRA_DO_SELO[sel.cls] : barraDe(pr.key, { repoBloqueado: repoBlocked }));
+    if (!cardCheio(pr.key)) return linhaDoMeuPr(pr, { mark: m, escondido, repoBloqueado: repoBlocked, barra: barraDoSelo(selfAnalysisBadge(a)), merge: mergeLivre && mergeBtns });
     const sel = selfAnalysisBadge(a);
     const badge = sel ? `<span class="verdict ${sel.cls}"${sel.title ? ` title="${esc(sel.title)}"` : ''}>${esc(sel.label)}</span>` : '';
     const vis = selfAnalysisToggle(a);
@@ -212,7 +224,7 @@ function renderMyPRs() {
         <div class="mypr-when">analisado ${fmtRel(new Date(a.at).toISOString())}${a.card ? ` · ${esc(a.card)}` : ''}</div>
       </div>` : '';
     return `
-    <div class="card mypr-card ${sel ? BARRA_DO_SELO[sel.cls] : ''}${daBase.alerta ? ' base-alerta' : ''}${escondido ? ' oculto' : ''}" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
+    <div class="card mypr-card ${barraDoSelo(sel)}${daBase.alerta ? ' base-alerta' : ''}${escondido ? ' oculto' : ''}" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
       <div class="mypr-top">
         ${m.dot}${avatar(pr.author)}
         <div class="info">
@@ -230,8 +242,10 @@ function renderMyPRs() {
           ${escondido
         ? `<button class="btn sm ghost act-pr-unhide" data-key="${esc(pr.key)}" title="Traz este PR de volta pra lista de Meus PRs">Reexibir</button>`
         : `<button class="btn sm ghost act-pr-hide" data-key="${esc(pr.key)}" title="Some com este PR de Meus PRs. Ele volta sozinho se receber commit novo">Ocultar</button>`}
+          ${setaDoCard(pr.key)}
         </div>
       </div>
+      ${faixaDe(pr.key, { repoBloqueado: repoBlocked })}
       ${daBase.html}
       ${repoBlocked ? notaDoMergeBloqueadoHtml() : ''}
       ${analysisPanel}

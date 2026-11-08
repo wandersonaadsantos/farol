@@ -2684,9 +2684,10 @@ const DIAG_BASE = {
 
 test('cartão de sessão: os ganchos de atualização existem todos', () => {
   const html = P.sessionCardHtml({ id: 'abc', label: 'acme#12', startedAt: 1755600000000 }, 'preparo');
-  for (const cls of ['session-card', 'session-stage', 'session-model', 'session-agents', 'session-agent-details', 'session-elapsed', 'sess-progress', 'stage-flow', 'activity-feed'])
+  for (const cls of ['session-card', 'session-stage', 'session-model', 'session-agents', 'session-agent-details', 'session-elapsed', 'sess-progress', 'stage-flow', 'activity-feed', 'sess-pron'])
     assert.match(html, new RegExp(`class="[^"]*${cls}`), `sumiu o gancho .${cls}`);
-  assert.equal((html.match(/data-id="abc"/g) || []).length, 8, 'todo gancho carrega o id da sessão');
+  // o nono é o da faixa de prontidão (07/11/2026), trocado a cada estado sem refazer o cartão
+  assert.equal((html.match(/data-id="abc"/g) || []).length, 9, 'todo gancho carrega o id da sessão');
   assert.match(html, /class="session-agent-details(?: [^"]*)?" data-id="abc"/);
   // o cabeçalho passou a mostrar a ETAPA real (estampada pelo engine), então o gancho é o
   // id da sessão, e não mais o data-started da idade dela: quem recalcula é o tickElapsed,

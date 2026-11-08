@@ -38,9 +38,11 @@ export function fraseDaEspera(ciObrigatorio) {
   return { texto: ciObrigatorio ? 'Esperando os checks · posta sozinho' : 'Resolvendo sozinho', tom: 'run' };
 }
 
-// O PR da fila numa frase: parado, checks rodando, pedido de novo ou a posição na fila.
+// O PR da fila numa frase: parado, automática desligada na conta, checks rodando, pedido de
+// novo ou a posição na fila.
 export function fraseDaFila(pr, o = {}) {
   if (o.parado) return { texto: 'Revisão automática parada', tom: 'fail' };
+  if (o.manual) return { texto: 'Revisão automática desligada', tom: 'none' };
   if (o.checksRodando) return { texto: 'Checks obrigatórios rodando', tom: 'wait' };
   if (pr && pr.reRequested) return { texto: 'Pedida de novo', tom: 'wait' };
   return { texto: `${Number(o.posicao) || 1}º na fila`, tom: 'none' };
