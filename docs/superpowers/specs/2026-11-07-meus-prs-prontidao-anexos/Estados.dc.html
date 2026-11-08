@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Estados das pílulas de prontidão</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.th-dark{--bg:#0b0e14;--surface:#121722;--surface-2:#1a2130;--border:#232c3d;--text:#e7ecf5;--muted:#8b97ab;--accent:#ffb454;--accent-soft:rgba(255,180,84,.14);--ok:#4cc38a;--ok-soft:rgba(76,195,138,.14);--danger:#f2707a;--danger-soft:rgba(242,112,122,.12);--info:#6ca8f2;--info-soft:rgba(108,168,242,.12)}
+.th-light{--bg:#f4f6f9;--surface:#ffffff;--surface-2:#eef1f6;--border:#dfe5ee;--text:#1c2536;--muted:#5e6c82;--accent:#b86e00;--accent-soft:rgba(224,135,0,.12);--ok:#1a8a56;--ok-soft:rgba(31,157,99,.12);--danger:#c73a45;--danger-soft:rgba(214,69,80,.1);--info:#2f6fd6;--info-soft:rgba(47,111,214,.1)}
+.root{font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.pill{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);min-height:44px;box-sizing:border-box}
+.pill .ic{flex:0 0 22px;height:22px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.pill .lb{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pill .vl{font-size:13px;font-weight:600}
+.t-ok .ic{background:var(--ok-soft);color:var(--ok)} .t-ok .vl{color:var(--ok)}
+.t-fail .ic{background:var(--danger-soft);color:var(--danger)} .t-fail .vl{color:var(--danger)}
+.t-wait .ic{background:var(--accent-soft);color:var(--accent)} .t-wait .vl{color:var(--accent)}
+.t-run .ic{background:var(--info-soft);color:var(--info)} .t-run .vl{color:var(--info)}
+.t-none .ic{background:var(--surface);color:var(--muted)} .t-none .vl{color:var(--muted)}
+.quando{font-size:12px;color:var(--muted);margin-top:4px}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 1120px; height: 1180px; box-sizing: border-box; padding: 40px 44px; background: var(--bg); color: var(--text); display: flex; flex-direction: column; gap: 22px;">
+  <div>
+    <h1 style="margin: 0; font-size: 22px;">Estados das três pílulas</h1>
+    <p style="margin: 6px 0 0; color: var(--muted); font-size: 13.5px; max-width: 820px;">Cinco tons, todos já existentes no Farol: verde resolvido, vermelho trava, âmbar espera alguém, azul o GitHub está rodando, cinza não se aplica. A barra esquerda do card segue a pílula Merge.</p>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px;">
+    <sc-for list="{{colunas}}" as="col" hint-placeholder-count="3">
+      <section style="display: flex; flex-direction: column; gap: 10px;">
+        <h2 style="margin: 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;">{{col.titulo}}</h2>
+        <sc-for list="{{col.estados}}" as="e" hint-placeholder-count="5">
+          <div>
+            <div class="pill {{e.tom}}">
+              <span class="ic">{{e.glifo}}</span>
+              <span style="display: flex; flex-direction: column;"><span class="lb">{{col.rotulo}}</span><span class="vl">{{e.valor}}</span></span>
+            </div>
+            <div class="quando">{{e.quando}}</div>
+          </div>
+        </sc-for>
+      </section>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tema":{"editor":"enum","options":["escuro","claro"],"default":"escuro"},"$preview":{"width":1120,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tema = this.props.tema ?? 'escuro';
+    const G = { 't-ok': '✓', 't-fail': '×', 't-wait': '◷', 't-run': '◌', 't-none': '–' };
+    const col = (titulo, rotulo, estados) => ({ titulo, rotulo, estados: estados.map((e) => ({ ...e, glifo: G[e.tom] })) });
+    return {
+      themeClass: tema === 'claro' ? 'th-light' : 'th-dark',
+      colunas: [
+        col('Checks obrigatórios', 'Checks obrigatórios', [
+          { tom: 't-ok', valor: '6 de 6 verdes', quando: 'Última rodada de cada nome exigido em SUCCESS, SKIPPED ou NEUTRAL.' },
+          { tom: 't-run', valor: '4 de 5 · 1 rodando', quando: 'Nenhum falhou e algum ainda está em fila ou rodando.' },
+          { tom: 't-fail', valor: '1 falhando · e2e', quando: 'Algum exigido falhou. Mostra o nome quando é um só.' },
+          { tom: 't-wait', valor: '1 não rodou · deploy', quando: 'Exigido pela branch, mas nunca reportado neste head.' },
+          { tom: 't-none', valor: 'Nenhum exigido', quando: 'A branch não tem check obrigatório (ou a regra não é legível).' }
+        ]),
+        col('Reviewers', 'Reviewers', [
+          { tom: 't-ok', valor: '2 de 2 aprovaram', quando: 'Aprovações no head atual somam o que a branch exige.' },
+          { tom: 't-wait', valor: '1 de 2 aprovou', quando: 'Marcados e ainda sem aprovação suficiente no head.' },
+          { tom: 't-wait', valor: 'Aprovação antiga', quando: 'Alguém aprovou, mas entrou commit depois.' },
+          { tom: 't-fail', valor: 'Mudança pedida', quando: 'Há CHANGES_REQUESTED em aberto.' },
+          { tom: 't-none', valor: 'Nenhum marcado', quando: 'Sem pedido de review. Também "Não exigido" sem regra.' }
+        ]),
+        col('Merge', 'Merge', [
+          { tom: 't-ok', valor: 'Pronto pra merge', quando: 'CLEAN, UNSTABLE ou HAS_HOOKS.' },
+          { tom: 't-run', valor: 'Esperando os checks', quando: 'BLOCKED e o único motivo é check rodando.' },
+          { tom: 't-wait', valor: 'Bloqueado · falta 1 aprovação', quando: 'BLOCKED por review. Diz o que falta.' },
+          { tom: 't-fail', valor: 'Conflito com a base', quando: 'DIRTY ou CONFLICTING. Também check falhando ou mudança pedida.' },
+          { tom: 't-wait', valor: 'Atrás da base', quando: 'BEHIND: precisa de Update branch (por merge).' },
+          { tom: 't-none', valor: 'Rascunho', quando: 'DRAFT. Também "Repo bloqueado" e "Verificando…" (UNKNOWN).' }
+        ])
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

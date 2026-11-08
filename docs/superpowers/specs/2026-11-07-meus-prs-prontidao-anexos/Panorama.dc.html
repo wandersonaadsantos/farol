@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Farol · Panorama</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#6ca8f2;text-decoration:none}a:hover{text-decoration:underline}
+.th-dark{--bg:#0b0e14;--surface:#121722;--surface-2:#1a2130;--border:#232c3d;--border-soft:rgba(35,44,61,.6);--text:#e7ecf5;--muted:#8b97ab;--faint:#6b778c;--accent:#ffb454;--accent-soft:rgba(255,180,84,.14);--accent-ink:#201302;--ok:#4cc38a;--ok-soft:rgba(76,195,138,.14);--danger:#f2707a;--danger-soft:rgba(242,112,122,.12);--info:#6ca8f2;--info-soft:rgba(108,168,242,.12);--ac:#e879f9}
+.th-light{--bg:#f4f6f9;--surface:#ffffff;--surface-2:#eef1f6;--border:#dfe5ee;--border-soft:rgba(223,229,238,.7);--text:#1c2536;--muted:#5e6c82;--faint:#6f7d93;--accent:#b86e00;--accent-soft:rgba(224,135,0,.12);--accent-ink:#ffffff;--ok:#1a8a56;--ok-soft:rgba(31,157,99,.12);--danger:#c73a45;--danger-soft:rgba(214,69,80,.1);--info:#2f6fd6;--info-soft:rgba(47,111,214,.1);--ac:#b62fc9}
+.root{font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+.btn{font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:5px 11px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;white-space:nowrap;min-height:32px}
+.btn.ghost{background:transparent}
+.btn[disabled]{opacity:.55;cursor:default}
+.chip{font-size:10.5px;font-weight:700;border-radius:99px;padding:1px 8px;white-space:nowrap}
+.seg{font:inherit;font-size:13px;font-weight:600;padding:6px 12px;border-radius:8px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg.on{background:var(--surface-2);color:var(--text)}
+.dens{font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:7px;border:0;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:32px}
+.dens.on{background:var(--surface-2);color:var(--text)}
+.av{width:22px;height:22px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--bg);flex:0 0 22px}
+.lista{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.prow{display:flex;align-items:center;gap:12px;padding:9px 12px 9px 14px;min-height:46px;box-sizing:border-box;border-top:1px solid var(--border-soft);flex-wrap:wrap}
+.prow:first-child{border-top:0}
+.prow.mine{background:color-mix(in srgb, var(--accent) 6%, transparent)}
+.dot{width:8px;height:8px;border-radius:99px;background:var(--border);flex:0 0 8px}
+.prow.mine .dot{background:var(--accent)}
+.tri{display:inline-flex;gap:4px;align-items:center}
+.tri span{width:8px;height:8px;border-radius:99px}
+.d-ok{background:var(--ok)} .d-fail{background:var(--danger)} .d-wait{background:var(--accent)} .d-run{background:var(--info)} .d-none{background:var(--faint)}
+.settled{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.rchip{font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;white-space:nowrap}
+.rc-ok{background:var(--ok-soft);color:var(--ok)} .rc-fail{background:var(--danger-soft);color:var(--danger)} .rc-wait{background:var(--accent-soft);color:var(--accent)}
+.chev{font:inherit;width:32px;height:32px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px}
+.chev:hover{border-color:var(--border);color:var(--text)}
+.br code{font-family:"Cascadia Code",Consolas,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted);font-size:11px}
+.pill{display:flex;align-items:center;gap:8px;min-width:0;padding:5px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2)}
+.pill .lb{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pill .vl{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-ok{color:var(--ok)} .v-fail{color:var(--danger)} .v-wait{color:var(--accent)} .v-run{color:var(--info)} .v-none{color:var(--muted)}
+.lookup{font:inherit;font-size:13px;width:100%;box-sizing:border-box;padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);min-height:36px}
+.legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);align-items:center}
+.legenda .tri span{width:7px;height:7px}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="background: var(--bg); color: var(--text); min-height: 100%; box-sizing: border-box;">
+
+  <header style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px 22px; border-bottom: 1px solid var(--border);">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 22l1.5-14h3L15 22"></path><path d="M8 8h8"></path><path d="M10 5h4v3h-4z"></path><path d="M4 4l4 2M20 4l-4 2"></path></svg>
+      <strong style="font-size: 17px;">Farol</strong>
+      <span style="font-size: 12px; color: var(--muted);">v2.79.0</span>
+      <span class="chip" style="background: var(--ok-soft); color: var(--ok);">● monitorando</span>
+    </div>
+    <nav style="display: flex; gap: 4px; margin: 0 auto; flex-wrap: wrap;" aria-label="Abas">
+      <a href="#" style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--accent); color: var(--text); font-weight: 700;">Radar</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Entregas</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Time</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Consumo</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Sistema</a>
+    </nav>
+    <button class="btn">Verificar agora</button>
+  </header>
+
+  <main style="max-width: 940px; margin: 0 auto; padding: 22px 16px 48px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-size: 13px; color: var(--muted);">Última checagem 15:21 · próxima em 1:39</div>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+      <div style="display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface);">
+        <button class="seg">Pra mim <span class="chip" style="background: var(--accent-soft); color: var(--accent);">2</span></button>
+        <button class="seg">Meus PRs <span class="chip" style="background: var(--surface); color: var(--muted);">4</span></button>
+        <button class="seg on">Panorama <span class="chip" style="background: var(--surface); color: var(--muted);">43</span></button>
+      </div>
+      <div style="display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);" role="group" aria-label="Densidade da lista">
+        <button class="dens {{densCompactaOn}}" onClick="{{irCompacta}}" aria-pressed="{{ehCompacta}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>Compacta</button>
+        <button class="dens {{densExpandidaOn}}" onClick="{{irExpandida}}" aria-pressed="{{ehExpandida}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="7" rx="2"></rect><rect x="4" y="14" width="16" height="6" rx="2"></rect></svg>Expandida</button>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+      <h2 style="margin: 0; font-size: 16px;">Panorama</h2>
+      <span class="chip" style="background: var(--surface-2); color: var(--muted);">43</span>
+      <sc-if value="{{ehExpandidaBool}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: var(--muted);">PRs abertos, os seus destacados</span></sc-if>
+    </div>
+
+    <label style="display: block;"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Consultar um PR por URL</span>
+      <input class="lookup" type="text" placeholder="Consultar um PR por URL (abre a conversa salva)…">
+    </label>
+
+    <div class="legenda">
+      <span>Pontos de cada linha:</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px;"><span class="tri"><span class="d-ok"></span><span class="d-none"></span><span class="d-none"></span></span>checks obrigatórios</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px;"><span class="tri"><span class="d-none"></span><span class="d-ok"></span><span class="d-none"></span></span>reviewers</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px;"><span class="tri"><span class="d-none"></span><span class="d-none"></span><span class="d-ok"></span></span>merge</span>
+    </div>
+
+    <div class="lista">
+      <sc-for list="{{prs}}" as="pr" hint-placeholder-count="8">
+        <div class="prow {{pr.clsMine}}">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="av" style="background: {{pr.cor}};" title="@{{pr.autor}}">{{pr.ini}}</span>
+          <div style="flex: 1 1 300px; min-width: 0;">
+            <div style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
+              <a href="#" style="font-weight: 700; color: var(--ac); white-space: nowrap;">{{pr.curta}}</a>
+              <sc-if value="{{pr.temRchip}}" hint-placeholder-val="{{false}}"><span class="rchip {{pr.rchipCls}}">{{pr.rchip}}</span></sc-if>
+              <sc-if value="{{pr.mostrarBadges}}" hint-placeholder-val="{{false}}"><sc-if value="{{pr.minha}}" hint-placeholder-val="{{false}}"><span class="chip" style="background: var(--accent-soft); color: var(--accent);">sua revisão</span></sc-if></sc-if>
+              <span style="font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;" title="{{pr.titulo}}">{{pr.titulo}}</span>
+            </div>
+            <sc-if value="{{pr.cheio}}" hint-placeholder-val="{{false}}">
+              <div class="br" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; font-size: 12px; color: var(--muted);"><code>{{pr.head}}</code><span style="color: var(--ac); font-weight: 700;">→</span><code>{{pr.base}}</code><span>· por @{{pr.autor}} · atualizado {{pr.quando}}</span><sc-if value="{{pr.temOutros}}" hint-placeholder-val="{{false}}"><span>· {{pr.outros}}</span></sc-if></div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px; margin-top: 8px;" aria-label="Prontidão do PR">
+                <sc-for list="{{pr.pron}}" as="p" hint-placeholder-count="3">
+                  <div class="pill"><span class="tri"><span class="{{p.dot}}"></span></span><span style="display: flex; flex-direction: column; min-width: 0;"><span class="lb">{{p.rotulo}}</span><span class="vl {{p.v}}">{{p.valor}}</span></span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <sc-if value="{{pr.compacto}}" hint-placeholder-val="{{true}}">
+            <span class="tri" role="img" aria-label="{{pr.triRotulo}}" title="{{pr.triRotulo}}">
+              <sc-for list="{{pr.pron}}" as="p" hint-placeholder-count="3"><span class="{{p.dot}}"></span></sc-for>
+            </span>
+          </sc-if>
+          <sc-if value="{{pr.temBotao}}" hint-placeholder-val="{{false}}"><button class="btn ghost" disabled="{{pr.botaoOff}}">{{pr.botao}}</button></sc-if>
+          <sc-if value="{{pr.temSettled}}" hint-placeholder-val="{{true}}"><span class="settled">{{pr.settled}}</span></sc-if>
+          <sc-if value="{{pr.podeAbrir}}" hint-placeholder-val="{{true}}">
+            <button class="chev" onClick="{{pr.abrir}}" aria-label="Expandir {{pr.key}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+          </sc-if>
+          <sc-if value="{{pr.podeRecolher}}" hint-placeholder-val="{{false}}">
+            <button class="chev" onClick="{{pr.recolher}}" aria-label="Recolher {{pr.key}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size: 12.5px; color: var(--muted);">Mostrando 8 de 43 · rolar carrega o resto</div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tema":{"editor":"enum","options":["escuro","claro"],"default":"escuro"},"densidade":{"editor":"enum","options":["compacta","expandida"],"default":"compacta"},"$preview":{"width":1280,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { densidade: null, expandidos: {} };
+  }
+  renderVals() {
+    const tema = this.props.tema ?? 'escuro';
+    const compacta = (this.state.densidade || (this.props.densidade ?? 'compacta')) === 'compacta';
+    const expandidos = this.state.expandidos || {};
+    const C = { t: '#4cc38a', g: '#ffb454', a: '#6ca8f2', m: '#e879f9', r: '#8b97ab' };
+    // pron: [checks, reviewers, merge] = [tom, valor]
+    const base = [
+      { key: 'biudtech/biud-frontend#1090', autor: 'thiagocarvalho-dev', ini: 'TP', cor: C.t, minha: true, titulo: 'fix(campanhas): filtro por UF some ao trocar de página (BT-3077)',
+        head: 'task-BT-3077-filtro-uf', base: 'develop', quando: '22min', settled: 'aguardando você',
+        pron: [['ok', '7 de 7 verdes'], ['wait', '1 de 2 aprovou'], ['wait', 'Falta a sua aprovação']] },
+      { key: 'biudtech/engine-ai#962', autor: 'Gabrielk5', ini: 'GR', cor: C.g, minha: true, titulo: 'fix(mia): retomada da conversa depois do login',
+        head: 'task-BT-3053-retomada', base: 'development', quando: '8min', botao: 'Na fila (1)', botaoOff: true,
+        pron: [['ok', '5 de 5 verdes'], ['wait', '0 de 2 aprovou'], ['wait', 'Faltam 2 aprovações']] },
+      { key: 'biudtech/engine-ai#955', autor: 'Gabrielk5', ini: 'GR', cor: C.g, minha: true, titulo: 'fix(mia): artigo definido no plano de criação',
+        head: 'task-BT-3090-artigo', base: 'development', quando: '1h', rchip: 'você aprovou', rchipCls: 'rc-ok', settled: 'nada a fazer',
+        pron: [['ok', '6 de 6 verdes'], ['ok', '2 de 2 aprovaram'], ['ok', 'Pronto pra merge']] },
+      { key: 'biudtech/tenant-company#94', autor: 'thiagocarvalho-dev', ini: 'TP', cor: C.t, minha: false, titulo: 'feat(empresa): vínculo societário com a política autodeclarada',
+        head: 'task-BT-1767-vinculo', base: 'main', quando: '2h', botao: 'Revisar', botaoOff: false, outros: 'Gabriel revisando',
+        pron: [['ok', '4 de 4 verdes'], ['run', 'Gabriel revisando'], ['wait', 'Falta 1 aprovação']] },
+      { key: 'biudtech/biud-frontend#1070', autor: 'Gabrielk5', ini: 'GR', cor: C.g, minha: false, titulo: 'feat(empresa): tela do vínculo societário (BT-1767)',
+        head: 'task-BT-1767-tela', base: 'develop', quando: '3h', rchip: 'você pediu mudanças', rchipCls: 'rc-fail', settled: 'aguardando o autor',
+        pron: [['fail', 'e2e falhou'], ['fail', 'Mudança pedida'], ['fail', 'Bloqueado']] },
+      { key: 'biudtech/biud-core#618', autor: 'thiagocarvalho-dev', ini: 'TP', cor: C.t, minha: false, titulo: 'chore(release): envs de produção da v1.12.0',
+        head: 'release_prd_1.12.0', base: 'production', quando: '5h', botao: 'Revisar', botaoOff: false,
+        pron: [['run', '3 de 5 · 2 rodando'], ['none', 'Ninguém marcado'], ['run', 'Esperando os checks']] },
+      { key: 'biudtech/internal-auth#151', autor: 'thiagocarvalho-dev', ini: 'TP', cor: C.t, minha: true, titulo: 'feat(gateway): rotação da credencial de serviço sem downtime',
+        head: 'task-BT-3070-rotacao', base: 'main', quando: '40min', botao: 'Revisar', botaoOff: false,
+        pron: [['run', '2 de 4 · 2 rodando'], ['wait', '0 de 2 aprovou'], ['run', 'Esperando os checks']] },
+      { key: 'biudtech/biud-campaign#409', autor: 'Gabrielk5', ini: 'GR', cor: C.g, minha: false, titulo: 'docs: guia de modo mock com MSW',
+        head: 'task-BT-3011-mock', base: 'develop', quando: '1d', rchip: 'rascunho', rchipCls: 'rc-wait', settled: 'nada a fazer',
+        pron: [['none', 'Nenhum exigido'], ['none', 'Ninguém marcado'], ['none', 'Rascunho']] }
+    ];
+    const ROT = ['Checks obrigatórios', 'Reviewers', 'Merge'];
+    const prs = base.map((pr) => {
+      const cheio = !compacta || !!expandidos[pr.key];
+      const pron = pr.pron.map(([tom, valor], i) => ({ rotulo: ROT[i], valor, dot: 'd-' + tom, v: 'v-' + tom }));
+      return {
+        ...pr,
+        curta: pr.key.replace(/^[^/]+\//, ''),
+        clsMine: pr.minha ? 'mine' : '',
+        temRchip: !!pr.rchip,
+        mostrarBadges: cheio,
+        cheio, compacto: !cheio,
+        podeAbrir: compacta && !cheio, podeRecolher: compacta && cheio,
+        temBotao: !!pr.botao, temSettled: !pr.botao,
+        temOutros: !!pr.outros,
+        pron,
+        triRotulo: pron.map((p) => p.rotulo + ': ' + p.valor).join(' · '),
+        abrir: () => this.setState({ expandidos: { ...expandidos, [pr.key]: true } }),
+        recolher: () => this.setState({ expandidos: { ...expandidos, [pr.key]: false } })
+      };
+    });
+    return {
+      themeClass: tema === 'claro' ? 'th-light' : 'th-dark', prs,
+      ehCompacta: compacta ? 'true' : 'false', ehExpandida: compacta ? 'false' : 'true', ehExpandidaBool: !compacta,
+      densCompactaOn: compacta ? 'on' : '', densExpandidaOn: compacta ? '' : 'on',
+      irCompacta: () => this.setState({ densidade: 'compacta', expandidos: {} }),
+      irExpandida: () => this.setState({ densidade: 'expandida', expandidos: {} })
+    };
+  }
+}
+</script>
+</body>
+</html>

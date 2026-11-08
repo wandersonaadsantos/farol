@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Farol · Pra mim</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#6ca8f2;text-decoration:none}a:hover{text-decoration:underline}
+.th-dark{--bg:#0b0e14;--surface:#121722;--surface-2:#1a2130;--border:#232c3d;--border-soft:rgba(35,44,61,.6);--text:#e7ecf5;--muted:#8b97ab;--faint:#6b778c;--accent:#ffb454;--accent-soft:rgba(255,180,84,.14);--accent-ink:#201302;--ok:#4cc38a;--ok-soft:rgba(76,195,138,.14);--danger:#f2707a;--danger-soft:rgba(242,112,122,.12);--info:#6ca8f2;--info-soft:rgba(108,168,242,.12);--ac:#e879f9}
+.th-light{--bg:#f4f6f9;--surface:#ffffff;--surface-2:#eef1f6;--border:#dfe5ee;--border-soft:rgba(223,229,238,.7);--text:#1c2536;--muted:#5e6c82;--faint:#6f7d93;--accent:#b86e00;--accent-soft:rgba(224,135,0,.12);--accent-ink:#ffffff;--ok:#1a8a56;--ok-soft:rgba(31,157,99,.12);--danger:#c73a45;--danger-soft:rgba(214,69,80,.1);--info:#2f6fd6;--info-soft:rgba(47,111,214,.1);--ac:#b62fc9}
+.root{font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+.btn{font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:5px 11px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;white-space:nowrap;min-height:32px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent}
+.btn.ok{background:var(--ok-soft);border-color:transparent;color:var(--ok);font-weight:700}
+.btn.danger{background:var(--danger-soft);border-color:transparent;color:var(--danger);font-weight:700}
+.chip{font-size:10.5px;font-weight:700;border-radius:99px;padding:1px 8px;white-space:nowrap}
+.seg{font:inherit;font-size:13px;font-weight:600;padding:6px 12px;border-radius:8px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg.on{background:var(--surface-2);color:var(--text)}
+.dens{font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:7px;border:0;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:32px}
+.dens.on{background:var(--surface-2);color:var(--text)}
+.sec-h{display:flex;align-items:baseline;gap:8px;margin:10px 0 0}
+.sec-h h2{margin:0;font-size:15px}
+.desc{margin:2px 0 4px;font-size:13px;color:var(--muted);max-width:680px}
+.linha{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:10px;padding:8px 10px 8px 14px;min-height:48px;box-sizing:border-box;flex-wrap:wrap}
+.card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:12px;padding:14px 16px}
+.b-ok{border-left-color:var(--ok)!important} .b-fail{border-left-color:var(--danger)!important} .b-wait{border-left-color:var(--accent)!important} .b-run{border-left-color:var(--info)!important}
+.av{width:22px;height:22px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--bg);flex:0 0 22px}
+.est{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.est .pt{width:8px;height:8px;border-radius:99px}
+.t-ok{color:var(--ok)} .t-ok .pt{background:var(--ok)}
+.t-fail{color:var(--danger)} .t-fail .pt{background:var(--danger)}
+.t-wait{color:var(--accent)} .t-wait .pt{background:var(--accent)}
+.t-run{color:var(--info)} .t-run .pt{background:var(--info)}
+.t-none{color:var(--muted)} .t-none .pt{background:var(--muted)}
+.barra{height:4px;border-radius:99px;background:var(--surface-2);overflow:hidden;width:96px}
+.barra > span{display:block;height:100%;background:var(--info);border-radius:99px}
+.chev{font:inherit;width:32px;height:32px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px}
+.chev:hover{border-color:var(--border);color:var(--text)}
+.det{margin:10px 0 0;padding:0 0 0 18px;font-size:13px}
+.det li{margin:3px 0}
+.br code{font-family:"Cascadia Code",Consolas,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted);font-size:11px}
+.resumo{font:inherit;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;min-height:32px}
+.foot{font:inherit;background:none;border:0;padding:4px 2px;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;align-self:flex-start}
+.foot:hover{color:var(--info);text-decoration:underline}
+.mini{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;white-space:nowrap}
+.mini .ic{width:16px;height:16px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px}
+.mini.t-ok .ic{background:var(--ok-soft)} .mini.t-fail .ic{background:var(--danger-soft)} .mini.t-wait .ic{background:var(--accent-soft)} .mini.t-run .ic{background:var(--info-soft)} .mini.t-none .ic{background:var(--surface-2)}
+.trio{display:inline-flex;align-items:center;gap:10px;padding-left:12px;border-left:1px solid var(--border)}
+.pill{display:flex;align-items:center;gap:10px;min-width:0;padding:7px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2)}
+.pill .ic{flex:0 0 20px;height:20px;border-radius:99px;display:flex;align-items:center;justify-content:center}
+.pill .lb{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pill .vl{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill.t-ok .ic{background:var(--ok-soft)} .pill.t-fail .ic{background:var(--danger-soft)} .pill.t-wait .ic{background:var(--accent-soft)} .pill.t-run .ic{background:var(--info-soft)} .pill.t-none .ic{background:var(--surface)}
+.pill.t-ok .vl{color:var(--ok)} .pill.t-fail .vl{color:var(--danger)} .pill.t-wait .vl{color:var(--accent)} .pill.t-run .vl{color:var(--info)} .pill.t-none .vl{color:var(--muted)}
+.pill .lb{color:var(--muted)}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="background: var(--bg); color: var(--text); min-height: 100%; box-sizing: border-box;">
+
+  <header style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px 22px; border-bottom: 1px solid var(--border);">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 22l1.5-14h3L15 22"></path><path d="M8 8h8"></path><path d="M10 5h4v3h-4z"></path><path d="M4 4l4 2M20 4l-4 2"></path></svg>
+      <strong style="font-size: 17px;">Farol</strong>
+      <span style="font-size: 12px; color: var(--muted);">v2.79.0</span>
+      <span class="chip" style="background: var(--ok-soft); color: var(--ok);">● monitorando</span>
+    </div>
+    <nav style="display: flex; gap: 4px; margin: 0 auto; flex-wrap: wrap;" aria-label="Abas">
+      <a href="#" style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--accent); color: var(--text); font-weight: 700;">Radar</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Entregas</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Time</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Consumo</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Sistema</a>
+    </nav>
+    <button class="btn">Verificar agora</button>
+  </header>
+
+  <main style="max-width: 940px; margin: 0 auto; padding: 22px 16px 48px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-size: 13px; color: var(--muted);">Última checagem 15:21 · próxima em 1:39</div>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+      <div style="display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface);">
+        <button class="seg on">Pra mim <span class="chip" style="background: var(--accent-soft); color: var(--accent);">2</span></button>
+        <button class="seg">Meus PRs <span class="chip" style="background: var(--surface); color: var(--muted);">4</span></button>
+        <button class="seg">Panorama <span class="chip" style="background: var(--surface); color: var(--muted);">43</span></button>
+      </div>
+      <div style="display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);" role="group" aria-label="Densidade da lista">
+        <button class="dens {{densCompactaOn}}" onClick="{{irCompacta}}" aria-pressed="{{ehCompacta}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>Compacta</button>
+        <button class="dens {{densExpandidaOn}}" onClick="{{irExpandida}}" aria-pressed="{{ehExpandida}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="7" rx="2"></rect><rect x="4" y="14" width="16" height="6" rx="2"></rect></svg>Expandida</button>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 6px; flex-wrap: wrap;" aria-label="Resumo do que está acontecendo">
+      <sc-for list="{{resumo}}" as="r" hint-placeholder-count="5">
+        <a class="resumo" href="#{{r.ancora}}"><span class="est {{r.tom}}"><span class="pt"></span></span>{{r.texto}}</a>
+      </sc-for>
+    </div>
+
+    <sc-for list="{{secoes}}" as="s" hint-placeholder-count="4">
+      <section id="{{s.id}}" style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="sec-h">
+          <h2>{{s.titulo}}</h2>
+          <span class="chip" style="background: var(--surface-2); color: var(--muted);">{{s.qtd}}</span>
+          <sc-if value="{{s.temAcaoGeral}}" hint-placeholder-val="{{false}}"><button class="btn primary" style="margin-left: auto;">{{s.acaoGeral}}</button></sc-if>
+        </div>
+        <sc-if value="{{ehExpandidaBool}}" hint-placeholder-val="{{false}}"><p class="desc">{{s.desc}}</p></sc-if>
+
+        <sc-if value="{{s.mostrarItens}}" hint-placeholder-val="{{true}}">
+        <sc-for list="{{s.itens}}" as="it" hint-placeholder-count="2">
+          <sc-if value="{{it.compacto}}" hint-placeholder-val="{{true}}">
+          <div class="linha {{it.barra}}">
+            <span class="av" style="background: {{it.cor}};" title="{{it.autor}}">{{it.ini}}</span>
+            <div style="flex: 1 1 280px; min-width: 0; display: flex; align-items: baseline; gap: 10px;">
+              <a href="#" style="font-weight: 700; color: var(--ac); white-space: nowrap;">{{it.curta}}</a>
+              <span style="font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;" title="{{it.titulo}}">{{it.titulo}}</span>
+            </div>
+            <span class="est {{it.tom}}"><span class="pt"></span>{{it.estado}}</span>
+            <sc-if value="{{it.temBarra}}" hint-placeholder-val="{{false}}"><span class="barra" aria-hidden="true"><span style="width: {{it.pct}};"></span></span></sc-if>
+            <sc-if value="{{it.temPron}}" hint-placeholder-val="{{true}}">
+              <span class="trio" aria-label="Prontidão do PR">
+                <sc-for list="{{it.pron}}" as="p" hint-placeholder-count="3">
+                  <span class="mini {{p.tom}}" title="{{p.rotulo}}: {{p.valor}}">
+                    <span class="ic">
+                      <sc-if value="{{p.iOk}}" hint-placeholder-val="{{true}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+                      <sc-if value="{{p.iFail}}" hint-placeholder-val="{{false}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+                      <sc-if value="{{p.iWait}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></sc-if>
+                      <sc-if value="{{p.iRun}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8"></path></svg></sc-if>
+                    </span>{{p.curto}}</span>
+                </sc-for>
+              </span>
+            </sc-if>
+            <sc-for list="{{it.acoes}}" as="a" hint-placeholder-count="1"><button class="btn {{a.cls}}">{{a.rotulo}}</button></sc-for>
+            <button class="chev" onClick="{{it.abrir}}" aria-label="Expandir {{it.key}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+          </div>
+          </sc-if>
+          <sc-if value="{{it.cheio}}" hint-placeholder-val="{{false}}">
+          <article class="card {{it.barra}}">
+            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+              <span class="av" style="width: 34px; height: 34px; flex-basis: 34px; font-size: 12px; background: {{it.cor}};">{{it.ini}}</span>
+              <div style="flex: 1 1 380px; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <a href="#" style="font-weight: 700; color: var(--ac);">{{it.key}}</a>
+                  <span class="est {{it.tom}}"><span class="pt"></span>{{it.estado}}</span>
+                </div>
+                <div style="font-size: 14px; margin-top: 2px;">{{it.titulo}}</div>
+                <div class="br" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 3px;"><code>{{it.head}}</code><span style="color: var(--ac); font-weight: 700;">→</span><code>{{it.base}}</code></div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">por @{{it.autor}} · {{it.quando}}</div>
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                <sc-for list="{{it.acoesCheias}}" as="a" hint-placeholder-count="2"><button class="btn {{a.cls}}">{{a.rotulo}}</button></sc-for>
+                <sc-if value="{{it.podeRecolher}}" hint-placeholder-val="{{false}}">
+                  <button class="chev" onClick="{{it.recolher}}" aria-label="Recolher {{it.key}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+                </sc-if>
+              </div>
+            </div>
+            <sc-if value="{{it.temBarra}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12.5px; color: var(--muted);"><span class="barra" style="width: 220px;" aria-hidden="true"><span style="width: {{it.pct}};"></span></span>{{it.pct}} do tempo típico</div>
+            </sc-if>
+            <sc-if value="{{it.temPron}}" hint-placeholder-val="{{true}}">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-top: 12px;" aria-label="Prontidão do PR">
+                <sc-for list="{{it.pron}}" as="p" hint-placeholder-count="3">
+                  <div class="pill {{p.tom}}">
+                    <span class="ic {{p.tom}}">
+                      <sc-if value="{{p.iOk}}" hint-placeholder-val="{{true}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+                      <sc-if value="{{p.iFail}}" hint-placeholder-val="{{false}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+                      <sc-if value="{{p.iWait}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></sc-if>
+                      <sc-if value="{{p.iRun}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8"></path></svg></sc-if>
+                    </span>
+                    <span style="display: flex; flex-direction: column; min-width: 0;"><span class="lb">{{p.rotulo}}</span><span class="vl">{{p.valor}}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <ul class="det">
+              <sc-for list="{{it.linhas}}" as="l" hint-placeholder-count="2"><li>{{l}}</li></sc-for>
+            </ul>
+          </article>
+          </sc-if>
+        </sc-for>
+        </sc-if>
+
+        <sc-if value="{{s.temRodape}}" hint-placeholder-val="{{false}}"><button class="foot" onClick="{{s.alternarRodape}}" aria-expanded="{{s.rodapeAberto}}">{{s.rodape}}</button></sc-if>
+      </section>
+    </sc-for>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tema":{"editor":"enum","options":["escuro","claro"],"default":"escuro"},"densidade":{"editor":"enum","options":["compacta","expandida"],"default":"compacta"},"$preview":{"width":1280,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { densidade: null, expandidos: {}, recentesAbertas: false };
+  }
+  renderVals() {
+    const tema = this.props.tema ?? 'escuro';
+    const compacta = (this.state.densidade || (this.props.densidade ?? 'compacta')) === 'compacta';
+    const expandidos = this.state.expandidos || {};
+    const C = { t: '#4cc38a', g: '#ffb454', a: '#6ca8f2', m: '#e879f9', r: '#8b97ab' };
+    const secoesBase = [
+      {
+        id: 'agora', titulo: 'Analisando agora',
+        desc: 'Sessões rodando neste momento, com o que cada uma está fazendo. Dá pra cancelar no meio.',
+        itens: [
+          { key: 'biudtech/engine-ai#958', autor: 'Gabrielk5', ini: 'GR', cor: C.g, titulo: 'feat(mia): telemetria de anexo por tipo de arquivo (BT-3101)',
+            head: 'task-BT-3101-telemetria-anexo', base: 'development', quando: 'começou há 6min',
+            tom: 't-run', barra: 'b-run', estado: 'Lendo arquivos · lote 2 de 3', pct: '62%',
+            acoes: [{ rotulo: 'Cancelar', cls: 'ghost' }], acoesCheias: [{ rotulo: 'Cancelar', cls: 'ghost' }],
+            linhas: ['Opus 5, raciocínio padrão, 3 lotes por afinidade de caminho', 'Lote 1 concluído: 14 arquivos, 2 pontos anotados'] }
+        ]
+      },
+      {
+        id: 'voce', titulo: 'Precisa de você',
+        desc: 'O Farol revisou, mas o protocolo pediu o seu olhar antes de postar qualquer coisa no GitHub.',
+        itens: [
+          { key: 'biudtech/biud-frontend#1090', autor: 'thiagocarvalho-dev', ini: 'TP', cor: C.t, titulo: 'fix(campanhas): filtro por UF some ao trocar de página (BT-3077)',
+            head: 'task-BT-3077-filtro-uf', base: 'develop', quando: 'revisado há 22min',
+            tom: 't-wait', barra: 'b-wait', estado: 'Aprovar com 2 ressalvas',
+            acoes: [{ rotulo: 'Aprovar', cls: 'ok' }], acoesCheias: [{ rotulo: 'Aprovar', cls: 'ok' }, { rotulo: 'Pedir mudanças', cls: 'danger' }, { rotulo: 'Comentar', cls: '' }, { rotulo: 'Pular', cls: 'ghost' }],
+            linhas: ['Ressalva: o teste novo cobre só a página 2, não a volta para a 1', 'Ressalva: discorda do acrity/review sobre o uso do useMemo'] },
+          { key: 'biudtech/tenant-company#97', autor: 'Gabrielk5', ini: 'GR', cor: C.g, titulo: 'refactor(empresa): extrai validação de CNPJ para o domínio',
+            head: 'task-BT-3060-cnpj-dominio', base: 'main', quando: 'revisado há 1h',
+            tom: 't-fail', barra: 'b-fail', estado: 'Pedir mudanças · 1 bloqueio',
+            acoes: [{ rotulo: 'Pedir mudanças', cls: 'danger' }], acoesCheias: [{ rotulo: 'Pedir mudanças', cls: 'danger' }, { rotulo: 'Aprovar', cls: 'ok' }, { rotulo: 'Comentar', cls: '' }, { rotulo: 'Pular', cls: 'ghost' }],
+            linhas: ['Bloqueio: CNPJ inativo passa a ser aceito, contra a política vigente', 'Card BT-3060 comprovado nos outros 3 critérios'] }
+        ]
+      },
+      {
+        id: 'auto', titulo: 'Resolução automática',
+        desc: 'O Farol aguarda os checks obrigatórios ou recupera a análise sozinho. Nada a fazer aqui.',
+        itens: [
+          { key: 'biudtech/biud-campaign#412', autor: 'thiagocarvalho-dev', ini: 'TP', cor: C.t, titulo: 'chore(deps): sobe o vite para corrigir advisory',
+            head: 'task-BT-3092-vite', base: 'develop', quando: 'aprovável desde 15:02',
+            tom: 't-run', barra: 'b-run', estado: 'Esperando e2e · posta sozinho',
+            acoes: [], acoesCheias: [{ rotulo: 'Ver revisão', cls: 'ghost' }],
+            linhas: ['Revisão aprovável e limpa no head 5c1e0a2', 'Sai como APPROVE quando os obrigatórios fecharem verdes no mesmo head'] }
+        ]
+      },
+      {
+        id: 'fila', titulo: 'Sua fila', acaoGeral: 'Revisar tudo',
+        desc: 'PRs em que pediram a sua revisão e que ainda esperam uma decisão.',
+        itens: [
+          { key: 'biudtech/engine-ai#962', autor: 'Gabrielk5', ini: 'GR', cor: C.g, titulo: 'fix(mia): retomada da conversa depois do login',
+            head: 'task-BT-3053-retomada', base: 'development', quando: 'pedido há 8min',
+            tom: 't-none', barra: '', estado: '1º na fila',
+            acoes: [{ rotulo: 'Revisar', cls: 'primary' }], acoesCheias: [{ rotulo: 'Revisar', cls: 'primary' }, { rotulo: 'Abrir terminal', cls: '' }, { rotulo: 'Ignorar', cls: 'ghost' }],
+            linhas: ['Revisa sozinho quando a vaga abrir (1 sessão por conta)', '+184 −32 em 9 arquivos'] },
+          { key: 'biudtech/internal-auth#151', autor: 'thiagocarvalho-dev', ini: 'TP', cor: C.t, titulo: 'feat(gateway): rotação da credencial de serviço sem downtime',
+            head: 'task-BT-3070-rotacao', base: 'main', quando: 'pedido há 40min',
+            tom: 't-wait', barra: '', estado: 'Checks obrigatórios rodando',
+            acoes: [{ rotulo: 'Revisar', cls: 'primary' }], acoesCheias: [{ rotulo: 'Revisar', cls: 'primary' }, { rotulo: 'Abrir terminal', cls: '' }, { rotulo: 'Ignorar', cls: 'ghost' }],
+            linhas: ['A revisão automática espera os obrigatórios ficarem verdes', '+402 −118 em 14 arquivos'] }
+        ]
+      },
+      {
+        id: 'recentes', titulo: 'Revisões recentes', recentes: true,
+        desc: 'O que o Farol já resolveu, com o veredito e os pontos de atenção que ficaram só aqui.',
+        itens: [
+          { key: 'biudtech/engine-ai#955', autor: 'Gabrielk5', ini: 'GR', cor: C.g, titulo: 'fix(mia): artigo definido no plano de criação',
+            head: 'task-BT-3090-artigo', base: 'development', quando: 'há 1h',
+            tom: 't-ok', barra: '', estado: 'Aprovado sozinho', acoes: [], acoesCheias: [{ rotulo: 'Ver revisão', cls: 'ghost' }],
+            linhas: ['Limpo, sem ressalvas'] },
+          { key: 'biudtech/biud-frontend#1088', autor: 'thiagocarvalho-dev', ini: 'TP', cor: C.t, titulo: 'feat(selo): guia do selo em hmg',
+            head: 'task-BT-3044-selo', base: 'develop', quando: 'há 3h',
+            tom: 't-ok', barra: '', estado: 'Aprovado por você', acoes: [], acoesCheias: [{ rotulo: 'Ver revisão', cls: 'ghost' }],
+            linhas: ['1 ressalva aceita: cópia do botão'] }
+        ]
+      }
+    ];
+    // prontidão de cada PR: [checks, reviewers, merge] = [tom, curto, valor]
+    const PRON = {
+      'biudtech/engine-ai#958': [['ok', '5/5', '5 de 5 verdes'], ['wait', '0/2', 'Você e Thiago, ninguém aprovou'], ['wait', 'Falta 2', 'Bloqueado · faltam 2 aprovações']],
+      'biudtech/biud-frontend#1090': [['ok', '7/7', '7 de 7 verdes'], ['wait', '1/2', 'Gabriel aprovou, falta você'], ['wait', 'Falta a sua', 'Bloqueado · falta a sua aprovação']],
+      'biudtech/tenant-company#97': [['fail', 'lint', '1 falhando · lint'], ['wait', '0/1', 'Só você marcado'], ['fail', 'Bloqueado', 'Bloqueado · check falhando']],
+      'biudtech/biud-campaign#412': [['run', '3/4', '3 de 4 · 1 rodando'], ['wait', '1/2', 'Gabriel aprovou, falta você'], ['run', 'Esperando', 'Esperando os checks']],
+      'biudtech/engine-ai#962': [['ok', '5/5', '5 de 5 verdes'], ['wait', '0/2', 'Você e Thiago, ninguém aprovou'], ['wait', 'Falta 2', 'Bloqueado · faltam 2 aprovações']],
+      'biudtech/internal-auth#151': [['run', '2/4', '2 de 4 · 2 rodando'], ['wait', '0/2', 'Você e Gabriel, ninguém aprovou'], ['run', 'Esperando', 'Esperando os checks']]
+    };
+    const ROT = ['Checks obrigatórios', 'Reviewers', 'Merge'];
+    const pronDe = (key) => (PRON[key] || []).map(([tom, curto, valor], i) => ({
+      rotulo: ROT[i], tom: 't-' + tom, curto, valor,
+      iOk: tom === 'ok', iFail: tom === 'fail', iWait: tom === 'wait', iRun: tom === 'run'
+    }));
+    const recentesAbertas = !!this.state.recentesAbertas;
+    const secoes = secoesBase.map((s) => {
+      const ocultarItens = s.recentes && compacta && !recentesAbertas;
+      return {
+        ...s,
+        qtd: String(s.itens.length),
+        temAcaoGeral: !!s.acaoGeral,
+        mostrarItens: !ocultarItens,
+        temRodape: !!s.recentes && compacta,
+        rodape: recentesAbertas ? 'Esconder revisões recentes' : s.itens.length + ' resolvidas hoje · mostrar',
+        rodapeAberto: recentesAbertas ? 'true' : 'false',
+        alternarRodape: () => this.setState({ recentesAbertas: !recentesAbertas }),
+        itens: s.itens.map((it) => {
+          const cheio = !compacta || !!expandidos[it.key];
+          return {
+            ...it,
+            curta: it.key.replace(/^[^/]+\//, ''),
+            compacto: !cheio, cheio, podeRecolher: compacta && cheio,
+            temBarra: !!it.pct,
+            pron: pronDe(it.key), temPron: pronDe(it.key).length > 0,
+            abrir: () => this.setState({ expandidos: { ...expandidos, [it.key]: true } }),
+            recolher: () => this.setState({ expandidos: { ...expandidos, [it.key]: false } })
+          };
+        })
+      };
+    });
+    const resumo = [
+      { texto: '1 analisando', tom: 't-run', ancora: 'agora' },
+      { texto: '2 precisam de você', tom: 't-wait', ancora: 'voce' },
+      { texto: '1 se resolve sozinho', tom: 't-run', ancora: 'auto' },
+      { texto: '2 na fila', tom: 't-none', ancora: 'fila' },
+      { texto: '2 resolvidas hoje', tom: 't-ok', ancora: 'recentes' }
+    ];
+    return {
+      themeClass: tema === 'claro' ? 'th-light' : 'th-dark',
+      secoes, resumo,
+      ehCompacta: compacta ? 'true' : 'false', ehExpandida: compacta ? 'false' : 'true', ehExpandidaBool: !compacta,
+      densCompactaOn: compacta ? 'on' : '', densExpandidaOn: compacta ? '' : 'on',
+      irCompacta: () => this.setState({ densidade: 'compacta', expandidos: {}, recentesAbertas: false }),
+      irExpandida: () => this.setState({ densidade: 'expandida', expandidos: {} })
+    };
+  }
+}
+</script>
+</body>
+</html>
