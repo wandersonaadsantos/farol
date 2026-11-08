@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.2
+
+Mais três casos em que a conta configurada para decidir sozinha parava na mesa com "a decisão é sua" passam a seguir a política da conta.
+
+### Correções
+
+- **Pedido de mudanças só pelo CI, com a espera do CI desligada.** Com "CI obrigatório antes da aprovação" desligado, o estado do CI está fora da decisão, então um pedido de mudanças que só o CI sustentava não tem o que sustentar. Agora ele vira aprovação com ressalva, e a política da conta decide. Com a chave ligada, nada muda: a espera do CI decide.
+- **Conflito que o GitHub desmente.** Quando a revisão pede mudanças só por um conflito com a base e o GitHub diz que o PR é mesclável, o pedido vira aprovação com ressalva, e a política da conta decide. Se o GitHub não responder, ou responder "desconhecido", o Farol continua esperando o conflito como antes.
+- **Análise que não fecha depois de seis rodadas no mesmo commit.** A rodada que chega ao teto passa a decidir pela política, com "a análise não fechou" como ressalva, em vez de ir para a mesa. Violação confirmada, achado não resolvido, a parte do card deste PR não entregue e commit não confirmado continuam nunca saindo como aprovação. Se a conta espera você nas ressalvas, o PR vai para você e as próximas rodadas não rearmam a recuperação.
+- Nos dois primeiros casos, quando a revisão não escreveu texto de aprovação, o Farol posta um curto e neutro, dizendo que não encontrou defeito no código que segure a aprovação.
+
+### Melhorias
+
+- **Revisões de todos os aparelhos.** A pílula do veredito fala no passado ("revisão aprovou", "revisão pediu mudanças"), porque a lista é histórico: "aprovar" parecia uma ação pendente ou uma aprovação já postada. E a linha de uma revisão feita neste aparelho mostra o nome que você deu a ele em Sistema, em vez de "este".
+
 ## v2.79.1
 
 A conta configurada para aprovar sozinha volta a aprovar sozinha quando o PR traz arquivo de ambiente ou caminho protegido que a revisão não leu.

@@ -14,11 +14,13 @@ import { prRefMention } from './mencoes.js';
 import { prIdentificadoHtml } from './pr-compartilhado.js';
 import { payloadsDaRevisaoHtml } from './compartilhado-decisao.js';
 
+// O que a revisão concluiu, no passado: a lista é histórico, e o desfecho (postado, esperando
+// decisão) vem ao lado. "aprovar" no infinitivo parecia ação pendente ou aprovação já feita.
 const VEREDITO_CHIP = {
-  approve: { classe: 'ok', rotulo: 'aprovar' },
-  request_changes: { classe: 'bad', rotulo: 'mudanças' },
-  comment: { classe: 'info', rotulo: 'comentário' },
-  skip: { classe: 'mute', rotulo: 'pulado' },
+  approve: { classe: 'ok', rotulo: 'revisão aprovou' },
+  request_changes: { classe: 'bad', rotulo: 'revisão pediu mudanças' },
+  comment: { classe: 'info', rotulo: 'revisão comentou' },
+  skip: { classe: 'mute', rotulo: 'revisão pulada' },
 };
 
 const STATUS = {
@@ -32,9 +34,12 @@ function chipDoVeredito(v) {
   return m ? `<span class="sync-chip ${m.classe}">${esc(m.rotulo)}</span>` : '<span class="sync-chip mute">sem veredito</span>';
 }
 
+// O aparelho pelo nome que cada pessoa deu a ele (Sistema, "Nome deste aparelho"); este aparelho
+// leva o destaque e só cai em "este aparelho" quando o nome ainda não chegou.
 function origemChip(item, deviceIdLocal) {
-  if (item.dev && item.dev === deviceIdLocal) return '<span class="sync-chip info">este</span>';
-  return `<span class="sync-chip mute">${esc(item.aparelho || 'outro aparelho')}</span>`;
+  const nome = String(item.aparelho || '').trim();
+  if (item.dev && item.dev === deviceIdLocal) return `<span class="sync-chip info" title="este aparelho">${esc(nome || 'este aparelho')}</span>`;
+  return `<span class="sync-chip mute">${esc(nome || 'outro aparelho')}</span>`;
 }
 
 // REPETIR é o comando C6 sobre a revisão que já aconteceu: o admin pede ao aparelho DONO

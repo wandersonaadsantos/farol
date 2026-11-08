@@ -172,6 +172,9 @@ test('sem texto de aprovação nada é rebaixado: a decisão fica como estava', 
 
 test('causa de estado do PR declarada herdada não é rebaixada nem vira aprovar', async () => {
   const e = comSessao(motor(), { achados: [{ ...HERDADO, causa: 'ci' }] });
+  // com o CI fora da decisão, o pedido só pelo CI aprova por outra regra (estado-desmentido.js);
+  // aqui a pergunta é só se a herança rebaixa causa de estado, então o CI decide
+  e.config.aguardarCiParaAprovar = true;
   await e.runOneHeadless(PR(21), 'eu');
   assert.notEqual(decisao(e, 21).verdict, 'approve');
 });
