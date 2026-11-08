@@ -725,16 +725,18 @@ test('bloqueio só de conflito vai à espera do conflito, sem postar', async () 
 // O conflito declarado pelo modelo é conferido no GitHub antes de virar espera (onda final,
 // 05/11/2026): o modelo pode ter lido um conflito que não existe, e a espera do conflito só
 // acaba com commit novo.
-test('conflito declarado com o GitHub dizendo MERGEABLE vai à mesa, sem marca de conflito', async () => {
+// 08/11/2026 (ordem do dono, estado-desmentido.js): o conflito que o GitHub desmente não sustenta o
+// pedido; sem defeito do código, a aprovação sai pela política da conta, com ressalva.
+test('conflito declarado com o GitHub dizendo MERGEABLE aprova pela política, sem marca de conflito', async () => {
   gh.mergeable = 'MERGEABLE';
   const e = motor();
   await revisar(e, 84, { extra: reprovando(['conflito']) });
-  assert.deepEqual(envios, []);
-  const d = pendente(e, 84);
-  assert.notEqual(d.blockedKind, 'conflito');
+  assert.equal(envios.length, 1);
+  assert.equal(envios[0].event, 'APPROVE');
+  assert.equal(envios[0].body, 'Leitura completa, sem bloqueios.', 'o texto de aprovação que a revisão escreveu é o que sai');
+  assert.equal(pendente(e, 84), undefined);
   assert.equal((e.esperaConflito || {})['acme/app#84'], undefined);
-  assert.ok(textos(d).includes('o relatório fala em conflito, mas o GitHub diz que o PR é mesclável: a decisão é sua'), textos(d).join(' | '));
-  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#84']]);
+  semMesa(e);
 });
 
 for (const mergeable of ['CONFLICTING', 'UNKNOWN']) {
@@ -872,26 +874,26 @@ test('desligada: CI rodando não arma espera; a aprovação sai na hora', async 
   assert.equal(e.toasts.some((t) => /esperando o CI/.test(t)), false);
 });
 
-test('desligada: pedido de mudanças sustentado só pelo CI vermelho não sai sozinho, e o card diz por quê', async () => {
+// 08/11/2026 (ordem do dono, estado-desmentido.js): com o CI fora da decisão, o pedido que só o CI
+// sustentava não tem o que sustentar; a aprovação sai pela política da conta, com ressalva.
+test('desligada: pedido de mudanças sustentado só pelo CI vermelho aprova pela política, nunca o pedido', async () => {
   const e = motor({ ciObrigatorio: false });
   e.bloqueadoPorChecks = async () => ({ verifiedHead: HEAD, faltando: [{ nome: 'audit', estado: 'vermelho' }] });
   const body = `Não encontrei nada bloqueante no código. Os checks obrigatórios estão falhando no commit ${HEAD.slice(0, 7)}.`;
   await revisar(e, 92, { extra: { verdict: 'request_changes', findings: [], payloads: { request_changes: { event: 'REQUEST_CHANGES', body } } } });
-  assert.deepEqual(envios, []);
-  const d = pendente(e, 92);
-  assert.equal(d.esperaCi, undefined, 'sem espera do CI');
-  assert.match(textos(d).join(' | '), /CI está fora da decisão/);
+  assert.deepEqual(envios.map((x) => x.event), ['APPROVE']);
+  assert.match(envios[0].body, /CI obrigatório fica fora desta aprovação/);
+  assert.equal(pendente(e, 92), undefined);
+  semMesa(e);
 });
 
-test('desligada: bloqueio declarado só de ci não arma a espera do CI e não publica nada', async () => {
+test('desligada: bloqueio declarado só de ci não arma a espera do CI e aprova pela política', async () => {
   const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }], ciObrigatorio: false });
   await revisar(e, 93, { extra: reprovando(['ci']) });
-  assert.deepEqual(envios, []);
-  const d = pendente(e, 93);
-  assert.equal(d.esperaCi, undefined);
-  assert.match(textos(d).join(' | '), /CI está fora da decisão/);
+  assert.deepEqual(envios.map((x) => x.event), ['APPROVE']);
+  assert.equal(pendente(e, 93), undefined, 'sem espera do CI e sem mesa');
   assert.equal(await e.varrerEsperas(), 0);
-  assert.deepEqual(envios, []);
+  assert.equal(envios.length, 1, 'nada sai de novo');
 });
 
 test('desligada depois de armada: a espera de um pedido só pelo CI vai para você, sem laço', async () => {

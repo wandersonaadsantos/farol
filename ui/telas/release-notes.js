@@ -18,6 +18,11 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.2', [
+    'Pedido de mudanças só pelo CI, com a espera do CI desligada, e conflito que o GitHub desmente viram aprovação com ressalva pela política da conta, em vez de ir para você',
+    'A análise que não fecha depois de seis rodadas no mesmo commit vira ressalva e a política da conta decide; violação, achado e commit não confirmado continuam nunca aprovando',
+    'Em Revisões de todos os aparelhos, o veredito fala no passado ("revisão aprovou") e este aparelho aparece pelo nome que você deu a ele',
+  ]],
   ['2.79.1', [
     'Arquivo .env com valor que pode ser credencial, ou arquivo protegido que a revisão não leu, vira ressalva no card em vez de mandar o PR para você: a conta que aprova sozinha aprova sozinha com ressalvas',
   ]],
