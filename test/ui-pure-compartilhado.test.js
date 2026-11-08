@@ -303,10 +303,14 @@ test('revisoesCompartilhadasHtml: carregando, falha e vazio são três frases di
   assert.doesNotMatch(falha, /Nenhuma revisão/, 'falha não se disfarça de vazio');
 });
 
-test('revisoesCompartilhadasHtml: origem por aparelho, este marcado, e o escopo ativo', () => {
-  const html = P.revisoesCompartilhadasHtml({ estado: 'lista', revisoes: [REV, { ...REV, reviewId: 'r2', dev: 'dEu' }], deviceIdLocal: 'dEu', escopo: 'este', agora: AGORA });
+test('revisoesCompartilhadasHtml: origem pelo nome do aparelho, este destacado, e o escopo ativo', () => {
+  const html = P.revisoesCompartilhadasHtml({ estado: 'lista', revisoes: [REV, { ...REV, reviewId: 'r2', dev: 'dEu', aparelho: 'Notebook' }], deviceIdLocal: 'dEu', escopo: 'este', agora: AGORA });
   assert.match(html, /sync-chip mute">Desktop antigo</);
-  assert.match(html, /sync-chip info">este</);
+  assert.match(html, /sync-chip info" title="este aparelho">Notebook</, 'este aparelho aparece pelo nome configurado');
+  assert.doesNotMatch(html, />este</);
+  assert.match(html, /sync-chip ok">revisão aprovou</, 'o veredito fala no passado: é histórico');
+  const semNome = P.revisoesCompartilhadasHtml({ estado: 'lista', revisoes: [{ ...REV, dev: 'dEu', aparelho: '' }], deviceIdLocal: 'dEu', agora: AGORA });
+  assert.match(semNome, /title="este aparelho">este aparelho</, 'sem nome ainda, o rótulo diz o que é');
   assert.match(html, /aprovado sozinho/);
   assert.match(html, /md-ver-revisao" data-review="r1"/);
   assert.match(html, /md-escopo active" data-escopo="este" aria-pressed="true"/);
