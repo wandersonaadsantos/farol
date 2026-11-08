@@ -18,6 +18,9 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.3', [
+    'Instalação hospedada, com pasta própria e atualização administrada por fora, voltou a postar: a revisão decidia, a postagem era recusada como se fosse instância de teste e o PR parava em Precisa de você; o que ficou preso sai sozinho, conferindo o commit',
+  ]],
   ['2.79.2', [
     'Pedido de mudanças só pelo CI, com a espera do CI desligada, e conflito que o GitHub desmente viram aprovação com ressalva pela política da conta, em vez de ir para você',
     'A análise que não fecha depois de seis rodadas no mesmo commit vira ressalva e a política da conta decide; violação, achado e commit não confirmado continuam nunca aprovando',

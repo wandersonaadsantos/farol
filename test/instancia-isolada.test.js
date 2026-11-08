@@ -13,6 +13,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 const { recusaDeIsolada } = await import('../lib/engine/instancia-isolada.js');
+const { rearmarPostagensRecusadas } = await import('../lib/engine/postagem-recusada.js');
 
 const RAIZ = path.join(import.meta.dirname, '..');
 // URL file:// para os imports dos processos filhos: no Windows o ESM recusa caminho absoluto cru
@@ -135,6 +136,71 @@ test('FAROL_HOME igual ao ~/.farol (com barra final) não é isolada', () => {
   const home = `${os.homedir()}/.farol/`;
   const saida = execFileSync(process.execPath, ['--input-type=module', '-e', script], { env: envLimpo({ FAROL_HOME: home }), encoding: 'utf8' });
   assert.equal(saida.trim(), 'false');
+});
+
+// 08/11/2026: a Hostinger usa pasta própria e atualização administrada por fora; a trava recusava
+// toda postagem dela (18 das 30 últimas revisões) e o PR caía na mesa com a conta decidindo sozinha.
+test('FAROL_HOME próprio com atualização administrada por fora é hospedagem, não instância isolada', () => {
+  const script = `const p = await import('${RAIZ_URL}/lib/paths.js'); console.log(String(p.instanciaIsolada));`;
+  const rodar = (extra) => execFileSync(process.execPath, ['--input-type=module', '-e', script], { env: envLimpo({ FAROL_HOME: path.join(BASE, 'hospedada'), ...extra }), encoding: 'utf8' }).trim();
+  assert.equal(rodar({ FAROL_UPDATE_MANAGER: 'external' }), 'false');
+  assert.equal(rodar({ FAROL_UPDATE_MANAGER: '' }), 'true', 'sem o sinal, continua sendo instância de teste');
+  assert.equal(rodar({ FAROL_UPDATE_MANAGER: 'outra-coisa' }), 'true');
+});
+
+const HEAD_REV = 'a'.repeat(40);
+const recusada = (evento) => ({ text: `falha ao postar o ${evento}: instância isolada (FAROL_HOME fora de ~/.farol) não posta review no GitHub; para permitir, grave "instanciaIsoladaPosta": true no config.json`, kind: 'infra' });
+const pendente = (evento, extra = {}) => ({ id: `d-${evento}`, key: 'o/r#1', headSha: HEAD_REV, pr: { url: 'u' }, verdict: 'approve', reasons: [recusada(evento)],
+  payloads: { approve: { event: 'APPROVE', body: 'a' }, request_changes: { event: 'REQUEST_CHANGES', body: 'r' }, comment: { event: 'COMMENT', body: 'c' } }, ...extra });
+function comPendentes(pending, { config = {}, aprova = 'approve', reprova = 'request_changes', hist = { head: HEAD_REV, decidido: false } } = {}) {
+  const e = { config, decisions: { pending }, gravou: 0, historico: [], eventos: [],
+    saveDecisions() { this.gravou += 1; }, accountForPr: () => 'eu', approvePolicyFor: () => aprova, rejectPolicyFor: () => reprova,
+    bloqueadoPorHistorico: async () => hist, resolveIntoHistory(x) { this.historico.push(x); }, emit() { } };
+  return e;
+}
+test('a postagem recusada volta ao reenvio pelo evento que foi recusado, não pelo veredito', async () => {
+  const e = comPendentes([pendente('REQUEST_CHANGES'), pendente('APPROVE'), pendente('COMMENT')]);
+  assert.equal(await rearmarPostagensRecusadas(e, { isolada: false }), 3);
+  assert.deepEqual(e.decisions.pending.map((d) => d.postRetry.event), ['request_changes', 'approve', 'comment']);
+  assert.equal(e.gravou, 1);
+  assert.equal(await rearmarPostagensRecusadas(e, { isolada: false }), 0, 'não rearma o que já está no reenvio');
+});
+test('a trava ativa não rearma, e o opt-in por arquivo libera', async () => {
+  const presa = comPendentes([pendente('APPROVE')]);
+  assert.equal(await rearmarPostagensRecusadas(presa, { isolada: true }), 0);
+  assert.equal(presa.decisions.pending[0].postRetry, undefined);
+  assert.equal(await rearmarPostagensRecusadas(comPendentes([pendente('APPROVE')], { config: { instanciaIsoladaPosta: true } }), { isolada: true }), 1);
+});
+test('não rearma recusa de outro motivo, sem payload, em espera ou com bloqueio próprio', async () => {
+  const e = comPendentes([
+    pendente('APPROVE', { reasons: [{ text: 'a política manda aguardar', kind: 'gate' }] }),
+    pendente('APPROVE', { reasons: [{ ...recusada('APPROVE'), kind: 'content' }] }),
+    pendente('APPROVE', { payloads: {} }),
+    pendente('APPROVE', { blockedReason: 'credencial no texto' }),
+    pendente('APPROVE', { esperaProva: { tentativas: 1 } }),
+    pendente('APPROVE', { esperaCi: { checks: [] } }),
+  ]);
+  assert.equal(await rearmarPostagensRecusadas(e, { isolada: false }), 0);
+  assert.equal(e.decisions.pending.every((d) => !d.postRetry), true);
+});
+test('a conta que passou a esperar você segura o que ficou preso', async () => {
+  assert.equal(await rearmarPostagensRecusadas(comPendentes([pendente('APPROVE')], { aprova: 'wait' }), { isolada: false }), 0);
+  assert.equal(await rearmarPostagensRecusadas(comPendentes([pendente('REQUEST_CHANGES')], { reprova: 'wait' }), { isolada: false }), 0);
+});
+test('sem confirmar o commit, o próximo ciclo decide', async () => {
+  for (const hist of [null, { head: 'b'.repeat(40), decidido: false }]) {
+    const e = comPendentes([pendente('APPROVE')], { hist });
+    assert.equal(await rearmarPostagensRecusadas(e, { isolada: false }), 0);
+    assert.equal(e.decisions.pending.length, 1);
+  }
+});
+test('gente decidiu o mesmo commit: dispensa sem postar e sai da mesa', async () => {
+  const e = comPendentes([pendente('APPROVE')], { hist: { head: HEAD_REV, decidido: true, quem: ['ana'] } });
+  assert.equal(await rearmarPostagensRecusadas(e, { isolada: false }), 0);
+  assert.equal(e.decisions.pending.length, 0);
+  assert.equal(e.historico[0].status, 'approval_not_needed');
+  assert.match(e.historico[0].reasons[0].text, /@ana/);
+  assert.equal(e.historico[0].reasons.some((r) => r.kind === 'infra'), false);
 });
 
 function portaLivre() {
