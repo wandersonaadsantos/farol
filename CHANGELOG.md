@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.4
+
+A revisão diz o que está fazendo desde o primeiro segundo, e expandir e recolher ficam no mesmo lugar.
+
+### Melhorias
+
+- **O preparo da revisão deixou de ser silencioso.** Antes da primeira linha do andamento, o Farol buscava o código do PR, numa fila de um por vez, e preparava a avaliação técnica sem dizer nada: um PR de 2 arquivos podia passar minutos em "preparo" com a tela parada. Agora cada passo aparece na hora, com quantos preparos estão na frente na fila e quanto cada passo levou.
+- **Expandir e recolher no mesmo lugar.** Em Pra mim, Meus PRs, Panorama e Analisando agora, a seta que abre o card fica exatamente onde estava para fechá-lo, sem precisar procurar outra região da tela.
+
 ## v2.79.3
 
 O Farol hospedado volta a postar as revisões que decide sozinho.
