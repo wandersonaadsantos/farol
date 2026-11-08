@@ -213,6 +213,7 @@ export function queueCardHtml(pr, ctx) {
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
         <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${papel}</div>
         ${parked}${pessoas}${limite}${coord}${manual}${conflito}
+        ${ctx.pronCorpo || ''}
       </div>
       <div class="pr-actions">
         ${acaoRevisar}
@@ -220,6 +221,7 @@ export function queueCardHtml(pr, ctx) {
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
         </button>
         <button class="btn icon sm ghost act-more" data-key="${esc(pr.key)}" title="Mais ações" aria-label="Mais ações" aria-expanded="false">···</button>
+        ${ctx.pronLado || ''}
       </div>
       <!-- O menu abre DENTRO do card, empurrando o conteúdo, em vez de flutuar por cima:
            num card já estreito, dropdown flutuante sai da tela ou cobre o card vizinho.
@@ -336,14 +338,17 @@ export function panoramaRowHtml(pr, ctx) {
           <span class="pw-title-txt" title="${esc(pr.title)}">${esc(pr.title)}</span>
           ${sepTitulo}${personMention(pr.author, 'xs')}
         </div>
+        ${ctx.pronCorpo || ''}
       </div>
       <div class="pw-side">
+        ${ctx.pronPontos || ''}
         <span class="pw-when">${fmtRel(pr.updatedAt)}</span>
         <div class="pw-acts">
           <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${chatBadge(pr.key, ctx.chats)}</button>
           ${tail}
           <button class="btn icon sm ghost rr-copy" data-url="${esc(pr.url)}" data-key="${esc(pr.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
           <a class="btn icon sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
+          ${ctx.pronLado || ''}
         </div>
       </div>
     </div>`;

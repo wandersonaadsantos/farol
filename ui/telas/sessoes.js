@@ -14,6 +14,8 @@ import { filaSemRevisoesAtivas } from '../pure/fila.js';
 import { atualizarCancelamento } from './sessao-cancelar.js';
 import { registrarAtividadeVisual, fluxoDaAtividade } from './atividade-visual.js';
 import { telaVisivel } from './pintura.js';
+import { cardCheio } from './densidade.js';
+import { prontidaoDaSessaoHtml } from './prontidao.js';
 const feedsPintados = new WeakMap();
 const atividadeNova = new Set();
 
@@ -260,6 +262,17 @@ function sair(id) {
   const reduzido = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   setTimeout(() => { esquecer(id); renderActive(); }, reduzido ? 0 : SAIDA_MS);
 }
+// A prontidão do PR da sessão (07/11/2026): o trio curto na Compacta, a faixa no cartão aberto
+// ou na Expandida. Só este pedaço é trocado, e só quando muda, porque o cartão é incremental.
+function atualizarProntidaoDaSessao(box, s) {
+  const el = box.querySelector(`.sess-pron[data-id="${CSS.escape(s.id)}"]`);
+  if (!el) return;
+  const key = el.dataset.key || '';
+  const html = prontidaoDaSessaoHtml(key);
+  if (el.dataset.pintado !== html) { el.innerHTML = html; el.dataset.pintado = html; }
+  const card = el.closest('.session-card');
+  if (card) card.classList.toggle('aberta', !!key && cardCheio(key));
+}
 function renderActive() {
   const vivas = (estado().activeSessions || []).filter(s => (s.mode === 'auto' || s.mode === 'self') && sessionVisible(s));
   const box = $('#activeSessions');
@@ -303,6 +316,7 @@ function renderActive() {
     // subagentes da sessão (fan-out de leitura/verificação): 👥 vivos/total, com a
     // lista de quem faz o quê no title. Some quando a sessão não fatiou nada.
     updateSessionAgents(box.querySelector(`.session-agents[data-id="${CSS.escape(s.id)}"]`), s);
+    atualizarProntidaoDaSessao(box, s);
   }
   tickElapsed();
   const ids = new Set(vivas.map(s => s.id));

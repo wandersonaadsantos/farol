@@ -15,6 +15,9 @@ import { instalarDom } from './helpers/dom-stub.js';
 import { controlarQuadros } from './helpers/quadros-ui.js';
 
 const { emitir: receber } = instalarDom();
+// estas travas leem o CARD cheio da fila e das decisões, que é a densidade Expandida; a
+// Compacta (padrão desde 07/11/2026) tem a trava própria em test/ui-densidade.test.js
+globalThis.localStorage.setItem('farol-densidade', 'expandida');
 const quadros = controlarQuadros();
 function emitir(...args) { const n = receber(...args); quadros.pintar(); return n; }
 

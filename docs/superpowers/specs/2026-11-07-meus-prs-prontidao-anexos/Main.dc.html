@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Farol · Meus PRs com prontidão</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#6ca8f2;text-decoration:none}a:hover{text-decoration:underline}
+.th-dark{--bg:#0b0e14;--surface:#121722;--surface-2:#1a2130;--border:#232c3d;--border-soft:rgba(35,44,61,.6);--text:#e7ecf5;--muted:#8b97ab;--faint:#6b778c;--accent:#ffb454;--accent-soft:rgba(255,180,84,.14);--accent-ink:#201302;--ok:#4cc38a;--ok-soft:rgba(76,195,138,.14);--danger:#f2707a;--danger-soft:rgba(242,112,122,.12);--info:#6ca8f2;--info-soft:rgba(108,168,242,.12);--ac:#e879f9;--ac2:#6ca8f2}
+.th-light{--bg:#f4f6f9;--surface:#ffffff;--surface-2:#eef1f6;--border:#dfe5ee;--border-soft:rgba(223,229,238,.7);--text:#1c2536;--muted:#5e6c82;--faint:#6f7d93;--accent:#b86e00;--accent-soft:rgba(224,135,0,.12);--accent-ink:#ffffff;--ok:#1a8a56;--ok-soft:rgba(31,157,99,.12);--danger:#c73a45;--danger-soft:rgba(214,69,80,.1);--info:#2f6fd6;--info-soft:rgba(47,111,214,.1);--ac:#b62fc9;--ac2:#2f6fd6}
+.root{font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:"Cascadia Code",Consolas,"SF Mono",Menlo,monospace}
+.btn{font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:5px 11px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent}
+.btn.ok{background:var(--ok-soft);border-color:transparent;color:var(--ok);font-weight:700}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.pill{font:inherit;display:flex;align-items:center;gap:10px;text-align:left;min-width:0;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;min-height:44px}
+.pill:hover{border-color:var(--muted)}
+.pill.aberta{border-color:var(--text)}
+.pill .ic{flex:0 0 22px;height:22px;border-radius:99px;display:flex;align-items:center;justify-content:center}
+.pill .lb{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pill .vl{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-ok .ic{background:var(--ok-soft);color:var(--ok)} .t-ok .vl{color:var(--ok)}
+.t-fail .ic{background:var(--danger-soft);color:var(--danger)} .t-fail .vl{color:var(--danger)}
+.t-wait .ic{background:var(--accent-soft);color:var(--accent)} .t-wait .vl{color:var(--accent)}
+.t-run .ic{background:var(--info-soft);color:var(--info)} .t-run .vl{color:var(--info)}
+.t-none .ic{background:var(--surface);color:var(--muted)} .t-none .vl{color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:12px;padding:14px 16px}
+.card.b-ok{border-left-color:var(--ok)} .card.b-fail{border-left-color:var(--danger)} .card.b-wait{border-left-color:var(--accent)} .card.b-run{border-left-color:var(--info)}
+.br code{font-family:"Cascadia Code",Consolas,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted);font-size:11px}
+.chip{font-size:10.5px;font-weight:700;border-radius:99px;padding:1px 8px}
+.av{width:22px;height:22px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--bg);flex:0 0 22px}
+.row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.row:first-of-type{border-top:0}
+.st{font-size:12px;font-weight:600;margin-left:auto;white-space:nowrap}
+.st.ok{color:var(--ok)} .st.fail{color:var(--danger)} .st.wait{color:var(--accent)} .st.run{color:var(--info)} .st.none{color:var(--muted)}
+.sec-t{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:700;margin:0 0 6px}
+.nota{font-size:12px;color:var(--muted);margin-top:8px}
+.seg{font:inherit;font-size:13px;font-weight:600;padding:6px 12px;border-radius:8px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg.on{background:var(--surface-2);color:var(--text)}
+.dens{font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:7px;border:0;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:32px}
+.dens.on{background:var(--surface-2);color:var(--text)}
+.linha{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:10px;padding:8px 10px 8px 14px;min-height:48px;box-sizing:border-box}
+.linha.b-ok{border-left-color:var(--ok)} .linha.b-fail{border-left-color:var(--danger)} .linha.b-wait{border-left-color:var(--accent)} .linha.b-run{border-left-color:var(--info)}
+.mini{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.mini .ic{width:18px;height:18px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 18px}
+.mini.t-ok{color:var(--ok)} .mini.t-ok .ic{background:var(--ok-soft)}
+.mini.t-fail{color:var(--danger)} .mini.t-fail .ic{background:var(--danger-soft)}
+.mini.t-wait{color:var(--accent)} .mini.t-wait .ic{background:var(--accent-soft)}
+.mini.t-run{color:var(--info)} .mini.t-run .ic{background:var(--info-soft)}
+.mini.t-none{color:var(--muted)} .mini.t-none .ic{background:var(--surface-2)}
+.chev{font:inherit;width:32px;height:32px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px}
+.chev:hover{border-color:var(--border);color:var(--text)}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="background: var(--bg); color: var(--text); min-height: 100%; box-sizing: border-box;">
+
+  <header style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px 22px; border-bottom: 1px solid var(--border);">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 22l1.5-14h3L15 22"></path><path d="M8 8h8"></path><path d="M10 5h4v3h-4z"></path><path d="M4 4l4 2M20 4l-4 2"></path></svg>
+      <strong style="font-size: 17px;">Farol</strong>
+      <span style="font-size: 12px; color: var(--muted);">v2.79.0</span>
+      <span class="chip" style="background: var(--ok-soft); color: var(--ok);">● monitorando</span>
+    </div>
+    <nav style="display: flex; gap: 4px; margin: 0 auto; flex-wrap: wrap;" aria-label="Abas">
+      <a href="#" style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--accent); color: var(--text); font-weight: 700;">Radar</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Entregas</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Time</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Consumo</a>
+      <a href="#" style="padding: 6px 12px; color: var(--muted); font-weight: 600;">Sistema</a>
+    </nav>
+    <button class="btn">Verificar agora</button>
+  </header>
+
+  <main style="max-width: 940px; margin: 0 auto; padding: 22px 16px 48px; display: flex; flex-direction: column; gap: 12px;">
+    <div style="font-size: 13px; color: var(--muted);">Última checagem 15:21 · próxima em 1:39</div>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+      <div style="display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface);">
+        <button class="seg">Pra mim <span class="chip" style="background: var(--accent-soft); color: var(--accent);">2</span></button>
+        <button class="seg on">Meus PRs <span class="chip" style="background: var(--surface); color: var(--muted);">4</span></button>
+        <button class="seg">Panorama <span class="chip" style="background: var(--surface); color: var(--muted);">43</span></button>
+      </div>
+      <div style="display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);" role="group" aria-label="Densidade da lista">
+        <button class="dens {{densCompactaOn}}" onClick="{{irCompacta}}" aria-pressed="{{ehCompacta}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>Compacta</button>
+        <button class="dens {{densExpandidaOn}}" onClick="{{irExpandida}}" aria-pressed="{{ehExpandida}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="7" rx="2"></rect><rect x="4" y="14" width="16" height="6" rx="2"></rect></svg>Expandida</button>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+      <div>
+        <h2 style="margin: 0; font-size: 16px;">Meus PRs <span class="chip" style="background: var(--surface-2); color: var(--muted);">4</span></h2>
+        <sc-if value="{{ehExpandidaBool}}" hint-placeholder-val="{{false}}"><p style="margin: 4px 0 0; font-size: 13px; color: var(--muted); max-width: 600px;">Cada card mostra, sem abrir o GitHub, se os checks obrigatórios passaram, quem está marcado como reviewer e se o PR já pode ser mergeado. Lido a cada checagem, com ou sem autoanálise.</p></sc-if>
+      </div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;" aria-label="Resumo da lista">
+        <span class="chip" style="background: var(--ok-soft); color: var(--ok); font-size: 12px; padding: 3px 10px;">1 pronto pra merge</span>
+        <span class="chip" style="background: var(--accent-soft); color: var(--accent); font-size: 12px; padding: 3px 10px;">2 esperando</span>
+        <span class="chip" style="background: var(--danger-soft); color: var(--danger); font-size: 12px; padding: 3px 10px;">1 travado</span>
+      </div>
+    </div>
+
+    <sc-for list="{{prs}}" as="pr" hint-placeholder-count="4">
+      <sc-if value="{{pr.mostrarCompacto}}" hint-placeholder-val="{{true}}">
+      <div class="linha {{pr.barra}}">
+        <span style="width: 8px; height: 8px; border-radius: 99px; background: {{pr.contaCor}}; flex: 0 0 8px;" aria-hidden="true"></span>
+        <div style="flex: 1 1 260px; min-width: 0; display: flex; align-items: baseline; gap: 10px;">
+          <a href="#" style="font-weight: 700; color: var(--ac); white-space: nowrap;">{{pr.curtaKey}}</a>
+          <span style="font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;" title="{{pr.titulo}}">{{pr.titulo}}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+          <sc-for list="{{pr.pilulas}}" as="p" hint-placeholder-count="3">
+            <span class="mini {{p.tom}}" title="{{p.rotulo}}: {{p.valor}}">
+              <span class="ic">
+                <sc-if value="{{p.iOk}}" hint-placeholder-val="{{true}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+                <sc-if value="{{p.iFail}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+                <sc-if value="{{p.iWait}}" hint-placeholder-val="{{false}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></sc-if>
+                <sc-if value="{{p.iRun}}" hint-placeholder-val="{{false}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8"></path></svg></sc-if>
+                <sc-if value="{{p.iNone}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></sc-if>
+              </span>{{p.curto}}</span>
+          </sc-for>
+        </div>
+        <sc-if value="{{pr.podeMergear}}" hint-placeholder-val="{{false}}"><button class="btn ok">Merge</button></sc-if>
+        <button class="chev" onClick="{{pr.abrir}}" aria-label="Expandir {{pr.key}}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+      </div>
+      </sc-if>
+      <sc-if value="{{pr.mostrarCheio}}" hint-placeholder-val="{{false}}">
+      <article class="card {{pr.barra}}">
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+          <span style="width: 8px; height: 8px; border-radius: 99px; background: {{pr.contaCor}}; flex: 0 0 8px;" aria-hidden="true"></span>
+          <span class="av" style="width: 34px; height: 34px; flex-basis: 34px; font-size: 12px; background: var(--muted);">WS</span>
+          <div style="flex: 1 1 380px; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <a href="#" style="font-weight: 700; color: var(--ac);">{{pr.key}}</a>
+              <span class="chip" style="background: var(--accent-soft); color: var(--ac);">{{pr.conta}}</span>
+            </div>
+            <div style="font-size: 14px; margin-top: 2px;">{{pr.titulo}}</div>
+            <div class="br" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 3px;"><code>{{pr.head}}</code><span style="color: var(--ac); font-weight: 700;">→</span><code>{{pr.base}}</code></div>
+            <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">por você · @{{pr.conta}} · atualizado {{pr.quando}}</div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+            <button class="btn primary">Analisar</button>
+            <button class="btn ghost">Pedir reviewers no GitHub</button>
+            <sc-if value="{{pr.podeMergear}}" hint-placeholder-val="{{false}}"><button class="btn ok">Merge</button></sc-if>
+            <button class="btn ghost">Ocultar</button>
+            <sc-if value="{{pr.podeRecolher}}" hint-placeholder-val="{{false}}">
+              <button class="chev" onClick="{{pr.recolher}}" aria-label="Recolher {{pr.key}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 12px;">
+          <sc-for list="{{pr.pilulas}}" as="p" hint-placeholder-count="3">
+            <button class="pill {{p.tom}} {{p.aberta}}" onClick="{{p.alternar}}" aria-expanded="{{p.expandida}}">
+              <span class="ic">
+                <sc-if value="{{p.iOk}}" hint-placeholder-val="{{true}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+                <sc-if value="{{p.iFail}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+                <sc-if value="{{p.iWait}}" hint-placeholder-val="{{false}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></sc-if>
+                <sc-if value="{{p.iRun}}" hint-placeholder-val="{{false}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8"></path></svg></sc-if>
+                <sc-if value="{{p.iNone}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"></path></svg></sc-if>
+              </span>
+              <span style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
+                <span class="lb">{{p.rotulo}}</span>
+                <span class="vl">{{p.valor}}</span>
+              </span>
+              <sc-if value="{{p.temAvatares}}" hint-placeholder-val="{{false}}">
+                <span style="display: flex; gap: 0;">
+                  <sc-for list="{{p.avatares}}" as="a" hint-placeholder-count="2">
+                    <span class="av" style="background: {{a.cor}}; margin-left: -4px; box-shadow: 0 0 0 2px var(--surface-2);" title="{{a.titulo}}">{{a.ini}}</span>
+                  </sc-for>
+                </span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{pr.abertaChecks}}" hint-placeholder-val="{{false}}">
+          <section style="margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border);" aria-label="Checks obrigatórios">
+            <p class="sec-t">Checks obrigatórios da <span class="mono" style="text-transform: none;">{{pr.base}}</span> · no head {{pr.sha}}</p>
+            <sc-for list="{{pr.checks}}" as="c" hint-placeholder-count="4">
+              <div class="row"><span class="mono" style="font-size: 12.5px;">{{c.nome}}</span><span class="st {{c.tom}}">{{c.estado}}</span></div>
+            </sc-for>
+            <p class="nota">{{pr.notaChecks}}</p>
+          </section>
+        </sc-if>
+        <sc-if value="{{pr.abertaRev}}" hint-placeholder-val="{{false}}">
+          <section style="margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border);" aria-label="Reviewers">
+            <p class="sec-t">Reviewers · {{pr.regraRev}}</p>
+            <sc-for list="{{pr.reviewers}}" as="r" hint-placeholder-count="2">
+              <div class="row"><span class="av" style="background: {{r.cor}};">{{r.ini}}</span><span>{{r.login}}</span><sc-if value="{{r.dono}}" hint-placeholder-val="{{false}}"><span class="chip" style="background: var(--info-soft); color: var(--info);">code owner</span></sc-if><span class="st {{r.tom}}">{{r.estado}}</span></div>
+            </sc-for>
+            <p class="nota">{{pr.notaRev}}</p>
+          </section>
+        </sc-if>
+        <sc-if value="{{pr.abertaMerge}}" hint-placeholder-val="{{false}}">
+          <section style="margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border);" aria-label="Mergeabilidade">
+            <p class="sec-t">O que o GitHub exige pra mergear</p>
+            <sc-for list="{{pr.requisitos}}" as="q" hint-placeholder-count="4">
+              <div class="row"><span>{{q.nome}}</span><span class="st {{q.tom}}">{{q.estado}}</span></div>
+            </sc-for>
+            <p class="nota">{{pr.notaMerge}}</p>
+          </section>
+        </sc-if>
+      </article>
+      </sc-if>
+    </sc-for>
+
+    <button style="font: inherit; background: none; border: 0; padding: 4px 2px; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; align-self: flex-start;">12 PRs ocultos · mostrar</button>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tema":{"editor":"enum","options":["escuro","claro"],"default":"escuro"},"densidade":{"editor":"enum","options":["compacta","expandida"],"default":"compacta"},"$preview":{"width":1280,"height":1560}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { aberta: { 'biudtech/engine-ai#960': 'merge' }, densidade: null, expandidos: {} };
+  }
+  renderVals() {
+    const tema = this.props.tema ?? 'escuro';
+    const densidade = this.state.densidade || (this.props.densidade ?? 'compacta');
+    const compacta = densidade === 'compacta';
+    const expandidos = this.state.expandidos || {};
+    const CURTO = {
+      'biudtech/engine-ai#960': ['6/6', '1/2', 'Falta 1 aprovação'],
+      'biudtech/engine-ai#961': ['4/5 rodando', 'Ninguém', 'Esperando checks'],
+      'biudtech/biud-frontend#1094': ['e2e falhou', 'Mudança pedida', 'Bloqueado'],
+      'wandersonaadsantos/farol#363': ['3/3', 'Não exigido', 'Pronto']
+    };
+    const COR = { t: '#4cc38a', g: '#ffb454', m: '#6ca8f2', j: '#e879f9' };
+    const prs = [
+      {
+        key: 'biudtech/engine-ai#960', conta: 'wandersonbiuder', contaCor: 'var(--ac)',
+        titulo: 'fix(mia-artefato): plano com artigo definido sem documento e imagem nova com arte pronta (BT-3090, BT-3087)',
+        head: 'task-BT-3090-ordem-de-criar-hmg', base: 'release_hmg_0.3.85-rc.4_ordem-de-criar', quando: '13min', sha: 'a91c4e2',
+        barra: 'b-wait', podeMergear: false,
+        pilulas: [
+          { id: 'checks', rotulo: 'Checks obrigatórios', valor: '6 de 6 verdes', tom: 't-ok' },
+          { id: 'rev', rotulo: 'Reviewers', valor: '1 de 2 aprovou', tom: 't-wait', avatares: [
+            { ini: 'TP', cor: COR.t, titulo: 'thiagocarvalho-dev aprovou no head' },
+            { ini: 'GR', cor: 'var(--faint)', titulo: 'Gabrielk5 ainda não revisou' } ] },
+          { id: 'merge', rotulo: 'Merge', valor: 'Bloqueado · falta 1 aprovação', tom: 't-wait' }
+        ],
+        checks: [
+          { nome: 'build / build', estado: 'passou', tom: 'ok' },
+          { nome: 'test / unit', estado: 'passou', tom: 'ok' },
+          { nome: 'test / integration', estado: 'passou', tom: 'ok' },
+          { nome: 'lint', estado: 'passou', tom: 'ok' },
+          { nome: 'osv-scanner', estado: 'passou', tom: 'ok' },
+          { nome: 'guard-de-fluxo', estado: 'passou', tom: 'ok' }
+        ],
+        notaChecks: 'Fora da conta: sonar (vermelho, não é exigido pela branch) e acrity/review (veredito de bot, não é sinal de pipe).',
+        regraRev: 'a branch exige 2 aprovações',
+        reviewers: [
+          { ini: 'TP', cor: COR.t, login: 'thiagocarvalho-dev', estado: 'aprovou no head', tom: 'ok', dono: true },
+          { ini: 'GR', cor: 'var(--faint)', login: 'Gabrielk5', estado: 'aguardando', tom: 'wait', dono: false }
+        ],
+        notaRev: 'Pedidos há 13min. Aprovação só conta no commit atual.',
+        requisitos: [
+          { nome: 'Sem conflito com a base', estado: 'ok', tom: 'ok' },
+          { nome: 'Branch em dia com a base', estado: 'ok', tom: 'ok' },
+          { nome: 'Checks obrigatórios', estado: '6/6', tom: 'ok' },
+          { nome: 'Aprovações (2 exigidas)', estado: 'falta 1', tom: 'wait' },
+          { nome: 'Nenhuma mudança pedida em aberto', estado: 'ok', tom: 'ok' }
+        ],
+        notaMerge: 'mergeStateStatus = BLOCKED. Quando o Gabriel aprovar, a pílula fica verde e o Merge aparece.'
+      },
+      {
+        key: 'biudtech/engine-ai#961', conta: 'wandersonbiuder', contaCor: 'var(--ac)',
+        titulo: 'fix(mia-artefato): plano com artigo definido sem documento e imagem nova com arte pronta (BT-3090, BT-3087)',
+        head: 'task-BT-3090-ordem-de-criar-dev', base: 'development', quando: '13min', sha: '7f02b9d',
+        barra: 'b-run', podeMergear: false,
+        pilulas: [
+          { id: 'checks', rotulo: 'Checks obrigatórios', valor: '4 de 5 · 1 rodando', tom: 't-run' },
+          { id: 'rev', rotulo: 'Reviewers', valor: 'Nenhum marcado', tom: 't-none' },
+          { id: 'merge', rotulo: 'Merge', valor: 'Esperando os checks', tom: 't-run' }
+        ],
+        checks: [
+          { nome: 'build / build', estado: 'passou', tom: 'ok' },
+          { nome: 'test / unit', estado: 'rodando há 4min', tom: 'run' },
+          { nome: 'lint', estado: 'passou', tom: 'ok' },
+          { nome: 'osv-scanner', estado: 'passou', tom: 'ok' },
+          { nome: 'guard-de-fluxo', estado: 'passou', tom: 'ok' }
+        ],
+        notaChecks: 'O deploy aparece duas vezes no rollup; vale a rodada mais recente de cada nome.',
+        regraRev: 'a branch não exige aprovação',
+        reviewers: [],
+        notaRev: 'Ninguém marcado ainda. Use "Pedir reviewers no GitHub" depois que os obrigatórios ficarem verdes.',
+        requisitos: [
+          { nome: 'Sem conflito com a base', estado: 'ok', tom: 'ok' },
+          { nome: 'Branch em dia com a base', estado: 'ok', tom: 'ok' },
+          { nome: 'Checks obrigatórios', estado: '4/5, 1 rodando', tom: 'run' }
+        ],
+        notaMerge: 'mergeStateStatus = BLOCKED só pelo check que ainda roda.'
+      },
+      {
+        key: 'biudtech/biud-frontend#1094', conta: 'wandersonbiuder', contaCor: 'var(--ac)',
+        titulo: 'feat(mia): HU4 MIA do login com retomada da conversa (BT-3053)',
+        head: 'task-BT-3053-mia-do-login', base: 'develop', quando: '2h', sha: 'c33d810',
+        barra: 'b-fail', podeMergear: false,
+        pilulas: [
+          { id: 'checks', rotulo: 'Checks obrigatórios', valor: '1 falhando · e2e', tom: 't-fail' },
+          { id: 'rev', rotulo: 'Reviewers', valor: 'Mudança pedida', tom: 't-fail', avatares: [
+            { ini: 'TP', cor: '#f2707a', titulo: 'thiagocarvalho-dev pediu mudanças' },
+            { ini: 'GR', cor: COR.g, titulo: 'Gabrielk5 aprovou um commit antigo' } ] },
+          { id: 'merge', rotulo: 'Merge', valor: 'Bloqueado · 2 motivos', tom: 't-fail' }
+        ],
+        checks: [
+          { nome: 'quality-gate', estado: 'passou', tom: 'ok' },
+          { nome: 'typecheck', estado: 'passou', tom: 'ok' },
+          { nome: 'e2e', estado: 'falhou há 1h', tom: 'fail' },
+          { nome: 'osv-scanner', estado: 'passou', tom: 'ok' }
+        ],
+        notaChecks: 'Clicar no nome do check abre o log da rodada no GitHub.',
+        regraRev: 'a branch exige 2 aprovações',
+        reviewers: [
+          { ini: 'TP', cor: '#f2707a', login: 'thiagocarvalho-dev', estado: 'pediu mudanças', tom: 'fail', dono: false },
+          { ini: 'GR', cor: COR.g, login: 'Gabrielk5', estado: 'aprovou commit antigo', tom: 'wait', dono: false }
+        ],
+        notaRev: 'A aprovação do Gabriel foi no 4e1a07b; entraram 2 commits depois. Ela não conta no head.',
+        requisitos: [
+          { nome: 'Sem conflito com a base', estado: 'ok', tom: 'ok' },
+          { nome: 'Branch em dia com a base', estado: 'ok', tom: 'ok' },
+          { nome: 'Checks obrigatórios', estado: 'e2e falhou', tom: 'fail' },
+          { nome: 'Aprovações (2 exigidas)', estado: '0 no head', tom: 'wait' },
+          { nome: 'Nenhuma mudança pedida em aberto', estado: '1 aberta', tom: 'fail' }
+        ],
+        notaMerge: 'mergeStateStatus = BLOCKED.'
+      },
+      {
+        key: 'wandersonaadsantos/farol#363', conta: 'wandersonaadsantos', contaCor: 'var(--ac2)',
+        titulo: 'feat(meus-prs): faixa de prontidão com checks, reviewers e merge',
+        head: 'feat/meus-prs-prontidao', base: 'main', quando: '40min', sha: '19bd6aa',
+        barra: 'b-ok', podeMergear: true,
+        pilulas: [
+          { id: 'checks', rotulo: 'Checks obrigatórios', valor: '3 de 3 verdes', tom: 't-ok' },
+          { id: 'rev', rotulo: 'Reviewers', valor: 'Não exigido', tom: 't-none' },
+          { id: 'merge', rotulo: 'Merge', valor: 'Pronto pra merge', tom: 't-ok' }
+        ],
+        checks: [
+          { nome: 'gate (windows)', estado: 'passou', tom: 'ok' },
+          { nome: 'gate (ubuntu)', estado: 'passou', tom: 'ok' },
+          { nome: 'gate (macos)', estado: 'passou', tom: 'ok' }
+        ],
+        notaChecks: 'Todos os obrigatórios verdes no head atual.',
+        regraRev: 'a branch não exige aprovação',
+        reviewers: [],
+        notaRev: 'Repositório pessoal sem regra de review.',
+        requisitos: [
+          { nome: 'Sem conflito com a base', estado: 'ok', tom: 'ok' },
+          { nome: 'Branch em dia com a base', estado: 'ok', tom: 'ok' },
+          { nome: 'Checks obrigatórios', estado: '3/3', tom: 'ok' }
+        ],
+        notaMerge: 'mergeStateStatus = CLEAN. O botão Merge continua dependendo da autoanálise.'
+      }
+    ];
+    const aberta = this.state.aberta || {};
+    const out = prs.map((pr) => {
+      const atual = aberta[pr.key] || null;
+      const cheio = !compacta || !!expandidos[pr.key];
+      const curto = CURTO[pr.key] || [];
+      return {
+        ...pr,
+        curtaKey: pr.key.replace(/^[^/]+\//, ''),
+        mostrarCompacto: !cheio,
+        mostrarCheio: cheio,
+        podeRecolher: compacta && cheio,
+        abrir: () => this.setState({ expandidos: { ...expandidos, [pr.key]: true } }),
+        recolher: () => this.setState({ expandidos: { ...expandidos, [pr.key]: false } }),
+        abertaChecks: atual === 'checks',
+        abertaRev: atual === 'rev',
+        abertaMerge: atual === 'merge',
+        pilulas: pr.pilulas.map((p, i) => ({
+          ...p,
+          curto: curto[i] || p.valor,
+          iOk: p.tom === 't-ok', iFail: p.tom === 't-fail', iWait: p.tom === 't-wait', iRun: p.tom === 't-run', iNone: p.tom === 't-none',
+          temAvatares: !!(p.avatares && p.avatares.length), avatares: p.avatares || [],
+          aberta: atual === p.id ? 'aberta' : '',
+          expandida: atual === p.id ? 'true' : 'false',
+          alternar: () => this.setState({ aberta: { ...aberta, [pr.key]: atual === p.id ? null : p.id } })
+        }))
+      };
+    });
+    return {
+      themeClass: tema === 'claro' ? 'th-light' : 'th-dark', prs: out,
+      ehCompacta: compacta ? 'true' : 'false', ehExpandida: compacta ? 'false' : 'true', ehExpandidaBool: !compacta,
+      densCompactaOn: compacta ? 'on' : '', densExpandidaOn: compacta ? '' : 'on',
+      irCompacta: () => this.setState({ densidade: 'compacta', expandidos: {} }),
+      irExpandida: () => this.setState({ densidade: 'expandida', expandidos: {} })
+    };
+  }
+}
+</script>
+</body>
+</html>

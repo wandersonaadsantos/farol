@@ -4,6 +4,9 @@ import { instalarDom } from './helpers/dom-stub.js';
 import { controlarQuadros } from './helpers/quadros-ui.js';
 
 const { doc, emitir, listeners } = instalarDom();
+// estas travas leem o CARD cheio da fila e das decisões, que é a densidade Expandida; a
+// Compacta (padrão desde 07/11/2026) tem a trava própria em test/ui-densidade.test.js
+globalThis.localStorage.setItem('farol-densidade', 'expandida');
 const quadros = controlarQuadros();
 const pedidos = [];
 globalThis.fetch = async (url, init = {}) => {

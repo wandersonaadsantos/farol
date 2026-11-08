@@ -244,6 +244,7 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${cancelar}
         </div>
+        <div class="sess-pron" data-id="${id}" data-key="${esc((s.keys || [])[0] || '')}"></div>
         <div class="op-progress sess-progress" data-id="${id}" data-estado="viva" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Andamento da sessão" aria-valuetext="Conclusão não medida">
           <span class="sess-pct">Em andamento</span>
           <div class="op-bar"><div class="op-bar-fill" style="width:0%"></div></div>

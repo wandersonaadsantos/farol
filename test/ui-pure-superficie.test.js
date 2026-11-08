@@ -11,6 +11,36 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
+  // faixa de prontidão (checks, reviewers, merge) e as densidades Compacta e Expandida do
+  // Radar (07/11/2026): ui/pure/prontidao.js, ui/pure/prontidao-html.js e ui/pure/densidade.js
+  "ROTULOS_DA_PRONTIDAO",
+  "tomDaProntidao",
+  "pilulasDaProntidao",
+  "formaCurtaDaProntidao",
+  "pontosDaProntidao",
+  "resumoDaProntidao",
+  "barraDaProntidao",
+  "linhasDoDetalhe",
+  "iconeDaProntidao",
+  "chaveCurta",
+  "detalheDaPilulaHtml",
+  "faixaDaProntidaoHtml",
+  "trioCurtoHtml",
+  "pontosDaProntidaoHtml",
+  "legendaDosPontosHtml",
+  "resumoDaProntidaoHtml",
+  "setaDaLinhaHtml",
+  "linhaCompactaHtml",
+  "DENSIDADES",
+  "densidadeValida",
+  "fraseDaDecisao",
+  "acaoDaDecisaoHtml",
+  "fraseDaEspera",
+  "fraseDaFila",
+  "fraseDaFilaDeExecucao",
+  "resolvidasHoje",
+  "rodapeDasRecentes",
+  "resumoPraMimHtml",
   // o Antigravity em Plano e chaves (20/10/2026, ui/pure/agy.js): a cota ao vivo e o cartão
   "camposAgyHtml",
   "cotaAgyHtml",

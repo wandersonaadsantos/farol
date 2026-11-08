@@ -117,6 +117,7 @@ function responder(args) {
   if (a.includes('search(query')) {
     chamadas.busca++;
     if (estadoGh.buscaFalha) return { ok: false, code: 1, stdout: '', stderr: 'rede caiu' };
+    if (estadoGh.pesada && a.includes('...Prontidao')) return { ok: false, code: 1, stdout: '', stderr: 'gh: HTTP 502' };
     return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ data: { search: { nodes: estadoGh.numeros.map(number => ({
       number, ...noDaBusca(), baseRefName: 'staging',
       baseRefOid: estadoGh.baseOid, headRefOid: 'h1', repository: { nameWithOwner: 'acme/app' },
@@ -340,4 +341,38 @@ test('card sem aviso: o caso comum não ganha nada; HTML da base é escapado', (
   assert.deepEqual(avisoDaBaseNoCard(undefined, PR), { alerta: false, selo: '', html: '', id: '', conflito: false });
   assert.equal(avisoDaBaseNoCard({ base: 'main', conflito: false, superado: { veredito: 'nao', total: 3, iguais: 0, contidos: 0 } }, PR).html, '');
   assert.doesNotMatch(avisoDaBaseNoCard({ base: '<b>x</b>', conflito: true }, PR).html, /<b>x/);
+});
+
+// a faixa de prontidão (07/11/2026) engordou esta busca; conta com muitos PRs abertos não pode
+// perder o aviso da base porque a consulta pesada voltou 502
+test('busca com a prontidão que volta 502 sai de novo sem ela, e o aviso da base continua', async () => {
+  estadoGh.pesada = true;
+  const { e, avisos } = motor();
+  await refreshBaseDosMeusPRs(e);
+  assert.equal(chamadas.busca, 2, 'uma pesada que falhou e uma leve');
+  assert.equal(e.baseDosMeusPRs['acme/app#1'].conflito, true);
+  assert.equal(avisos.length, 1);
+  assert.equal(e.nosDosMeusPRs.size, 0, 'sem o fragmento, nenhum nó vai para a prontidão');
+});
+
+test('falha que não é de peso (rede) não repete a busca', async () => {
+  estadoGh.buscaFalha = true;
+  const { e } = motor();
+  await refreshBaseDosMeusPRs(e);
+  assert.equal(chamadas.busca, 1);
+});
+
+test('conta cuja busca pesada estourou usa a leve direto até o intervalo passar', async () => {
+  estadoGh.pesada = true;
+  const { e } = motor();
+  await refreshBaseDosMeusPRs(e);
+  assert.equal(chamadas.busca, 2);
+  await refreshBaseDosMeusPRs(e);
+  assert.equal(chamadas.busca, 3, 'no ciclo seguinte só a leve, sem pagar o 502 de novo');
+  e.consultaPesadaEstourou.set('eu', 0);
+  estadoGh.pesada = false;
+  await refreshBaseDosMeusPRs(e);
+  assert.equal(chamadas.busca, 4, 'passado o intervalo, a pesada volta e responde');
+  assert.equal(e.consultaPesadaEstourou.has('eu'), false);
+  assert.equal(e.nosDosMeusPRs.size, 1);
 });

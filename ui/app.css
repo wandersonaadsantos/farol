@@ -2795,3 +2795,126 @@ label.set-row:has(input:disabled).review-tools, .review-tools label.set-row:has(
 
 /* Comparação de listas e configurações estruturadas na importação. */
 .preferences-value { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+
+/* ---------- Faixa de prontidão e densidades do Radar (07/11/2026) ----------
+   Checks obrigatórios, reviewers e merge de cada PR, e as densidades Compacta (padrão) e
+   Expandida em Pra mim, Meus PRs e Panorama. Desenho do Claude Design em
+   docs/superpowers/specs/2026-11-07-meus-prs-prontidao-anexos/. Cinco tons, nenhuma cor
+   nova: t-ok (--settled), t-run (--working), t-wait (--urgent), t-fail (--blocked) e t-none
+   (--muted). As classes levam o prefixo pron- porque .pill já é o selo do topo da janela.
+   O tema claro sai pelas mesmas variáveis. */
+.radar-topo {
+  position: sticky; top: var(--topbar-h); z-index: 15;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  margin: 4px 0 14px; background: var(--bg);
+}
+.radar-topo .radar-subs { position: static; margin: 0; flex: 1 1 auto; }
+@media (min-width: 900px) { .radar-topo .radar-subs { flex: 0 0 auto; } }
+.densidade { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.dens {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 5px 10px;
+  border: 0; border-radius: 7px; background: transparent; color: var(--muted);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.dens svg { width: 14px; height: 14px; }
+.dens:hover { color: var(--text); }
+.dens.on { background: var(--surface-2); color: var(--text); }
+body[data-radar-sub="apar"] .densidade { display: none; }
+/* Compacta: sem os parágrafos de explicação das seções nem o subtítulo do Panorama */
+body[data-densidade="compacta"] #tab-radar .section-desc,
+body[data-densidade="compacta"] #panoOwners { display: none; }
+
+/* os tons, sobre os apelidos que o app já define */
+.t-ok { --pron: var(--settled); --pron-soft: var(--ok-soft); }
+.t-run { --pron: var(--working); --pron-soft: var(--info-soft); }
+.t-wait { --pron: var(--urgent); --pron-soft: var(--accent-soft); }
+.t-fail { --pron: var(--blocked); --pron-soft: var(--danger-soft); }
+.t-none { --pron: var(--muted); --pron-soft: var(--surface-2); }
+.pron-ic { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; background: var(--pron-soft); color: var(--pron); }
+.pron-ic svg { width: 12px; height: 12px; }
+
+/* as três pílulas do card cheio, e o detalhe da pílula aberta */
+.pron-bloco { margin-top: 10px; }
+.pron-faixa { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px; }
+.pron-faixa.vazia { display: block; color: var(--faint); font-size: 12.5px; }
+.pron-pill {
+  display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; padding: 7px 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.pron-pill:hover { border-color: var(--muted); }
+.pron-pill.aberta { border-color: var(--text); }
+.pp-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pp-lb { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.pp-vl { font-size: 13px; font-weight: 600; color: var(--pron); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-avs { display: flex; flex: none; }
+.pp-av { margin-left: -4px; border-radius: 50%; box-shadow: 0 0 0 2px var(--pron); display: inline-flex; }
+.pron-detalhe { margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
+.pd-titulo { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.pd-linha { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border-soft); font-size: 13px; }
+.pd-linha:first-of-type { border-top: 0; }
+.pd-nome code { font-size: 12px; }
+.pd-estado { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--pron); white-space: nowrap; }
+.pd-nota { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+
+/* a forma curta, os pontos do Panorama e a legenda */
+.pron-trio { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pron-trio.vazia { color: var(--faint); font-size: 12px; }
+.pron-mini { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--pron); white-space: nowrap; }
+.pron-mini .pron-ic { flex-basis: 18px; width: 18px; height: 18px; }
+.pron-mini .pron-ic svg { width: 10px; height: 10px; }
+.pron-pontos { display: inline-flex; align-items: center; gap: 4px; }
+.pp-ponto { width: 8px; height: 8px; border-radius: 99px; background: var(--pron); }
+.pp-ponto.t-none { background: var(--faint); }
+.pron-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.pron-legenda .pl-item { display: inline-flex; align-items: center; gap: 6px; }
+.pron-legenda .pp-ponto { width: 7px; height: 7px; }
+
+/* resumo do topo de Meus PRs e de Pra mim */
+.pron-resumo { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.pron-chip { font-size: 12px; font-weight: 700; border-radius: 99px; padding: 3px 10px; background: var(--pron-soft); color: var(--pron); }
+.pron-resumo-mim { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.pron-resumo-item {
+  display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border: 1px solid var(--border);
+  border-radius: 99px; background: var(--surface); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.pron-resumo-item:hover { border-color: var(--muted); }
+
+/* a linha da Compacta */
+.pr-linha {
+  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 10px 8px 14px; box-sizing: border-box;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px;
+  flex-wrap: wrap;
+}
+.pl-main { flex: 1 1 260px; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.pl-ref { font-weight: 700; color: var(--ac); white-space: nowrap; }
+:root[data-theme="light"] .pl-ref { color: var(--accent-text); }
+.pl-titulo { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pl-estado { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--pron); white-space: nowrap; }
+.pl-pt { width: 8px; height: 8px; border-radius: 99px; background: var(--pron); flex: none; }
+.pr-linha .avatar { width: 22px; height: 22px; font-size: 10px; flex: none; }
+.pr-linha.oculto { opacity: .55; }
+.pron-seta {
+  flex: 0 0 32px; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.pron-seta svg { width: 16px; height: 16px; }
+.pron-seta:hover { border-color: var(--border); color: var(--text); }
+.pron-rodape { align-self: flex-start; }
+
+/* a barra esquerda segue a pílula Merge (sem autoanálise; com ela vale o selo) */
+.card.pron-b-ok, .pr-linha.pron-b-ok, .pr-linha.ok { border-left-color: var(--settled); }
+.card.pron-b-run, .pr-linha.pron-b-run { border-left-color: var(--working); }
+.card.pron-b-wait, .pr-linha.pron-b-wait, .pr-linha.stale { border-left-color: var(--urgent); }
+.card.pron-b-fail, .pr-linha.pron-b-fail, .pr-linha.warn { border-left-color: var(--blocked); }
+
+/* Panorama: os pontos ficam no lado da linha; aberta, os ramos e as pílulas vão embaixo do título */
+.pw-side .pron-pontos { margin-top: 2px; }
+.pw-ramos { margin-top: 4px; }
+
+/* "Analisando agora" na Compacta: o cartão encolhe para cabeçalho, barra e o trio */
+.sess-pron:empty { display: none; }
+.sess-pron-curta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0 2px; }
+body[data-densidade="compacta"] .session-card:not(.aberta) .activity-feed,
+body[data-densidade="compacta"] .session-card:not(.aberta) .stage-flow,
+body[data-densidade="compacta"] .session-card:not(.aberta) .session-agent-details { display: none; }

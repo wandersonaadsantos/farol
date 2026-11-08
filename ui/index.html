@@ -88,14 +88,24 @@
 
     <!-- 3 sub-abas: uma tela, um propósito. Substituem a antiga .radar-nav, que era uma
          faixa de âncoras rolável e escondia metade dos destinos sem avisar. -->
+    <!-- densidade Compacta (padrão) e Expandida, ao lado das sub-abas (07/11/2026): vale para
+         Pra mim, Meus PRs e Panorama, guardada como preferência da tela (telas/densidade.js) -->
+    <div class="radar-topo">
     <div class="radar-subs" id="radarSubs" role="tablist" aria-label="Seções do Radar">
       <button class="rsub active" id="rsub-mim" data-sub="mim" role="tab" aria-selected="true" aria-controls="rpane-mim">Pra mim <span class="count" id="rcMim" hidden></span></button>
       <button class="rsub" id="rsub-apar" data-sub="apar" role="tab" aria-selected="false" aria-controls="rpane-apar" hidden>Aparelhos <span class="count" id="rcApar" hidden></span></button>
       <button class="rsub" id="rsub-meus" data-sub="meus" role="tab" aria-selected="false" aria-controls="rpane-meus">Meus PRs <span class="count ambient" id="rcMeus" hidden></span></button>
       <button class="rsub" id="rsub-pano" data-sub="pano" role="tab" aria-selected="false" aria-controls="rpane-pano">Panorama <span class="count ambient" id="rcPano" hidden></span></button>
     </div>
+    <div class="densidade" id="densidade" role="group" aria-label="Densidade da lista">
+      <button type="button" class="dens on" data-densidade="compacta" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Compacta</button>
+      <button type="button" class="dens" data-densidade="expandida" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="6" rx="2"/></svg>Expandida</button>
+    </div>
+    </div>
 
     <div class="rpane active" id="rpane-mim" role="tabpanel" aria-labelledby="rsub-mim" tabindex="0">
+    <!-- resumo do que está acontecendo, cada item leva à sua seção (telas/prontidao.js) -->
+    <div id="praMimResumo" hidden></div>
     <details class="card urgent set-list review-tools intv" id="interventionsInbox" hidden><summary>Intervenções</summary></details>
     <div id="activeWrap" hidden>
       <div class="section-head">
@@ -182,6 +192,7 @@
     <div id="myPRsWrap" hidden>
       <div class="section-head">
         <h2>Meus PRs <span id="myPRsCount" class="count ambient" hidden></span></h2>
+        <div id="myPRsResumo"></div>
       </div>
       <p class="section-desc">Autoanálise dos seus próprios PRs: veredito e dicas antes de pedir review. Só pra você, nada é postado. Os botões Reviewers e Merge são as únicas ações que escrevem no GitHub daqui.</p>
       <div id="myPRs" class="cards"></div>
@@ -201,6 +212,7 @@
       <h2>Panorama <span id="panoCount" class="count ambient" hidden></span></h2>
       <span id="panoOwners" class="section-sub"></span>
     </div>
+    <div id="panoLegenda" hidden></div>
     <div id="panorama" class="rows"></div>
     <!-- Panorama de outros aparelhos, só leitura (telas/listas-remotas.js) -->
     <div id="panoramaRemoto" class="md-remoto" hidden></div>
