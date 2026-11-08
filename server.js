@@ -61,6 +61,8 @@ import { sincronizarModelos } from './lib/model-selection.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import meusPrsBase from './lib/engine/meus-prs-base.js';
+import prontidaoPr from './lib/engine/prontidao-pr.js';
+import radarNaTela from './lib/engine/radar-na-tela.js';
 import labelsATirar from './lib/engine/labels-a-tirar.js';
 import labelPropriaOrfa from './lib/engine/label-propria-orfa.js';
 import { registrarBaseline, lerBaseline } from './lib/engine/baseline.js';
@@ -894,6 +896,8 @@ class Engine extends EventEmitter {
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // conflito e PR superado pela base, de TODO PR meu (meus-prs-base.js), sem esperar clique
       try { await meusPrsBase.refreshBaseDosMeusPRs(this); } catch (e) { this.log('WARN', `base dos meus PRs: ${e.message}`); }
+      // faixa de prontidão (checks, reviewers, merge) dos meus PRs e dos PRs do Radar (prontidao-pr.js)
+      try { await prontidaoPr.refreshProntidao(this); } catch (e) { this.log('WARN', `prontidão dos PRs: ${e.message}`); }
       // label :revisando cuja remoção falhou no fim da revisão (labels-a-tirar.js)
       try { await labelsATirar.tirarPendentes(this); } catch (e) { this.log('WARN', `labels a tirar: ${e.message}`); }
       try { await labelPropriaOrfa.tirarOrfas(this, panorama); } catch (e) { this.log('WARN', `label própria sem dono: ${e.message}`); }
@@ -1863,14 +1867,7 @@ class Engine extends EventEmitter {
   // Último estado decisivo MEU no GitHub por PR do panorama (staleInfo, que o
   // refreshStaleStates já busca). É o que faz o selo concordar entre aparelhos: o
   // histórico local só sabe o que ESTE aparelho postou.
-  reviewStatesGhParaUi() {
-    const saida = {};
-    const chaves = new Set((this.panorama || []).map(p => p.key));
-    for (const [k, info] of Object.entries(this.staleInfo || {})) {
-      if (chaves.has(k) && info && (info.lastState === 'APPROVED' || info.lastState === 'CHANGES_REQUESTED')) saida[k] = info.lastState;
-    }
-    return saida;
-  }
+  reviewStatesGhParaUi() { return radarNaTela.reviewStatesGh(this); }
 
   snapshot() {
     return {
@@ -1932,6 +1929,8 @@ class Engine extends EventEmitter {
       selfAnalyses: selfMod.projectSelfAnalyses(this.selfAnalyses),
       mergeStates: this.mergeStates,
       baseDosMeusPRs: this.baseDosMeusPRs || {},
+      // checks obrigatórios, reviewers e merge de cada PR do Radar (lib/engine/prontidao-pr.js)
+      prontidao: radarNaTela.prontidao(this),
       staleStates: this.staleStates,
       reviewStatesGh: this.reviewStatesGhParaUi(),
       // projeção pura: tira o interno (fileBlobs, mapa cru de agents) e entrega a
