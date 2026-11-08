@@ -45,7 +45,8 @@ const ESTADO_DO_REVIEWER = {
   comentou: 'comentou', aguardando: 'aguardando',
 };
 
-function aprovou(n) { return n === 1 ? 'aprovou' : 'aprovaram'; }
+// "0 de 2 aprovou", "1 de 2 aprovou", "2 de 2 aprovaram", como no desenho
+function aprovou(n) { return n > 1 ? 'aprovaram' : 'aprovou'; }
 
 // A frase dos reviewers quando ainda falta alguém. "Você" entra pelo nome, porque em Pra mim
 // a pergunta é se falta a SUA aprovação.

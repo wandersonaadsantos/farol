@@ -36,6 +36,7 @@ test('as três pílulas na ordem Checks, Reviewers, Merge, com o caso do desenho
   assert.deepEqual([c.id, rv.id, m.id], ['checks', 'reviewers', 'merge']);
   assert.deepEqual([c.tom, c.valor, c.curto], ['ok', '2 de 2 verdes', '2/2']);
   assert.deepEqual([rv.tom, rv.valor, rv.curto], ['wait', '1 de 2 aprovou', '1/2']);
+  assert.equal(pilulasDaProntidao(reg({ pedidos: ['gabriel'] }))[1].valor, '0 de 2 aprovou');
   assert.deepEqual([m.tom, m.valor, m.curto], ['wait', 'Bloqueado · falta 1 aprovação', 'Falta 1 aprovação']);
   assert.deepEqual(rv.avatares.map(a => [a.login, a.tom]), [['gabriel', 'wait'], ['thiago', 'ok']]);
 });

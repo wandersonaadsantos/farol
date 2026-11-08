@@ -253,12 +253,12 @@ beforeEach(() => {
   io.run = async (_cmd, args) => responder(args || []);
 });
 
-test('Panorama: um lote de até 50 por chamada, e a regra da branch lida uma vez', async () => {
-  const e = motor(Array.from({ length: 120 }, (_, i) => prDoPanorama(i + 1)));
+test('Panorama: um lote de até 15 por chamada (34 numa só voltou 502), e a regra da branch lida uma vez', async () => {
+  const e = motor(Array.from({ length: 40 }, (_, i) => prDoPanorama(i + 1)));
   await refreshProntidao(e);
-  assert.deepEqual(chamadas.lote, [50, 50, 20]);
+  assert.deepEqual(chamadas.lote, [15, 15, 10]);
   assert.equal(chamadas.regra, 1);
-  assert.equal(Object.keys(e.prontidao).length, 120);
+  assert.equal(Object.keys(e.prontidao).length, 40);
   assert.equal(e.prontidao['acme/app#3'].merge.motivo, 'pronto');
   assert.deepEqual(e.checksExigidosCache.get('acme/app@develop').lista, ['build', 'test'], 'a mesma leitura serve ao gate de checks');
 });
@@ -301,14 +301,23 @@ test('regra da branch que falha entra no cache curto e não vira uma chamada por
 
 test('Meus PRs: o nó da busca da base é usado sem chamada nova, e só quando é mais novo', async () => {
   const e = motor([]);
-  e.myPRs = [{ key: 'acme/app#9', repo: 'acme/app', number: 9 }];
-  e.nosDosMeusPRs = new Map([['acme/app#9', { no: no({ number: 9, mergeStateStatus: 'BEHIND' }), at: Date.now() }]]);
+  e.myPRs = [{ key: 'acme/app#9', repo: 'acme/app', number: 9, updatedAt: '2026-11-07T10:00:00Z' }];
+  e.nosDosMeusPRs = new Map([['acme/app#9', { no: no({ number: 9, mergeStateStatus: 'BEHIND', ...comTudo }), at: Date.now() }]]);
   await refreshProntidao(e);
   assert.deepEqual(chamadas.lote, []);
   assert.equal(e.prontidao['acme/app#9'].merge.motivo, 'atras');
   const primeiro = e.prontidao['acme/app#9'];
   await refreshProntidao(e);
-  assert.equal(e.prontidao['acme/app#9'], primeiro, 'sem nó novo, o registro fica');
+  assert.equal(e.prontidao['acme/app#9'], primeiro, 'sem nó novo e sem mudança, o registro fica');
+  assert.deepEqual(chamadas.lote, []);
+});
+
+test('Meus PRs sem nó (a busca voltou sem o fragmento) caem na leitura em lote', async () => {
+  const e = motor([]);
+  e.myPRs = [{ key: 'acme/app#9', repo: 'acme/app', number: 9, updatedAt: '2026-11-07T10:00:00Z' }];
+  await refreshProntidao(e);
+  assert.deepEqual(chamadas.lote, [1]);
+  assert.equal(e.prontidao['acme/app#9'].merge.motivo, 'pronto');
 });
 
 test('precisaLer: nunca lido, em transição, mudou, ou velho', () => {
