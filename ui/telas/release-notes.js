@@ -18,6 +18,10 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.4', [
+    'O preparo da revisão diz o que está fazendo desde o início: a fila da busca do código, a avaliação técnica e quanto cada passo levou',
+    'A seta de expandir e recolher fica no mesmo lugar nos dois estados, em Pra mim, Meus PRs, Panorama e Analisando agora',
+  ]],
   ['2.79.3', [
     'Instalação hospedada, com pasta própria e atualização administrada por fora, voltou a postar: a revisão decidia, a postagem era recusada como se fosse instância de teste e o PR parava em Precisa de você; o que ficou preso sai sozinho, conferindo o commit',
   ]],

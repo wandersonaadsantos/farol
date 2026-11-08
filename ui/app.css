@@ -2900,6 +2900,31 @@ body[data-densidade="compacta"] #panoOwners { display: none; }
 }
 .pron-seta svg { width: 16px; height: 16px; }
 .pron-seta:hover { border-color: var(--border); color: var(--text); }
+/* Quem abre é quem fecha, no mesmo lugar (08/11/2026): no card aberto a seta fica no canto em que
+   estava na linha compacta (.pr-linha: altura 48, seta 32, padding direito 10). */
+.card:has(.pron-seta[aria-expanded="true"]) { position: relative; }
+.card.decision:has(.pron-seta[aria-expanded="true"]) .decision-head,
+.card.mypr-card:has(.pron-seta[aria-expanded="true"]) .pr-actions,
+.card.pr-card:has(.pron-seta[aria-expanded="true"]) .pr-actions { padding-right: 38px; }
+/* quando as ações descem para a própria linha, quem fica sob a seta é o título do card */
+@media (max-width: 820px) {
+  .card.pr-card:has(.pron-seta[aria-expanded="true"]) .pr-actions { padding-right: 0; }
+  .card.pr-card:has(.pron-seta[aria-expanded="true"]) .info { padding-right: 38px; }
+}
+@media (max-width: 720px) {
+  .card.mypr-card:has(.pron-seta[aria-expanded="true"]) .pr-actions { padding-right: 0; }
+  .card.mypr-card:has(.pron-seta[aria-expanded="true"]) .info { padding-right: 38px; }
+  /* na tela estreita a linha quebra: a seta fechada fica no canto também, como a aberta */
+  .pr-linha { position: relative; padding-right: 48px; }
+  .pr-linha .pron-seta { position: absolute; top: 7px; right: 10px; }
+}
+.card .pron-seta[aria-expanded="true"] { position: absolute; top: 8px; right: 10px; }
+/* na linha aberta do Panorama os pontos saem, mas o lugar deles fica: é ele que segura a seta */
+.pron-pontos-reserva { display: contents; }
+.pron-pontos-reserva > * { visibility: hidden; }
+.sess-pron-aberta { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0 2px; }
+.sess-pron-aberta > :first-child { flex: 1 1 auto; min-width: 0; }
+.card .sess-pron-aberta .pron-seta[aria-expanded="true"] { position: static; }
 .pron-rodape { align-self: flex-start; }
 
 /* a barra esquerda segue a pílula Merge (sem autoanálise; com ela vale o selo) */

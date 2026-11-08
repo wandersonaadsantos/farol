@@ -252,7 +252,7 @@ export function queueWaitingCardHtml(pr, ctx) {
       <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}</div>
       <div class="pr-coord">${estado}. Ainda não há resultado desta execução.</div>${espera}${detalhe}
     </div>
-    <div class="pr-actions"><a class="btn sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir PR ↗</a></div>
+    <div class="pr-actions"><a class="btn sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir PR ↗</a>${ctx.pronLado || ''}</div>
   </div>`;
 }
 

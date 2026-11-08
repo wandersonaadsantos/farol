@@ -251,7 +251,7 @@ function cardDaFila(pr, posicao, ctx) {
 }
 function cardDaFilaDeExecucao(pr, ctx) {
   if (!cardCheio(pr.key)) return linhaDaFilaDeExecucao(pr, ctx);
-  return queueWaitingCardHtml(pr, ctx);
+  return queueWaitingCardHtml(pr, { ...ctx, pronLado: setaDoCard(pr.key) });
 }
 function renderQueue() {
   // A seleção do papel e os rascunhos não são substituídos por um snapshot.

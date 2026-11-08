@@ -93,7 +93,8 @@ function renderResumoPraMim(filtro, totalDaFila) {
 // chama troca só este pedaço a cada estado.
 function prontidaoDaSessaoHtml(key) {
   if (!key) return '';
-  if (cardCheio(key)) return `${faixaDe(key)}${setaDoCard(key)}`;
+  // aberta, a seta fica na mesma linha e no mesmo canto em que estava fechada
+  if (cardCheio(key)) return `<div class="sess-pron-aberta">${faixaDe(key)}${setaDoCard(key)}</div>`;
   return `<div class="sess-pron-curta">${trioDe(key)}${setaDaLinhaHtml(key, false, key)}</div>`;
 }
 
@@ -106,7 +107,8 @@ function prontidaoDoPanorama(pr) {
   const ramos = reg?.head && reg.base
     ? `<div class="pr-branches pw-ramos"><code>${esc(reg.head)}</code> <span class="arrow">→</span> <code>${esc(reg.base)}</code></div>`
     : '';
-  return { pronPontos: '', pronLado: setaDoCard(pr.key), pronCorpo: `${ramos}${faixaDe(pr.key)}` };
+  const reserva = ehCompacta() ? `<span class="pron-pontos-reserva" aria-hidden="true">${pontosDaProntidaoHtml(reg)}</span>` : '';
+  return { pronPontos: reserva, pronLado: setaDoCard(pr.key), pronCorpo: `${ramos}${faixaDe(pr.key)}` };
 }
 
 function renderLegendaDoPanorama(temLinhas) {
