@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.1
+
+A conta configurada para aprovar sozinha volta a aprovar sozinha quando o PR traz arquivo de ambiente ou caminho protegido que a revisão não leu.
+
+### Correções
+
+- **Arquivo de ambiente e arquivo protegido viram ressalva.** Um `.env` com valor que pode ser credencial, um patch de ambiente cortado pelo GitHub ou um caminho protegido (como `secrets/` ou `.env.prod`) que a revisão não pôde ler mandavam o PR para "Precisa de você" com "a decisão é sua", mesmo com a conta configurada para aprovar sozinha. Agora cada um vira uma ressalva no card, com o caminho do arquivo, seja quem for o autor, e a política de ressalvas da conta decide: aprova sozinho com ressalvas, ou espera você se é isso que a conta pede.
+
 ## v2.79.0
 
 Cada PR do Radar mostra, sem abrir o GitHub, se os checks obrigatórios passaram, quem foi marcado para revisar e se já dá para mergear. E o Radar ganha duas densidades: Compacta, uma linha por PR, e Expandida, com os cards de sempre.

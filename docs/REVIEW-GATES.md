@@ -183,7 +183,7 @@ blockers. Nenhuma dessas verificações converte automaticamente a decisão em a
    - **a revisão mandada pelo dono conta como qualquer rodada** (clique, Panorama, URL, "Revisar tudo"): com a conta em "só põe na fila" (`autoReview` desligado) a recuperação nasce pausada e nenhuma rodada automática sai, e antes a pendência não tinha saída (Aprovar desligado e recusado pela publicação, e a revisão manual rearmava com as mesmas tentativas). Agora cada revisão sua decide a lacuna que não é dura (vira ressalva e a política da conta decide, inclusive levando à mesa) e conta no teto da lacuna dura recuperável;
    - **`recordDecision` substitui a pendência anterior do PR que tem `esperaProva`**, em qualquer head, em vez de deixar dois cards (a revisão manual sobre a pausada duplicava). Com a decisão na 1ª rodada toda pendência nova já carrega `provaEsgotada` e é substituída por ela; a condição própria fica para a pendência em recuperação gravada até a 2.78.39, sem essa marca;
    - **teto total por commit** (`MAX_TENTATIVAS_POR_HEAD`, 6, em `busca-da-prova.js`): a lacuna dura recuperável (análise incompleta, veredito incoerente com o texto) seguia só com o recuo de 15 minutos até seis horas, sem fim. Na sétima a pendência vai à mesa com o motivo dito ("depois de 6 revisões minhas neste commit a análise continua sem fechar..."), o contador fica gravado em `tentativasDaProva` e a varredura de pendências antigas não a rearma; revisar de novo por clique neste PR roda a rodada normalmente, sem ser recusada pelo teto (`cliqueDepoisDoTeto`, em `espera-prova.js`): como qualquer rodada, a lacuna que não é dura vira ressalva e a política decide; se ainda sobra lacuna dura recuperável, ela volta à mesa com "depois do teto de 6 revisões neste commit, só revisão por clique" e NÃO rearma a recuperação automática nesse commit, e cada clique seguinte faz o mesmo (o reinício é explícito, nunca mais tentativas automáticas). Rodada automática, varredura e "Revisar tudo" herdam o contador e voltam à mesa; o card do teto é substituído pelo da rodada nova (`recordDecision`, pela marca `provaEsgotada` que toda rodada carrega), sem duplicar, e commit novo recomeça tudo;
-   - **o que sessão nenhuma resolve é decidido antes de armar**: `protegido_sem_leitura` e `valor_oculto_de_ambiente` vêm logo depois de `pr_proprio` em `shouldAutoApprove`, antes de `analise_incompleta` e da prova, e `armar` recusa pelos mesmos dois (`ambienteSegura`). Antes o `.env` com valor oculto e autor sem papel gastava as duas buscas para terminar na mesa igual;
+   - **o que sessão nenhuma resolve não arma recuperação**: `armar` recusa quando há caminho protegido sem projeção (`arquivosProtegidosSemProjecao`, `lib/engine/ambiente-nao-lido.js`), porque outra sessão também não o leria. Desde 08/11/2026 nem ele nem o valor oculto de ambiente são motivo de recusa em `shouldAutoApprove`: os dois viraram ressalva (ver "Arquivo de ambiente e protegido não lido viram ressalva");
    - **a pausa que só uma pessoa desfaz é "precisa de você"** (`pedeVoce` na marca, `pedePessoa` em `recuperacao-prova.js`: automação desligada, conta silenciada, login, ferramenta, cadastro, orçamento, cancelamento e label retirada; a espera pelos checks obrigatórios é a única pausa que passa sozinha). Ela conta no contador da seção e por conta, no ícone da bandeja e da casca (`avisos-nativos.js`), o card diz "Recuperação pausada: precisa de você" com o que destrava (resolver o impedimento, revisar de novo, ou pedir mudanças, comentar ou pular; aprovar segue exigindo a prova), o selo e a caixa deixam de dizer "sem decisão manual", e o aviso `needs-decision` sai UMA vez por pausa (a marca `avisada` cai quando a pausa passa). A pausa só conta como anotada quando o texto do impedimento E o `pedeVoce` batem (`pausaAnotada`, em `recuperacao-prova.js`): a marca gravada antes desta versão, com o impedimento e sem o campo, ganha o `pedeVoce` na varredura seguinte e avisa uma vez. Entre aparelhos ela viaja como pendência comum com o impedimento entre os motivos (`lib/sync/pendencia.js`, `espera` vazio) e como `decidir` sem motivo na fila (`sync-fila.js`): motivo, nunca estado novo, pelo mesmo leitor antigo que motivou o `espera-ci`.
 
    **Espera armada antes de uma regra mudar é revista (17/10/2026, v2.72.6).** Medido no celular: biudtech/biud-messaging-waba#52 seguia mostrando lacunas que as regras atuais não produzem mais ("critérios necessários do card não comprovados", "dependência necessária ainda aberta"). A marca carrega a versão das regras do gate (`regras`, `VERSAO_DAS_REGRAS` em `lib/technical-review/evidence.js`, que SOBE a cada mudança no que `approvalGaps` produz); marca sem carimbo ou anterior relança pelo mesmo caminho sem gastar tentativa e sai carimbada, então não há laço.
@@ -1427,10 +1427,16 @@ reconhece. Marcador de documentação (`TODO:`, `NOTE:`) não tem nome de segred
 não parecesse prosa, e o comentário que só explicava um token, com a variável vazia, mandava o PR à
 mesa. Chave fora da convenção esconde a linha inteira. Ler esse patch conta como
 cobertura. O arquivo inteiro continua recusado pelo leitor, e os demais caminhos protegidos seguem
-sem patch. Valor oculto segura a aprovação automática (`valor_oculto_de_ambiente`, vai para a pessoa
-com o motivo), salvo quando o autor tem o papel Tech Lead no cadastro local, por decisão do dono.
-Patch truncado pelo GitHub vai sempre para a pessoa, mesmo com Tech Lead: o que não veio não foi visto.
-Caminho protegido sem essa projeção segura para qualquer autor (`protegido_sem_leitura`). Limite
+sem patch. **Arquivo de ambiente e protegido não lido viram ressalva (08/11/2026).** Ordem do dono,
+diante do biudtech/biud-core#544 parado em "Precisa de você" com a conta configurada para aprovar
+sozinha: "se eu deixei pra aprovar sozinho ele deve aprovar sozinho". Valor oculto de ambiente, patch
+de ambiente truncado pelo GitHub e caminho protegido sem projeção deixaram de ser motivo de recusa
+(`valor_oculto_de_ambiente` e `protegido_sem_leitura` saíram de `shouldAutoApprove`) e viraram
+ponto de atenção com o caminho do arquivo (`pontosDoNaoLido`, `lib/engine/ambiente-nao-lido.js`,
+somado em `ressalvas.js`), seja quem for o autor; a política de ressalvas da conta (`onCaveats`)
+decide entre aprovar e a mesa. Supera a regra de 03/11/2026 (só o autor Tech Lead saía sozinho) e a
+de 06/11/2026 (protegido sem projeção ia para a pessoa). O protegido sem projeção continua sem armar a
+recuperação da prova. Limite
 conhecido: comentário com senha solta, sem nome de segredo antes nem forma de URL
 (`# senha antiga xyz`), ou com valor de uma palavra só (`# password: hunter`), passa sem ser visto
 por ninguém; ele não chega à sessão, mas também não segura a aprovação.
@@ -1471,8 +1477,8 @@ o consultam:
   o lê como lacuna (`caminho protegido sem leitura observada da projeção redigida: ...`), mesmo com
   o caminho em `coverage.reviewed`. A prova por arquivo guarda `observados`, e `splitByProof` só herda
   um protegido quando ele está lá: prova gravada antes dessa regra não tem a lista e o protegido é
-  relido (é pequeno). Sem a medição do diff nada é conferido, e o gate `protegido_sem_leitura` da
-  política continua segurando o protegido sem projeção. A dispensa da leitura vale só para a herança
+  relido (é pequeno). Sem a medição do diff nada é conferido, e o protegido sem projeção vira
+  ressalva com o caminho do arquivo (desde 08/11/2026; antes era o gate `protegido_sem_leitura`). A dispensa da leitura vale só para a herança
   COMPROVADA pelo engine (`heranca.ativa`, `heranca.unchanged`): `coverage.inherited` escrito pelo
   modelo numa rodada sem herança ativa não dispensa nada. O índice de leitura entre PRs do mesmo repositório
   (`prova-do-repositorio.js`) não registra nem herda caminho protegido: a declaração de outro PR não
