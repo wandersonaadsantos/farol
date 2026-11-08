@@ -9,6 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.0
+
+Cada PR do Radar mostra, sem abrir o GitHub, se os checks obrigatórios passaram, quem foi marcado para revisar e se já dá para mergear. E o Radar ganha duas densidades: Compacta, uma linha por PR, e Expandida, com os cards de sempre.
+
+### Novidades
+
+- **Faixa de prontidão.** Em Meus PRs, Pra mim e Panorama, cada PR ganha três estados: **Checks obrigatórios** (só os que a branch de destino exige, na rodada mais recente de cada um: verdes, rodando, falhando ou que nunca rodaram neste commit), **Reviewers** (quem foi marcado, pessoa ou time, e o que cada um fez; aprovação só conta se foi no commit atual, e aprovação antiga aparece como antiga) e **Merge** (pronto, esperando os checks, falta aprovação, atrás da base, em conflito, rascunho). Verde é resolvido, azul é o GitHub rodando, âmbar espera alguém, vermelho trava e cinza não se aplica.
+- No card cheio, os três estados são pílulas clicáveis: a de Checks lista cada check exigido e como ficou, a de Reviewers lista cada pessoa com o estado dela (com "você" quando o pedido é seu), e a de Merge lista o que o GitHub exige para mergear e o que falta. O veredito de bot de review, como o `acrity/review`, fica fora da conta dos checks e o detalhe diz isso. Quando a regra da branch não dá para ler (proteção clássica), a pílula segue a decisão de revisão do próprio GitHub e o detalhe avisa.
+- **Compacta e Expandida.** Um seletor ao lado das sub-abas do Radar troca a densidade de Pra mim, Meus PRs e Panorama, e a escolha fica guardada neste navegador. A Compacta é a padrão: uma linha por PR com repo e número, o título cortado, os três estados em forma curta ("7/7", "1/2", "Falta 1 aprovação") e uma seta que abre o card cheio só daquele PR. A Expandida mostra os cards completos, com as pílulas.
+- **Meus PRs** ganha no topo o resumo "pronto pra merge · esperando · travado". Sem autoanálise, a barra colorida do card segue o estado do Merge; com autoanálise, continua seguindo o veredito dela. O botão Merge não muda de regra: ele continua dependendo da autoanálise, e a pílula só informa.
+- **Pra mim** ganha no topo uma linha que resume o que está acontecendo (analisando, precisam de você, se resolvem sozinhos, na fila, resolvidas hoje) e leva a cada seção. Na Compacta, cada PR de Analisando agora, Precisa de você, Resolução automática e Sua fila vira uma linha com o estado numa frase ("Aprovar com 2 ressalvas", "1º na fila") e a ação principal; Revisões recentes vira uma linha "resolvidas hoje · mostrar".
+- **Panorama** na Compacta mostra três pontos coloridos por linha (checks, reviewers, merge), com o texto completo ao passar o mouse e uma legenda acima da lista. Aberta, a linha mostra as branches, quem mais está revisando e as três pílulas. A busca por URL e o botão do fim da linha continuam como estavam.
+
+### Melhorias
+
+- A leitura dos checks, dos reviewers e do merge não gasta token de IA e nunca escreve no GitHub. Meus PRs aproveitam a consulta que o Farol já fazia; os PRs do Panorama e de Pra mim são lidos em lote, e só os que mudaram ou ainda esperam o GitHub voltam a ser lidos a cada checagem. Enquanto a primeira leitura não chega, o PR mostra um estado neutro, nunca erro.
+
 ## v2.78.45
 
 Comentário de arquivo de ambiente que só explica uma variável deixa de mandar o PR para você.

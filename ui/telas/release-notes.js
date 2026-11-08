@@ -18,6 +18,11 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.0', [
+    'Cada PR do Radar mostra checks obrigatórios, reviewers (aprovação só conta no commit atual) e se dá para mergear, com o detalhe de cada um num clique',
+    'Densidades Compacta (padrão, uma linha por PR) e Expandida (os cards de sempre) em Pra mim, Meus PRs e Panorama, num seletor ao lado das sub-abas',
+    'Resumo no topo de Meus PRs (pronto, esperando, travado) e de Pra mim (o que está acontecendo, levando a cada seção); no Panorama, três pontos por linha com legenda',
+  ]],
   ['2.78.45', [
     'Comentário de arquivo .env só segura a aprovação automática quando tem forma de credencial (nome de segredo com valor, URL ou endereço com usuário e senha, JWT); o que só explica uma variável, e marcadores como TODO:, deixam de mandar o PR para você',
   ]],
