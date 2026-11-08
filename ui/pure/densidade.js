@@ -16,7 +16,7 @@ export function densidadeValida(valor) {
 export function fraseDaDecisao(d, meta = {}) {
   if (meta.stale) return { texto: 'Commit novo depois da revisão', tom: 'wait' };
   const n = Array.isArray(meta.reasons) ? meta.reasons.length : 0;
-  if (d && d.verdict === 'approve') return { texto: n ? `Aprovar com ${plural(n, 'ressalva', 'ressalvas')}` : 'Aprovar', tom: 'wait' };
+  if (d?.verdict === 'approve') return { texto: n ? `Aprovar com ${plural(n, 'ressalva', 'ressalvas')}` : 'Aprovar', tom: 'wait' };
   return { texto: n ? `Pedir mudanças · ${plural(n, 'motivo', 'motivos')}` : 'Pedir mudanças', tom: 'fail' };
 }
 
@@ -26,7 +26,7 @@ export function acaoDaDecisaoHtml(d, meta = {}, ciObrigatorio = true) {
     const revisar = (meta.reviewBtn === 'primary' || meta.reviewBtn === 'secondary') && d?.pr?.url;
     return revisar ? `<button class="btn primary sm act-review" data-url="${esc(d.pr.url)}">Revisar agora</button>` : '';
   }
-  if (d && d.verdict === 'approve') {
+  if (d?.verdict === 'approve') {
     const desligado = meta.approveDisabled ? ` disabled title="${esc(tituloDoAprovarDesligado(ciObrigatorio))}"` : '';
     return `<button class="btn ok sm dec-act" data-action="approve"${desligado}>Aprovar</button>`;
   }
@@ -44,7 +44,7 @@ export function fraseDaFila(pr, o = {}) {
   if (o.parado) return { texto: 'Revisão automática parada', tom: 'fail' };
   if (o.manual) return { texto: 'Revisão automática desligada', tom: 'none' };
   if (o.checksRodando) return { texto: 'Checks obrigatórios rodando', tom: 'wait' };
-  if (pr && pr.reRequested) return { texto: 'Pedida de novo', tom: 'wait' };
+  if (pr?.reRequested) return { texto: 'Pedida de novo', tom: 'wait' };
   return { texto: `${Number(o.posicao) || 1}º na fila`, tom: 'none' };
 }
 
@@ -55,7 +55,7 @@ export function fraseDaFilaDeExecucao(distribuindo) {
 // Quantas revisões do histórico recente foram resolvidas hoje (dia local).
 export function resolvidasHoje(resolved, agora = Date.now()) {
   const hoje = localDayKey(agora);
-  return (resolved || []).filter(r => r && r.resolvedAt && localDayKey(r.resolvedAt) === hoje).length;
+  return (resolved || []).filter(r => r?.resolvedAt && localDayKey(r.resolvedAt) === hoje).length;
 }
 
 // O rodapé que substitui Revisões recentes na Compacta: "2 resolvidas hoje · mostrar".

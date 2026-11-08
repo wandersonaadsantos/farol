@@ -138,7 +138,7 @@ export function pontosDaProntidao(reg, ctx = {}) {
 export function resumoDaProntidao(regs) {
   const out = { prontos: 0, esperando: 0, travados: 0 };
   for (const reg of regs || []) {
-    const tom = reg && reg.merge && reg.merge.tom;
+    const tom = reg?.merge?.tom;
     if (tom === 'ok') out.prontos++;
     else if (tom === 'fail') out.travados++;
     else if (tom === 'run' || tom === 'wait') out.esperando++;

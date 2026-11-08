@@ -45,7 +45,7 @@ function linhaDaDecisao(d, meta, o) {
   const frase = o.espera ? fraseDaEspera(o.ciObrigatorio) : fraseDaDecisao(d, meta);
   const acao = o.espera ? '' : acaoDaDecisaoHtml(d, meta, o.ciObrigatorio);
   return linhaCompactaHtml({
-    key: d.key, url: d.pr?.url, titulo: d.pr?.title || '', inicio: avatar((d.pr && d.pr.author) || d.author || ''),
+    key: d.key, url: d.pr?.url, titulo: d.pr?.title || '', inicio: avatar(d.pr?.author || d.author || ''),
     style: o.mark.style, classe: 'decision', refClasse: 'dec-ref', attrs: `data-id="${esc(d.id)}"`,
     estado: frase, meio: trioDe(d.key), acoes: acao,
   });
@@ -53,7 +53,7 @@ function linhaDaDecisao(d, meta, o) {
 
 function linhaDaFila(pr, o) {
   const reg = prontidaoDe(pr.key);
-  const checksRodando = !!(reg && reg.checks && reg.checks.tom === 'run');
+  const checksRodando = reg?.checks?.tom === 'run';
   return linhaCompactaHtml({
     key: pr.key, url: pr.url, titulo: pr.title, inicio: avatar(pr.author), style: o.mark.style, classe: 'fila-linha',
     estado: fraseDaFila(pr, { posicao: o.posicao, parado: o.parado, manual: o.manual, checksRodando }), meio: trioDe(pr.key),
@@ -103,7 +103,7 @@ function prontidaoDaSessaoHtml(key) {
 function prontidaoDoPanorama(pr) {
   const reg = prontidaoDe(pr.key);
   if (!cardCheio(pr.key)) return { pronPontos: pontosDaProntidaoHtml(reg), pronLado: setaDaLinhaHtml(pr.key, false, pr.key), pronCorpo: '' };
-  const ramos = reg && reg.head && reg.base
+  const ramos = reg?.head && reg.base
     ? `<div class="pr-branches pw-ramos"><code>${esc(reg.head)}</code> <span class="arrow">→</span> <code>${esc(reg.base)}</code></div>`
     : '';
   return { pronPontos: '', pronLado: setaDoCard(pr.key), pronCorpo: `${ramos}${faixaDe(pr.key)}` };
