@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.3
+
+O Farol hospedado volta a postar as revisões que decide sozinho.
+
+### Correções
+
+- **Instalação hospedada deixou de ser tratada como instância de teste.** Desde a trava de 05/11, que impede instância de teste de escrever no GitHub, uma instalação com pasta de dados própria e atualização administrada por fora tinha toda postagem recusada: a revisão decidia aprovar ou pedir mudanças, a postagem falhava e o PR parava em "Precisa de você", mesmo com a conta configurada para decidir sozinha. Agora ela posta normalmente. Instância de teste continua sem escrever no GitHub.
+- As pendências que essa trava recusou voltam a sair sozinhas no próximo ciclo, depois de conferir que o commit é o mesmo que foi revisado, que nada já foi publicado e que a conta ainda decide sozinha. Se o PR ganhou commit novo, a revisão antiga não sai; se alguém já aprovou ou reprovou aquele commit, ela é dispensada sem postar.
+
 ## v2.79.2
 
 Mais três casos em que a conta configurada para decidir sozinha parava na mesa com "a decisão é sua" passam a seguir a política da conta.
