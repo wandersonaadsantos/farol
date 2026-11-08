@@ -100,67 +100,63 @@ test('CI vermelho e violação técnica continuam bloqueando o mesmo caso multi-
   assert.equal(shouldAutoApprove(engineCom('approve'), PEDIDO, leitura).motivo, 'prova_tecnica_incompleta');
 });
 
-// Arquivo de ambiente (03/11/2026): valor oculto segura só quando o autor não é Tech Lead.
+// Arquivo de ambiente e caminho protegido (08/11/2026, ordem do dono: "se eu deixei pra aprovar
+// sozinho ele deve aprovar sozinho"): o que a revisão não leu vira ressalva, nunca mesa, seja
+// quem for o autor; a política de ressalvas da conta decide. Supera as regras de 03 e 06/11/2026.
 function comAmbiente(hiddenValues) {
   return multiRepo({ inventarioDiff: { status: 'complete', reason: '', headSha: head, baseSha: 'b'.repeat(40), changedFiles: 1,
     files: [{ path: 'a.md', representation: { kind: 'env-changes', hiddenValues, redactions: [] } }] } });
 }
-function engineComPapel(papel) {
-  return { ...engineCom('approve'), config: { people: papel ? { 'ana-dev': { papel } } : {} } };
+function engineComPapel(papel, onCaveats = 'approve') {
+  return { ...engineCom(onCaveats), config: { people: papel ? { 'ana-dev': { papel } } : {} } };
 }
 const DA_ANA = { requested: true, author: 'Ana-Dev' };
+const textos = (r) => attentionPoints(null, r).map((p) => p.text);
 
-test('arquivo de ambiente sem valor oculto aprova sozinho, seja quem for o autor', () => {
+test('arquivo de ambiente sem valor oculto aprova sozinho, sem ressalva própria', () => {
   assert.deepEqual(shouldAutoApprove(engineComPapel('junior'), DA_ANA, comAmbiente(0)), { ok: true, motivo: null });
-  assert.deepEqual(shouldAutoApprove(engineComPapel(null), DA_ANA, comAmbiente(0)), { ok: true, motivo: null });
+  assert.ok(!textos(comAmbiente(0)).some((t) => /Arquivo de ambiente/.test(t)));
 });
-test('valor oculto de Tech Lead aprova sozinho', () => {
-  assert.deepEqual(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, comAmbiente(2)), { ok: true, motivo: null });
-});
-test('valor oculto de quem não é Tech Lead, ou sem papel cadastrado, vai para a pessoa com o motivo', () => {
-  for (const papel of ['junior', 'senior', 'arquiteto', null]) {
-    assert.deepEqual(shouldAutoApprove(engineComPapel(papel), DA_ANA, comAmbiente(1)), { ok: false, motivo: 'valor_oculto_de_ambiente' }, String(papel));
+test('valor oculto de ambiente aprova sozinho com ressalva, seja quem for o autor', () => {
+  for (const papel of ['junior', 'senior', 'arquiteto', 'techlead', null]) {
+    assert.deepEqual(shouldAutoApprove(engineComPapel(papel), DA_ANA, comAmbiente(1)), { ok: true, motivo: null }, String(papel));
   }
-  assert.match(textoDaRecusa(engineComPapel('junior'), DA_ANA, 'valor_oculto_de_ambiente', comAmbiente(1)), /a\.md/);
+  assert.ok(textos(comAmbiente(1)).some((t) => /Arquivo de ambiente com valor que pode ser credencial .*\(a\.md\)/.test(t)));
 });
-test('Tech Lead não dispensa as outras provas', () => {
-  const semCobertura = { ...comAmbiente(1), coverage: { total: 1, reviewed: [], missing: ['a.md'] } };
-  assert.equal(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, semCobertura).ok, false);
+test('valor oculto de ambiente com a conta em "espera você" nas ressalvas vai à mesa pela política', () => {
+  assert.deepEqual(shouldAutoApprove(engineComPapel('junior', 'wait'), DA_ANA, comAmbiente(1)), { ok: false, motivo: 'politica' });
 });
-test('patch truncado de arquivo de ambiente vai para a pessoa, mesmo de Tech Lead', () => {
+test('patch truncado de arquivo de ambiente também é ressalva', () => {
   const r = comAmbiente(0);
   r.inventarioDiff.files[0].representation.partial = true;
-  assert.deepEqual(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, r), { ok: false, motivo: 'valor_oculto_de_ambiente' });
+  assert.deepEqual(shouldAutoApprove(engineComPapel(null), DA_ANA, r), { ok: true, motivo: null });
+  assert.ok(textos(r).some((t) => /Arquivo de ambiente/.test(t)));
 });
-test('caminho protegido sem a projeção vai para a pessoa, mesmo de Tech Lead e com a cobertura declarada', () => {
+test('o valor oculto não dispensa as outras provas', () => {
+  const semAnalise = { ...comAmbiente(1), analysisStatus: 'incomplete' };
+  assert.equal(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, semAnalise).motivo, 'analise_incompleta');
+});
+test('caminho protegido sem a projeção aprova sozinho com ressalva que cita o arquivo', () => {
   for (const arquivo of [{ path: '.env.prod' }, { path: '.env.prod', representation: null }, { path: 'deploy/prod.env' },
     { path: 'secrets/a.json' }, { path: 'notas.txt', previousPath: '.env.prod' }]) {
     const r = comAmbiente(0);
     r.inventarioDiff.files = [arquivo];
-    assert.deepEqual(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, r), { ok: false, motivo: 'protegido_sem_leitura' }, arquivo.path);
-    assert.ok(textoDaRecusa(engineComPapel('techlead'), DA_ANA, 'protegido_sem_leitura', r).includes(arquivo.path), arquivo.path);
+    assert.deepEqual(shouldAutoApprove(engineComPapel('junior'), DA_ANA, r), { ok: true, motivo: null }, arquivo.path);
+    assert.ok(textos(r).some((t) => t.startsWith('Arquivo protegido que a revisão não pôde ler') && t.includes(arquivo.path)), arquivo.path);
   }
   const comum = comAmbiente(0);
   comum.inventarioDiff.files = [{ path: 'src/env.test.ts' }];
-  assert.deepEqual(shouldAutoApprove(engineComPapel('junior'), DA_ANA, comum), { ok: true, motivo: null });
+  assert.ok(!textos(comum).some((t) => /Arquivo protegido/.test(t)));
 });
-// Tentar de novo não abre arquivo protegido: a análise incompleta por causa dele nunca conclui, e o
-// card prometia conclusão sozinho a cada tentativa (biud-frontend#1698, 03/11/2026).
-test('caminho protegido sem projeção vai direto para a pessoa, antes de qualquer motivo que recupera', () => {
-  const casos = [{ analysisStatus: 'incomplete' }, { coverage: { total: 1, reviewed: [], missing: ['secrets/a.json'] } }, { verdict: 'comment' }];
-  for (const extra of casos) {
-    const r = { ...comAmbiente(0), ...extra };
-    r.inventarioDiff.files = [{ path: 'secrets/a.json' }];
-    assert.equal(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, r).motivo, 'protegido_sem_leitura', JSON.stringify(extra));
-    const texto = textoDaRecusa(engineComPapel('techlead'), DA_ANA, 'protegido_sem_leitura', r);
-    assert.match(texto, /secrets\/a\.json/);
-    assert.doesNotMatch(texto, /Aprovar/, 'a saída pode ser reprovar ou comentar');
-  }
+test('protegido que a cobertura já aponta não aparece duas vezes no card', () => {
+  const r = { ...comAmbiente(0), protegidosSemLeitura: ['secrets/a.json'] };
+  r.inventarioDiff.files = [{ path: 'secrets/a.json' }];
+  assert.ok(!textos(r).some((t) => t.startsWith('Arquivo protegido')));
 });
-// 06/11/2026: invertido. O valor oculto com autor sem papel não muda com sessão nenhuma, então
-// vem ANTES da prova: com cobertura pendente a busca gastava duas sessões para terminar na mesa igual.
-test('valor oculto com cobertura pendente vai direto para a pessoa, antes de armar a recuperação da prova', () => {
-  const r = { ...comAmbiente(1), coverage: { total: 1, reviewed: [], missing: ['a.md'] } };
-  assert.equal(shouldAutoApprove(engineComPapel('junior'), DA_ANA, r).motivo, 'valor_oculto_de_ambiente');
-  assert.equal(shouldAutoApprove(engineComPapel('techlead'), DA_ANA, r).motivo, 'prova_tecnica_incompleta', 'Tech Lead: a busca segue');
+test('análise incompleta com protegido sem projeção diz que tentar de novo não muda isso', () => {
+  const r = { ...comAmbiente(0), analysisStatus: 'incomplete' };
+  r.inventarioDiff.files = [{ path: 'secrets/a.json' }];
+  assert.equal(shouldAutoApprove(engineComPapel('junior'), DA_ANA, r).motivo, 'analise_incompleta');
+  assert.match(textoDaRecusa(engineComPapel('junior'), DA_ANA, 'analise_incompleta', r), /secrets\/a\.json não pode ser lido, então tentar de novo não muda isso/);
+  assert.doesNotMatch(textoDaRecusa(engineComPapel('junior'), DA_ANA, 'analise_incompleta', comAmbiente(0)), /protegido/);
 });

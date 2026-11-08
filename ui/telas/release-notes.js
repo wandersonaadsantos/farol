@@ -18,6 +18,9 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.1', [
+    'Arquivo .env com valor que pode ser credencial, ou arquivo protegido que a revisão não leu, vira ressalva no card em vez de mandar o PR para você: a conta que aprova sozinha aprova sozinha com ressalvas',
+  ]],
   ['2.79.0', [
     'Cada PR do Radar mostra checks obrigatórios, reviewers (aprovação só conta no commit atual) e se dá para mergear, com o detalhe de cada um num clique',
     'Densidades Compacta (padrão, uma linha por PR) e Expandida (os cards de sempre) em Pra mim, Meus PRs e Panorama, num seletor ao lado das sub-abas',

@@ -259,29 +259,18 @@ test('B5: depois do teto, o seu clique roda e decide: a prova que falta vira res
   assert.ok(e.eventos.some((x) => x[0] === 'auto-approved'));
 });
 
-test('B4: valor oculto de ambiente é decidido antes de armar a busca, com o motivo dito no card', () => {
+// 08/11/2026: o valor oculto de ambiente é ressalva (ambiente-nao-lido.js), então a recuperação da
+// prova segue armando como para qualquer PR, seja quem for o autor.
+test('B4: valor oculto de ambiente não impede armar a busca da prova', () => {
   const e = motor();
   e.config.people = { dev: { papel: 'junior' } };
   const r = { headSha: HEAD, verdict: 'approve', analysisStatus: 'complete', ...criteriaFixture('approve'),
     payloads: { approve: { event: 'APPROVE', body: 'ok' } }, inventarioDiff: AMBIENTE,
     approvalEvidence: ['protocolo de revisão não comprovado'], technicalReview: { semDeclaracao: true } };
-  assert.equal(shouldAutoApprove(e, PR, r).motivo, 'valor_oculto_de_ambiente', 'antes da prova incompleta');
-  assert.equal(shouldAutoApprove(e, PR, { ...r, analysisStatus: 'incomplete' }).motivo, 'valor_oculto_de_ambiente', 'antes da análise incompleta');
-  assert.match(textoDaRecusa(e, PR, 'valor_oculto_de_ambiente', r), /Tentar de novo não muda isso/);
-  assert.equal(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', r, []), null, 'nenhuma rota de espera arma');
-  assert.equal(esperaProva.armar(e, PR, 'analise_incompleta', { ...r, analysisStatus: 'incomplete' }, []), null);
-  e.config.people = { dev: { papel: 'techlead' } };
-  assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', r, []), 'com o autor Tech Lead a busca segue');
-});
-
-test('B4: a varredura não rearma pendência com valor oculto de ambiente', async () => {
-  const e = motor();
-  const d = await revisado(e, SEM_PROTOCOLO);
-  delete d.esperaProva;
-  d.inventarioDiff = AMBIENTE;
-  d.reasons = [{ text: 'decisão da pessoa', kind: 'gate' }];
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
-  assert.equal(d.esperaProva, undefined);
+  assert.notEqual(shouldAutoApprove(e, PR, r).motivo, 'valor_oculto_de_ambiente');
+  assert.equal(shouldAutoApprove(e, PR, { ...r, analysisStatus: 'incomplete' }).motivo, 'analise_incompleta');
+  assert.equal(textoDaRecusa(e, PR, 'valor_oculto_de_ambiente', r), '', 'o motivo deixou de existir');
+  assert.ok(esperaProva.armar(e, PR, 'analise_incompleta', { ...r, analysisStatus: 'incomplete' }, []), 'a recuperação arma');
 });
 
 // B7: a pausada é "precisa de você" em toda superfície, e o fato viaja como motivo.
