@@ -18,6 +18,10 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.6', [
+    'A autoanálise mostra o andamento dentro do próprio PR, etapa por etapa e com o tempo, no lugar do box solto no canto do card',
+    'O botão responde na hora, e a sessão que termina sem resultado diz que nada foi publicado e oferece tentar de novo',
+  ]],
   ['2.79.5', [
     'PR que segue pedindo sua revisão volta a ser revisado quando chega commit novo, mesmo que a rodada anterior tenha terminado sem postar nada',
   ]],

@@ -173,21 +173,6 @@ export function feedLine(it) {
   return `<div class="feed-line k-${esc(it.k)}${it.a ? ' from-agent' : ''}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span>${ag}<span class="feed-x">${esc(it.text)}</span></div>`;
 }
 
-export function analysisOpsPlan(ops, snap) {
-  snap = snap || {};
-  const presentes = new Set();
-  for (const s of (snap.activeSessions || [])) {
-    if (s && s.mode === 'self') for (const k of (s.keys || [])) presentes.add(k);
-  }
-  for (const k of (snap.headlessWaiting || [])) presentes.add(k);
-  const markSeen = [], close = [];
-  for (const op of (ops || [])) {
-    if (presentes.has(op.key)) { if (!op.seen) markSeen.push(op.id); }
-    else if (op.seen) close.push(op.id);
-  }
-  return { markSeen, close };
-}
-
 export function selfSessionKey(sessions, id) {
   const s = (sessions || []).find(x => x && x.id === id && x.mode === 'self');
   return (s && s.keys && s.keys[0]) || null;

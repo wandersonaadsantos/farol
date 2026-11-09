@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Estados da faixa</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.root{--bg:#0b0e14;--surface:#121722;--surface-2:#1a2130;--border:#232c3d;--text:#e7ecf5;--muted:#8b97ab;--faint:#7c889c;--ok:#4cc38a;--ok-soft:rgba(76,195,138,.14);--info:#6ca8f2;--accent:#ffb454;--danger:#f2777a;--danger-soft:rgba(242,119,122,.14);font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);box-sizing:border-box}
+.btn{font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:6px 12px;border:1px solid var(--border);background:transparent;color:var(--text);white-space:nowrap}
+.bloco{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px}
+.et{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--faint);white-space:nowrap}
+.et .pt{width:16px;height:16px;border-radius:99px;border:1.5px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:10px;box-sizing:border-box}
+.et.feita{color:var(--muted)}.et.feita .pt{border-color:transparent;background:var(--ok-soft);color:var(--ok)}
+.et.agora{color:var(--text)}.et.agora .pt{border:2px solid var(--info);border-right-color:transparent}
+.et.erro{color:var(--danger)}.et.erro .pt{border-color:transparent;background:var(--danger-soft);color:var(--danger)}
+.liga{width:22px;height:1.5px;background:var(--border);margin:0 7px}
+.liga.feita{background:var(--ok)}
+.trilho{height:4px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin:10px 0 8px}
+.cheio{height:100%;border-radius:99px;background:var(--info)}
+</style>
+</helmet>
+<div class="root" style="width:1120px;height:1300px;padding:28px 32px;display:flex;flex-direction:column;gap:12px">
+  <sc-for list="{{estados}}" as="e" hint-placeholder-count="8">
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:18px;align-items:start">
+      <div style="padding-top:12px">
+        <div style="font-size:13.5px;font-weight:700">{{e.nome}}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">{{e.quando}}</div>
+      </div>
+      <div class="bloco">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div style="display:flex;align-items:center">
+            <sc-for list="{{e.etapas}}" as="p" hint-placeholder-count="5">
+              <sc-if value="{{p.temLiga}}" hint-placeholder-val="{{ true }}"><span class="{{p.ligaCls}}"></span></sc-if>
+              <span class="{{p.cls}}"><span class="pt">{{p.marca}}</span>{{p.nome}}</span>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px"><span style="font-size:12.5px;color:var(--muted)">{{e.tempo}}</span><button type="button" class="btn">{{e.acao}}</button></div>
+        </div>
+        <sc-if value="{{e.temBarra}}" hint-placeholder-val="{{ true }}"><div class="trilho"><div class="cheio" style="width: {{e.largura}}%; opacity: {{e.opacidade}}"></div></div></sc-if>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-top:{{e.gap}}">
+          <div style="font-size:13px;color:{{e.cor}}">{{e.texto}}</div>
+          <div style="font-size:12px;color:var(--faint);white-space:nowrap">{{e.apoio}}</div>
+        </div>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":1300}}'>
+const NOMES = ['Código', 'Avaliação técnica', 'Leitura', 'Verificação', 'Conclusão'];
+const LISTA = [
+  { nome: 'Ao clicar', quando: 'na hora, sem esperar o servidor', et: 0, tempo: '0 s', texto: 'Iniciando a autoanálise.', apoio: 'costuma levar 4 min', b: 'i' },
+  { nome: 'Buscando o código', quando: 'sem ninguém na frente', et: 0, tempo: '9 s', texto: 'Buscando o código do PR.', apoio: 'costuma levar 4 min', b: 'i' },
+  { nome: 'Na fila', quando: 'outro preparo em andamento', et: 0, tempo: '48 s', texto: 'Buscando o código do PR, com 1 outro preparo em andamento.', apoio: 'costuma levar 4 min', b: 'i' },
+  { nome: 'Avaliação técnica', quando: 'cópia e verificações', et: 1, tempo: '1 min 12 s', texto: 'Cópia do repositório e verificações automáticas.', apoio: 'código pronto em 12 s', b: 'i' },
+  { nome: 'Lendo', quando: 'a única etapa com percentual', et: 2, tempo: '2 min 03 s', texto: 'Lendo src/media/quota-ledger.service.ts', apoio: '8 de 23 arquivos', b: 'd', pct: 34 },
+  { nome: 'Sem sinal', quando: 'mais de 45 s sem evento', et: 3, tempo: '6 min 02 s', texto: 'Sem sinal do modelo há 1 min 20 s. A sessão segue aberta.', apoio: 'pode cancelar e tentar de novo', b: 'i', cor: 'var(--accent)' },
+  { nome: 'Concluída', quando: 'vira o resultado, no mesmo lugar', et: 5, tempo: '4 min 18 s', texto: 'Autoanálise pronta: aprovável, com 1 ressalva.', apoio: 'neste commit', acao: 'Ver resultado', cor: 'var(--ok)' },
+  { nome: 'Falhou', quando: 'com o motivo e a saída', et: 2, tempo: '2 min 31 s', texto: 'A sessão terminou sem resultado: limite do plano até 21:00.', apoio: 'nada foi publicado', acao: 'Tentar de novo', cor: 'var(--danger)', erro: true },
+];
+class Component extends DCLogic {
+  renderVals() {
+    return { estados: LISTA.map(e => ({
+      ...e, acao: e.acao || 'Cancelar', cor: e.cor || 'var(--text)', temBarra: !!e.b, largura: e.b === 'd' ? e.pct : 100, opacidade: e.b === 'd' ? 1 : 0.4, gap: e.b ? '0' : '10px',
+      etapas: NOMES.map((nome, i) => {
+        const feita = i < e.et, agora = i === e.et && !e.erro && e.et < 5, erro = i === e.et && e.erro;
+        return { nome, temLiga: i > 0, ligaCls: 'liga' + (i <= e.et && (feita || agora || erro) ? ' feita' : ''), cls: 'et' + (feita ? ' feita' : '') + (agora ? ' agora' : '') + (erro ? ' erro' : ''), marca: feita ? '✓' : erro ? '!' : '' };
+      }),
+    })) };
+  }
+}
+</script>
+</body>
+</html>

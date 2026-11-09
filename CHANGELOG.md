@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.6
+
+A autoanálise agora mostra o andamento dentro do próprio PR, etapa por etapa, no lugar do box solto no canto do card.
+
+### Melhorias
+
+- **O botão responde na hora.** Ao clicar, o PR já mostra que a autoanálise está começando, sem esperar o servidor.
+- **O andamento fica no card.** Uma faixa na largura do PR diz em que etapa a análise está (código, leitura, verificação e conclusão) e há quanto tempo está rodando. A barra só marca porcentagem na leitura, quando dá para contar os arquivos.
+- **Sem sinal é dito.** Se o modelo parar de responder, a faixa diz há quanto tempo está sem sinal e deixa o Cancelar à mão.
+- **Compacta e celular.** Na visão Compacta, a linha do PR mostra a etapa, o tempo e o Cancelar. No celular, as etapas ficam uma embaixo da outra.
+- **Falha com saída.** Quando a sessão termina sem resultado, a faixa avisa que nada foi publicado e oferece tentar de novo.
+
 ## v2.79.5
 
 PR que continua pedindo a sua revisão volta a ser revisado quando chega commit novo, mesmo que a rodada anterior não tenha postado nada.

@@ -122,6 +122,6 @@ export function linhaCompactaHtml(o = {}) {
     ${o.inicio || ''}
     <div class="pl-main">${ref}<span class="pl-titulo" title="${esc(o.titulo)}">${esc(o.titulo)}</span></div>
     ${estadoDaLinha(o.estado)}${o.meio || ''}${o.acoes || ''}
-    ${setaDaLinhaHtml(o.key, false, o.key)}
+    ${setaDaLinhaHtml(o.key, false, o.key)}${o.rodape || ''}
   </div>`;
 }

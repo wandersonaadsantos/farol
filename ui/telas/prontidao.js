@@ -30,8 +30,8 @@ function linhaDoMeuPr(pr, o) {
   const ctx = { repoBloqueado: o.repoBloqueado };
   return linhaCompactaHtml({
     key: pr.key, url: pr.url, titulo: pr.title, inicio: o.mark.dot, style: o.mark.style,
-    classe: `mypr-linha${o.escondido ? ' oculto' : ''}`, barra: o.barra || barraDe(pr.key, ctx),
-    meio: trioDe(pr.key, ctx), acoes: o.merge || '',
+    classe: ['mypr-linha', o.escondido && 'oculto', o.classeExtra].filter(Boolean).join(' '), barra: o.barra || barraDe(pr.key, ctx),
+    meio: trioDe(pr.key, ctx), acoes: o.merge || '', ...(o.andamento || {}),
   });
 }
 

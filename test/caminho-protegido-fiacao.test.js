@@ -317,6 +317,24 @@ test('patch ausente ou truncado: a autoanálise não conta como lido o marcador 
   assert.deepEqual(scope.missing, INCOMPLETOS);
 });
 
+test('o feed da autoanálise sai com a etapa de cada linha, e o fechamento é marcado', async () => {
+  const e = setup();
+  sourceRuntime.prepareSources = async () => source(SEM_PATCH);
+  let itens = [];
+  const fases = [];
+  const pushOriginal = e.pushState;
+  e.pushState = function (...args) { for (const s of e.activeReviews.values()) fases.push(s.fase); return pushOriginal.apply(this, args); };
+  e.runClaudeStream = async (_prompt, opts) => {
+    opts.onEvent({ kind: 'tool', text: 'Read src/a.js' });
+    opts.onEvent({ kind: 'text', text: 'Comparando com o card' });
+    itens = [...e.activity.get(opts.id)];
+    return { text: JSON.stringify(selfResult()) };
+  };
+  await e.runSelfAnalysis({ ...pr });
+  assert.deepEqual(itens.filter(i => /Read src|Comparando/.test(i.text)).map(i => i.s), ['leitura', 'raciocinio']);
+  assert.ok(fases.includes('fechando'), JSON.stringify(fases));
+});
+
 test('patch ausente ou truncado: na revisão, ler o marcador ou o fragmento inteiro não cobre, e o declarado vira lacuna', async () => {
   const e = setup();
   sourceRuntime.prepareSources = async () => source(SEM_PATCH);

@@ -17,7 +17,6 @@ function gruposDaPintura(pintar) {
     grupo('panorama', ['prontidao', 'panorama', 'activeSessions', 'decisions', 'reviewActions', 'reviewStatesGh', 'staleStates', 'accounts', 'config', 'lastCheckAt', 'status', 'sync', 'chats'], () => telaVisivel('radar', 'pano') && !editandoFormulario() && !textoSelecionado('#rpane-pano')),
     grupo('silenciadas', ['accounts', 'panorama', 'config'], radar),
     grupo('navegacao', ['queue', 'panorama', 'myPRs', 'hiddenPRs', 'decisions', 'activeSessions', 'headlessWaiting', 'headlessDistributing', 'accounts', 'sync'], radar),
-    grupo('operacoes', ['activeSessions', 'headlessWaiting', 'selfAnalyses', 'myPRs']),
     grupo('configuracoes', ['app', 'paths', 'config', 'accounts', 'account', 'contasGh', 'doctor', 'sync', 'jiraSites', 'cadeiaPerfis', 'provedores', 'modelos', 'update', 'capacidades', 'credits', 'myPRs', 'panorama'], sistema),
     grupo('ferramentas', ['toolRuns', 'config'], () => telaVisivel('sistema') || telaVisivel('destaques')),
     grupo('atualizacao', ['update', 'config'], () => telaVisivel('sistema')),
