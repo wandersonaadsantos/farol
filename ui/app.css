@@ -308,7 +308,10 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
    afirmar aprovacao ou reprovacao e passa a pedir atencao. */
 .mypr-card.stale { border-left-color: var(--accent); }
 .mypr-top { display: flex; align-items: center; gap: 14px; }
-.mypr-top .info { flex: 1; min-width: 0; }
+/* a base define quando as ações descem: com base zero o título "cabia" em qualquer largura e
+   ficava espremido ao lado dos botões, que nunca quebravam de linha */
+.mypr-top .info { flex: 1 1 320px; min-width: 0; }
+.mypr-top .pr-actions { flex: 0 1 auto; max-width: 100%; }
 .mypr-card .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; }
 .pr-card .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
 /* revisão automática parada (estacionamento): é a diferença entre "nunca revisou" e
@@ -2517,6 +2520,8 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .mypr-card .info { flex: 1 1 0; }
   .mypr-card .mypr-base, .mypr-card .mypr-superado, .mypr-card .mypr-merge-nota { order: 2; flex: 1 1 100%; }
   .mypr-card .pr-actions { order: 3; flex: 1 1 100%; margin-top: 12px; }
+  /* faixas sem ordem própria ficavam ao lado do título, disputando a largura com ele */
+  .mypr-card .pron-bloco, .mypr-card .aa-faixa { order: 3; flex: 1 1 100%; min-width: 0; }
   .mypr-card .mypr-analysis { order: 4; flex: 1 1 100%; }
   .mypr-base .mb-link, .ms-arquivos summary { display: inline-flex; align-items: center; min-height: 44px; }
   .ms-fechar { flex: 1 1 100%; justify-content: center; min-height: 44px; }
@@ -2911,9 +2916,10 @@ body[data-densidade="compacta"] #panoOwners { display: none; }
   .card.pr-card:has(.pron-seta[aria-expanded="true"]) .pr-actions { padding-right: 0; }
   .card.pr-card:has(.pron-seta[aria-expanded="true"]) .info { padding-right: 38px; }
 }
+/* em Meus PRs as ações descem conforme a quantidade de botões, então o título reserva a seta sempre */
+.card.mypr-card:has(.pron-seta[aria-expanded="true"]) .info { padding-right: 38px; }
 @media (max-width: 720px) {
   .card.mypr-card:has(.pron-seta[aria-expanded="true"]) .pr-actions { padding-right: 0; }
-  .card.mypr-card:has(.pron-seta[aria-expanded="true"]) .info { padding-right: 38px; }
   /* na tela estreita a linha quebra: a seta fechada fica no canto também, como a aberta */
   .pr-linha { position: relative; padding-right: 48px; }
   .pr-linha .pron-seta { position: absolute; top: 7px; right: 10px; }

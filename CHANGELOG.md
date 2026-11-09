@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.7
+
+O card de Meus PRs volta a mostrar o título inteiro, em qualquer largura de janela.
+
+### Correções
+
+- **Título sem aperto.** Com muitos botões no card, o título ficava espremido numa coluna estreita, quebrando em quase toda palavra. Agora os botões descem inteiros para a linha de baixo quando não cabem ao lado do título.
+- **Janela estreita.** Abaixo de 720 px, os quadros de checks, reviewers e merge ficavam ao lado do título. Agora ocupam a própria linha, abaixo dos botões.
+
 ## v2.79.6
 
 A autoanálise agora mostra o andamento dentro do próprio PR, etapa por etapa, no lugar do box solto no canto do card.
