@@ -30,7 +30,7 @@ import { renderMeusPrsRemoto, contarRemotos } from './listas-remotas.js';
 import { festejar } from './confete.js';
 import { markdownReutilizado as md } from './markdown.js';
 import { cardCheio } from './densidade.js';
-import { andamentoDoPr, iniciando, pedirAutoanalise, cancelarAutoanalise, aoMudarAndamento } from './autoanalise-andamento.js';
+import { andamentoDoPr, iniciando, pedirAutoanalise, cancelarAutoanalise, dispensarFalha, aoMudarAndamento } from './autoanalise-andamento.js';
 import { faixaDe, barraDe, setaDoCard, linhaDoMeuPr, renderResumoDosMeus } from './prontidao.js';
 
 /* ---------- render: meus PRs (autoanálise) ---------- */
@@ -139,6 +139,7 @@ function renderMyPRs() {
     [].concat(...(estado().activeSessions || []).filter(s => s.mode === 'self').map(s => s.keys || []))
   );
   const waiting = estado().headlessWaiting || [];
+  const filaDeAutoanalise = estado().headlessWaitingDetails || {};
   const blockedRepos = new Set(((estado().config && estado().config.mergeBlockedRepos) || []).map(r => String(r).toLowerCase()));
   // só tem conteúdo quando os ocultos estão à mostra: é o que esmaece o card e troca
   // o botão Ocultar pelo Reexibir
@@ -152,9 +153,10 @@ function renderMyPRs() {
     // fila serial (um por vez): posicao = ordem real na headlessQueue
     const qpos = running ? 0 : waiting.indexOf(pr.key) + 1;
     const queued = qpos > 0;
-    const andamento = andamentoDoPr(pr.key, { running, qpos, analise: a });
+    // a fila é de revisão e de autoanálise: só a segunda vira faixa
+    const andamento = andamentoDoPr(pr.key, { running, qpos: filaDeAutoanalise[pr.key]?.autoanalise ? qpos : 0, analise: a });
     const emCurso = running || queued || iniciando(pr.key);
-    const extrasDaLinha = andamento ? { andamento: linhaDaAutoanalise(andamento, { key: pr.key, url: pr.url }), classeExtra: 'em-analise' } : {};
+    const extrasDaLinha = andamento ? { andamento: linhaDaAutoanalise(andamento, { key: pr.key, url: pr.url }), classeExtra: andamento.tipo !== 'falha' && 'em-analise' } : {};
     const btnLabel = rotuloDoBotaoDeAnalise({ running: running || iniciando(pr.key), queued, qpos, analisado: a });
     const botaoDaAnalise = botaoDeAnaliseHtml(pr.url, { emCurso, girando: running || iniciando(pr.key), rotulo: btnLabel });
     // merge so quando a autoanalise diz aprovavel; desativado (com motivo) se o
@@ -304,6 +306,8 @@ $('#myPRs').addEventListener('click', (e) => {
   }
   const cancelar = e.target.closest('.aa-cancelar');
   if (cancelar) { cancelarAutoanalise(cancelar.dataset.key); return; }
+  const dispensar = e.target.closest('.aa-dispensar');
+  if (dispensar) { dispensarFalha(dispensar.dataset.key); return; }
   const run = e.target.closest('.act-self');
   if (run) {
     // o card já carrega o key canônico; a URL é só fallback (pura, testada)

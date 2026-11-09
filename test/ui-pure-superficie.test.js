@@ -32,7 +32,7 @@ const CONGELADA = [
   "setaDaLinhaHtml",
   "linhaCompactaHtml",
   "ETAPAS_DA_AUTOANALISE",
-  "PREFIXOS_DA_AVALIACAO",
+  "sessaoSumiuSemResultado",
   "tempoDecorrido",
   "etapaDaAutoanalise",
   "andamentoDaAutoanalise",

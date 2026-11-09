@@ -2,7 +2,7 @@
    feedback visual de operações assíncronas). */
 
 import { esc, opDismissDelay, opTransition } from '../pure.js';
-import { escopo, estado } from './estado.js';
+import { escopo } from './estado.js';
 import { comAutorizacao } from '../transporte.js';
 
 export const $ = (s) => document.querySelector(s);

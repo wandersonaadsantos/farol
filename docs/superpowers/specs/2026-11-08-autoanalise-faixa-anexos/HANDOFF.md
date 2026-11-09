@@ -13,8 +13,8 @@ responder.
 
 1. **A faixa substitui o box.** Fica dentro do card, na largura dele, e some quando a análise
    termina, porque o resultado aparece no mesmo lugar.
-2. **Cinco etapas:** Código, Avaliação técnica, Leitura, Verificação e Conclusão. A etapa vem do
-   feed da sessão e nunca recua.
+2. **Quatro etapas:** Código, Leitura, Verificação e Conclusão. A etapa vem do feed da sessão e
+   nunca recua, mesmo quando as linhas antigas saem da janela do feed.
 3. **A barra só anda de verdade na Leitura**, a única etapa com denominador (arquivos lidos sobre o
    total). Nas outras ela é indefinida: porcentagem inventada é pior que nenhuma.
 4. **O clique responde na hora**, antes do servidor, com "Iniciando a autoanálise".
@@ -26,8 +26,9 @@ responder.
    2 px na base.
 8. **Celular:** etapas na vertical, botão com 44 px.
 
-## Diferença em relação ao desenho
+## Diferenças em relação ao desenho
 
+A etapa "Avaliação técnica" dos quadros saiu: ela é da revisão, e a autoanálise não a roda.
 O "costuma levar N min" ficou de fora: a autoanálise não guarda histórico de duração
 (`anotarEstimativa` só existe no fluxo da revisão). O tempo decorrido aparece sempre.
 

@@ -6,11 +6,8 @@ import { esc } from './comum.js';
 import { progressoDaSessao } from './sessao.js';
 import { tomDaProntidao } from './prontidao.js';
 
-export const ETAPAS_DA_AUTOANALISE = ['Código', 'Avaliação técnica', 'Leitura', 'Verificação', 'Conclusão'];
-
-// Os começos das linhas que o motor escreve no preparo (lib/engine/aviso-do-preparo.js). O teste
-// amarra os dois lados, porque é pelo texto que a tela separa Código de Avaliação técnica.
-export const PREFIXOS_DA_AVALIACAO = ['Preparando a avaliação técnica', 'Avaliação técnica pronta'];
+// Sem "Avaliação técnica": ela é da revisão, a autoanálise não roda (lib/engine/selfpr.js).
+export const ETAPAS_DA_AUTOANALISE = ['Código', 'Leitura', 'Verificação', 'Conclusão'];
 
 export function tempoDecorrido(ms) {
   const s = Math.max(0, Math.round((Number(ms) || 0) / 1000));
@@ -18,25 +15,22 @@ export function tempoDecorrido(ms) {
   return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s`;
 }
 
-function etapaDoPreparo(itens) {
-  for (let i = itens.length - 1; i >= 0; i--) {
-    const texto = String(itens[i]?.text || '');
-    if (PREFIXOS_DA_AVALIACAO.some(p => texto.startsWith(p))) return 1;
-  }
-  return 0;
-}
-
-// A etapa nunca volta: um comentário do modelo no meio da leitura não a faz recuar.
+// A etapa que o feed mostra agora. O feed é uma janela e perde as linhas antigas: quem garante que
+// a etapa não recua é o `etapaMinima` de andamentoDaAutoanalise.
 export function etapaDaAutoanalise(sess, itens) {
   const lista = Array.isArray(itens) ? itens : [];
-  if (sess?.fase === 'fechando') return 4;
+  if (sess?.fase === 'fechando') return 3;
   const viu = (...etapas) => lista.some(i => etapas.includes(i?.s));
-  if (viu('fechamento')) return 4;
+  if (viu('fechamento')) return 3;
   const total = Number(sess?.totalArquivos) || 0;
   const leuTudo = total > 0 && Number(sess?.lidos) >= total;
-  if (viu('verificacao') || (leuTudo && viu('raciocinio'))) return 3;
-  if (viu('leitura', 'card', 'raciocinio')) return 2;
-  return etapaDoPreparo(lista);
+  if (viu('verificacao') || (leuTudo && viu('raciocinio'))) return 2;
+  return viu('leitura', 'card', 'raciocinio') ? 1 : 0;
+}
+
+// A sessão saiu da tela: sem análise nova e sem cancelamento, ela terminou sem resultado.
+export function sessaoSumiuSemResultado({ desde, cancelada = false, analise = null }) {
+  return !cancelada && !(analise && analise.at >= desde);
 }
 
 function ultimaLinha(itens, teste) {
@@ -44,23 +38,17 @@ function ultimaLinha(itens, teste) {
   return '';
 }
 
-const TEXTO_DA_ETAPA = {
-  0: 'Buscando o código do PR.',
-  1: 'Cópia do repositório e verificações automáticas.',
-  2: 'Lendo o código do PR.',
-  3: 'Conferindo no código o que a análise afirmou.',
-  4: 'Fechando o resultado.',
-};
-const FRASE_DA_ETAPA = ['Buscando o código', 'Avaliação técnica', 'Lendo', 'Verificando', 'Concluindo'];
+const TEXTO_DA_ETAPA = ['Buscando o código do PR.', 'Lendo o código do PR.', 'Conferindo no código o que a análise afirmou.', 'Fechando o resultado.'];
+const FRASE_DA_ETAPA = ['Buscando o código', 'Lendo', 'Verificando', 'Concluindo'];
 
 function textoDaEtapa(etapa, itens) {
-  if (etapa <= 1) return ultimaLinha(itens, i => i.s === 'preparo' || !i.s) || TEXTO_DA_ETAPA[etapa];
-  if (etapa === 2) return ultimaLinha(itens, i => i.k === 'tool') || TEXTO_DA_ETAPA[2];
+  if (etapa === 0) return ultimaLinha(itens, i => i.s === 'preparo' || !i.s) || TEXTO_DA_ETAPA[0];
+  if (etapa === 1) return ultimaLinha(itens, i => i.k === 'tool') || TEXTO_DA_ETAPA[1];
   return TEXTO_DA_ETAPA[etapa];
 }
 
-function rodando(sess, itens, agora) {
-  const etapa = etapaDaAutoanalise(sess, itens);
+function rodando(sess, itens, agora, etapaMinima) {
+  const etapa = Math.max(etapaDaAutoanalise(sess, itens), etapaMinima);
   const p = progressoDaSessao(sess, [], agora);
   const total = Number(sess.totalArquivos) || 0;
   const lidos = Math.min(total, Number(sess.lidos) || 0);
@@ -69,15 +57,15 @@ function rodando(sess, itens, agora) {
     return { ...base, tom: 'wait', texto: `Sem sinal do modelo ${p.texto.replace(/^sem sinal /, '')}. A sessão segue aberta.`, apoio: 'pode cancelar e tentar de novo', frase: 'Sem sinal', barra: 'indefinida' };
   }
   const comum = { ...base, tom: 'run', texto: textoDaEtapa(etapa, itens), apoio: '', frase: FRASE_DA_ETAPA[etapa], barra: 'indefinida', pct: 0 };
-  if (!total || etapa < 2) return comum;
+  if (!total || etapa < 1) return comum;
   const contagem = `${lidos} de ${total}`;
-  if (etapa !== 2) return { ...comum, apoio: `${contagem} arquivos` };
+  if (etapa !== 1) return { ...comum, apoio: `${contagem} arquivos` };
   return { ...comum, apoio: `${contagem} arquivos`, frase: `Lendo ${contagem}`, barra: 'definida', pct: Math.floor(lidos / total * 100) };
 }
 
 // A entrada é o que a tela sabe do PR agora; devolve null quando não há o que mostrar.
-export function andamentoDaAutoanalise({ sess, itens, agora = Date.now(), iniciandoDesde = 0, posicao = 0, falha = '', cancelando = false } = {}) {
-  if (sess) return { ...rodando(sess, itens, agora), cancelando };
+export function andamentoDaAutoanalise({ sess, itens, agora = Date.now(), iniciandoDesde = 0, posicao = 0, falha = '', cancelando = false, etapaMinima = 0 } = {}) {
+  if (sess) return { ...rodando(sess, itens, agora, etapaMinima), cancelando };
   if (falha) return { tipo: 'falha', etapa: -1, tom: 'fail', texto: falha, apoio: 'nada foi publicado', frase: 'Não terminou', barra: '' };
   if (posicao > 0) return { tipo: 'fila', etapa: 0, tom: 'wait', texto: `${posicao}º na fila da autoanálise.`, apoio: 'começa quando abrir uma vaga', frase: `${posicao}º na fila`, barra: 'indefinida', cancelando };
   if (iniciandoDesde) return { tipo: 'iniciando', etapa: 0, tom: 'run', texto: 'Iniciando a autoanálise.', apoio: '', frase: 'Iniciando', barra: 'indefinida', desde: iniciandoDesde };
@@ -110,7 +98,9 @@ function tempoHtml(m, agora) {
 }
 
 function acaoHtml(m, o) {
-  if (m.tipo === 'falha') return `<button type="button" class="btn sm ghost act-self" data-url="${esc(o.url || '')}">Tentar de novo</button>`;
+  if (m.tipo === 'falha') {
+    return `<button type="button" class="btn sm ghost aa-dispensar" data-key="${esc(o.key)}">Dispensar</button><button type="button" class="btn sm ghost act-self" data-url="${esc(o.url || '')}">Tentar de novo</button>`;
+  }
   if (m.tipo === 'iniciando') return '';
   if (m.cancelando) return `<button type="button" class="btn sm ghost aa-cancelar" data-key="${esc(o.key)}" disabled>Cancelando…</button>`;
   return `<button type="button" class="btn sm ghost aa-cancelar" data-key="${esc(o.key)}">Cancelar</button>`;
@@ -120,7 +110,7 @@ export function faixaDaAutoanaliseHtml(m, o = {}) {
   if (!m) return '';
   const agora = o.agora || Date.now();
   const etapas = m.tipo === 'falha' ? '<span class="aa-falha-titulo">A autoanálise não terminou</span>' : `<div class="aa-etapas">${etapasHtml(m)}</div>`;
-  return `<div class="aa-faixa ${tomDaProntidao(m.tom)}" data-aa-key="${esc(o.key)}" role="group" aria-label="Andamento da autoanálise">
+  return `<div class="aa-faixa ${tomDaProntidao(m.tom)}" data-aa-key="${esc(o.key)}" data-aa-etapa="${m.etapa}" role="group" aria-label="Andamento da autoanálise">
     <div class="aa-topo">${etapas}<div class="aa-lado">${tempoHtml(m, agora)}${acaoHtml(m, o)}</div></div>
     ${barraHtml(m)}
     <div class="aa-rodape${m.barra ? '' : ' sem-barra'}"><span class="aa-texto" title="${esc(m.texto)}">${esc(m.texto)}</span><span class="aa-apoio">${esc(m.apoio || '')}</span></div>
@@ -135,5 +125,6 @@ function fioHtml(m) {
 // O pedaço da linha da Compacta: a frase, o tempo, a ação e o fio de progresso.
 export function linhaDaAutoanalise(m, o = {}) {
   const agora = o.agora || Date.now();
-  return { estado: { tom: m.tom, texto: m.frase }, meio: tempoHtml(m, agora), acoes: acaoHtml(m, o), rodape: fioHtml(m) };
+  const meio = m.tipo === 'falha' ? `<span class="aa-apoio" title="${esc(m.texto)}">${esc(m.apoio)}</span>` : tempoHtml(m, agora);
+  return { estado: { tom: m.tom, texto: m.frase }, meio, acoes: acaoHtml(m, o), rodape: fioHtml(m) };
 }

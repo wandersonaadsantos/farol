@@ -31,7 +31,8 @@ function handleActivity(id, item) {
   // ponto da barra pisca e o progresso é recalculado a cada evento
   const sess = (estado()?.activeSessions || []).find(x => x.id === id);
   registrarAtividadeVisual(estado().activity, id, item, sess?.startedAt);
-  if (sess && item && item.t) sess.ultimoSinalEm = item.t;
+  // a linha do preparo é do app, não do modelo: o motor também não a conta como sinal
+  if (sess && item && item.t && item.s !== 'preparo') sess.ultimoSinalEm = item.t;
   if (sess) atividadeNova.add(id);
   const vivas = new Set((estado().activeSessions || []).map(s => s.id));
   for (const pendente of atividadeNova) if (!vivas.has(pendente)) atividadeNova.delete(pendente);
