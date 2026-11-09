@@ -24,7 +24,7 @@ const atividadeNova = new Set();
    atividade FAZ com o estado e a tela de sessão (o app.js só entrega o
    evento). Empilha no feed de estado().activity, escreve no DOM se o card
    está aberto, e atualiza a barra de progresso e a esteira de etapas. */
-function handleActivity(id, item) {
+function handleActivity(id, item, lidos) {
   if (!estado()) return;
   if (!estado().activity) estado().activity = {};
   // linha nova é sinal de vida: o carimbo vale já (o snapshot só chega no ciclo), o
@@ -33,6 +33,7 @@ function handleActivity(id, item) {
   registrarAtividadeVisual(estado().activity, id, item, sess?.startedAt);
   // a linha do preparo é do app, não do modelo: o motor também não a conta como sinal
   if (sess && item && item.t && item.s !== 'preparo') sess.ultimoSinalEm = item.t;
+  if (sess && lidos) sess.lidos = lidos;
   if (sess) atividadeNova.add(id);
   const vivas = new Set((estado().activeSessions || []).map(s => s.id));
   for (const pendente of atividadeNova) if (!vivas.has(pendente)) atividadeNova.delete(pendente);

@@ -54,6 +54,11 @@ test('a barra só anda de verdade na leitura', () => {
   assert.equal(preparo.texto, 'Buscando o código do PR.');
 });
 
+test('sem leitura observada não há contagem: a barra fica indefinida', () => {
+  const m = andamentoDaAutoanalise({ sess: sessao({ totalArquivos: 23, ultimoSinalEm: AGORA }), itens: [{ s: 'leitura', k: 'tool', text: 'x' }], agora: AGORA });
+  assert.deepEqual([m.barra, m.apoio, m.frase], ['indefinida', '', 'Lendo']);
+});
+
 test('sem sinal do modelo a faixa diz isso, e o preparo silencioso não conta', () => {
   const muda = andamentoDaAutoanalise({ sess: sessao({ ultimoSinalEm: AGORA - 80_000 }), itens: [{ s: 'leitura' }], agora: AGORA });
   assert.equal(muda.tom, 'wait');

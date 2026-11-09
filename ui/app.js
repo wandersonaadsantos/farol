@@ -34,6 +34,7 @@ import {
   renderDecisions, renderQueue, renderPanorama, renderRadarNav, initResolvedTriggers, aoMudarRadarSub, switchRadarSub,
 } from './telas/radar.js';
 import { renderMyPRs, initReviewersButton, updateAnalysisProgress, contagemMeusPrs } from './telas/meus-prs.js';
+import { observarCancelamentos } from './telas/autoanalise-andamento.js';
 import { initDensidade } from './telas/densidade.js';
 import { renderUpdate } from './telas/sistema-atualizacao.js';
 import { sysGoTo, renderSettings, renderPlatformSettings } from './telas/sistema.js';
@@ -416,6 +417,7 @@ function connect() {
     const d = safeJsonParse(e.data); if (!d) return;
     const primeiro = !estado();
     definirEstado({ ...d, activity: limitarAtividadeVisual(d.activity, d.activeSessions) });
+    observarCancelamentos();
     interventionsFromState(d, openIntervention);
     repintarPorEstado(null, primeiro);
   });
@@ -431,15 +433,15 @@ function connect() {
     const novo = { ...atual, ...d.campos };
     for (const chave of d.removidos || []) delete novo[chave];
     if (Object.hasOwn(d.campos, 'activity')) novo.activity = limitarAtividadeVisual(novo.activity, novo.activeSessions);
-    definirEstado(novo); interventionsFromState(novo, openIntervention);
+    definirEstado(novo); observarCancelamentos(); interventionsFromState(novo, openIntervention);
     repintarPorEstado([...Object.keys(d.campos), ...(d.removidos || [])]);
   });
   // o app.js só entrega o evento: quem calcula o que ele significa é quem é
   // dono do assunto (telas/sessoes.js, o feed e a barra de progresso da sessão;
-  // telas/meus-prs.js, o progresso do op de autoanálise que ela própria cria).
+  // telas/autoanalise-andamento.js, a faixa da autoanálise em Meus PRs).
   es.addEventListener('activity', (e) => {
-    const d = safeJsonParse(e.data); if (!d) return; const { id, item } = d;
-    handleActivity(id, item);
+    const d = safeJsonParse(e.data); if (!d) return; const { id, item, lidos } = d;
+    handleActivity(id, item, lidos);
     pinturas.invalidar(['activity']);
     updateAnalysisProgress(id, item);
   });

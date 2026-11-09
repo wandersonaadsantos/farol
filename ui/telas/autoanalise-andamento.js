@@ -7,7 +7,7 @@ import { api, toast } from './infra.js';
 
 const INICIANDO = new Map();
 const ACOMPANHADAS = new Map();
-const CANCELANDO = new Set();
+const CANCELANDO = new Map();   // PR -> id da sessão cancelada ('' se ainda não havia sessão, a da fila)
 const FALHAS = new Map();
 const ETAPA_VISTA = new Map();   // o feed é uma janela: a etapa não recua quando as linhas antigas saem
 const SEM_RESULTADO = 'A sessão terminou sem resultado. O motivo saiu no aviso e fica em Sistema > Diagnóstico.';
@@ -26,7 +26,8 @@ function acompanhar(key, { running, qpos, analise }) {
     INICIANDO.delete(key);
     FALHAS.delete(key);
     const sess = sessaoDoPr(key);
-    if (sess?.cancelled) CANCELANDO.add(key);   // cancelada por "Analisando agora" ou por outra janela
+    const marca = CANCELANDO.get(key);
+    if (marca && marca !== sess?.id) CANCELANDO.delete(key);   // a marca era de uma sessão que já acabou
     ACOMPANHADAS.set(key, sess?.startedAt || ACOMPANHADAS.get(key) || Date.now());
     return;
   }
@@ -46,6 +47,14 @@ export function andamentoDoPr(key, { running, qpos, analise }) {
     posicao: qpos, falha: FALHAS.get(key) || '', cancelando: CANCELANDO.has(key), etapaMinima });
   if (sess) ETAPA_VISTA.set(key, { id: sess.id, etapa: m.etapa });
   return m;
+}
+
+// Roda a cada estado recebido, com a tela visível ou não: o `cancelled` só existe entre o pedido
+// e o fim da sessão, e quem cancela por "Analisando agora" ou por outra janela não passa por aqui.
+export function observarCancelamentos() {
+  for (const s of estado()?.activeSessions || []) {
+    if (s.mode === 'self' && s.cancelled) for (const key of s.keys || []) CANCELANDO.set(key, s.id);
+  }
 }
 
 export function dispensarFalha(key) {
@@ -69,7 +78,7 @@ export function pedirAutoanalise(url, key) {
 }
 
 export async function cancelarAutoanalise(key) {
-  CANCELANDO.add(key);
+  CANCELANDO.set(key, sessaoDoPr(key)?.id || '');
   repintar();
   const r = await api('/api/self-review/cancel', { key });
   if (r?.ok) return;
@@ -95,13 +104,15 @@ function pintarFaixa(faixa, m, key) {
   const molde = document.createElement('template');
   molde.innerHTML = faixaDaAutoanaliseHtml(m, { key }).trim();
   const nova = molde.content.firstElementChild;
+  if (faixa.dataset.aaTipo !== nova.dataset.aaTipo) { faixa.replaceWith(nova); return; }   // a de falha não tem etapas
   faixa.className = nova.className;
   if (faixa.dataset.aaEtapa !== nova.dataset.aaEtapa) {
     faixa.dataset.aaEtapa = nova.dataset.aaEtapa;
     faixa.querySelector('.aa-etapas').replaceWith(nova.querySelector('.aa-etapas'));
   }
   atualizarBarra(faixa.querySelector('.aa-trilho'), nova.querySelector('.aa-trilho'), '.aa-cheio', m);
-  faixa.querySelector('.aa-rodape').replaceWith(nova.querySelector('.aa-rodape'));
+  const rodape = faixa.querySelector('.aa-rodape'), novoRodape = nova.querySelector('.aa-rodape');
+  if (rodape.outerHTML !== novoRodape.outerHTML) rodape.replaceWith(novoRodape);   // o tooltip do texto cortado morreria a cada segundo
 }
 
 function pintarLinha(linha, m, key) {
