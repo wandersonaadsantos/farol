@@ -18,6 +18,9 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.5', [
+    'PR que segue pedindo sua revisão volta a ser revisado quando chega commit novo, mesmo que a rodada anterior tenha terminado sem postar nada',
+  ]],
   ['2.79.4', [
     'O preparo da revisão diz o que está fazendo desde o início: a fila da busca do código, a avaliação técnica e quanto cada passo levou',
     'A seta de expandir e recolher fica no mesmo lugar nos dois estados, em Pra mim, Meus PRs, Panorama e Analisando agora',
