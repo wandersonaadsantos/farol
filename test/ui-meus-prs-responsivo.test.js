@@ -18,7 +18,9 @@ test('o título reserva o lugar da seta em qualquer largura', () => {
 });
 
 test('na janela estreita, as faixas ficam em linha própria, abaixo das ações', () => {
-  const estreita = css.match(/@media \(max-width: 720px\) \{\n  \/\* o aviso sobe[\s\S]*?\n\}/)[0];
+  const bloco = css.match(/@media \(max-width: 720px\) \{\n  \/\* o aviso sobe[\s\S]*?\n\}/);
+  assert.ok(bloco, 'bloco @media 720px não encontrado');
+  const estreita = bloco[0];
   assert.match(estreita, /\.mypr-card \.pr-actions \{ order: 3;/);
   assert.match(estreita, /\.mypr-card \.pron-bloco, \.mypr-card \.aa-faixa \{ order: 3; flex: 1 1 100%; min-width: 0; \}/);
 });
