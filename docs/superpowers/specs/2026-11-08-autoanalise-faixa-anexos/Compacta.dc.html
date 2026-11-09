@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Compacta e celular</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#6ca8f2;text-decoration:none}
+.root{--bg:#0b0e14;--surface:#121722;--surface-2:#1a2130;--border:#232c3d;--text:#e7ecf5;--muted:#8b97ab;--faint:#7c889c;--ok:#4cc38a;--ok-soft:rgba(76,195,138,.14);--info:#6ca8f2;--info-soft:rgba(108,168,242,.14);--accent:#ffb454;--accent-soft:rgba(255,180,84,.14);--danger:#f2777a;font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);box-sizing:border-box}
+.btn{font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:6px 12px;border:1px solid var(--border);background:transparent;color:var(--text);white-space:nowrap}
+.linha{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 10px 8px 14px;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--info);border-radius:10px;position:relative;overflow:hidden}
+.linha.ok{border-left-color:var(--ok)}.linha.fail{border-left-color:var(--danger)}
+.spin{width:12px;height:12px;border-radius:99px;border:2px solid var(--info);border-right-color:transparent;box-sizing:border-box;flex:0 0 12px;display:inline-block}
+.seta{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);flex:0 0 32px}
+.fio{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--surface-2)}
+.fio i{display:block;height:100%;background:var(--info)}
+.et{font-size:12px;font-weight:600;color:var(--faint);display:flex;align-items:center;gap:8px}
+.et .pt{width:14px;height:14px;border-radius:99px;border:1.5px solid var(--border);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:9px;flex:0 0 14px}
+.et.feita{color:var(--muted)}.et.feita .pt{border-color:transparent;background:var(--ok-soft);color:var(--ok)}
+.et.agora{color:var(--text)}.et.agora .pt{border:2px solid var(--info);border-right-color:transparent}
+</style>
+</helmet>
+<div class="root" style="width:1280px;height:560px;padding:28px 32px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:40px">
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:4px">Compacta: a linha diz o que está acontecendo</div>
+    <div class="linha">
+      <div style="flex:1 1 260px;min-width:0;display:flex;align-items:baseline;gap:10px"><a href="#" style="font-weight:700;white-space:nowrap">loom-be#2</a><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">LOOM-115: Media schema, quota ledger and storage abstraction</span></div>
+      <span style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--info);white-space:nowrap"><span class="spin"></span>Buscando o código · 48 s</span>
+      <button type="button" class="btn">Cancelar</button>
+      <span class="seta" aria-hidden="true">⌄</span>
+      <span class="fio"><i style="width:18%"></i></span>
+    </div>
+    <div class="linha">
+      <div style="flex:1 1 260px;min-width:0;display:flex;align-items:baseline;gap:10px"><a href="#" style="font-weight:700;white-space:nowrap">loom-be#3</a><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">LOOM-116: Presigned uploads</span></div>
+      <span style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--info);white-space:nowrap"><span class="spin"></span>Lendo 8 de 23 · 2 min</span>
+      <button type="button" class="btn">Cancelar</button>
+      <span class="seta" aria-hidden="true">⌄</span>
+      <span class="fio"><i style="width:34%"></i></span>
+    </div>
+    <div class="linha ok">
+      <div style="flex:1 1 260px;min-width:0;display:flex;align-items:baseline;gap:10px"><a href="#" style="font-weight:700;white-space:nowrap">engine-ai#977</a><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">release(hmg): ordem de criar a peça</span></div>
+      <span style="font-size:12.5px;font-weight:600;color:var(--ok);white-space:nowrap">Aprovável, 1 ressalva</span>
+      <button type="button" class="btn">Ver resultado</button>
+      <span class="seta" aria-hidden="true">⌄</span>
+    </div>
+    <div class="linha fail">
+      <div style="flex:1 1 260px;min-width:0;display:flex;align-items:baseline;gap:10px"><a href="#" style="font-weight:700;white-space:nowrap">loom-fe#7</a><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">LOOM-120: Media picker</span></div>
+      <span style="font-size:12.5px;font-weight:600;color:var(--danger);white-space:nowrap">Falhou: limite do plano</span>
+      <button type="button" class="btn">Tentar de novo</button>
+      <span class="seta" aria-hidden="true">⌄</span>
+    </div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--info);border-radius:12px;padding:14px;align-self:start">
+    <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px">Celular: etapas na vertical</div>
+    <a href="#" style="font-weight:700">loom-be#2</a>
+    <div style="font-weight:600;margin:2px 0 10px">LOOM-115: Media schema, quota ledger</div>
+    <div style="display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid var(--border)">
+      <div class="et feita"><span class="pt">✓</span>Código, 12 s</div>
+      <div class="et feita"><span class="pt">✓</span>Avaliação técnica, 58 s</div>
+      <div class="et agora"><span class="pt"></span>Leitura, 8 de 23</div>
+      <div class="et"><span class="pt"></span>Verificação</div>
+      <div class="et"><span class="pt"></span>Conclusão</div>
+    </div>
+    <div style="height:4px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin:12px 0 8px"><div style="height:100%;width:34%;background:var(--info);border-radius:99px"></div></div>
+    <div style="font-size:13px">Lendo src/media/quota-ledger.service.ts</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span style="font-size:12.5px;color:var(--muted)">2 min 03 s</span><button type="button" class="btn" style="min-height:44px">Cancelar</button></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":560}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

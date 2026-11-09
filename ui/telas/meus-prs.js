@@ -14,13 +14,13 @@ import {
   effectiveHidden, hiddenFootLabel, myPRsEmptyMsg, mergeToastKind, buildFixPrompt,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle,
   selfAnalysisStale, listViewState, prKeyFromUrl, defaultFor, overrideFor, repoShort,
-  selfSessionKey, progressoDaSessao, festasPendentes,
+  festasPendentes, faixaDaAutoanaliseHtml, linhaDaAutoanalise,
   tituloDoMergeBloqueado, notaDoMergeBloqueadoHtml, avisoDaBaseNoCard,
 } from '../pure.js';
 import { estado, escopo } from './estado.js';
 import {
-  $, api, confirmModal, showOp, updateOp, closeOp, toast, rotuloDoBotaoDeAnalise,
-  copyToClipboard, sysFlash, ACTIVE_OPS, lembrarAbertos,
+  $, api, confirmModal, toast, rotuloDoBotaoDeAnalise,
+  copyToClipboard, sysFlash, lembrarAbertos,
 } from './infra.js';
 import { scopeVisible, acctMark } from './contas.js';
 import { renderRadarNav } from './radar.js';
@@ -30,6 +30,7 @@ import { renderMeusPrsRemoto, contarRemotos } from './listas-remotas.js';
 import { festejar } from './confete.js';
 import { markdownReutilizado as md } from './markdown.js';
 import { cardCheio } from './densidade.js';
+import { andamentoDoPr, iniciando, pedirAutoanalise, cancelarAutoanalise, aoMudarAndamento } from './autoanalise-andamento.js';
 import { faixaDe, barraDe, setaDoCard, linhaDoMeuPr, renderResumoDosMeus } from './prontidao.js';
 
 /* ---------- render: meus PRs (autoanálise) ---------- */
@@ -82,6 +83,14 @@ function festejarAnaliseImpecavel() {
     festejadas.add(marca);
     festejar();
   }
+}
+
+aoMudarAndamento(() => renderMyPRs());
+
+function botaoDeAnaliseHtml(url, { emCurso, girando, rotulo }) {
+  const spin = girando ? '<span class="aa-spin" aria-hidden="true"></span>' : '';
+  if (emCurso) return `<button class="btn sm act-self aa-botao" data-url="${esc(url)}" disabled>${spin}${rotulo}</button>`;
+  return `<button class="btn primary sm act-self" data-url="${esc(url)}">${rotulo}</button>`;
 }
 
 function renderMyPRs() {
@@ -143,7 +152,11 @@ function renderMyPRs() {
     // fila serial (um por vez): posicao = ordem real na headlessQueue
     const qpos = running ? 0 : waiting.indexOf(pr.key) + 1;
     const queued = qpos > 0;
-    const btnLabel = rotuloDoBotaoDeAnalise({ running, queued, qpos, analisado: a });
+    const andamento = andamentoDoPr(pr.key, { running, qpos, analise: a });
+    const emCurso = running || queued || iniciando(pr.key);
+    const extrasDaLinha = andamento ? { andamento: linhaDaAutoanalise(andamento, { key: pr.key, url: pr.url }), classeExtra: 'em-analise' } : {};
+    const btnLabel = rotuloDoBotaoDeAnalise({ running: running || iniciando(pr.key), queued, qpos, analisado: a });
+    const botaoDaAnalise = botaoDeAnaliseHtml(pr.url, { emCurso, girando: running || iniciando(pr.key), rotulo: btnLabel });
     // merge so quando a autoanalise diz aprovavel; desativado (com motivo) se o
     // repo estiver na lista bloqueada ou se ainda ha analise rodando/na fila
     // O Merge só fica disponível quando dá pra mergear DE VERDADE. A mergeabilidade
@@ -202,7 +215,7 @@ function renderMyPRs() {
     // Compacta (07/11/2026): uma linha com o ponto da conta, repo#N, o trio da prontidão,
     // o Merge só quando a regra atual permite e a seta que abre o card cheio
     const barraDoSelo = sel => (sel ? BARRA_DO_SELO[sel.cls] : barraDe(pr.key, { repoBloqueado: repoBlocked }));
-    if (!cardCheio(pr.key)) return linhaDoMeuPr(pr, { mark: m, escondido, repoBloqueado: repoBlocked, barra: barraDoSelo(selfAnalysisBadge(a)), merge: mergeLivre && mergeBtns });
+    if (!cardCheio(pr.key)) return linhaDoMeuPr(pr, { ...extrasDaLinha, mark: m, escondido, repoBloqueado: repoBlocked, barra: barraDoSelo(selfAnalysisBadge(a)), merge: mergeLivre && mergeBtns });
     const sel = selfAnalysisBadge(a);
     const badge = sel ? `<span class="verdict ${sel.cls}"${sel.title ? ` title="${esc(sel.title)}"` : ''}>${esc(sel.label)}</span>` : '';
     const vis = selfAnalysisToggle(a);
@@ -235,7 +248,7 @@ function renderMyPRs() {
           <div class="pr-sub">${m.acct ? `por você · ${personMention(m.acct.user, 'xs', true)} · ` : ''}atualizado ${fmtRel(pr.updatedAt)}</div>
         </div>
         <div class="pr-actions">
-          <button class="btn primary sm act-self" data-url="${esc(pr.url)}" ${running || queued ? 'disabled' : ''}>${btnLabel}</button>
+          ${botaoDaAnalise}
           <button class="btn sm ghost act-set-reviewers" data-url="${esc(pr.url)}" title="Atribui você e pede review dos reviewers configurados deste repo (aba Sistema). Aplica na hora, sem confirmação.">👥 Pedir reviewers no GitHub</button>
           ${mergeBtns}
           ${a ? `<button class="btn sm ghost act-self-visibility" data-key="${esc(pr.key)}" data-hidden="${vis.alvo ? '1' : '0'}" title="${esc(vis.title)}">${esc(vis.label)}</button>` : ''}
@@ -246,6 +259,7 @@ function renderMyPRs() {
         </div>
       </div>
       ${faixaDe(pr.key, { repoBloqueado: repoBlocked })}
+      ${faixaDaAutoanaliseHtml(andamento, { key: pr.key, url: pr.url })}
       ${daBase.html}
       ${repoBlocked ? notaDoMergeBloqueadoHtml() : ''}
       ${analysisPanel}
@@ -288,33 +302,14 @@ $('#myPRs').addEventListener('click', (e) => {
       : toast('error', 'Não consegui copiar (permissão do navegador).'));
     return;
   }
+  const cancelar = e.target.closest('.aa-cancelar');
+  if (cancelar) { cancelarAutoanalise(cancelar.dataset.key); return; }
   const run = e.target.closest('.act-self');
   if (run) {
-    run.disabled = true; run.textContent = 'Analisando…';
     // o card já carrega o key canônico; a URL é só fallback (pura, testada)
-    const card = run.closest('.mypr-card');
+    const card = run.closest('.mypr-card, .pr-linha');
     const prKey = (card && card.dataset.key) || prKeyFromUrl(run.dataset.url);
-    const opId = `analysis-${prKey}`;
-    showOp(opId, {
-      type: 'analysis',
-      title: `Analisando ${prKey}`,
-      key: prKey,
-      cancellable: true,
-      cancel: { path: '/api/self-review/cancel', body: { key: prKey } },
-      container: run.closest('.mypr-card') || run.parentElement
-    });
-    updateOp(opId, { step: 'Iniciando…', progress: null });
-    api('/api/self-review', { url: run.dataset.url }).then(r => {
-      if (!r?.ok) {
-        closeOp(opId, 'error', r?.error || 'falha ao iniciar');
-        toast('error', r?.error || 'não consegui iniciar a autoanálise');
-        run.disabled = false; run.textContent = 'Analisar';
-      } else {
-        // daqui em diante quem move a barra é o feed real da sessão (evento
-        // 'activity'); prometer "Lendo arquivos… 25%" aqui era chute
-        updateOp(opId, { step: 'Preparando a sessão…', progress: null });
-      }
-    });
+    pedirAutoanalise(run.dataset.url, prKey);
     return;
   }
   const mrg = e.target.closest('.act-self-merge');
@@ -485,23 +480,5 @@ function initReviewersButton(switchTab) {
   $('#myPRs').addEventListener('click', onMyPRsReviewersClick);
 }
 
-/* ---------- progresso da autoanálise, a partir do evento 'activity' do SSE ----------
-   Chamado pelo connect() do ui/app.js pra cada evento de atividade de sessão: só
-   AGE se a sessão for uma autoanálise (selfSessionKey resolve pra uma chave de PR,
-   ver ui/pure.js), atualizando a MESMA conta (progressoDaSessao, arquivos do PR lidos
-   sobre o total) que o card de sessão usa. O op `analysis-<key>` é criado aqui no módulo (showOp, no fluxo de análise),
-   então é este módulo que sabe atualizar o progresso dele. */
-function updateAnalysisProgress(id, item) {
-  const selfKey = selfSessionKey(estado()?.activeSessions, id);
-  if (!selfKey) return;
-  const op = ACTIVE_OPS.get(`analysis-${selfKey}`);
-  if (op && op.status === 'running') {
-    const sess = (estado()?.activeSessions || []).find(x => x.id === id) || {};
-    updateOp(op.id, {
-      step: (item && item.text) || op.step,
-      progress: progressoDaSessao({ ...sess, ultimoSinalEm: item && item.t }).pct
-    });
-  }
-}
-
-export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt, initReviewersButton, updateAnalysisProgress, contagemMeusPrs };
+export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt, initReviewersButton, contagemMeusPrs };
+export { updateAnalysisProgress } from './autoanalise-andamento.js';

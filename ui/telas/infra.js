@@ -1,7 +1,7 @@
 /* Farol · UI: infra que as telas usam (chamada ao engine, avisos, modal de confirmação,
    feedback visual de operações assíncronas). */
 
-import { analysisOpsPlan, esc, opDismissDelay, opTransition } from '../pure.js';
+import { esc, opDismissDelay, opTransition } from '../pure.js';
 import { escopo, estado } from './estado.js';
 import { comAutorizacao } from '../transporte.js';
 
@@ -368,21 +368,3 @@ document.addEventListener('click', async (e) => {
 /* ciclo de vida dos widgets de autoanálise: o FIM vem do snapshot (SSE), não de um
    response. Reanexa o elemento (o innerHTML de #myPRs destrói os filhos a cada
    re-render) e fecha quando a análise some do estado (analysisOpsPlan, pura, testada). */
-export function syncAnalysisOps() {
-  const ops = [...ACTIVE_OPS.values()].filter(o => o.type === 'analysis');
-  if (!ops.length) return;
-  for (const op of ops) {
-    if (op.element && !op.element.isConnected) {
-      const card = document.querySelector(`.mypr-card[data-key="${CSS.escape(op.key)}"]`);
-      if (card) card.appendChild(op.element);
-    }
-  }
-  const plan = analysisOpsPlan(ops.map(o => ({ id: o.id, key: o.key, seen: !!o.seen })), estado() || {});
-  for (const id of plan.markSeen) { const op = ACTIVE_OPS.get(id); if (op) op.seen = true; }
-  for (const id of plan.close) {
-    const op = ACTIVE_OPS.get(id);
-    if (!op) continue;
-    if (op.status === 'running') closeOp(id, 'done', 'Análise concluída');
-    else { if (op.element) op.element.remove(); ACTIVE_OPS.delete(id); }  // cancelado/erro: só limpa
-  }
-}

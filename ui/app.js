@@ -13,7 +13,6 @@ import {
 } from './telas/estado.js';
 import {
   $, toast,
-  syncAnalysisOps,
   sysFlash,
 } from './telas/infra.js';
 export { toast } from './telas/infra.js';
@@ -356,8 +355,8 @@ const pinturas = criarAgendaVisual({
     plataforma: () => aplicaPlataforma(estado().app?.platform, estado().casca),
     contas: () => { rebuildAccounts(); renderAccountBar(); renderIdentity(); },
     status: renderStatus, sessoes: renderActive, decisoes: renderDecisions, fila: renderQueue,
-    meus: () => { renderMyPRs(); syncAnalysisOps(); }, panorama: renderPanorama,
-    silenciadas: renderSilenced, navegacao: () => renderRadarNav(contagemMeusPrs()), operacoes: syncAnalysisOps,
+    meus: renderMyPRs, panorama: renderPanorama,
+    silenciadas: renderSilenced, navegacao: () => renderRadarNav(contagemMeusPrs()),
     configuracoes: () => preservarConfiguracao($('#tab-sistema'), () => { renderSettings(); pintarTelaRegistrada('sistema'); }),
     ferramentas: renderTools, atualizacao: renderUpdate, relogio: tickCountdown,
     consumo: () => pintarTelaRegistrada('consumo'),

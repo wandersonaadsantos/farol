@@ -40,6 +40,7 @@ export * from './pure/pr-compartilhado.js';
 export * from './pure/prontidao.js';
 export * from './pure/prontidao-html.js';
 export * from './pure/densidade.js';
+export * from './pure/autoanalise-faixa.js';
 export * from './pure/radar.js';
 export * from './pure/review.js';
 export * from './pure/rota.js';

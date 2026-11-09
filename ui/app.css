@@ -2943,3 +2943,49 @@ body[data-densidade="compacta"] #panoOwners { display: none; }
 body[data-densidade="compacta"] .session-card:not(.aberta) .activity-feed,
 body[data-densidade="compacta"] .session-card:not(.aberta) .stage-flow,
 body[data-densidade="compacta"] .session-card:not(.aberta) .session-agent-details { display: none; }
+
+/* A autoanálise em andamento, na largura do card (08/11/2026, desenho no Claude Design). */
+.aa-faixa { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.aa-topo { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.aa-etapas { display: flex; align-items: center; flex-wrap: wrap; row-gap: 6px; min-width: 0; }
+.aa-et { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--faint); white-space: nowrap; }
+.aa-pt { width: 16px; height: 16px; border-radius: 99px; border: 1.5px solid var(--border); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; box-sizing: border-box; flex: none; }
+.aa-et.feita { color: var(--muted); }
+.aa-et.feita .aa-pt { border-color: transparent; background: color-mix(in srgb, var(--settled) 16%, transparent); color: var(--settled); }
+.aa-et.agora { color: var(--text); }
+.aa-et.agora .aa-pt { border: 2px solid var(--working); border-right-color: transparent; animation: aa-gira .8s linear infinite; }
+.aa-liga { width: 26px; height: 1.5px; background: var(--border); margin: 0 8px; flex: none; }
+.aa-liga.feita { background: var(--settled); }
+.aa-lado { display: flex; align-items: center; gap: 12px; flex: none; margin-left: auto; }
+.aa-tempo { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.aa-trilho { position: relative; height: 4px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin: 11px 0 9px; }
+.aa-cheio { height: 100%; border-radius: 99px; background: var(--working); transition: width .4s; }
+.aa-corre { position: absolute; top: 0; bottom: 0; width: 32%; border-radius: 99px; background: var(--working); animation: aa-corre 1.5s ease-in-out infinite; }
+.aa-rodape { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.aa-rodape.sem-barra { margin-top: 10px; }
+.aa-texto { font-size: 13px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aa-apoio { font-size: 12px; color: var(--faint); white-space: nowrap; flex: none; }
+.aa-faixa.t-wait .aa-texto { color: var(--urgent); }
+.aa-faixa.t-fail .aa-texto { color: var(--blocked); white-space: normal; }
+.aa-falha-titulo { font-size: 13px; font-weight: 700; color: var(--blocked); }
+.aa-spin { width: 12px; height: 12px; border-radius: 99px; border: 2px solid currentColor; border-right-color: transparent; display: inline-block; box-sizing: border-box; margin-right: 7px; vertical-align: -2px; animation: aa-gira .8s linear infinite; }
+.btn.aa-botao, .btn.aa-botao[disabled] { background: color-mix(in srgb, var(--ac) 16%, transparent); border-color: transparent; color: var(--ac); opacity: 1; cursor: default; }
+.pr-linha.em-analise { position: relative; overflow: hidden; }
+.pr-linha.em-analise .pl-pt { width: 12px; height: 12px; background: none; border: 2px solid var(--pron); border-right-color: transparent; box-sizing: border-box; animation: aa-gira .8s linear infinite; }
+.aa-fio { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--surface-2); overflow: hidden; }
+.aa-fio i { display: block; height: 100%; background: var(--working); transition: width .4s; }
+.aa-fio i.corre { position: absolute; top: 0; width: 32%; animation: aa-corre 1.5s ease-in-out infinite; }
+@keyframes aa-gira { to { transform: rotate(360deg); } }
+@keyframes aa-corre { 0% { left: -32%; } 100% { left: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .aa-et.agora .aa-pt, .aa-spin, .pr-linha.em-analise .pl-pt, .aa-corre, .aa-fio i.corre { animation: none; }
+  .aa-corre, .aa-fio i.corre { left: 0; width: 100%; opacity: .45; }
+}
+@media (max-width: 720px) {
+  .aa-etapas { flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; }
+  .aa-liga { display: none; }
+  .aa-lado { width: 100%; justify-content: space-between; margin-left: 0; }
+  .aa-lado .btn { min-height: 44px; }
+  .aa-rodape { flex-direction: column; gap: 2px; }
+  .aa-texto { white-space: normal; }
+}

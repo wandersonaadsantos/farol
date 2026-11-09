@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Autoanálise em andamento</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#6ca8f2;text-decoration:none}a:hover{text-decoration:underline}
+.root{--bg:#0b0e14;--surface:#121722;--surface-2:#1a2130;--border:#232c3d;--soft:rgba(35,44,61,.6);--text:#e7ecf5;--muted:#8b97ab;--faint:#7c889c;--accent:#ffb454;--accent-soft:rgba(255,180,84,.14);--ink:#1a1206;--ok:#4cc38a;--ok-soft:rgba(76,195,138,.14);--info:#6ca8f2;--info-soft:rgba(108,168,242,.14);--danger:#f2777a;--danger-soft:rgba(242,119,122,.14);font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:var(--bg);color:var(--text);box-sizing:border-box}
+.mono{font-family:"Cascadia Code",Consolas,Menlo,monospace}
+.btn{font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:6px 12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ink)}
+.btn.busy{background:var(--accent-soft);border-color:transparent;color:var(--accent);cursor:default}
+.btn.ghost{background:transparent}
+.tab{font:inherit;font-size:12.5px;font-weight:600;border-radius:99px;padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+.tab.on{background:var(--surface-2);color:var(--text);border-color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--info);border-radius:12px;padding:16px 18px}
+.card.t-ok{border-left-color:var(--ok)}.card.t-fail{border-left-color:var(--danger)}.card.t-wait{border-left-color:var(--accent)}
+.br code{font-family:"Cascadia Code",Consolas,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted);font-size:11.5px}
+.pill{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);min-width:0}
+.pill .lb{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pill .vl{font-size:13px;font-weight:600}
+.ic{flex:0 0 22px;height:22px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.spin{width:12px;height:12px;border-radius:99px;border:2px solid currentColor;border-right-color:transparent;animation:gira .8s linear infinite;box-sizing:border-box;flex:0 0 12px;display:inline-block}
+@keyframes gira{to{transform:rotate(360deg)}}
+.faixa{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.etapas{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.et{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--faint);white-space:nowrap}
+.et .pt{width:16px;height:16px;border-radius:99px;border:1.5px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:10px;box-sizing:border-box}
+.et.feita{color:var(--muted)}.et.feita .pt{border-color:transparent;background:var(--ok-soft);color:var(--ok)}
+.et.agora{color:var(--text)}.et.agora .pt{border:0;color:var(--info)}
+.et.erro{color:var(--danger)}.et.erro .pt{border-color:transparent;background:var(--danger-soft);color:var(--danger)}
+.liga{width:26px;height:1.5px;background:var(--border);margin:0 8px}
+.liga.feita{background:var(--ok)}
+.trilho{height:4px;border-radius:99px;background:var(--surface-2);overflow:hidden;position:relative;margin:11px 0 9px}
+.cheio{height:100%;border-radius:99px;background:var(--info);transition:width .4s}
+.corre{position:absolute;top:0;bottom:0;width:32%;border-radius:99px;background:var(--info);animation:corre 1.5s ease-in-out infinite}
+@keyframes corre{0%{left:-32%}100%{left:100%}}
+@media (prefers-reduced-motion:reduce){.spin,.corre{animation:none}.corre{left:0;width:100%;opacity:.45}}
+</style>
+</helmet>
+<div class="root" style="width:1280px;height:620px;padding:28px 32px">
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:18px">
+    <span style="font-size:12.5px;color:var(--muted);margin-right:6px">Estado:</span>
+    <sc-for list="{{abas}}" as="a" hint-placeholder-count="8">
+      <button type="button" class="{{a.cls}}" onClick="{{a.pick}}">{{a.nome}}</button>
+    </sc-for>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:16px;font-weight:700">Meus PRs</div></div>
+  <div class="{{cardCls}}">
+    <div style="display:flex;align-items:flex-start;gap:14px">
+      <div style="width:36px;height:36px;border-radius:99px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);flex:0 0 36px">W</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px"><a href="#" style="font-weight:700">lovelace-eng/loom-be#2</a><span style="font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;background:var(--info-soft);color:var(--info)">wandersonaadsantos</span></div>
+        <div style="font-size:15px;font-weight:600;margin:2px 0 5px">LOOM-115: Media schema, quota ledger and storage abstraction</div>
+        <div class="br"><code>feature/media-schema</code> <span style="color:var(--info)">→</span> <code>develop</code></div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:5px">por você · @wandersonaadsantos · atualizado 1h</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding-right:32px">
+        <sc-if value="{{rodando}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn busy" disabled="{{ true }}"><span class="spin"></span>Analisando</button></sc-if>
+        <sc-if value="{{parado}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn primary">{{rotuloBotao}}</button></sc-if>
+        <button type="button" class="btn ghost">Pedir reviewers no GitHub</button>
+        <button type="button" class="btn ghost">Ocultar</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px">
+      <div class="pill"><span class="ic" style="background:var(--surface);color:var(--muted)">–</span><div><div class="lb">Checks obrigatórios</div><div class="vl" style="color:var(--muted)">Regra não legível</div></div></div>
+      <div class="pill"><span class="ic" style="background:var(--accent-soft);color:var(--accent)">!</span><div><div class="lb">Reviewers</div><div class="vl" style="color:var(--accent)">0 de 1 aprovou</div></div></div>
+      <div class="pill"><span class="ic" style="background:var(--ok-soft);color:var(--ok)">✓</span><div><div class="lb">Merge</div><div class="vl" style="color:var(--ok)">Pronto pra merge</div></div></div>
+    </div>
+    <div class="faixa">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div class="etapas">
+          <sc-for list="{{etapas}}" as="e" hint-placeholder-count="5">
+            <sc-if value="{{e.temLiga}}" hint-placeholder-val="{{ true }}"><span class="{{e.ligaCls}}"></span></sc-if>
+            <span class="{{e.cls}}"><span class="pt"><sc-if value="{{e.gira}}" hint-placeholder-val="{{ false }}"><span class="spin"></span></sc-if>{{e.marca}}</span>{{e.nome}}</span>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:12.5px;color:var(--muted)">{{tempo}}</span>
+          <button type="button" class="btn ghost">{{acao}}</button>
+        </div>
+      </div>
+      <sc-if value="{{temBarra}}" hint-placeholder-val="{{ true }}">
+        <div class="trilho">
+          <sc-if value="{{indefinida}}" hint-placeholder-val="{{ true }}"><div class="corre"></div></sc-if>
+          <sc-if value="{{definida}}" hint-placeholder-val="{{ false }}"><div class="cheio" style="width: {{pct}}%"></div></sc-if>
+        </div>
+      </sc-if>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-top:{{gapTexto}}">
+        <div style="font-size:13px;color:{{corTexto}}">{{texto}}</div>
+        <div style="font-size:12px;color:var(--faint);white-space:nowrap">{{apoio}}</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":620}}'>
+const NOMES = ['Código', 'Avaliação técnica', 'Leitura', 'Verificação', 'Conclusão'];
+const ESTADOS = [
+  { id: 'iniciando', nome: 'Ao clicar', et: 0, tempo: '0 s', texto: 'Iniciando a autoanálise.', apoio: 'costuma levar 4 min', barra: 'i' },
+  { id: 'fila', nome: 'Na fila', et: 0, tempo: '48 s', texto: 'Buscando o código do PR, com 1 outro preparo em andamento.', apoio: 'costuma levar 4 min', barra: 'i' },
+  { id: 'tecnica', nome: 'Avaliação técnica', et: 1, tempo: '1 min 12 s', texto: 'Cópia do repositório e verificações automáticas.', apoio: 'código pronto em 12 s', barra: 'i' },
+  { id: 'leitura', nome: 'Lendo', et: 2, tempo: '2 min 03 s', texto: 'Lendo src/media/quota-ledger.service.ts', apoio: '8 de 23 arquivos', barra: 'd', pct: 34 },
+  { id: 'verifica', nome: 'Verificando', et: 3, tempo: '3 min 40 s', texto: 'Conferindo no código o que a análise afirmou.', apoio: '23 de 23 arquivos', barra: 'i' },
+  { id: 'mudo', nome: 'Sem sinal', et: 3, tempo: '6 min 02 s', texto: 'Sem sinal do modelo há 1 min 20 s. A sessão segue aberta.', apoio: 'pode cancelar e tentar de novo', barra: 'i', tom: 'wait' },
+  { id: 'pronta', nome: 'Concluída', et: 5, tempo: '4 min 18 s', texto: 'Autoanálise pronta: aprovável, com 1 ressalva.', apoio: 'neste commit', tom: 'ok', acao: 'Ver resultado', fim: true },
+  { id: 'falha', nome: 'Falhou', et: 2, tempo: '2 min 31 s', texto: 'A sessão terminou sem resultado: limite do plano até 21:00.', apoio: 'nada foi publicado', tom: 'fail', acao: 'Tentar de novo', fim: true, erro: true },
+];
+class Component extends DCLogic {
+  state = { id: 'fila' };
+  renderVals() {
+    const e = ESTADOS.find(x => x.id === this.state.id) || ESTADOS[0];
+    const cor = { ok: 'var(--ok)', fail: 'var(--danger)', wait: 'var(--accent)' }[e.tom] || 'var(--text)';
+    return {
+      abas: ESTADOS.map(x => ({ nome: x.nome, cls: 'tab' + (x.id === e.id ? ' on' : ''), pick: () => this.setState({ id: x.id }) })),
+      cardCls: 'card' + (e.tom ? ' t-' + e.tom : ''),
+      rodando: !e.fim, parado: !!e.fim, rotuloBotao: e.erro ? 'Analisar' : 'Analisar de novo',
+      etapas: NOMES.map((nome, i) => {
+        const feita = i < e.et, agora = i === e.et && !e.fim, erro = i === e.et && e.erro;
+        return { nome, temLiga: i > 0, ligaCls: 'liga' + (i <= e.et && (i < e.et || agora) ? ' feita' : ''), cls: 'et' + (feita ? ' feita' : '') + (agora ? ' agora' : '') + (erro ? ' erro' : ''), gira: agora, marca: feita ? '✓' : erro ? '!' : '' };
+      }),
+      tempo: e.tempo, acao: e.acao || 'Cancelar', texto: e.texto, apoio: e.apoio, corTexto: cor,
+      temBarra: !!e.barra, indefinida: e.barra === 'i', definida: e.barra === 'd', pct: e.pct || 0, gapTexto: e.barra ? '0' : '10px',
+    };
+  }
+}
+</script>
+</body>
+</html>
