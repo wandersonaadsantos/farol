@@ -19,7 +19,7 @@ Write-Host '  -> Removendo atalhos'
 Remove-Item ([IO.Path]::Combine($env:APPDATA, 'Microsoft\Windows\Start Menu\Programs\Farol.lnk')) -Force
 Remove-Item ([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'), 'Farol.lnk')) -Force
 # qualquer outro atalho com o AUMID do Farol (ex.: Electron.lnk criado fora do instalador)
-& (Join-Path $PSScriptRoot 'remove-aumid-orphans.ps1') | Out-Null
+try { & (Join-Path $PSScriptRoot 'remove-aumid-orphans.ps1') | Out-Null } catch {}
 
 Write-Host '  -> Removendo inicio automatico (se configurado)'
 $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
