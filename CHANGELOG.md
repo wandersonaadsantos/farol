@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.8
+
+O Farol volta a aparecer com o próprio ícone na barra de tarefas do Windows.
+
+### Correções
+
+- **Ícone do Electron na barra de tarefas.** Um atalho "Electron" sem ícone, criado fora do instalador, carregava a mesma identidade do Farol, e o Windows mostrava o átomo do Electron no lugar do farol. O instalador agora remove esse atalho a cada instalação ou atualização, e o desinstalador também.
+
 ## v2.79.7
 
 O card de Meus PRs volta a mostrar o título inteiro, em qualquer largura de janela.
