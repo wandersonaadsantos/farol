@@ -168,6 +168,14 @@ try {
 } catch {
   Write-Host "  !  nao consegui gravar o AUMID nos atalhos ($($_.Exception.Message)); o icone da barra de tarefas pode sair como o do Electron." -ForegroundColor Yellow
 }
+# Atalho estranho com o mesmo AUMID (ex.: Electron.lnk sem icone) disputa com o
+# nosso, e a barra de tarefas pode escolher ele e mostrar o atomo do Electron.
+try {
+  & (Join-Path $PSScriptRoot 'remove-aumid-orphans.ps1') -Keep $targets |
+    ForEach-Object { Ok "atalho orfao removido: $_" }
+} catch {
+  Write-Host "  !  nao consegui conferir atalhos orfaos ($($_.Exception.Message))." -ForegroundColor Yellow
+}
 }
 
 Write-Host ''
