@@ -238,9 +238,14 @@ function createTray() {
 
 // A notificacao faz o Electron gravar o Electron.lnk sem icone, numa tarefa em
 // segundo plano; o icone do Farol entra depois que ele terminou (desktop-identity.js).
+// Uma rajada de notificacoes reagenda em vez de empilhar leituras do atalho, e uma
+// segunda olhada cobre a maquina lenta em que o Electron grava depois da primeira.
+let timersDoAtalho = [];
 function agendarIconeDoAtalho() {
   if (!IS_WIN) return;
-  setTimeout(() => carimbarAtalhoDoElectron(shell, app), TEMPOS.ATALHO_DO_ELECTRON_MS).unref?.();
+  for (const t of timersDoAtalho) clearTimeout(t);
+  timersDoAtalho = [TEMPOS.ATALHO_DO_ELECTRON_MS, TEMPOS.ATALHO_DO_ELECTRON_SEGUNDA_MS]
+    .map((espera) => setTimeout(() => carimbarAtalhoDoElectron(shell, app), espera));
 }
 
 function notify(title, body, prUrl, onOpen, silent = false) {

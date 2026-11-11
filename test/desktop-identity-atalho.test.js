@@ -76,4 +76,5 @@ app.setPath('userData', ${JSON.stringify(path.join(tmp, 'profile'))});
   assert.equal(r.depois.appUserModelId, 'com.biud.farol');
   assert.equal(r.depois.toastActivatorClsid.toUpperCase(), clsid.toUpperCase(), 'o Electron compara o ID: ele não pode mudar');
   assert.equal(r.depois.target.toLowerCase(), r.exe.toLowerCase());
+  assert.equal(r.depois.cwd.toLowerCase(), path.dirname(r.exe).toLowerCase(), 'o Electron compara a pasta: ela não pode mudar');
 });
