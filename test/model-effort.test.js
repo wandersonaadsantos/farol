@@ -13,7 +13,7 @@ process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-model
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 const {
-  sanitizeModel, sanitizeEffort, sanitizeCodexEffort, sanitizeClaudeModel,
+  sanitizeModel, sanitizeEffort, sanitizeCodexEffort, sanitizeClaudeModel, sanitizeAgyModel,
   effortForModel, MODEL_ALIASES, EFFORT_LEVELS, CODEX_EFFORT_LEVELS,
 } = await import('../lib/parse.js');
 const { buildModelFlags } = await import('../lib/engine/session.js');
@@ -67,7 +67,7 @@ test('sanitizeModel: rejeita metacaractere de shell (injeção)', () => {
 
 test('sanitizeModel: aceita nome completo validado (escotilha pra modelo novo)', () => {
   assert.equal(sanitizeModel('claude-opus-5'), 'claude-opus-5');
-  assert.equal(sanitizeModel('claude-haiku-4-5-20251001'), 'claude-haiku-4-5-20251001');
+  assert.equal(sanitizeModel('claude-sonnet-4-6'), 'claude-sonnet-4-6');
   assert.equal(sanitizeModel('gpt-4o'), 'gpt-4o');
   assert.equal(sanitizeModel('gpt-5.5'), 'gpt-5.5');
   // e só o que casa a regex estrita
@@ -106,12 +106,6 @@ test('sanitizeCodexEffort acompanha a allowlist do config-reference do Codex CLI
 
 /* ---------- effortForModel ---------- */
 
-test('effortForModel: Haiku nunca leva esforço', () => {
-  // nenhum Haiku aparece na matriz de esforço do CLI
-  assert.equal(effortForModel('haiku', 'xhigh'), '');
-  assert.equal(effortForModel('haiku', 'low'), '');
-});
-
 test('effortForModel: nos demais o nível passa (o CLI decide o resto)', () => {
   assert.equal(effortForModel('opus', 'xhigh'), 'xhigh');
   assert.equal(effortForModel('sonnet', 'low'), 'low');
@@ -130,9 +124,8 @@ test('buildModelFlags: sem config nenhuma, nenhuma flag', () => {
 
 test('buildModelFlags: só modelo devolve exatamente a flag de antes (regressão)', () => {
   // byte a byte igual ao que o Farol montava até a v2.27.0: se isto mudar, toda
-  // instalação que já usava sonnet/haiku muda de comportamento sem aviso
+  // instalação que já usava sonnet muda de comportamento sem aviso
   assert.equal(buildModelFlags({ reviewModel: 'sonnet' }), ' --model sonnet');
-  assert.equal(buildModelFlags({ reviewModel: 'haiku' }), ' --model haiku');
   assert.equal(buildModelFlags({ reviewModel: 'opus' }), ' --model opus');
 });
 
@@ -146,8 +139,9 @@ test('buildModelFlags: esforço sem modelo é válido', () => {
   assert.equal(buildModelFlags({ reviewEffort: 'minimal' }), '', 'Claude filtra esforço exclusivo do Codex');
 });
 
-test('buildModelFlags: Haiku derruba o esforço', () => {
-  assert.equal(buildModelFlags({ reviewModel: 'haiku', reviewEffort: 'xhigh' }), ' --model haiku');
+test('buildModelFlags: Haiku na config antiga não vira flag (11/11/2026: fraco demais para ambiguidade)', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'haiku', reviewEffort: 'xhigh' }), ' --effort xhigh');
+  assert.equal(buildModelFlags({ reviewModel: 'haiku' }), '');
 });
 
 test('buildModelFlags: com stub não anexa nada', () => {
@@ -209,8 +203,8 @@ test('buildModelFlags: auto fora do roteador não vira flag de modelo nem de esf
 
 test('buildModelFlags: override do roteador vence a config auto', () => {
   assert.equal(
-    buildModelFlags({ reviewModel: 'auto' }, { model: 'haiku', effort: '', fast: true }),
-    ' --model haiku',
+    buildModelFlags({ reviewModel: 'auto' }, { model: 'opus', effort: '', fast: false }),
+    ' --model opus',
   );
   assert.equal(
     buildModelFlags({ reviewModel: 'auto' }, { model: 'sonnet', effort: 'high' }),
@@ -243,9 +237,9 @@ test('codexSelection: modo rápido preserva minimal/low e derruba os demais pra 
 test('codexArgs monta modelo/esforço sem aceitar configuração Claude', () => {
   const args = codexArgs({
     reviewModel: 'opus', reviewEffort: 'xhigh',
-    codexReviewModel: 'gpt-5.6-luna', codexReviewEffort: 'minimal',
+    codexReviewModel: 'gpt-5.6-terra', codexReviewEffort: 'minimal',
   });
-  assert.equal(args[args.indexOf('--model') + 1], 'gpt-5.6-luna');
+  assert.equal(args[args.indexOf('--model') + 1], 'gpt-5.6-terra');
   assert.ok(args.includes('model_reasoning_effort="minimal"'));
   assert.equal(args.includes('opus'), false);
 });
@@ -287,8 +281,12 @@ test('buildModelFlags: fast + stub continua vazio (contrato da bateria stubada)'
   assert.equal(buildModelFlags({ reviewModel: 'opus' }, { stub: true, fast: true }), '');
 });
 
-test('buildModelFlags: fast respeita a incompatibilidade do haiku (effortForModel decide)', () => {
-  const flags = buildModelFlags({ reviewModel: 'haiku', reviewEffort: 'xhigh' }, { fast: true });
-  assert.match(flags, /--model haiku/);
-  assert.doesNotMatch(flags, /xhigh/);
+test('modelos fracos de todos os provedores são recusados pela config (11/11/2026)', () => {
+  for (const m of ['haiku', 'claude-haiku-4-5', 'gpt-6-luna', 'gpt-5.6-luna']) assert.equal(sanitizeModel(m), null, m);
+  assert.equal(sanitizeAgyModel('gemini-3.8-flash-medium'), null);
+  assert.equal(sanitizeAgyModel('gemini-3.8-flash-low'), null);
+  assert.equal(sanitizeAgyModel('gpt-oss-120b-medium'), null);
+  assert.equal(sanitizeAgyModel('claude-haiku-4-5'), null);
+  assert.equal(sanitizeAgyModel('gemini-3.8-flash-high'), 'gemini-3.8-flash-high');
+  assert.equal(sanitizeModel('gpt-6.1-terra'), 'gpt-6.1-terra');
 });

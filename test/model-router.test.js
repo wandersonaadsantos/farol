@@ -119,9 +119,9 @@ test('nenhum gatilho ligado: o Auto fica no Opus fixo em todo tamanho', () => {
 });
 
 test('modelo fixo ignora os gatilhos', () => {
-  const r = escolheModelo(MEDIO_COM('k8s/a.yaml'), { reviewModel: 'haiku', autoOpus: { reposCriticos: ['acme-exemplo/infra'] } }, { repo: 'acme-exemplo/infra' });
+  const r = escolheModelo(MEDIO_COM('k8s/a.yaml'), { reviewModel: 'sonnet', autoOpus: { reposCriticos: ['acme-exemplo/infra'] } }, { repo: 'acme-exemplo/infra' });
   assert.equal(r.origem, 'config');
-  assert.equal(r.model, 'haiku');
+  assert.equal(r.model, 'sonnet');
 });
 
 test('saneador: ausente é a lista inicial; entrada torta é descartada, não vira outra coisa', () => {

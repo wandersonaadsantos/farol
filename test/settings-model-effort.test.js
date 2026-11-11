@@ -16,7 +16,7 @@ after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch {
 
 test('updateSettings grava os aliases de modelo expostos', () => {
   const engine = new Engine();
-  for (const m of ['best', 'opus', 'sonnet', 'haiku', 'fable', '']) {
+  for (const m of ['best', 'opus', 'sonnet', 'fable', '']) {
     engine.updateSettings({ reviewModel: m });
     assert.equal(engine.config.reviewModel, m, `alias ${m || '(vazio)'}`);
   }
@@ -77,7 +77,7 @@ test('updateSettings aceita nome completo de modelo (escotilha sem release)', ()
 
 test('updateSettings rejeita modelo do provedor errado e esforço fora do Codex CLI', () => {
   const engine = new Engine();
-  engine.updateSettings({ reviewModel: 'sonnet', codexReviewModel: 'gpt-5.6-luna', codexReviewEffort: 'high' });
+  engine.updateSettings({ reviewModel: 'sonnet', codexReviewModel: 'gpt-5.6-sol', codexReviewEffort: 'high' });
   engine.updateSettings({ reviewModel: 'gpt-5.5', codexReviewModel: 'opus', codexReviewEffort: 'max' });
   assert.equal(engine.config.reviewModel, 'sonnet');
   assert.equal(engine.config.codexReviewModel, 'gpt-6.1-sol');

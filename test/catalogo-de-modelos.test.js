@@ -66,11 +66,9 @@ test('quem não aceita esforço está no catálogo, e a regra do engine lê de l
   }
 });
 
-test('modelo fixado pelo NOME COMPLETO segue a regra da família (o Haiku fixado não recebe esforço)', () => {
-  // antes, a regra comparava só o apelido: `claude-haiku-4-5` fixado na config passava
-  // `--effort`, que o Haiku 4.5 não aceita
-  assert.equal(M.aceitaEsforco('claude-haiku-4-5'), false);
-  assert.equal(buildModelFlags({ reviewModel: 'claude-haiku-4-5', reviewEffort: 'high' }), ' --model claude-haiku-4-5');
+test('modelo fraco fixado pelo NOME COMPLETO também é recusado (11/11/2026)', () => {
+  // a escotilha do nome completo não pode trazer de volta o que saiu do catálogo
+  assert.equal(buildModelFlags({ reviewModel: 'claude-haiku-4-5', reviewEffort: 'high' }), ' --effort high');
   assert.equal(M.aceitaEsforco('claude-opus-5-5'), true);
   assert.equal(M.aceitaEsforco('claude-algo-novo-9'), true, 'família desconhecida: quem decide é o CLI');
 });
@@ -88,7 +86,7 @@ test('o catálogo da tela é só dado, sem regex, e traz o esforço de cada sele
   const c = M.catalogoParaTela();
   assert.deepEqual(JSON.parse(JSON.stringify(c)), c, 'atravessa o snapshot sem perder nada');
   assert.deepEqual(c.claude.map((s) => s.valor), M.SELECOES_CLAUDE.map((s) => s.valor));
-  assert.equal(c.claude.find((s) => s.valor === 'haiku').aceitaEsforco, false);
+  assert.equal(c.claude.find((s) => s.valor === 'auto').aceitaEsforco, false);
   assert.equal(c.claude.find((s) => s.valor === 'auto').rotulo, M.rotuloDoAuto());
   assert.ok(c.codex.length > 1);
 });
@@ -102,7 +100,6 @@ test('as opções do seletor saem do catálogo, escapadas', () => {
 
 test('a tela sabe se a seleção aceita esforço pelo catálogo, e valor fora dele aceita', () => {
   const lista = M.catalogoParaTela().claude;
-  assert.equal(P.selecaoAceitaEsforco(lista, 'haiku'), false);
   assert.equal(P.selecaoAceitaEsforco(lista, 'auto'), false);
   assert.equal(P.selecaoAceitaEsforco(lista, 'opus'), true);
   assert.equal(P.selecaoAceitaEsforco(lista, 'claude-opus-5-5'), true, 'fixado à mão: o engine é quem tem a palavra final');

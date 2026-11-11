@@ -18,20 +18,24 @@ after(() => fs.rmSync(taskHome, { recursive: true, force: true }));
 test('pares atuais seguem o perfil de uso; Sol volta para Opus pela qualidade', () => {
   for (const [claude, codex] of [
     ['fable', 'gpt-6-astra'], ['best', 'gpt-6-astra'], ['opus', 'gpt-6.1-sol'],
-    ['sonnet', 'gpt-6.1-sol'], ['haiku', 'gpt-6-luna'],
+    ['sonnet', 'gpt-6.1-sol'],
   ]) assert.equal(modeloEquivalente(claude, 'codex'), codex);
   assert.equal(modeloEquivalente('gpt-6-astra', 'claude'), 'fable');
   assert.equal(modeloEquivalente('gpt-6.1-sol', 'claude'), 'opus');
   assert.equal(modeloEquivalente('gpt-6.1-terra', 'claude'), 'sonnet');
-  assert.equal(modeloEquivalente('gpt-6-luna', 'claude'), 'haiku');
+  assert.equal(modeloEquivalente('haiku', 'codex'), null, 'modelo fraco não tem par (11/11/2026)');
   assert.equal(modeloEquivalente('claude-opus-5-5', 'codex'), 'gpt-6.1-sol');
 });
 
 test('catálogo expõe Auto e todos os modelos atuais do Codex', () => {
   const valores = catalogoParaTela().codex.map((s) => s.valor);
-  for (const m of ['auto', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna']) {
+  for (const m of ['auto', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra']) {
     assert.ok(valores.includes(m));
     assert.equal(sanitizeCodexModel(m), m);
+  }
+  for (const m of ['gpt-6-luna', 'gpt-5.6-luna']) {
+    assert.ok(!valores.includes(m), `${m} saiu do catálogo (fraco demais para ambiguidade)`);
+    assert.equal(sanitizeCodexModel(m), null);
   }
 });
 
@@ -39,11 +43,11 @@ test('escolher em qualquer provedor sincroniza o outro e persiste o par', () => 
   const engine = new Engine();
   engine.updateSettings({ reviewModel: 'fable' });
   assert.equal(engine.config.codexReviewModel, 'gpt-6-astra');
-  engine.updateSettings({ codexReviewModel: 'gpt-6-luna' });
-  assert.equal(engine.config.reviewModel, 'haiku');
+  engine.updateSettings({ codexReviewModel: 'gpt-6.1-terra' });
+  assert.equal(engine.config.reviewModel, 'sonnet');
   const salvo = JSON.parse(fs.readFileSync(path.join(taskHome, 'config.json'), 'utf8'));
-  assert.equal(salvo.reviewModel, 'haiku');
-  assert.equal(salvo.codexReviewModel, 'gpt-6-luna');
+  assert.equal(salvo.reviewModel, 'sonnet');
+  assert.equal(salvo.codexReviewModel, 'gpt-6.1-terra');
   engine.updateSettings({ codexReviewModel: 'auto' });
   assert.equal(engine.config.reviewModel, 'auto');
   engine.updateSettings({ reviewModel: '' });
@@ -53,7 +57,7 @@ test('escolher em qualquer provedor sincroniza o outro e persiste o par', () => 
 test('conflito legado no boot respeita o provedor padrão e mantém o ID explícito dele', () => {
   const config = {
     claudeProfiles: [{ id: 'cx', kind: 'codex' }], claudeProfileId: 'cx',
-    reviewModel: 'haiku', codexReviewModel: 'gpt-6.1-sol',
+    reviewModel: 'fable', codexReviewModel: 'gpt-6.1-sol',
   };
   sincronizarModelos(config);
   assert.equal(config.reviewModel, 'opus');
@@ -72,8 +76,8 @@ test('escolha explícita Terra sobrevive ao reinício, mesmo com perfil padrão 
 
 test('patch com os dois modelos independe da ordem dos campos e prioriza provedor padrão', () => {
   for (const patch of [
-    { reviewModel: 'haiku', codexReviewModel: 'gpt-6-astra' },
-    { codexReviewModel: 'gpt-6-astra', reviewModel: 'haiku' },
+    { reviewModel: 'sonnet', codexReviewModel: 'gpt-6-astra' },
+    { codexReviewModel: 'gpt-6-astra', reviewModel: 'sonnet' },
   ]) {
     const config = { ...patch, claudeProfiles: [{ id: 'cx', kind: 'codex' }], claudeProfileId: 'cx' };
     sincronizarModelos(config, patch);
@@ -181,4 +185,17 @@ test('revisão real resolve Codex pela conta do PR e passa a rota sensível à s
   } finally {
     io.run = runOriginal;
   }
+});
+
+// v2.79.10: config antiga com modelo fraco salvo sobe no padrão de cada provedor, e a tela
+// não mostra modelo que não roda.
+test('boot com modelo fraco salvo cai no padrão dos três provedores', () => {
+  fs.writeFileSync(path.join(taskHome, 'config.json'), JSON.stringify({
+    reviewModel: 'haiku', codexReviewModel: 'gpt-6-luna', agyReviewModel: 'gemini-3.8-flash-medium',
+  }));
+  const engine = new Engine();
+  assert.equal(engine.config.reviewModel, '');
+  assert.equal(engine.config.codexReviewModel, '');
+  assert.equal(engine.config.agyReviewModel, 'gemini-3.8-flash-high');
+  assert.equal(sanitizeCodexModel('gpt-6-luna-mini'), null, 'variação da Luna também sai');
 });
