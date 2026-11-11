@@ -96,3 +96,25 @@ test('boot: tentativa já registrada pelo fechamento normal não duplica', () =>
 test('boot sem diário não faz nada', () => {
   assert.equal(t.reconciliarInterrompidas(engineDeTeste()), 0);
 });
+
+test('fechamento normal leva o início da tentativa e a coluna Duração conhece a sessão', (ctx) => {
+  ctx.mock.timers.enable({ apis: ['Date'], now: 5_000_000 });
+  const e = { ...engineDeTeste(), pushState() { } };
+  const id = t.abrirTentativa(e, META);
+  ctx.mock.timers.tick(90_000);
+  const ev = t.comInicioDaTentativa(e, { farol_attempt: id, usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.1 });
+  assert.equal(ev.farol_iniciada_em, 5_000_000);
+  usage.recordUsage(e, META.sessionId, META.account, ev, META.model, META.profileId, META.ref);
+  const linha = e.usageSessions.sessions.at(-1);
+  assert.equal(linha.iniciadaEm, 5_000_000);
+  assert.equal(linha.at - linha.iniciadaEm, 90_000);
+});
+
+test('sem tentativa no diário, ou com início já marcado, o evento fica como veio', () => {
+  const e = engineDeTeste();
+  const semDiario = { farol_attempt: 'nao-existe', usage: {} };
+  assert.equal(t.comInicioDaTentativa(e, semDiario), semDiario);
+  const marcado = { farol_attempt: t.abrirTentativa(e, META), farol_iniciada_em: 42 };
+  assert.equal(t.comInicioDaTentativa(e, marcado).farol_iniciada_em, 42);
+  assert.equal(t.comInicioDaTentativa(e, null), null);
+});

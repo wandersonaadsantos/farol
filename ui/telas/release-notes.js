@@ -18,6 +18,10 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.9', [
+    'Windows: o ícone do Farol na barra de tarefas fica certo de vez. O Farol põe o próprio ícone no atalho que o Electron recria a cada notificação',
+    'Consumo: a coluna Duração do Histórico de execuções passa a mostrar o tempo das sessões novas',
+  ]],
   ['2.79.8', [
     'Windows: o Farol volta a aparecer com o próprio ícone na barra de tarefas. O instalador remove o atalho "Electron" sem ícone que fazia o Windows mostrar o átomo do Electron',
   ]],

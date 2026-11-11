@@ -1967,7 +1967,7 @@ class Engine extends EventEmitter {
 
   // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo);
   // ref é a referência amigável (PR/chat/ferramenta) que alimenta a tabela de sessões.
-  recordUsage(id, account, resultEvent, model, profileId, ref) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId, ref); }
+  recordUsage(id, account, resultEvent, model, profileId, ref) { return usageMod.recordUsage(this, id, account, tentativasMod.comInicioDaTentativa(this, resultEvent), model, profileId, ref); }
   // corrige o DESFECHO de uma sessão já registrada (o gasto continua contado; o que
   // muda é se ele virou resultado). Ver a seção de auditoria no lib/engine/usage.js.
   marcarDesfecho(id, status) { return usageMod.marcarDesfecho(this, id, status); }
