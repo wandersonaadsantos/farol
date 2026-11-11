@@ -268,8 +268,10 @@ test('veredito aprovar com violação técnica confirmada e a conta reprovando s
   const corpo = envios[0].body;
   assert.match(corpo, /^Antes do merge, isto precisa ser resolvido:/);
   assert.match(corpo, /violação confirmada de um padrão técnico/);
-  // nome de regra, causa e achado vêm do catálogo privado da avaliação técnica: nunca no texto público (PR #253)
-  assert.doesNotMatch(corpo, /core\.duplication|regra de desconto|src\/a\.ts/);
+  // nome de regra e causa vêm do catálogo privado da avaliação técnica: nunca no texto público (PR #253).
+  // O lugar do achado é do próprio PR e vai, para o autor saber o que corrigir (engine-ai#1031)
+  assert.doesNotMatch(corpo, /core\.duplication|regra de desconto/);
+  assert.match(corpo, /violação confirmada de um padrão técnico do repositório, em `src\/a\.ts`/);
   assert.match(corpo, /Revise o tratamento de erro antes do merge\./, 'o pedido que a sessão escreveu vem junto');
   assert.equal(envios[0].commit_id, HEAD);
   assert.deepEqual(publicReviewLanguageIssues(envios[0], 'eu'), [], 'passa pela trava de linguagem');
@@ -570,7 +572,7 @@ test('defeitosDoPr: só violação, achado e a parte do card; prova incompleta n
 
 test('os textos que o Farol monta passam pela trava de linguagem, sem travessão', () => {
   const rc = auto.payloadDoDefeito({ technicalReview: { rules: [{ rule: 'privada', verdict: 'fail', causa: 'x duplicado' }], findings: [{ file: 'a.ts', message: 'y' }] } }, ['violação técnica confirmada']);
-  assert.doesNotMatch(rc.body, /privada|x duplicado|a\.ts/, 'nada do catálogo privado no texto público');
+  assert.doesNotMatch(rc.body, /privada|x duplicado|`y`/, 'nada do catálogo privado no texto público');
   const ci = auto.payloadDoCiVermelho([{ nome: 'audit' }, { nome: 'lint' }], HEAD);
   for (const p of [rc, ci]) {
     assert.deepEqual(publicReviewLanguageIssues(p, 'eu'), [], p.body);
@@ -578,6 +580,28 @@ test('os textos que o Farol monta passam pela trava de linguagem, sem travessão
     assert.equal(p.event, 'REQUEST_CHANGES');
   }
   assert.match(ci.body, /`audit`, `lint` estão falhando no commit 706cc81/);
+});
+
+// engine-ai#1031 (11/11/2026): o pedido de mudanças dizia "há violação confirmada" sem dizer onde, e o
+// autor corrigiu três coisas que não eram a causa. O lugar é do próprio PR; regra e causa seguem privadas.
+test('a violação diz onde está o achado que bloqueia, sem regra, causa nem dívida descontada', () => {
+  const technicalReview = {
+    rules: [{ rule: 'core.suppression.declared', verdict: 'fail', causa: 'supressor proibido' }],
+    findings: [
+      { rule: 'core.suppression.declared', file: 'apps/x/turno.controller.ts', message: 'supressor "eslint-disable-next-line" na linha 643 e proibido; remova a supressao e corrija a causa' },
+      { rule: 'core.suppression.declared', file: 'common/antigo.ts', message: 'supressor "eslint-disable-next-line" na linha 305 e proibido', foraDasLinhas: true },
+      { rule: 'core.suppression.declared', file: 'sem-linha.ts', message: 'arquivo avaliado como violação' },
+    ],
+  };
+  const rc = auto.payloadDoDefeito({ technicalReview }, ['violação técnica confirmada']);
+  assert.match(rc.body, /`apps\/x\/turno\.controller\.ts:643`, `sem-linha\.ts`/, 'achado que bloqueia sem linha sai pelo arquivo');
+  assert.doesNotMatch(rc.body, /antigo\.ts|core\.suppression|supressor|remova|e outros/);
+  assert.deepEqual(publicReviewLanguageIssues(rc, 'eu'), [], rc.body);
+  // o relatório guarda só os primeiros achados: o total não é conhecido, então o texto não inventa número
+  const muitos = { rules: technicalReview.rules, findings: Array.from({ length: 8 }, (_, i) => ({ rule: 'r', file: `f${i}.ts`, message: `x na linha ${i + 1}` })) };
+  const corpo = auto.payloadDoDefeito({ technicalReview: muitos }, ['violação técnica confirmada']).body;
+  assert.match(corpo, /`f4\.ts:5` e outros$/m);
+  assert.doesNotMatch(corpo, /f5\.ts|e mais/);
 });
 
 test('reconstruirPayload: tira só o barrado; sem texto sobrando ou sem mudança, devolve null', () => {

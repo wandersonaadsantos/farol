@@ -88,6 +88,48 @@ test('construção antiga inteira fora da mudança continua sendo dívida', asyn
   assert.equal(r.rules[0].dividaForaDasLinhas, true);
 });
 
+// engine-ai#1031 (11/11/2026): controller NestJS com supressor anterior que só desceu de linha porque o
+// PR inseriu um import acima. Sem o plugin de decorators o parse falhava e a dívida virava violação.
+test('supressor antigo em arquivo com decorators fica como dívida quando a mudança está longe', async () => {
+  const text = ["import { Controller, Get } from '@nestjs/common';", "import { novo } from './novo';", '',
+    "@Controller('turno')", 'export class TurnoController {', "  @Get(':id')", '  ler(): string {',
+    '    // eslint-disable-next-line no-restricted-syntax -- dado plano, validado antes',
+    '    return JSON.stringify({ ok: true });', '  }', '}'].join('\n');
+  const r = await classificar({ rule: 'core.suppression.declared', file: 'turno.controller.ts', linha: 8, text }, 2);
+  assert.deepEqual(r.findings[0].intervaloVerificado && [r.findings[0].intervaloVerificado.inicio, r.findings[0].intervaloVerificado.fim], [8, 9]);
+  assert.equal(r.findings[0].foraDasLinhas, true);
+  assert.equal(r.rules[0].dividaForaDasLinhas, true);
+});
+
+test('supressor em arquivo com decorators continua bloqueando quando a mudança está na construção suprimida', async () => {
+  const text = ["import { Controller, Get } from '@nestjs/common';", '', "@Controller('turno')",
+    'export class TurnoController {', "  @Get(':id')", '  ler(): string {',
+    '    // eslint-disable-next-line no-restricted-syntax -- dado plano, validado antes',
+    '    return JSON.stringify({ novo: true });', '  }', '}'].join('\n');
+  const r = await classificar({ rule: 'core.suppression.declared', file: 'turno-novo.controller.ts', linha: 7, text }, 8);
+  assert.equal(r.findings[0].intervaloVerificado.fim, 8);
+  assert.equal(r.findings[0].foraDasLinhas, undefined);
+  assert.equal(r.rules[0].dividaForaDasLinhas, undefined);
+});
+
+// Com decorators, o comentário entre o decorator e o membro fica preso à chave, não ao método: medido
+// só até a chave, ele daria desconto a uma mudança no corpo que ele de fato cobre.
+test('supressor entre o decorator e o membro alcança o membro inteiro', async () => {
+  const text = ["@Controller('turno')", 'export class TurnoController {', "  @Get(':id')",
+    '  /* istanbul ignore next */', '  ler(): string {', '    preparar();', '    return novo();', '  }', '}'].join('\n');
+  const r = await classificar({ rule: 'core.suppression.declared', file: 'membro.controller.ts', linha: 4, text }, 7);
+  assert.equal(r.findings[0].intervaloVerificado.fim, 8);
+  assert.equal(r.findings[0].foraDasLinhas, undefined);
+});
+
+test('supressor entre dois decorators de classe alcança a classe inteira', async () => {
+  const text = ['@Injectable()', '// @ts-expect-error legado', "@Controller('turno')", 'export class TurnoController {',
+    '  ler() {', '    return novo();', '  }', '}'].join('\n');
+  const r = await classificar({ rule: 'core.suppression.declared', file: 'classe.controller.ts', linha: 2, text }, 6);
+  assert.equal(r.findings[0].intervaloVerificado.fim, 8);
+  assert.equal(r.findings[0].foraDasLinhas, undefined);
+});
+
 test('sintaxe inválida, intervalo de outro blob e regra desconhecida não recebem desconto', async () => {
   const invalido = await classificar({ ...exemplos[2], file: 'invalida.tsx', text: 'const classe = `sem fechamento' }, 30);
   assert.equal(invalido.findings[0].intervaloVerificado, undefined);

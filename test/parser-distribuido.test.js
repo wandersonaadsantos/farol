@@ -100,3 +100,13 @@ test('migração preserva a cópia anterior quando preparar arquivos falha', () 
   const bytes = fs.readFileSync(path.join(source, 'assets/third-party/babel-parser/dist/parser.cjs'));
   assert.equal(createHash('sha256').update(bytes).digest('hex'), '4fad5d076afb8c346159a06bb942d6e14c6167d590082b7c3bdebd4c108af201');
 });
+
+// engine-ai#1031 (11/11/2026): controller NestJS caía no modo textual e negava dívida anterior.
+test('TypeScript com decorators é lido pelo parser, e não pelo modo textual', async () => {
+  const { parseFile } = await import('../lib/review-context/syntax.js');
+  const text = ["import { Controller, Get } from '@nestjs/common';", "import { ler } from './ler';", '',
+    "@Controller('turno')", 'export class TurnoController {', "  @Get(':id')", '  ler() { return ler(); }', '}'].join('\n');
+  const r = parseFile({ path: 'turno.controller.ts', blob: 'a'.repeat(40), text });
+  assert.notEqual(r.backend, 'textual');
+  assert.deepEqual(r.imports.map((i) => i.specifier).sort(), ['./ler', '@nestjs/common']);
+});
