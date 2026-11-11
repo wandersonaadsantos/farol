@@ -580,6 +580,28 @@ test('os textos que o Farol monta passam pela trava de linguagem, sem travessão
   assert.match(ci.body, /`audit`, `lint` estão falhando no commit 706cc81/);
 });
 
+// engine-ai#1031 (11/11/2026): o pedido de mudanças dizia "há violação confirmada" sem dizer onde, e o
+// autor corrigiu três coisas que não eram a causa. O lugar é do próprio PR; regra e causa seguem privadas.
+test('a violação diz onde está o achado que bloqueia, sem regra, causa nem dívida descontada', () => {
+  const technicalReview = {
+    rules: [{ rule: 'core.suppression.declared', verdict: 'fail', causa: 'supressor proibido' }],
+    findings: [
+      { rule: 'core.suppression.declared', file: 'apps/x/turno.controller.ts', message: 'supressor "eslint-disable-next-line" na linha 643 e proibido; remova a supressao e corrija a causa' },
+      { rule: 'core.suppression.declared', file: 'common/antigo.ts', message: 'supressor "eslint-disable-next-line" na linha 305 e proibido', foraDasLinhas: true },
+      { rule: 'core.suppression.declared', file: 'sem-linha.ts', message: 'arquivo avaliado como violação' },
+    ],
+  };
+  const rc = auto.payloadDoDefeito({ technicalReview }, ['violação técnica confirmada']);
+  assert.match(rc.body, /`apps\/x\/turno\.controller\.ts:643`/);
+  assert.doesNotMatch(rc.body, /antigo\.ts|sem-linha|core\.suppression|supressor|remova/);
+  assert.deepEqual(publicReviewLanguageIssues(rc, 'eu'), [], rc.body);
+  const muitos = { rules: technicalReview.rules, findings: Array.from({ length: 8 }, (_, i) => ({ rule: 'r', file: `f${i}.ts`, message: `x na linha ${i + 1}` })) };
+  const corpo = auto.payloadDoDefeito({ technicalReview: muitos }, ['violação técnica confirmada']).body;
+  assert.match(corpo, /`f4\.ts:5`/);
+  assert.doesNotMatch(corpo, /f5\.ts/);
+  assert.match(corpo, /e mais 3/);
+});
+
 test('reconstruirPayload: tira só o barrado; sem texto sobrando ou sem mudança, devolve null', () => {
   const p = { event: 'APPROVE', body: 'Ok.\n\nEsta revisão foi gerada pelo Farol.', comments: [{ path: 'a', line: 1, side: 'RIGHT', body: 'Revisado pelo Farol.' }, { path: 'b', line: 2, side: 'RIGHT', body: 'Bom nome.' }] };
   const r = auto.reconstruirPayload(p, 'eu');
