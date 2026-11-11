@@ -90,15 +90,8 @@ jobs:
       - name: Preparar desktop Linux
         if: runner.os == 'Linux'
         run: |
-          # O espelho do Azure (azure.archive.ubuntu.com) parou de responder em
-          # 11/11/2026: 20 s por pacote e o passo estourou os 15 min duas vezes.
-          # O espelho oficial, com timeout curto e novas tentativas, nao depende dele.
-          # O runner lê o espelho de /etc/apt/apt-mirrors.txt (mirror+file), não das fontes.
-          echo "http://archive.ubuntu.com/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
-          sudo sed -i 's|http://azure.archive.ubuntu.com|http://archive.ubuntu.com|g' /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true
-          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=20"
-          sudo apt-get $APT_OPTS update
-          sudo apt-get $APT_OPTS install -y xvfb dbus-x11 fluxbox trayer dunst
+          sudo apt-get update
+          sudo apt-get install -y xvfb dbus-x11 fluxbox trayer dunst
           # O zip npm nao instala as permissoes do helper nativo. Manter o
           # sandbox ativo no runner, com o dono/modo exigidos pelo Chromium.
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
