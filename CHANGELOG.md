@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.10
+
+Os modelos fracos demais para revisar ambiguidade saem do Farol, em todos os provedores.
+
+### Mudanças
+
+- **Saem do Farol:** Haiku (Claude), GPT-6 Luna e GPT-5.6 Luna (Codex), Gemini Flash Medium e GPT-OSS 120B (Antigravity; o Flash Low já era recusado). Eles deixam de aparecer nos seletores de Sistema, e a configuração passa a recusá-los, inclusive escritos pelo nome completo no `config.json`. Quem tinha um deles salvo passa a revisar com o padrão do provedor. Seguem disponíveis Opus, Sonnet e Fable, Astra, Sol e Terra, Gemini Flash High e os modelos Claude pela cota do Google. O histórico de consumo continua mostrando as sessões antigas com o nome do modelo.
+
 ## v2.79.9
 
 O ícone do Farol na barra de tarefas do Windows fica certo de vez, e a coluna Duração do Consumo passa a mostrar o tempo das sessões.

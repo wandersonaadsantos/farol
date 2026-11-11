@@ -18,6 +18,7 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.10', ['Os modelos fracos demais para revisar ambiguidade saem do Farol: Haiku, GPT-6 Luna e GPT-5.6 Luna, Gemini Flash Medium e GPT-OSS 120B. Eles somem dos seletores e a configuração os recusa; quem tinha um deles salvo passa a usar o padrão do provedor.']],
   ['2.79.9', [
     'Windows: o ícone do Farol na barra de tarefas fica certo de vez. O Farol põe o próprio ícone no atalho que o Electron recria a cada notificação',
     'Consumo: a coluna Duração do Histórico de execuções passa a mostrar o tempo das sessões novas',
