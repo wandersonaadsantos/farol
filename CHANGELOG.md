@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.11
+
+A avaliação técnica deixa de cobrar do PR uma supressão que já existia, e o pedido de mudanças diz onde está o problema.
+
+### Correções
+
+- **Arquivos com decorators:** o parser da avaliação técnica não lia TypeScript com decorators, que é como se escreve controller, módulo e service de NestJS. Sem a leitura, uma supressão que já estava na base e só tinha descido de linha não era reconhecida como dívida anterior e virava pedido de mudanças. Agora o arquivo é lido, e a supressão antiga fica de fora como nos outros arquivos. O mapa de contexto da revisão também deixa de cair no modo textual nesses arquivos.
+- **Pedido de mudanças que diz onde:** o item "há violação confirmada de um padrão técnico do repositório" passa a citar o arquivo e a linha de cada achado que segura o merge (até cinco, com a contagem do resto). O nome da regra e a causa continuam fora do texto público.
+
 ## v2.79.10
 
 Os modelos fracos demais para revisar ambiguidade saem do Farol, em todos os provedores.
