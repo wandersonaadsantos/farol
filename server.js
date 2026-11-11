@@ -34,7 +34,7 @@ import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é us
 import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, workspaceTrust, applyClaudeAuthEnv, claudeAuthShellLines,
-  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
+  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort, AGY_MODELO_PADRAO,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews, sanearBind } from './lib/parse.js';
 import { loopback } from './lib/http-guard.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs, priorizarNoPath } from './lib/io.js';
@@ -208,6 +208,9 @@ class Engine extends EventEmitter {
       ? (sanitizeCodexEffort(this.config.codexReviewEffort) || '') : esforcoCodexLegado;
     this.config.reviewModel = sanitizeClaudeModel(this.config.reviewModel) || '';
     this.config.reviewEffort = sanitizeClaudeEffort(this.config.reviewEffort) || '';
+    // o Antigravity também: config com modelo recusado (v2.79.10, os fracos demais para
+    // ambiguidade) mostraria na tela um modelo que não roda
+    if (this.config.agyReviewModel) this.config.agyReviewModel = sanitizeAgyModel(this.config.agyReviewModel) || AGY_MODELO_PADRAO;
     const modelosMigrados = sincronizarModelos(this.config);
     if (modelosMigrados?.semEquivalente) warn('Modelo personalizado sem equivalência conhecida; seleções preservadas.');
     // sincronização entre dispositivos: opt-in que segura revisão quando ligado, então

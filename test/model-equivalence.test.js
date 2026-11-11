@@ -186,3 +186,16 @@ test('revisão real resolve Codex pela conta do PR e passa a rota sensível à s
     io.run = runOriginal;
   }
 });
+
+// v2.79.10: config antiga com modelo fraco salvo sobe no padrão de cada provedor, e a tela
+// não mostra modelo que não roda.
+test('boot com modelo fraco salvo cai no padrão dos três provedores', () => {
+  fs.writeFileSync(path.join(taskHome, 'config.json'), JSON.stringify({
+    reviewModel: 'haiku', codexReviewModel: 'gpt-6-luna', agyReviewModel: 'gemini-3.8-flash-medium',
+  }));
+  const engine = new Engine();
+  assert.equal(engine.config.reviewModel, '');
+  assert.equal(engine.config.codexReviewModel, '');
+  assert.equal(engine.config.agyReviewModel, 'gemini-3.8-flash-high');
+  assert.equal(sanitizeCodexModel('gpt-6-luna-mini'), null, 'variação da Luna também sai');
+});

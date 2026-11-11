@@ -15,7 +15,7 @@ Os modelos fracos demais para revisar ambiguidade saem do Farol, em todos os pro
 
 ### Mudanças
 
-- **Saem do Farol:** Haiku (Claude), GPT-6 Luna e GPT-5.6 Luna (Codex), Gemini Flash Medium e GPT-OSS 120B (Antigravity; o Flash Low já era recusado). Eles deixam de aparecer nos seletores de Sistema, e a configuração passa a recusá-los, inclusive escritos pelo nome completo no `config.json`. Quem tinha um deles salvo passa a revisar com o padrão do provedor. Seguem disponíveis Opus, Sonnet e Fable, Astra, Sol e Terra, Gemini Flash High e os modelos Claude pela cota do Google. O histórico de consumo continua mostrando as sessões antigas com o nome do modelo.
+- **Saem do Farol:** Haiku (Claude), GPT-6 Luna e GPT-5.6 Luna (Codex), Gemini Flash Medium e GPT-OSS 120B (Antigravity; o Flash Low já era recusado). Eles deixam de aparecer nos seletores de Sistema, e a configuração passa a recusá-los, inclusive escritos pelo nome completo no `config.json`. Quem tinha um deles salvo passa a revisar com o padrão do provedor. Seguem disponíveis Opus, Sonnet e Fable, Astra, Sol e Terra, Gemini Flash High e os modelos Claude pela cota do Google. O histórico de consumo continua mostrando as sessões antigas com o nome do modelo. Importar um arquivo de preferências exportado antes desta versão ignora só o modelo removido e aplica o resto.
 
 ## v2.79.9
 

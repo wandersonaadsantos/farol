@@ -229,3 +229,13 @@ test('políticas de conta são explícitas no arquivo e entrada parcial não ati
   const invalid = doc({ accounts: [{ ...account, onClean: 'wait', onCaveats: 'approve' }] });
   assert.equal((await command(engine, { action: 'preview', document: invalid })).ok, false);
 });
+
+// v2.79.10: arquivo exportado antes da remoção traz o modelo fraco que a pessoa usava. Só
+// essa chave fica de fora; o resto do arquivo entra.
+test('importação ignora só o modelo fraco de um arquivo antigo e aceita o resto', async () => {
+  const engine = fixture();
+  const document = doc({ reviewModel: 'haiku', agyReviewModel: 'gemini-3.8-flash-medium', theme: 'light' });
+  const preview = await command(engine, { action: 'preview', document });
+  assert.equal(preview.ok, true, preview.error);
+  assert.deepEqual(preview.changes.map(change => change.key), ['theme']);
+});
