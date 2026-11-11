@@ -12,8 +12,9 @@ import { consumirReaberturaSilenciosa } from './lib/engine/update.js';
 
 // fonte única do branch de plataforma (lib/paths.js), como no resto do app
 import { IS_MAC, IS_WIN } from './lib/paths.js';
+import { TEMPOS } from './lib/constants.js';
 import { aplicarAutostartMac } from './lib/autostart-mac.js';
-import { identificarAplicativo, identificarJanela, instalarMenuMac } from './lib/desktop-identity.js';
+import { identificarAplicativo, identificarJanela, instalarMenuMac, carimbarAtalhoDoElectron } from './lib/desktop-identity.js';
 import { linhaDaQuedaDoRenderer, linhaDaQuedaDeProcesso, memoriaDoProcesso } from './lib/queda-de-processo.js';
 import { iniciarDiagnosticoQuedas } from './lib/diagnostico-quedas.js';
 import { quedaInesperada, recarregarJanela } from './lib/renderer-recovery.js';
@@ -52,6 +53,7 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     instalarMenuMac(Menu);
+    agendarIconeDoAtalho();
     const { engine: eng } = farol.start((url, err) => {
       if (err) {
         // porta ocupada: provavelmente ja existe um Farol rodando em modo servidor.
@@ -234,6 +236,13 @@ function createTray() {
   tray.on('balloon-click', () => balloonTarget ? balloonTarget() : showWindow());
 }
 
+// A notificacao faz o Electron gravar o Electron.lnk sem icone, numa tarefa em
+// segundo plano; o icone do Farol entra depois que ele terminou (desktop-identity.js).
+function agendarIconeDoAtalho() {
+  if (!IS_WIN) return;
+  setTimeout(() => carimbarAtalhoDoElectron(shell, app), TEMPOS.ATALHO_DO_ELECTRON_MS).unref?.();
+}
+
 function notify(title, body, prUrl, onOpen, silent = false) {
   // janela em foco = você já está vendo o toast dentro do app; a notificação
   // do sistema em cima viraria ruído duplicado
@@ -246,6 +255,7 @@ function notify(title, body, prUrl, onOpen, silent = false) {
       n.on('click', goto);
       n.on('failed', () => balloon(title, body, goto, silent));
       n.show();
+      agendarIconeDoAtalho();
       return;
     }
   } catch { /* cai pro balao */ }
