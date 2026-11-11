@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.9
+
+O ícone do Farol na barra de tarefas do Windows fica certo de vez, e a coluna Duração do Consumo passa a mostrar o tempo das sessões.
+
+### Correções
+
+- **Ícone do Electron na barra de tarefas, de novo.** A 2.79.8 apagava o atalho "Electron" sem ícone, mas o próprio Electron o recria a cada notificação, para o Windows saber de quem ela é. Agora o Farol põe o seu ícone nesse atalho logo depois que o Electron o grava, e o Electron não volta a mexer nele. Na primeira abertura depois da atualização o átomo ainda pode aparecer; da segunda em diante, é o farol.
+- **Duração no Consumo.** A coluna Duração do Histórico de execuções mostrava "Não informada" em toda sessão concluída, porque o horário de início só era guardado nas sessões interrompidas. As sessões novas passam a ter a duração; as antigas seguem sem, porque o dado não foi gravado.
+
 ## v2.79.8
 
 O Farol volta a aparecer com o próprio ícone na barra de tarefas do Windows.
