@@ -35,7 +35,7 @@ function choices(engine) {
     updateSource: 'https://example.invalid/releases', updateRepo: 'acme/farol', mergeBlockedRepos: ['acme/app'],
     defaultReviewers: { acme: ['alex'] }, projectReviewers: { 'acme/app': ['alex'] }, people: { alex: { papel: 'senior' } },
     reviewModel: 'sonnet', reviewEffort: 'high', codexReviewModel: 'gpt-5.6-terra', codexReviewEffort: 'high',
-    agyReviewModel: 'gemini-3.8-flash-medium', agyReviewEffort: 'high', claudeConfigDir: 'C:/farol/test-profile',
+    agyReviewModel: 'claude-sonnet-4-6', agyReviewEffort: 'high', claudeConfigDir: 'C:/farol/test-profile',
     claudeProfiles: [{ id: 'p', label: 'Codex', kind: 'codex', budgetDaily: 10, budgetTotal: 50 }],
     claudeProfileId: 'p', cadeiaPerfis: [{ id: 'p', ativo: true }],
   });
@@ -106,7 +106,7 @@ test('importação preserva Terra já selecionado ao restaurar somente seu equiv
 
 test('importação recusa par incompatível sem reescrever valores prometidos na prévia', async () => {
   const engine = fixture();
-  const document = doc({ reviewModel: 'haiku', codexReviewModel: 'gpt-6-astra' });
+  const document = doc({ reviewModel: 'sonnet', codexReviewModel: 'gpt-6-astra' });
   const preview = await command(engine, { action: 'preview', document });
   const result = await command(engine, { action: 'apply', document, token: preview.token, keys: ['reviewModel', 'codexReviewModel'] });
   assert.equal(result.ok, false);
