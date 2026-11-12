@@ -41,7 +41,9 @@ function escrever(raiz, rel, conteudo) {
   fs.mkdirSync(path.dirname(alvo), { recursive: true });
   fs.writeFileSync(alvo, conteudo);
 }
-function pacote(versao = '2.80.0', farolShell = '>=3.0.0 <4') {
+// A versão do pacote de teste nunca pode ser a que roda: com '2.80.0' escrito aqui, a release
+// 2.80.0 fez o update recusar por "já é a versão em uso" e seis casos reprovaram.
+function pacote(versao = '2.999.0', farolShell = '>=3.0.0 <4') {
   const origem = pasta('pacote');
   escrever(origem, 'server.js', 'novo');
   const engines = { node: '>=24.22.1 <25', ...(farolShell ? { farolShell } : {}) };
@@ -50,7 +52,7 @@ function pacote(versao = '2.80.0', farolShell = '>=3.0.0 <4') {
   for (const inst of ['install-linux.sh', 'install.sh', 'install.ps1']) escrever(origem, `installer/${inst}`, '#');
   return origem;
 }
-function motorFalso(origem, versao = '2.80.0') {
+function motorFalso(origem, versao = '2.999.0') {
   const eventos = [];
   return {
     eventos,
@@ -83,15 +85,15 @@ test('aplicarNaCasca instala em ~/.farol/engine/<versão> e sai com 75 depois de
   const d = deps();
   const engine = motorFalso(pacote());
   const r = aplicarNaCasca(engine, d);
-  assert.deepEqual(r, { ok: true, from: APP_VERSION, to: '2.80.0' });
-  assert.equal(fs.readFileSync(path.join(d.pastaEngine, '2.80.0', 'server.js'), 'utf8'), 'novo');
-  assert.equal(fs.readFileSync(path.join(d.pastaEngine, '2.80.0', 'lib/algo.js'), 'utf8'), 'novo');
-  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.80.0.tmp')), false);
-  assert.equal(lerCasca().proximaVersao, '2.80.0');
+  assert.deepEqual(r, { ok: true, from: APP_VERSION, to: '2.999.0' });
+  assert.equal(fs.readFileSync(path.join(d.pastaEngine, '2.999.0', 'server.js'), 'utf8'), 'novo');
+  assert.equal(fs.readFileSync(path.join(d.pastaEngine, '2.999.0', 'lib/algo.js'), 'utf8'), 'novo');
+  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.999.0.tmp')), false);
+  assert.equal(lerCasca().proximaVersao, '2.999.0');
   assert.equal(lerCasca().porta, 47191, 'o resto do casca.json fica');
-  assert.deepEqual(d.reaberturas, ['2.80.0']);
-  assert.deepEqual(engine.eventos.find(([n]) => n === 'casca-saida'), ['casca-saida', { motivo: 'update', proximaVersao: '2.80.0' }]);
-  assert.ok(engine.eventos.some(([n, p]) => n === 'toast' && p.kind === 'info' && /2\.80\.0/.test(p.text)));
+  assert.deepEqual(d.reaberturas, ['2.999.0']);
+  assert.deepEqual(engine.eventos.find(([n]) => n === 'casca-saida'), ['casca-saida', { motivo: 'update', proximaVersao: '2.999.0' }]);
+  assert.ok(engine.eventos.some(([n, p]) => n === 'toast' && p.kind === 'info' && /2\.999\.0/.test(p.text)));
   assert.deepEqual(d.saidas, [], 'não sai antes do atraso');
   assert.equal(d.relogio.agendados.length, 1);
   assert.equal(d.relogio.agendados[0].ms, TEMPOS.SAIDA_DEPOIS_DO_UPDATE_MS);
@@ -109,7 +111,7 @@ test('recusa checkout git', () => {
   assert.equal(r.ok, false);
   assert.match(r.error, /git pull/);
   assert.ok(engine.eventos.some(([n, p]) => n === 'toast' && p.kind === 'error' && /git pull/.test(p.text)));
-  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.80.0')), false);
+  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.999.0')), false);
   assert.equal(lerCasca().proximaVersao, null);
   assert.deepEqual(d.relogio.agendados, []);
   assert.ok(!engine.eventos.some(([n]) => n === 'casca-saida'));
@@ -123,8 +125,8 @@ test('cópia que falha no meio não deixa pasta final', () => {
   const r = aplicarNaCasca(engine, d);
   assert.equal(r.ok, false);
   assert.match(r.error, /server\.js/);
-  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.80.0.tmp')), false);
-  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.80.0')), false);
+  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.999.0.tmp')), false);
+  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.999.0')), false);
   assert.equal(lerCasca().proximaVersao, null);
   assert.deepEqual(d.reaberturas, []);
   assert.deepEqual(d.relogio.agendados, []);
@@ -132,13 +134,13 @@ test('cópia que falha no meio não deixa pasta final', () => {
 
 test('sobra de tentativa anterior (.tmp e pasta final) é substituída pela cópia nova', () => {
   const d = deps();
-  escrever(path.join(d.pastaEngine, '2.80.0.tmp'), 'lixo.js', 'x');
-  escrever(path.join(d.pastaEngine, '2.80.0'), 'server.js', 'parcial antigo');
+  escrever(path.join(d.pastaEngine, '2.999.0.tmp'), 'lixo.js', 'x');
+  escrever(path.join(d.pastaEngine, '2.999.0'), 'server.js', 'parcial antigo');
   const r = aplicarNaCasca(motorFalso(pacote()), d);
   assert.equal(r.ok, true, String(r.error));
-  assert.equal(fs.readFileSync(path.join(d.pastaEngine, '2.80.0', 'server.js'), 'utf8'), 'novo');
-  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.80.0', 'lixo.js')), false);
-  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.80.0.tmp')), false);
+  assert.equal(fs.readFileSync(path.join(d.pastaEngine, '2.999.0', 'server.js'), 'utf8'), 'novo');
+  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.999.0', 'lixo.js')), false);
+  assert.equal(fs.existsSync(path.join(d.pastaEngine, '2.999.0.tmp')), false);
 });
 
 test('versão fora do formato X.Y.Z é recusada sem tocar o disco', () => {
@@ -156,7 +158,7 @@ test('no modo casca o applyUpdate desvia para a pasta de versões, nunca para a 
     const origem = pacote();
     const engine = new Engine();
     engine.config.updateRepo = '';
-    engine.update = { current: APP_VERSION, channel: 'remote', repo: 'x/y', source: origem, sourceVersion: '2.80.0', available: true, checkedAt: Date.now() };
+    engine.update = { current: APP_VERSION, channel: 'remote', repo: 'x/y', source: origem, sourceVersion: '2.999.0', available: true, checkedAt: Date.now() };
     const casca = [];
     engine.on('casca-saida', (p) => casca.push(p));
     const r = await update.applyUpdate(engine, {
@@ -167,8 +169,8 @@ test('no modo casca o applyUpdate desvia para a pasta de versões, nunca para a 
       ...d,
     });
     assert.equal(r.ok, true, String(r.error));
-    assert.equal(fs.readFileSync(path.join(d.pastaEngine, '2.80.0', 'server.js'), 'utf8'), 'novo');
-    assert.deepEqual(casca, [{ motivo: 'update', proximaVersao: '2.80.0' }]);
+    assert.equal(fs.readFileSync(path.join(d.pastaEngine, '2.999.0', 'server.js'), 'utf8'), 'novo');
+    assert.deepEqual(casca, [{ motivo: 'update', proximaVersao: '2.999.0' }]);
     d.relogio.agendados[0].fn();
     assert.deepEqual(d.saidas, [75]);
   } finally { delete process.env.FAROL_SHELL; }
@@ -176,7 +178,7 @@ test('no modo casca o applyUpdate desvia para a pasta de versões, nunca para a 
 
 test('pacote cujo engines.farolShell não aceita a casca que roda é recusado sem tocar o disco', () => {
   const d = deps();
-  const engine = motorFalso(pacote('2.80.0', '>=4.0.0 <5'));
+  const engine = motorFalso(pacote('2.999.0', '>=4.0.0 <5'));
   const r = aplicarNaCasca(engine, d);
   assert.equal(r.ok, false);
   assert.match(r.error, /casca/);
@@ -189,7 +191,7 @@ test('pacote cujo engines.farolShell não aceita a casca que roda é recusado se
 
 test('pacote sem engines.farolShell é recusado sem tocar o disco', () => {
   const d = deps();
-  const r = aplicarNaCasca(motorFalso(pacote('2.80.0', '')), d);
+  const r = aplicarNaCasca(motorFalso(pacote('2.999.0', '')), d);
   assert.equal(r.ok, false);
   assert.match(r.error, /farolShell/);
   assert.equal(fs.existsSync(d.pastaEngine), false);

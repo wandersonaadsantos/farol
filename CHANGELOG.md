@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.80.0
+
+O consumo de cada plano do Claude e a data em que o login vence aparecem na tela, sem terminal.
+
+### Novidades
+
+- **Uso do plano por perfil:** em Sistema, Plano e chaves, cada perfil do Claude por assinatura mostra quanto da sessão, da semana e da semana por modelo já foi usado, com a hora em que cada janela volta. A barra fica âmbar a partir de 70% e vermelha a partir de 90%. O Farol lê sozinho a cada cinco minutos, pelo comando de uso do próprio Claude Code, que não chama modelo e não gasta nada do plano. Vale para perfil ligado ou desligado na ordem de uso, e aparece na ordem de uso e no cartão do perfil.
+- **Quando o login vence:** cada perfil mostra o dia e a hora em que o login deixa de se renovar sozinho, e quanto falta. O Farol avisa quando faltarem três dias e de novo no último dia, e mostra o login vencido em vermelho. A renovação continua sendo pela sessão de login do perfil.
+
+O percentual lido é informação: a ordem de uso continua trocando de perfil só quando o plano chega ao limite, como antes. Se uma atualização do Claude Code mudar o texto do uso, a tela passa a dizer que o uso não foi lido, em vez de mostrar número errado, e a data do vencimento continua aparecendo.
+
 ## v2.79.11
 
 A avaliação técnica deixa de cobrar do PR uma supressão que já existia, e o pedido de mudanças diz onde está o problema.

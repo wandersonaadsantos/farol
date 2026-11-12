@@ -18,6 +18,10 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.80.0', [
+    'Plano e chaves: cada perfil do Claude por assinatura mostra quanto da sessão e da semana já foi usado e a hora em que volta, lido sozinho e sem gastar nada do plano',
+    'Plano e chaves: cada perfil mostra o dia e a hora em que o login vence, e o Farol avisa quando faltarem três dias e no último dia',
+  ]],
   ['2.79.11', [
     'Avaliação técnica: supressão antiga em arquivo com decorators (controller, módulo e service de NestJS) volta a contar como dívida anterior, e não como violação do PR',
     'O pedido de mudanças por violação técnica passa a dizer em que arquivo e linha está o que bloqueia o merge',
