@@ -227,10 +227,39 @@ test('esquecerPasta: login refeito apaga a leitura guardada dos perfis daquela p
   assert.deepEqual([...engine.usosDoPlano.keys()], ['p2']);
 });
 
+test('pasta do perfil editada: o uso da conta anterior não aparece no perfil, nem o de uma leitura em curso', async () => {
+  const engine = engineCom();
+  await uso.lerUso(engine, PERFIL, { rodar: async () => saida(TEXTO, { credential_expires_at: VENCE }) });
+  assert.equal(uso.usoParaTela(engine, PERFIL, AGORA).lido, true);
+
+  // a tela troca a pasta e o id continua o mesmo
+  const editado = { ...PERFIL, dir: '/home/x/.claude-outra-conta' };
+  engine.config.claudeProfiles = [editado];
+  assert.deepEqual(uso.usoParaTela(engine, editado, AGORA), { lido: false });
+  const pastas = [];
+  const nova = await uso.lerUso(engine, editado, { rodar: async (dir) => { pastas.push(dir); return saida('Current session: 5% used', { credential_expires_at: VENCE }); } });
+  assert.deepEqual(pastas, ['/home/x/.claude-outra-conta'], 'o cache da pasta antiga não atende a nova');
+  assert.equal(nova.janelas[0].usado, 0.05);
+
+  // leitura em curso quando a pasta muda de novo: o resultado não entra no perfil
+  let soltar;
+  const lenta = uso.lerUso(engine, editado, { forcar: true, rodar: () => new Promise((r) => { soltar = () => r(saida(TEXTO, { credential_expires_at: VENCE })); }) });
+  await new Promise((r) => setTimeout(r, 0));
+  const terceiro = { ...PERFIL, dir: '/home/x/.claude-terceira' };
+  engine.config.claudeProfiles = [terceiro];
+  soltar();
+  await lenta;
+  assert.deepEqual(uso.usoParaTela(engine, terceiro, AGORA), { lido: false });
+  assert.equal(engine.usosDoPlano.has(PERFIL.id), false);
+});
+
 test('resetEmMs: troca de horário de verão e leitura na virada do ano', () => {
   // 1/11/2026 02:00 em Nova York o relógio volta uma hora; 8/3/2026 02:00 ele adianta
   assert.equal(new Date(uso.resetEmMs('Nov 1, 3am (America/New_York)', Date.parse('2026-10-31T12:00:00Z'))).toISOString(), '2026-11-01T08:00:00.000Z');
   assert.equal(new Date(uso.resetEmMs('Mar 8, 4am (America/New_York)', Date.parse('2026-03-07T12:00:00Z'))).toISOString(), '2026-03-08T08:00:00.000Z');
+  // reset sem data que cai amanhã, atravessando a troca: a hora do relógio é a pedida
+  assert.equal(new Date(uso.resetEmMs('6am (America/New_York)', Date.parse('2026-10-31T12:00:00Z'))).toISOString(), '2026-11-01T11:00:00.000Z');
+  assert.equal(new Date(uso.resetEmMs('6am (America/New_York)', Date.parse('2026-03-07T12:00:00Z'))).toISOString(), '2026-03-08T10:00:00.000Z');
   // reset de 31/12 lido já em 1/1: é o de ontem, não o do fim do ano que começa
   assert.equal(new Date(uso.resetEmMs('Dec 31, 11pm (UTC)', Date.parse('2027-01-01T00:30:00Z'))).toISOString(), '2026-12-31T23:00:00.000Z');
 });
