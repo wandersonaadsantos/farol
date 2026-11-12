@@ -265,6 +265,16 @@ O estado de cada perfil: `desligado`, `problema` (falta pasta ou chave: `authFro
 
 **Migração.** Config sem `cadeiaPerfis` (`def: null` em `lib/settings.js`) ganha, no boot, a cadeia com o perfil padrão de hoje ligado e os outros desligados (`reconciliar`, idempotente, também roda depois de toda gravação de configuração). Comportamento idêntico ao de antes. Perfil removido sai da cadeia na mesma gravação.
 
+### Uso do plano e validade do login (12/11/2026)
+
+Cada perfil do Claude por assinatura mostra, na ordem de uso e no próprio cartão, quanto de cada janela do plano já foi usado (sessão, semana e semana por modelo), a hora em que cada uma volta, e o dia e a hora em que o login deixa de se renovar sozinho. Vale para perfil ligado ou desligado. Perfil de chave de API, OpenRouter, Codex e Antigravity não entra: não há uso do plano do Claude para ler.
+
+A fonte é o comando de uso do próprio Claude Code (`claude -p "/usage" --output-format json`), que não chama modelo e não gasta nada do plano. O Farol lê sozinho, com cache de cinco minutos (`TEMPOS.CLAUDE_USO_CACHE_MS`) e uma leitura de cada vez, contra uma cópia efêmera da configuração do perfil: a configuração não é escrita e a credencial não é lida pelo Farol. Como o comando consulta a API, o Claude Code renova o token de acesso vencido na credencial da pasta original, como faz em qualquer sessão; isso não muda a validade do login. Quando o Claude Code não responde, a última leitura boa continua na tela por até uma hora, com o aviso de que não foi possível atualizar. A validade do login vem do campo `credential_expires_at` da mesma resposta. Medido em 12/11/2026, ela fica cerca de 28 dias depois do login e não anda quando o token de acesso é renovado, então a data mostrada é a de refazer o login.
+
+O Farol avisa por toast quando faltarem três dias e de novo no último dia, uma vez por faixa, e mostra o login vencido em vermelho. Renovar é abrir a sessão de login do perfil; numa instalação sem terminal gráfico, o login é feito no terminal do servidor, com `CLAUDE_CONFIG_DIR` apontando para a pasta do perfil.
+
+O percentual lido é informação, não gate: a cadeia continua trocando de perfil só quando o plano chega ao limite. O texto do uso é em inglês e não é contrato do CLI; se ele mudar, a tela diz que o uso não foi lido, e a data do vencimento continua aparecendo. O módulo é `lib/engine/uso-do-plano.js` e a tela é `ui/pure/uso-do-plano.js`.
+
 ### Modelo e esforço por provedor
 
 Cada provedor tem o próprio par de campos (`reviewModel`/`reviewEffort` do Claude, `codexReviewModel`/`codexReviewEffort` do Codex, `agyReviewModel`/`agyReviewEffort` do Antigravity), escolhidos em Plano e chaves junto da cadeia. A sessão usa o par do provedor do perfil que a cadeia escolheu. Modelo de um provedor nunca chega à linha de comando de outro: cada par passa pelo saneador do próprio provedor em `lib/parse.js`, que continua sendo a única porta de valor de config para a linha de comando, e o vocabulário de um é recusado pelo outro (`test/settings-model-effort.test.js`, `test/cadeia-perfis.test.js`).

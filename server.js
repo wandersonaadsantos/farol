@@ -2174,6 +2174,8 @@ class Engine extends EventEmitter {
     this.migrarIgnorados();
     this.checkUpdate().catch(() => {});
     this.doctor().catch(() => {});
+    // o uso do plano do Claude só é lido pelo engine que subiu de verdade (uso-do-plano.js)
+    this.usoDoPlanoLigado = true;
     // A presença não espera a consulta ao GitHub; a admissão continua exigindo confirmação.
     this._tickSeguro().catch(() => {});
     // label presa por morte do processo: limpa antes do primeiro ciclo, pra a
