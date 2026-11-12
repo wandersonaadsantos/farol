@@ -18,6 +18,10 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.79.12', [
+    'Avaliação técnica: medida fixa em px que já existia deixa de ser cobrada do PR só porque ele mexeu dentro do mesmo elemento',
+    'O pedido de mudanças por violação técnica passa a dizer o motivo de cada regra que segura o merge, junto do arquivo e da linha',
+  ]],
   ['2.79.11', [
     'Avaliação técnica: supressão antiga em arquivo com decorators (controller, módulo e service de NestJS) volta a contar como dívida anterior, e não como violação do PR',
     'O pedido de mudanças por violação técnica passa a dizer em que arquivo e linha está o que bloqueia o merge',
