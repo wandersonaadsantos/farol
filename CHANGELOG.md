@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.12
+
+A avaliação técnica para de cobrar do PR um px que já existia, e o pedido de mudanças passa a dizer o motivo.
+
+### Correções
+
+- **Medida fixa antiga:** a medida da regra de unidade fixa pegava tudo o que começa na linha do achado, e numa linha `<div className="... w-[334px]">` isso é a `div` inteira. Se o PR mudava qualquer filho dela, o px antigo virava cobrança do PR. Agora a medida é o texto que contém o valor acusado (o `className`), e o px que o PR não tocou fica como dívida anterior. Sem o valor, ou sem texto que o contenha, vale a medida de antes.
+- **O motivo, além do lugar:** o item "há violação confirmada de um padrão técnico do repositório" passa a listar cada regra que segura o merge com uma frase do que ela cobra (por exemplo, "o teste continuaria passando sem o comportamento que ele diz proteger"), seguida dos arquivos e linhas. O nome da regra e a mensagem da ferramenta continuam fora do texto público; regra sem frase sai com o texto genérico.
+
 ## v2.79.11
 
 A avaliação técnica deixa de cobrar do PR uma supressão que já existia, e o pedido de mudanças diz onde está o problema.
