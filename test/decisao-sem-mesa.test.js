@@ -604,6 +604,45 @@ test('a violação diz onde está o achado que bloqueia, sem regra, causa nem d�
   assert.doesNotMatch(corpo, /f5\.ts|e mais/);
 });
 
+// biud-frontend#1992 (12/11/2026): o texto dizia onde, mas não o quê, e o autor corrigiu o data-testid
+// que não era a causa. Cada regra que bloqueia sai com o motivo em linguagem de gente; o id do catálogo
+// e a mensagem da ferramenta continuam fora.
+test('a violação diz o motivo de cada regra que bloqueia, agrupando os lugares', () => {
+  const technicalReview = {
+    rules: [
+      { rule: 'core.testing.behavior-proof', verdict: 'fail', causa: 'interna' },
+      { rule: 'frontend.component.scalable-units', verdict: 'fail', causa: 'interna' },
+      { rule: 'frontend.component.storybook', verdict: 'fail' },
+    ],
+    findings: [
+      { rule: 'core.testing.behavior-proof', file: 'src/Secao.destino.test.tsx', message: 'avaliada como violacao: O teste não protege a ordem que diz proteger.' },
+      { rule: 'frontend.component.storybook', file: 'src/Card.tsx', message: 'avaliada como violacao: nenhuma story alcança o estado' },
+      { rule: 'frontend.component.scalable-units', file: 'src/Card.tsx', message: 'unidade fixa escalavel na linha 35: w-[334px]; use rem ou token escalavel' },
+      { rule: 'frontend.component.scalable-units', file: 'src/Outro.tsx', message: 'unidade fixa escalavel na linha 9: h-[19px]; use rem ou token escalavel' },
+    ],
+  };
+  const rc = auto.payloadDoDefeito({ technicalReview }, ['violação técnica confirmada']);
+  assert.match(rc.body, /^- há violação confirmada de um padrão técnico do repositório:$/m);
+  assert.match(rc.body, /^ {2}- o teste continuaria passando sem o comportamento que ele diz proteger: em `src\/Secao\.destino\.test\.tsx`$/m);
+  assert.match(rc.body, /^ {2}- medida fixa em px .*: em `src\/Card\.tsx:35`, `src\/Outro\.tsx:9`$/m);
+  assert.doesNotMatch(rc.body, /behavior-proof|scalable-units|storybook|avaliada|w-\[334px\]|interna|story/i);
+  assert.deepEqual(publicReviewLanguageIssues(rc, 'eu'), [], rc.body);
+  // regra sem motivo conhecido continua dizendo onde, com o texto genérico
+  const nova = { rules: [{ rule: 'nova.regra', verdict: 'fail' }], findings: [{ rule: 'nova.regra', file: 'a.ts', message: 'x na linha 3' }] };
+  assert.match(auto.payloadDoDefeito({ technicalReview: nova }, ['violação técnica confirmada']).body,
+    /^- há violação confirmada de um padrão técnico do repositório, em `a\.ts:3`$/m);
+});
+
+test('todo motivo público passa pela trava de linguagem e cobre só regra que bloqueia', async () => {
+  const { MOTIVO_PUBLICO } = await import('../lib/technical-review/motivo-publico.js');
+  const { ehDeOrganizacao } = await import('../lib/technical-review/verdict.js');
+  for (const [regra, motivo] of Object.entries(MOTIVO_PUBLICO)) {
+    assert.equal(ehDeOrganizacao(regra), false, `${regra} é de organização e nunca bloqueia`);
+    assert.deepEqual(publicReviewLanguageIssues({ event: 'REQUEST_CHANGES', body: motivo, comments: [] }, 'eu'), [], motivo);
+    assert.doesNotMatch(motivo, /—|:/, 'sem travessão, e sem dois-pontos que confundiria o separador dos lugares');
+  }
+});
+
 test('reconstruirPayload: tira só o barrado; sem texto sobrando ou sem mudança, devolve null', () => {
   const p = { event: 'APPROVE', body: 'Ok.\n\nEsta revisão foi gerada pelo Farol.', comments: [{ path: 'a', line: 1, side: 'RIGHT', body: 'Revisado pelo Farol.' }, { path: 'b', line: 2, side: 'RIGHT', body: 'Bom nome.' }] };
   const r = auto.reconstruirPayload(p, 'eu');
