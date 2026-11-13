@@ -20,6 +20,11 @@ O consumo de cada plano do Claude e a data em que o login vence aparecem na tela
 
 O percentual lido é informação: a ordem de uso continua trocando de perfil só quando o plano chega ao limite, como antes. Se uma atualização do Claude Code mudar o texto do uso, a tela passa a dizer que o uso não foi lido, em vez de mostrar número errado, e a data do vencimento continua aparecendo.
 
+### Correções
+
+- **Analisando agora na Compacta:** o cartão fechado mostra as mesmas três caixas do cartão aberto (checks obrigatórios, reviewers com as fotos e merge), além da barra e de quantos arquivos já foram lidos. Antes ele apertava tudo em três pílulas sem rótulo. O log, as etapas e a equipe da sessão continuam escondidos até abrir o cartão.
+- **Fim da análise sem barra:** em "modelo concluiu, verificando e decidindo", a barra de leitura continua na tela, e o número diz "lidos", para 100% não parecer que a análise terminou. Antes a barra sumia e ficava só "Em andamento".
+
 ## v2.79.13
 
 O Automático por organização passa a funcionar com a conta em "só põe na fila".

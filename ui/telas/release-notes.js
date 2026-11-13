@@ -23,6 +23,7 @@ const RELEASE_NOTES_RECENTES = [
   ['2.80.0', [
     'Plano e chaves: cada perfil do Claude por assinatura mostra quanto da sessão e da semana já foi usado e a hora em que volta, lido sozinho e sem gastar nada do plano',
     'Plano e chaves: cada perfil mostra o dia e a hora em que o login vence, e o Farol avisa quando faltarem três dias e no último dia',
+    'Analisando agora na Compacta: o cartão fechado mostra as três caixas (checks, reviewers e merge), a barra e os arquivos lidos, e a barra continua no fim da análise',
   ]],
   ['2.79.13', [
     'Review por organização: Automático passa a valer com a conta em "só põe na fila". Uma conta que atende duas empresas pode revisar sozinha só uma delas',
