@@ -22,6 +22,14 @@ const RELEASE_NOTES_RECENTES = [
     'Plano e chaves: cada perfil do Claude por assinatura mostra quanto da sessão e da semana já foi usado e a hora em que volta, lido sozinho e sem gastar nada do plano',
     'Plano e chaves: cada perfil mostra o dia e a hora em que o login vence, e o Farol avisa quando faltarem três dias e no último dia',
   ]],
+  ['2.79.13', [
+    'Review por organização: Automático passa a valer com a conta em "só põe na fila". Uma conta que atende duas empresas pode revisar sozinha só uma delas',
+    'Manual na organização segura também a reconferência técnica e a recuperação da prova',
+  ]],
+  ['2.79.12', [
+    'Avaliação técnica: medida fixa em px que já existia deixa de ser cobrada do PR só porque ele mexeu dentro do mesmo elemento',
+    'O pedido de mudanças por violação técnica passa a dizer o motivo de cada regra que segura o merge, junto do arquivo e da linha',
+  ]],
   ['2.79.11', [
     'Avaliação técnica: supressão antiga em arquivo com decorators (controller, módulo e service de NestJS) volta a contar como dívida anterior, e não como violação do PR',
     'O pedido de mudanças por violação técnica passa a dizer em que arquivo e linha está o que bloqueia o merge',

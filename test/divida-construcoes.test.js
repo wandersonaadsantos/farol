@@ -35,7 +35,7 @@ const exemplos = [
 async function classificar(exemplo, linhaAlterada = 8, extra = {}) {
   await fs.writeFile(path.join(snapshot, exemplo.file), exemplo.text);
   const findings = await medirIntervalos(snapshot, [{ rule: exemplo.rule, file: exemplo.file,
-    message: `violacao na linha ${exemplo.linha}: exemplo da ferramenta` }]);
+    message: exemplo.message ?? `violacao na linha ${exemplo.linha}: exemplo da ferramenta` }]);
   const inventario = { status: 'complete', headSha: HEAD, files: [{ path: exemplo.file,
     sha: blobHash(Buffer.from(exemplo.text)), status: 'modified', patchStatus: 'available',
     patch: `@@ -${linhaAlterada},1 +${linhaAlterada},1 @@\n-antigo\n+novo\n`, ...extra }] };
@@ -127,6 +127,53 @@ test('supressor entre dois decorators de classe alcança a classe inteira', asyn
     '  ler() {', '    return novo();', '  }', '}'].join('\n');
   const r = await classificar({ rule: 'core.suppression.declared', file: 'classe.controller.ts', linha: 2, text }, 6);
   assert.equal(r.findings[0].intervaloVerificado.fim, 8);
+  assert.equal(r.findings[0].foraDasLinhas, undefined);
+});
+
+// biud-frontend#1992 (12/11/2026): o w-[334px] já estava na base, e a união de tudo o que começa na linha
+// media a div inteira. Como o PR mexeu nos filhos dela, o px antigo virou cobrança do PR. A ferramenta diz
+// qual valor viu, e o literal que o contém é a construção que a regra acusa.
+const CARTAO = ['<div className="group flex w-[334px] shrink-0">', '  <button', '    onClick={abrir}',
+  '    type="button"', '  >', '    {titulo}', '  </button>', '</div>'].join('\n');
+const PX = { rule: 'frontend.component.scalable-units', file: 'Cartao.tsx', linha: 1, text: CARTAO,
+  message: 'unidade fixa escalavel na linha 1: w-[334px]; use rem ou token escalavel' };
+
+test('unidade fixa antiga no className fica como dívida quando o PR muda só os filhos do elemento', async () => {
+  const r = await classificar(PX, 3);
+  assert.deepEqual([r.findings[0].intervaloVerificado.inicio, r.findings[0].intervaloVerificado.fim], [1, 1]);
+  assert.equal(r.findings[0].foraDasLinhas, true);
+  assert.equal(r.rules[0].dividaForaDasLinhas, true);
+});
+
+test('unidade fixa continua bloqueando quando o PR muda a linha do className', async () => {
+  const r = await classificar({ ...PX, file: 'Cartao2.tsx' }, 1);
+  assert.equal(r.findings[0].foraDasLinhas, undefined);
+});
+
+test('unidade fixa num literal de várias linhas mede o literal inteiro', async () => {
+  const text = ['const classe = clsx(', '  `flex', '  relative', '  w-[480px]', '  `,', ');', 'export const novo = 1;'].join('\n');
+  const dentro = await classificar({ rule: 'frontend.component.scalable-units', file: 'clsx.tsx', linha: 2, text,
+    message: 'unidade fixa escalavel na linha 2: w-[480px]; use rem ou token escalavel' }, 4);
+  assert.deepEqual([dentro.findings[0].intervaloVerificado.inicio, dentro.findings[0].intervaloVerificado.fim], [2, 5]);
+  assert.equal(dentro.findings[0].foraDasLinhas, undefined);
+  const fora = await classificar({ rule: 'frontend.component.scalable-units', file: 'clsx2.tsx', linha: 2, text,
+    message: 'unidade fixa escalavel na linha 2: w-[480px]; use rem ou token escalavel' }, 7);
+  assert.equal(fora.findings[0].foraDasLinhas, true);
+});
+
+// A ferramenta acusa pelo texto já interpretado. Um template que escreve o valor com escape tem de entrar
+// na medida, senão um literal vizinho com o valor sem escape encolheria a faixa e esconderia a mudança.
+test('valor escrito com escape no literal acusado entra na medida', async () => {
+  const text = ['<div title="w-[334px]" className={`flex', '  w-\\[334px]', '  shrink-0', '  gap-2', '  novo`}>', '</div>'].join('\n');
+  const r = await classificar({ rule: 'frontend.component.scalable-units', file: 'escape.tsx', linha: 1, text,
+    message: 'unidade fixa escalavel na linha 1: w-[334px]; use rem ou token escalavel' }, 5);
+  assert.equal(r.findings[0].intervaloVerificado.fim, 5);
+  assert.equal(r.findings[0].foraDasLinhas, undefined);
+});
+
+test('valor que não aparece em literal nenhum da linha mantém a união conservadora', async () => {
+  const r = await classificar({ ...PX, file: 'Cartao3.tsx', message: 'unidade fixa escalavel na linha 1: w-[999px]; use rem' }, 3);
+  assert.deepEqual([r.findings[0].intervaloVerificado.inicio, r.findings[0].intervaloVerificado.fim], [1, 8]);
   assert.equal(r.findings[0].foraDasLinhas, undefined);
 });
 

@@ -191,7 +191,8 @@ export function queueCardHtml(pr, ctx) {
   // ui/pure/revisando.js): parada, depois limite do plano, depois coordenação. Com alguém
   // revisando e a chave de revisar junto desligada, limite e coordenação somem, porque
   // falam de uma revisão automática que não vai acontecer.
-  const automaticaDesativada = m.acct?.autoReview === false;
+  // a decisão do motor por PR (conta, organização e autor); sem ela, a conta
+  const automaticaDesativada = typeof ctx.manual === 'boolean' ? ctx.manual : m.acct?.autoReview === false;
   const parkedInfo = (ctx.parked || {})[pr.key];
   const av = avisosDoCard(pr, { temParada: !!parkedInfo, limiteAtivo: !automaticaDesativada && Number(ctx.limiteAte) > Date.now(), limiteNoTopo: !!ctx.limiteNoTopo, revisarJunto: !automaticaDesativada && !!ctx.revisarJunto });
   const parked = parkedNoteHtml(parkedInfo, av.rotulo);
@@ -199,7 +200,7 @@ export function queueCardHtml(pr, ctx) {
   const limite = av.nota === 'limite' ? limitNoteHtml(ctx.limiteAte, av.formaLimite, av.rotulo) : '';
   const coord = av.nota === 'coordenacao' ? prCoordNoteHtml(pr.key, ctx.sync) : '';
   // A política local continua visível mesmo quando outro aparelho já está analisando.
-  const manual = automaticaDesativada ? `<div class="pr-coord">Revisão automática desativada para esta conta neste aparelho. Para iniciar aqui, clique em ${esc(av.rotulo)}.</div>` : '';
+  const manual = automaticaDesativada ? `<div class="pr-coord">Revisão automática desativada para este PR neste aparelho. Para iniciar aqui, clique em ${esc(av.rotulo)}.</div>` : '';
   const conflito = (ctx.esperaConflito || {})[pr.key] ? '<div class="pr-coord">Em conflito com a base: a revisão automática abre quando o conflito for resolvido. O botão Revisar não espera.</div>' : '';
   const acaoRevisar = `<button class="btn primary sm act-review" data-url="${esc(pr.url)}">${av.rotulo}</button>`;
   // O ponto da conta abre a linha do PR, e não é filho do card: a grade tem uma coluna

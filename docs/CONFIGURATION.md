@@ -67,7 +67,13 @@ Em Sistema → Contas, cada cartão tem o bloco **Review por organização e aut
 Uma regra pode escolher **Automático** ou **Manual** para uma organização inteira,
 ou para um login de autor dentro dela. O autor tem precedência sobre a organização;
 sem exceção vale a organização e, sem regra para ela, vale a configuração atual da
-conta revisora. A conta em "só põe na fila" continua impedindo o início automático.
+conta revisora. **A regra vale nos dois sentidos (12/11/2026):** com a conta em "só põe na fila",
+uma organização ou um autor marcado **Automático** revisa sozinho, e o resto espera o seu clique. É o
+caso de uma conta do `gh` que atende duas empresas e só deve revisar sozinha uma delas: a conta fica
+na fila e a organização dessa empresa fica Automático. Até a v2.79.12 o Automático não tinha efeito
+com a conta na fila, e a tela avisava "Sem efeito: conta manual". A mesma decisão (autor, depois
+organização, depois conta) vale na fila, nas novas rodadas, na reconferência técnica, na recuperação
+da prova e na disputa da cota do perfil.
 As organizações monitoradas no panorama não são uma lista de permissão: regras também
 se aplicam a PRs de outras organizações encontrados por pedido de revisão.
 

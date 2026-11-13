@@ -8,7 +8,7 @@ assertExternalNodeRuntime();
 // interativa do Claude Code em um terminal proprio, com /pr-review <urls>.
 // Zero dependencias externas: roda com Node puro (e dentro do Electron).
 import fs from 'node:fs';
-import { politicaDeInicio, normalizarRegras } from './lib/engine/review-scope.js';
+import { politicaDeInicio, normalizarRegras, contaTemAutomatico } from './lib/engine/review-scope.js';
 import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
@@ -685,6 +685,7 @@ class Engine extends EventEmitter {
   // lib/engine/contas-config.js, junto da edição e do rastro.
   // ao chegar PR nesta conta: revisar sozinho (headless) ou só colocar na fila?
   autoReviewFor(user) { return contasConfig.revisaSozinho(this, user); }
+  inicioAutomaticoDaFila() { return Object.fromEntries(this.queue.map(p => [p.key, politicaDeInicio(this, p).automatic])); }
   // quando aprovável: 'approve' (postar sozinho) ou 'wait' (aguardar você). clean = sem ressalvas
   approvePolicyFor(user, clean) { return contasConfig.acaoAoAprovar(this, user, clean); }
   // quando a revisão pede mudanças: 'request_changes' (reprovar sozinho, opt-in por conta) ou 'wait'
@@ -1161,7 +1162,9 @@ class Engine extends EventEmitter {
       const foraDeCena = [];
       const toReview = this.queue.filter(p => {
         const acct = this.accountForPr(p);
-        if (this.isMuted(acct) || !this.autoReviewFor(acct) || !this.tokenFor(acct)) return false;
+        if (this.isMuted(acct) || !this.tokenFor(acct)) return false;
+        // conta, organização e autor numa decisão só (review-scope.js): Automático na organização
+        // revisa sozinho mesmo com a conta só na fila
         if (!politicaDeInicio(this, p).automatic) return false;
         if (inflight.has(p.key)) return false;
         if (this.autoReviewParked.has(p.key)) return false;
@@ -1911,6 +1914,7 @@ class Engine extends EventEmitter {
       // exibe panorama velho sem dizer que ele esta velho (lib/engine/limite-gh.js)
       buscasPausadas: limiteGhMod.buscasPausadas(this),
       queue: this.queue,
+      inicioAutomatico: this.inicioAutomaticoDaFila(),
       // PRs em conflito com a base: { key: { at, head } }, sem sessão nem label (lib/engine/espera-conflito.js)
       esperaConflito: Object.fromEntries(Object.entries(this.esperaConflito || {}).map(([k, v]) => [k, { at: v.at, head: v.head, updatedAt: v.updatedAt }])),
       // A fila de espera ja sai em esperaParaTela abaixo. Expor tambem a distribuicao
@@ -2030,7 +2034,7 @@ class Engine extends EventEmitter {
     for (const p of this.queue) {
       const dona = String(this.accountForPr(p) || '').toLowerCase();
       if (!dona) continue;
-      if (this.isMuted(dona) || !this.autoReviewFor(dona) || !this.tokenFor(dona)) continue;
+      if (this.isMuted(dona) || !this.tokenFor(dona) || !politicaDeInicio(this, p).automatic) continue;
       if (this.autoReviewParked.has(p.key) || this.skipComentado[p.key]) continue;
       // D19: PR segurado pela coordenação não vai rodar agora, então não é disputa; sem
       // isto a outra conta cederia a vez pra quem não pode usá-la. A fachada falta no
@@ -2039,7 +2043,7 @@ class Engine extends EventEmitter {
       espera.add(dona);
     }
     return this.accountList()
-      .filter(a => a && a.user && !this.isMuted(a.user) && this.autoReviewFor(a.user))
+      .filter(a => a && a.user && !this.isMuted(a.user) && contaTemAutomatico(this, a.user))
       .filter(a => { const pf = this.profileOfAccount(a.user); return pf && pf.id === profileId; })
       .map(a => ({
         user: String(a.user).toLowerCase(),
