@@ -245,8 +245,14 @@ function dadosDaFila() {
   return { q, aguardando, distribuindo, total };
 }
 // O card da fila, ou a linha da Compacta com a frase, o trio da prontidão e o Revisar
+// Se a revisão deste PR espera clique: a decisão que o motor mandou (conta, organização e autor)
+// e, sem ela, a conta
+function manualDe(pr) {
+  const mapa = estado().inicioAutomatico || {};
+  return Object.hasOwn(mapa, pr.key) ? !mapa[pr.key] : (acctOf(pr) || {}).autoReview === false;
+}
 function cardDaFila(pr, posicao, ctx) {
-  if (!cardCheio(pr.key)) return linhaDaFila(pr, { mark: ctx.mark, posicao, parado: !!(ctx.parked || {})[pr.key], manual: ctx.mark.acct?.autoReview === false });
+  if (!cardCheio(pr.key)) return linhaDaFila(pr, { mark: ctx.mark, posicao, parado: !!(ctx.parked || {})[pr.key], manual: manualDe(pr) });
   return queueCardHtml(pr, { ...ctx, pronCorpo: faixaDe(pr.key), pronLado: setaDoCard(pr.key) });
 }
 function cardDaFilaDeExecucao(pr, ctx) {
@@ -304,14 +310,14 @@ function renderQueue() {
   const contaDe = (pr) => (acctOf(pr) || {}).user || '';
   const limiteDe = (pr) => {
     const conta = acctOf(pr) || {};
-    return conta.autoReview === false ? 0 : conta.limitePlanoAte || 0;
+    return manualDe(pr) ? 0 : conta.limitePlanoAte || 0;
   };
   const noTopo = contasNoLimiteDaFila(q, { contaDe, limiteDe, parked, revisarJunto });
   const varias = Object.keys(noTopo).length > 1;
   const avisos = Object.entries(noTopo).map(([conta, v]) => queueLimitHtml(acctOf({ account: conta }), v.ate, v.n, varias)).join('');
   const rows = q.map((pr, i) => ({ account: contaDe(pr), repo: pr.repo, html: cardDaFila(pr, i + 1, {
     people, mark: acctMark(pr), parked, sync: estado().sync,
-    revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)],
+    revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)], manual: manualDe(pr),
     esperaConflito: estado().esperaConflito,
   }) })).concat(aguardando.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: cardDaFilaDeExecucao(pr, {
     mark: acctMark(pr), sync: estado().sync, distribuindo: distribuindo.has(pr.key),

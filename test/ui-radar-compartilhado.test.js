@@ -472,7 +472,7 @@ test('card explica automação desligada por conta e acompanha a mudança do sna
   snap.queue = [pr];
   snap.accounts[0].autoReview = false;
   emitir('state', snap);
-  assert.match($('#queue').innerHTML, /Revisão automática desativada para esta conta neste aparelho/);
+  assert.match($('#queue').innerHTML, /Revisão automática desativada para este PR neste aparelho/);
   assert.match($('#queue').innerHTML, /Para iniciar aqui, clique em Revisar\./);
   assert.match($('#queue').innerHTML, /act-review/);
   snap.accounts[0].autoReview = true;
