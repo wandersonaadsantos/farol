@@ -210,7 +210,8 @@ function pintarBarra(wrap, id, p) {
     card.classList.toggle('sess-concluida', p.estado === 'concluida');
   }
   const medido = Number.isFinite(p.pct);
-  wrap.querySelector('.sess-pct').textContent = medido ? `${Math.floor(p.pct)}%` : 'Em andamento';
+  // no fechamento o número diz "lidos": 100% ali é leitura declarada, não conclusão
+  wrap.querySelector('.sess-pct').textContent = medido ? (p.rotuloPct || `${Math.floor(p.pct)}%`) : 'Em andamento';
   wrap.querySelector('.op-bar-fill').style.width = medido ? `${p.pct}%` : '0%';
   wrap.querySelector('.op-bar').hidden = !medido;
   wrap.querySelector('.sess-estado').textContent = p.texto;
@@ -264,8 +265,8 @@ function sair(id) {
   const reduzido = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   setTimeout(() => { esquecer(id); renderActive(); }, reduzido ? 0 : SAIDA_MS);
 }
-// A prontidão do PR da sessão (07/11/2026): o trio curto na Compacta, a faixa no cartão aberto
-// ou na Expandida. Só este pedaço é trocado, e só quando muda, porque o cartão é incremental.
+// A prontidão do PR da sessão (07/11/2026): a faixa das três caixas em toda densidade, com a seta
+// na Compacta (13/11/2026; antes, o trio curto no cartão fechado). Só este pedaço é trocado, e só quando muda, porque o cartão é incremental.
 function atualizarProntidaoDaSessao(box, s) {
   const el = box.querySelector(`.sess-pron[data-id="${CSS.escape(s.id)}"]`);
   if (!el) return;

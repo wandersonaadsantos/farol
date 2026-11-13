@@ -88,8 +88,8 @@ function renderResumoPraMim(filtro, totalDaFila) {
   el.hidden = !html;
 }
 
-// O pedaço da prontidão no cartão de "Analisando agora": o trio curto e a seta na Compacta,
-// a faixa de pílulas na Expandida (ou no cartão aberto). O cartão é incremental, então quem
+// O pedaço da prontidão no cartão de "Analisando agora": a faixa de pílulas sempre, com a seta
+// na Compacta (fechada, o cartão só esconde feed, esteira e equipe). O cartão é incremental, então quem
 // chama troca só este pedaço a cada estado.
 function prontidaoDaSessaoHtml(key) {
   if (!key) return '';

@@ -39,6 +39,16 @@ test('no cartão da sessão, a seta aberta fica na mesma linha da fechada', () =
   assert.match(css, /\.card \.sess-pron-aberta \.pron-seta\[aria-expanded="true"\] \{ position: static; \}/);
 });
 
+test('fechado, o cartão da sessão mostra a mesma faixa das três caixas, e não o trio curto', () => {
+  assert.match(prontidao, /<div class="sess-pron-curta">\$\{faixaDe\(key\)\}\$\{setaDaLinhaHtml\(key, false, key\)\}<\/div>/);
+  assert.match(css, /\.sess-pron-curta > :first-child \{ flex: 1 1 auto; min-width: 0; \}/);
+});
+
+test('o foco volta ao elemento visível, não ao primeiro da página', () => {
+  const densidade = fs.readFileSync(path.join(RAIZ, 'ui/telas/densidade.js'), 'utf8');
+  assert.match(densidade, /querySelectorAll\(seletor\)\]\.find\(x => x\.getClientRects\(\)\.length > 0\)/);
+});
+
 test('no Panorama aberto, o lugar dos pontos fica reservado, só na Compacta', () => {
   assert.match(prontidao, /ehCompacta\(\) \? `<span class="pron-pontos-reserva" aria-hidden="true">/);
   assert.match(css, /\.pron-pontos-reserva \{ display: contents; \}/);
