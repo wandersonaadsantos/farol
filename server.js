@@ -2177,7 +2177,10 @@ class Engine extends EventEmitter {
     // depois do loadDecisions do construtor: a migração precisa saber quem tem decisão
     this.migrarIgnorados();
     this.checkUpdate().catch(() => {});
-    this.doctor().catch(() => {});
+    // Só o engine que subiu de verdade lê o uso do plano do Claude (lib/engine/uso-do-plano.js):
+    // o de teste e o do smoke do Electron, que desliga este start, nunca abrem o CLI. A chave
+    // divide a linha com o doctor porque o server.js está no teto do ratchet de tamanho.
+    this.usoDoPlanoLigado = true; this.doctor().catch(() => {});
     // A presença não espera a consulta ao GitHub; a admissão continua exigindo confirmação.
     this._tickSeguro().catch(() => {});
     // label presa por morte do processo: limpa antes do primeiro ciclo, pra a
@@ -2209,9 +2212,8 @@ function start(onReady) {
     // `node server.js`, sem Electron). Com a porta ocupada já existe um Farol
     // usando este ~/.farol: um segundo engine com polling próprio revisaria PR
     // em dobro e escreveria seen/inflight/usage sem lock (A7). Por isso o
-    // monitoramento só começa DEPOIS do listen dar certo. É também só aqui que a leitura do
-    // uso do plano do Claude é ligada (lib/engine/uso-do-plano.js): engine de teste não lê.
-    if (!err && !began) { began = true; engine.usoDoPlanoLigado = true; engine.schedule(); engine.start(); registrarSaidaOrdenada(engine); }
+    // monitoramento só começa DEPOIS do listen dar certo.
+    if (!err && !began) { began = true; engine.schedule(); engine.start(); registrarSaidaOrdenada(engine); }
     // Sidecar de uma casca nativa: só agora, com o socket escutando, a casca pode achar o
     // motor. Porta EFETIVA do socket. Com a porta ocupada nada é gravado: a casca reconhece
     // o Farol vivo pelo GET /api/auth/status.
