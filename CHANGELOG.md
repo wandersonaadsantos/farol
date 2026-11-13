@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.79.13
+
+O Automático por organização passa a funcionar com a conta em "só põe na fila".
+
+### Correções
+
+- **Automático com a conta na fila:** no bloco "Review por organização e autor", marcar uma organização ou um autor como Automático não tinha efeito quando a conta estava em "só põe na fila", e a tela avisava "Sem efeito: conta manual". Com isso, uma conta do `gh` que atende duas empresas não conseguia revisar sozinha só uma delas. Agora a regra vale nos dois sentidos: autor vence organização, organização vence conta. Deixe a conta em "só põe na fila" e marque a organização da empresa que deve revisar sozinha como Automático; o resto espera o seu clique.
+- **Manual segura todo relançamento:** a reconferência técnica e a recuperação da prova olhavam só a conta e podiam relançar sozinhas um PR de organização marcada Manual. Agora seguem a mesma regra da fila e das novas rodadas.
+- **A mensagem da pausa** diz que a revisão automática está desativada para o PR (na conta, na organização ou no autor), em vez de culpar sempre a conta.
+- **A tela segue a mesma regra:** o card da fila deixa de dizer "desativada" num PR que vai ser revisado sozinho pela regra da organização, e a fila vista de outro aparelho deixa de oferecer ligar a conta inteira para um PR que a regra já revisa.
+
 ## v2.79.12
 
 A avaliação técnica para de cobrar do PR um px que já existia, e o pedido de mudanças passa a dizer o motivo.
