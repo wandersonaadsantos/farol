@@ -95,7 +95,9 @@ function prontidaoDaSessaoHtml(key) {
   if (!key) return '';
   // aberta, a seta fica na mesma linha e no mesmo canto em que estava fechada
   if (cardCheio(key)) return `<div class="sess-pron-aberta">${faixaDe(key)}${setaDoCard(key)}</div>`;
-  return `<div class="sess-pron-curta">${trioDe(key)}${setaDaLinhaHtml(key, false, key)}</div>`;
+  // fechada, o cartão da sessão mostra a mesma faixa das três caixas (rótulo, valor e avatares),
+  // só sem o feed; o trio curto apertava tudo em três pílulas sem rótulo (pedido do dono, 13/11)
+  return `<div class="sess-pron-curta">${faixaDe(key)}${setaDaLinhaHtml(key, false, key)}</div>`;
 }
 
 /* ---------- Panorama ---------- */

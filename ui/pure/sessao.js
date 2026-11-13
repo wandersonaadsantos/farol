@@ -97,11 +97,16 @@ function baseDaEstimativa(est) {
 
 export function progressoDaSessao(s = {}, flow = [], agora = Date.now()) {
   const base = 'Etapas observadas não medem a conclusão da análise.';
-  if (s.fase === 'fechando') return { pct: null, estado: 'viva', texto: 'modelo concluiu · verificando e decidindo', base, aria: 'modelo concluiu, verificando e decidindo, conclusão não medida' };
   const total = Number.isInteger(s.totalArquivos) && s.totalArquivos > 0 ? s.totalArquivos : 0;
   const lidos = Number.isInteger(s.lidos) && s.lidos >= 0 ? Math.min(total, s.lidos) : 0;
   const pct = total ? Math.floor(lidos / total * 100) : null;
   const cobertura = total ? `${lidos} de ${total} arquivos declarados lidos` : '';
+  // no fechamento a barra continua sendo a da LEITURA declarada (nunca de conclusão): sumir com
+  // ela deixava o cartão só com "Em andamento", sem a fração que estava na tela um instante antes
+  if (s.fase === 'fechando') {
+    const aria = total ? `modelo concluiu, ${pct}% dos arquivos declarados lidos, verificando e decidindo` : 'modelo concluiu, verificando e decidindo, conclusão não medida';
+    return { pct, estado: 'viva', texto: 'modelo concluiu · verificando e decidindo', base: total ? `${cobertura}. Percentual de leitura declarada, não de conclusão.` : base, aria };
+  }
   const mudoHa = s.ultimoSinalEm ? Math.max(0, agora - s.ultimoSinalEm) : 0;
   if (mudoHa > SEM_SINAL_MS) return { pct, estado: 'muda', texto: `sem sinal há ${duracaoCurta(mudoHa)}`, base: cobertura || 'Sem evento novo; não é possível medir a conclusão.', aria: `sem sinal há ${duracaoFalada(mudoHa)}, conclusão não medida` };
   if (total) return { pct, estado: 'viva', texto: cobertura, base: 'Percentual de leitura declarada, não de conclusão nem prova de cobertura.', aria: `${pct}% dos arquivos declarados lidos, análise ainda em andamento` };

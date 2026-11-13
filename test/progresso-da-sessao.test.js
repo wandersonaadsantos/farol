@@ -100,6 +100,11 @@ test('fechamento não promete porcentagem; conclusão real tem estado separado',
   const p = progressoDaSessao({ fase: 'fechando' }); assert.equal(p.pct, null); assert.match(p.texto, /verificando e decidindo/);
   assert.deepEqual(conclusaoDaSessao({ startedAt: t0 }, t0 + 6 * MIN + 12000), { pct: null, estado: 'encerrada', texto: 'sessão encerrada', base: 'em 6min 12s · consulte o resultado da revisão', aria: 'sessão encerrada, consulte o resultado da revisão' });
 });
+test('fechamento mantém a barra da leitura declarada, sem virar conclusão', () => {
+  const p = progressoDaSessao({ fase: 'fechando', lidos: 73, totalArquivos: 184 });
+  assert.equal(p.pct, 39); assert.match(p.texto, /verificando e decidindo/);
+  assert.match(p.base, /73 de 184 arquivos declarados lidos/); assert.match(p.base, /não de conclusão/);
+});
 test('silêncio não inventa progresso e informa duração', () => {
   const p = progressoDaSessao(viva(1), [], t0 + MIN + SEM_SINAL_MS + 5000);
   assert.equal(p.estado, 'muda'); assert.equal(p.pct, null); assert.equal(p.texto, 'sem sinal há 50s');
