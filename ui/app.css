@@ -2962,9 +2962,10 @@ body[data-densidade="compacta"] #panoOwners { display: none; }
 .pw-side .pron-pontos { margin-top: 2px; }
 .pw-ramos { margin-top: 4px; }
 
-/* "Analisando agora" na Compacta: o cartão encolhe para cabeçalho, barra e o trio */
+/* "Analisando agora" na Compacta: o cartão encolhe para cabeçalho, a faixa das três caixas e a barra */
 .sess-pron:empty { display: none; }
-.sess-pron-curta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0 2px; }
+.sess-pron-curta { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin: 6px 0 2px; }
+.sess-pron-curta > :first-child { flex: 1 1 auto; min-width: 0; }
 body[data-densidade="compacta"] .session-card:not(.aberta) .activity-feed,
 body[data-densidade="compacta"] .session-card:not(.aberta) .stage-flow,
 body[data-densidade="compacta"] .session-card:not(.aberta) .session-agent-details { display: none; }

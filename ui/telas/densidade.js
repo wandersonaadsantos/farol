@@ -52,8 +52,11 @@ function trocarDensidade(nova) {
 }
 
 // depois de redesenhar, o foco volta ao controle equivalente (o elemento antigo saiu da tela)
+// o mesmo PR pode ter pílula e seta em mais de uma tela ao mesmo tempo (o cartão de "Analisando
+// agora" e a linha de Pra mim ou do Panorama); o foco vai para o primeiro VISÍVEL, senão cairia
+// numa aba escondida e o focus() falharia calado
 function devolverFoco(seletor) {
-  const el = document.querySelector(seletor);
+  const el = [...document.querySelectorAll(seletor)].find(x => x.getClientRects().length > 0);
   if (el && typeof el.focus === 'function') el.focus();
 }
 
