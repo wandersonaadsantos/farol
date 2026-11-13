@@ -51,6 +51,9 @@ const CONGELADA = [
   // o Antigravity em Plano e chaves (20/10/2026, ui/pure/agy.js): a cota ao vivo e o cartão
   "camposAgyHtml",
   "cotaAgyHtml",
+  // uso do plano e validade do login do Claude (12/11/2026): ui/pure/uso-do-plano.js
+  "usoDoPlanoHtml",
+  "validadeDoLoginHtml",
   // cadeia de perfis em Plano e chaves (20/10/2026, ui/pure/cadeia.js)
   "alternarNaCadeia",
   "cadeiaHtml",

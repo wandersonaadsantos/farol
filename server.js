@@ -2177,7 +2177,10 @@ class Engine extends EventEmitter {
     // depois do loadDecisions do construtor: a migração precisa saber quem tem decisão
     this.migrarIgnorados();
     this.checkUpdate().catch(() => {});
-    this.doctor().catch(() => {});
+    // Só o engine que subiu de verdade lê o uso do plano do Claude (lib/engine/uso-do-plano.js):
+    // o de teste e o do smoke do Electron, que desliga este start, nunca abrem o CLI. A chave
+    // divide a linha com o doctor porque o server.js está no teto do ratchet de tamanho.
+    this.usoDoPlanoLigado = true; this.doctor().catch(() => {});
     // A presença não espera a consulta ao GitHub; a admissão continua exigindo confirmação.
     this._tickSeguro().catch(() => {});
     // label presa por morte do processo: limpa antes do primeiro ciclo, pra a

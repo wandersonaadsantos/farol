@@ -21,6 +21,7 @@
 import { esc, fmtMoney, fmtClock } from './comum.js';
 import { reviewScopeHtml } from './review-scope.js';
 import { camposAgyHtml } from './agy.js';
+import { usoDoPlanoHtml } from './uso-do-plano.js';
 
 export function validScope(scope, users) {
   if (!scope || scope === 'all') return 'all';
@@ -298,6 +299,7 @@ export function claudeProfilesHtml(ctx) {
         ${claudeAuthBadge(p.id, ctx)}
       </div>
       ${fields}
+      ${usoDoPlanoHtml(cotaAgy && cotaAgy.uso)}
       <div class="cp-teste" data-teste="${esc(p.id)}"></div>
     </div>
     <div class="a-actions">
