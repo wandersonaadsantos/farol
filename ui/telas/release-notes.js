@@ -20,6 +20,10 @@ import { NOTAS_2_60_A_2_62 } from './release-notes-2.60-a-2.62.js';
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.80.1', [
+    'Pedido de mudanças automático: o texto diz qual padrão técnico reprovou, mesmo quando não há arquivo e linha para citar',
+    'Avaliação técnica: o achado que segura o merge não perde mais a vaga no relatório para sugestão de organização',
+  ]],
   ['2.80.0', [
     'Plano e chaves: cada perfil do Claude por assinatura mostra quanto da sessão e da semana já foi usado e a hora em que volta, lido sozinho e sem gastar nada do plano',
     'Plano e chaves: cada perfil mostra o dia e a hora em que o login vence, e o Farol avisa quando faltarem três dias e no último dia',
