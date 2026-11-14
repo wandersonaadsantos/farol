@@ -188,6 +188,19 @@ test('o relatório público leva as marcas, põe o que bloqueia primeiro e guard
   assert.equal(technicalGap(semInventario, { head: HEAD }), 'violação técnica confirmada', 'sem inventário, nada é rebaixado');
 });
 
+// backoffice#365 (14/11/2026): dez sugestões de organização ocuparam as dez vagas e os achados de px, os
+// únicos que bloqueavam, ficaram fora do relatório. O pedido de mudanças saiu sem dizer o quê nem onde.
+test('sugestão de organização não tira a vaga do achado que bloqueia no corte de dez', () => {
+  const organizacao = Array.from({ length: 10 }, (_, i) => ({ rule: 'frontend.component.named-structural-branches', file: `src/c${i}.tsx`, message: 'componente possui multiplos retornos visuais' }));
+  const bloqueia = unidade(TELA, 11);
+  const r = relatorioTecnico({ repo: 'o/r', base: 'b'.repeat(40), head: HEAD, profile: { fingerprint: 'p' }, objections: { fingerprint: 'h' } },
+    { catalogFingerprint: 'c', verdict: 'fail', rules: [fail('frontend.component.named-structural-branches'), fail(UNIDADE)], findings: [...organizacao, bloqueia], coverage: {} },
+    { privateEvidence: 'x.json', inventario: INVENTARIO });
+  assert.equal(r.findings.length, 10);
+  assert.deepEqual(r.findings[0], bloqueia, 'o que bloqueia vem antes da sugestão de organização');
+  assert.equal(r.findings[1].rule, 'frontend.component.named-structural-branches', 'a sugestão ocupa o que sobra');
+});
+
 // ------------------------------------------------------------------ a ressalva
 
 test('a dívida vira ressalva da revisão aprovável, nunca some calada', () => {
