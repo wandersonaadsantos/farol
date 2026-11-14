@@ -169,6 +169,9 @@ test('o prompt diz que achado automático de regra que bloqueia não é sugestã
   assert.match(texto, /não conclua approve/);
   assert.match(texto, /nunca entre sugestões nem como ponto que não segura o merge/);
   assert.match(texto, /Fora das linhas alteradas pelo PR eles são dívida anterior/);
+  // a regra de julgamento que a própria sessão avalia como violação segue a mesma régua
+  assert.match(texto, /avaliar como violacao em technicalAssessments e que não seja de organização/);
+  assert.match(texto, /tem de dizer o mesmo que a avaliação/);
 });
 
 test('frases de processo não saem no texto público; falar do código, sim', () => {
