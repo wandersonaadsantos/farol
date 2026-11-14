@@ -246,6 +246,9 @@ test('pedido de mudanças escrito pela sessão leva na frente o defeito que o ap
   assert.doesNotMatch(corpo, /scalable-units|text-\[11px\]/);
   assert.deepEqual(publicReviewLanguageIssues(envios[0], 'eu'), [], corpo);
   assert.equal(resolvida(e, 160).status, 'auto_rejected');
+  // o card da rodada em que a sessão pediu mudanças também diz o que o app confirmou
+  assert.deepEqual(textos(resolvida(e, 160)).filter((t) => t.startsWith('violação técnica confirmada')),
+    ['violação técnica confirmada: medida fixa em px onde a interface deve acompanhar a fonte do usuário (use rem ou token escalável): em `src/Card.tsx:102`']);
 });
 
 test('a seção do defeito no pedido é idempotente e não toca resultado sem defeito', () => {
@@ -282,6 +285,11 @@ test('o motivo do card diz a regra e o lugar, e só a violação ganha detalhe',
     + 'supressão de lint, ou supressão sem identificador e motivo no mesmo comentário');
   assert.equal(auto.defeitoNoCard('violação técnica confirmada', { technicalReview: { rules: [], findings: [] } }), 'violação técnica confirmada');
   assert.equal(auto.defeitoNoCard('achados técnicos não resolvidos', { technicalReview }), 'achados técnicos não resolvidos');
+  // o card cita menos lugares que o texto público, para o teto de tamanho não cortar um motivo
+  const muitos = { rules: technicalReview.rules, findings: [1, 2, 3].map((n) => ({ rule: 'frontend.component.scalable-units', file: `f${n}.tsx`, message: `unidade fixa escalavel na linha ${n}: w-[9px]` })) };
+  assert.match(auto.defeitoNoCard('violação técnica confirmada', { technicalReview: muitos }), /: em `f1\.tsx:1`, `f2\.tsx:2` e outros; supressão de lint/);
+  // sem defeito do PR, o resultado não ganha nada
+  assert.deepEqual(auto.comDefeitoDoApp({ approvalEvidence: [], reasons: [{ text: 'x' }] }), {});
   // o motivo já posto pela rodada não repete
   const antes = [{ text: 'violação técnica confirmada', kind: 'gate' }, { text: 'ponto da sessão', kind: 'content' }];
   const depois = auto.comMotivosDoDefeito(antes, ['violação técnica confirmada'], { technicalReview });
