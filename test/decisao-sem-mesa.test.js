@@ -663,6 +663,30 @@ test('regra que bloqueia sem achado citável sai com o motivo, mesmo sem o lugar
   // regra sem frase pública e sem lugar não ganha linha vazia: fica a frase da categoria
   const semFrase = { rules: [{ rule: 'nova.regra', verdict: 'fail' }], findings: [] };
   assert.match(auto.payloadDoDefeito({ technicalReview: semFrase }, ['violação técnica confirmada']).body, /repositório$/);
+  // regra sem frase ao lado de outra com frase entra como "outro padrão", para a lista não parecer completa
+  const mista = { rules: [{ rule: 'nova.regra', verdict: 'fail' }, { rule: 'frontend.component.scalable-units', verdict: 'fail' }], findings: [] };
+  const corpoMisto = auto.payloadDoDefeito({ technicalReview: mista }, ['violação técnica confirmada']).body;
+  assert.match(corpoMisto, /^ {2}- outro padrão técnico do repositório$/m);
+  assert.match(corpoMisto, /^ {2}- medida fixa em px /m);
+  assert.doesNotMatch(corpoMisto, /nova\.regra/);
+});
+
+// As duas pontas do backoffice#365 juntas: o relatório montado com dez sugestões e os achados de px
+// chega ao texto público citando o lugar do px.
+test('com dez sugestões de organização no relatório, o pedido cita o lugar do achado que bloqueia', async () => {
+  const { relatorioTecnico } = await import('../lib/technical-review/runtime.js');
+  const organizacao = Array.from({ length: 10 }, (_, i) => ({ rule: 'frontend.component.named-structural-branches', file: `src/c${i}.tsx`, message: 'componente possui multiplos retornos visuais' }));
+  const px = { rule: 'frontend.component.scalable-units', file: 'src/Card.tsx', message: 'unidade fixa escalavel na linha 35: text-[11px]; use rem ou token escalavel' };
+  const divida = { rule: 'core.suppression.declared', file: 'src/antigo.ts', message: 'supressor na linha 9 e proibido', foraDasLinhas: true };
+  const technicalReview = relatorioTecnico({ repo: 'o/r', base: 'b'.repeat(40), head: HEAD, profile: { fingerprint: 'p' }, objections: { fingerprint: 'h' } },
+    { catalogFingerprint: 'c', verdict: 'fail', coverage: {}, findings: [divida, ...organizacao, px],
+      rules: [{ rule: 'frontend.component.named-structural-branches', verdict: 'fail' }, { rule: 'frontend.component.scalable-units', verdict: 'fail' }] },
+    { privateEvidence: 'x.json' });
+  assert.deepEqual(technicalReview.findings.map((f) => f.file).slice(0, 2), ['src/Card.tsx', 'src/c0.tsx'], 'bloqueia, depois organização');
+  assert.ok(!technicalReview.findings.includes(divida), 'a dívida fora das linhas é a primeira a sair do corte');
+  const rc = auto.payloadDoDefeito({ technicalReview }, ['violação técnica confirmada']);
+  assert.match(rc.body, /^ {2}- medida fixa em px .*: em `src\/Card\.tsx:35`$/m);
+  assert.doesNotMatch(rc.body, /src\/c\d|antigo/);
 });
 
 test('todo motivo público passa pela trava de linguagem e cobre só regra que bloqueia', async () => {
