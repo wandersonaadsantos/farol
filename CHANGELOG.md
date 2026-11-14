@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.80.1
+
+O pedido de mudanças automático diz qual padrão técnico reprovou, mesmo quando não há lugar para citar.
+
+### Correções
+
+- **Pedido de mudanças sem motivo:** quando a avaliação técnica reprovava um PR e o modelo tinha aprovado, o texto publicado podia sair só com "há violação confirmada de um padrão técnico do repositório", sem dizer o quê nem onde. Agora ele diz qual padrão reprovou (por exemplo, medida fixa em px) e, quando o achado está no relatório, o arquivo e a linha.
+- **Achado que bloqueia perdia a vaga:** o relatório técnico guarda dez achados, e sugestões de organização podiam ocupar todos, deixando de fora o único que segurava o merge. O que bloqueia agora entra primeiro.
+
 ## v2.80.0
 
 O consumo de cada plano do Claude e a data em que o login vence aparecem na tela, sem terminal.
