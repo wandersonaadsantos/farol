@@ -223,6 +223,73 @@ test('modo enforce recupera texto contraditório mesmo com blocker persistente',
   assert.deepEqual(envios.map(p => p.event), ['REQUEST_CHANGES']);
 });
 
+// backoffice#365 (14/11/2026), primeira rodada: a sessão pediu mudanças por dois pontos dela e o
+// texto saiu como ela escreveu. O bloqueio que a avaliação técnica tinha confirmado (medida em px)
+// ficou de fora, e o autor só soube dele na rodada seguinte, depois de corrigir o resto.
+test('pedido de mudanças escrito pela sessão leva na frente o defeito que o app confirmou', async () => {
+  const e = motor();
+  technicalRuntime.finishTechnicalReview = async (ctx) => ({
+    ...technicalReport(ctx.head, ctx.repo), verdict: 'fail',
+    rules: [{ rule: 'frontend.component.scalable-units', verdict: 'fail' }],
+    findings: [{ rule: 'frontend.component.scalable-units', file: 'src/Card.tsx', message: 'unidade fixa escalavel na linha 102: text-[11px]; use rem ou token escalavel' }],
+  });
+  const blocker = { ...criteriaFixture('request_changes').findings[0], severity: 'blocking', title: 'Cor fora dos tokens', summary: 'Use os tokens antes do merge.', file: 'src/impressao.ts', line: 85 };
+  await revisar(e, 160, { extra: { verdict: 'request_changes', findings: [blocker], payloads: {
+    request_changes: { event: 'REQUEST_CHANGES', body: 'As cores fixas em `src/impressao.ts` precisam virar tokens.', comments: [] },
+  } } });
+  assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES']);
+  const corpo = envios[0].body;
+  assert.match(corpo, /^Antes do merge, isto precisa ser resolvido:/, 'a seção do app abre o texto');
+  assert.match(corpo, /^ {2}- medida fixa em px .*: em `src\/Card\.tsx:102`$/m);
+  assert.match(corpo, /As cores fixas em `src\/impressao\.ts` precisam virar tokens\./, 'o texto da sessão continua inteiro');
+  assert.equal(corpo.split('Antes do merge, isto precisa ser resolvido:').length, 2, 'a seção entra uma vez só');
+  assert.doesNotMatch(corpo, /scalable-units|text-\[11px\]/);
+  assert.deepEqual(publicReviewLanguageIssues(envios[0], 'eu'), [], corpo);
+  assert.equal(resolvida(e, 160).status, 'auto_rejected');
+});
+
+test('a seção do defeito no pedido é idempotente e não toca resultado sem defeito', () => {
+  const technicalReview = {
+    rules: [{ rule: 'frontend.component.scalable-units', verdict: 'fail' }],
+    findings: [{ rule: 'frontend.component.scalable-units', file: 'a.tsx', message: 'unidade fixa escalavel na linha 3: w-[9px]' }],
+  };
+  const comments = [{ path: 'b.ts', line: 1, body: 'aqui' }];
+  const result = { approvalEvidence: ['violação técnica confirmada'], technicalReview,
+    payloads: { approve: { event: 'APPROVE', body: 'ok' }, request_changes: { event: 'REQUEST_CHANGES', body: 'Texto da sessão.', comments } } };
+  const uma = auto.payloadsComDefeito(result);
+  assert.match(uma.request_changes.body, /^Antes do merge[\s\S]*em `a\.tsx:3`\n\nTexto da sessão\.$/);
+  assert.deepEqual(uma.request_changes.comments, comments, 'os comentários de linha da sessão seguem');
+  assert.deepEqual(uma.approve, result.payloads.approve);
+  const duas = auto.payloadsComDefeito({ ...result, payloads: uma });
+  assert.equal(duas.request_changes.body, uma.request_changes.body, 'aplicar de novo não repete a seção');
+  assert.equal(auto.payloadDoDefeito({ ...result, payloads: uma }, ['violação técnica confirmada']).body, uma.request_changes.body);
+  // sem texto da sessão, o pedido fica só com a seção (é o que a mesa posta se o dono pedir mudanças)
+  const soSecao = auto.payloadsComDefeito({ ...result, payloads: { approve: result.payloads.approve } });
+  assert.match(soSecao.request_changes.body, /^Antes do merge[\s\S]*`a\.tsx:3`$/);
+  // sem defeito do PR, ou sem payloads, nada muda
+  const limpo = { approvalEvidence: [], payloads: result.payloads };
+  assert.equal(auto.payloadsComDefeito(limpo), limpo.payloads);
+  assert.equal(auto.payloadsComDefeito({ approvalEvidence: ['violação técnica confirmada'] }), undefined);
+});
+
+test('o motivo do card diz a regra e o lugar, e só a violação ganha detalhe', () => {
+  const technicalReview = {
+    rules: [{ rule: 'frontend.component.scalable-units', verdict: 'fail' }, { rule: 'core.suppression.declared', verdict: 'fail' }],
+    findings: [{ rule: 'frontend.component.scalable-units', file: 'a.tsx', message: 'unidade fixa escalavel na linha 3: w-[9px]' }],
+  };
+  assert.equal(auto.defeitoNoCard('violação técnica confirmada', { technicalReview }),
+    'violação técnica confirmada: medida fixa em px onde a interface deve acompanhar a fonte do usuário (use rem ou token escalável): em `a.tsx:3`; '
+    + 'supressão de lint, ou supressão sem identificador e motivo no mesmo comentário');
+  assert.equal(auto.defeitoNoCard('violação técnica confirmada', { technicalReview: { rules: [], findings: [] } }), 'violação técnica confirmada');
+  assert.equal(auto.defeitoNoCard('achados técnicos não resolvidos', { technicalReview }), 'achados técnicos não resolvidos');
+  // o motivo já posto pela rodada não repete
+  const antes = [{ text: 'violação técnica confirmada', kind: 'gate' }, { text: 'ponto da sessão', kind: 'content' }];
+  const depois = auto.comMotivosDoDefeito(antes, ['violação técnica confirmada'], { technicalReview });
+  assert.equal(depois.length, 2);
+  assert.match(depois[0].text, /^violação técnica confirmada: medida fixa em px/);
+  assert.deepEqual(depois[1], antes[1]);
+});
+
 // ---------------------------------------------------------------- origem
 
 for (const [origem, marcas] of [
@@ -278,7 +345,9 @@ test('veredito aprovar com violação técnica confirmada e a conta reprovando s
   const d = resolvida(e, 10);
   assert.equal(d.status, 'auto_rejected');
   assert.equal(d.action, 'request_changes');
-  assert.ok(textos(d).includes('violação técnica confirmada'), textos(d).join(' | '));
+  // o card diz o motivo e o lugar, uma vez só (backoffice#365: vinha "violação técnica confirmada" repetido)
+  assert.deepEqual(textos(d).filter((t) => t.startsWith('violação técnica confirmada')),
+    ['violação técnica confirmada: regra de negócio repetida em mais de um lugar, sem fonte única: em `src/a.ts`']);
   assert.equal(pendente(e, 10), undefined);
   assert.deepEqual(e.eventos, [['auto-rejected', 'acme/app#10']]);
 });
