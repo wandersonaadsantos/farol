@@ -161,7 +161,7 @@ async function revisar(e, n, { marcas, extra } = {}) {
   await e.runHeadlessReview(PR(n, marcas));
 }
 
-const violacao = (achados = [{ file: 'src/a.ts', line: 12, message: 'regra de negócio duplicada no controller' }]) => async (ctx) => ({
+const violacao = (achados = [{ rule: 'core.duplication.business-rule', file: 'src/a.ts', line: 12, message: 'regra de negócio duplicada no controller' }]) => async (ctx) => ({
   ...technicalReport(ctx.head, ctx.repo), verdict: 'fail',
   rules: [{ rule: 'core.duplication.business-rule', verdict: 'fail', causa: 'a regra de desconto foi copiada em dois lugares' }],
   findings: achados,
@@ -271,7 +271,7 @@ test('veredito aprovar com violação técnica confirmada e a conta reprovando s
   // nome de regra e causa vêm do catálogo privado da avaliação técnica: nunca no texto público (PR #253).
   // O lugar do achado é do próprio PR e vai, para o autor saber o que corrigir (engine-ai#1031)
   assert.doesNotMatch(corpo, /core\.duplication|regra de desconto/);
-  assert.match(corpo, /violação confirmada de um padrão técnico do repositório, em `src\/a\.ts`/);
+  assert.match(corpo, /^ {2}- regra de negócio repetida em mais de um lugar, sem fonte única: em `src\/a\.ts`$/m);
   assert.match(corpo, /Revise o tratamento de erro antes do merge\./, 'o pedido que a sessão escreveu vem junto');
   assert.equal(envios[0].commit_id, HEAD);
   assert.deepEqual(publicReviewLanguageIssues(envios[0], 'eu'), [], 'passa pela trava de linguagem');
@@ -631,6 +631,38 @@ test('a violação diz o motivo de cada regra que bloqueia, agrupando os lugares
   const nova = { rules: [{ rule: 'nova.regra', verdict: 'fail' }], findings: [{ rule: 'nova.regra', file: 'a.ts', message: 'x na linha 3' }] };
   assert.match(auto.payloadDoDefeito({ technicalReview: nova }, ['violação técnica confirmada']).body,
     /^- há violação confirmada de um padrão técnico do repositório, em `a\.ts:3`$/m);
+});
+
+// backoffice#365 (14/11/2026): a regra de px reprovava, mas os achados dela não estavam no relatório
+// (o corte de dez ficou com sugestões de organização). O texto saiu só com a frase genérica e o autor
+// não soube o que corrigir. Regra que bloqueia sem lugar citável sai ao menos com o motivo.
+test('regra que bloqueia sem achado citável sai com o motivo, mesmo sem o lugar', () => {
+  const technicalReview = {
+    rules: [
+      { rule: 'frontend.component.named-implementation', verdict: 'fail' },
+      { rule: 'frontend.component.scalable-units', verdict: 'fail' },
+    ],
+    findings: [{ rule: 'frontend.component.named-implementation', file: 'src/index.ts', message: 'ponto de entrada reexporta do irmao' }],
+  };
+  const rc = auto.payloadDoDefeito({ technicalReview }, ['violação técnica confirmada']);
+  assert.match(rc.body, /^- há violação confirmada de um padrão técnico do repositório:$/m);
+  assert.match(rc.body, /^ {2}- medida fixa em px .*\(use rem ou token escalável\)$/m, 'o motivo sai sem lugar inventado');
+  assert.doesNotMatch(rc.body, /index\.ts|scalable-units|named-implementation| em `/);
+  assert.deepEqual(publicReviewLanguageIssues(rc, 'eu'), [], rc.body);
+  // com outra regra citada pelo lugar, a que ficou sem achado entra na mesma lista
+  const duas = {
+    rules: [{ rule: 'core.suppression.declared', verdict: 'fail' }, { rule: 'frontend.component.scalable-units', verdict: 'fail' }],
+    findings: [{ rule: 'core.suppression.declared', file: 'a.ts', message: 'supressor na linha 3 e proibido' }],
+  };
+  const corpo = auto.payloadDoDefeito({ technicalReview: duas }, ['violação técnica confirmada']).body;
+  assert.match(corpo, /^ {2}- supressão de lint.*: em `a\.ts:3`$/m);
+  assert.match(corpo, /^ {2}- medida fixa em px .*\)$/m);
+  // regra descontada como dívida fora das linhas não bloqueia e não entra
+  const divida = { rules: [{ rule: 'frontend.component.scalable-units', verdict: 'fail', dividaForaDasLinhas: true }], findings: [] };
+  assert.doesNotMatch(auto.payloadDoDefeito({ technicalReview: divida }, ['violação técnica confirmada']).body, /medida fixa/);
+  // regra sem frase pública e sem lugar não ganha linha vazia: fica a frase da categoria
+  const semFrase = { rules: [{ rule: 'nova.regra', verdict: 'fail' }], findings: [] };
+  assert.match(auto.payloadDoDefeito({ technicalReview: semFrase }, ['violação técnica confirmada']).body, /repositório$/);
 });
 
 test('todo motivo público passa pela trava de linguagem e cobre só regra que bloqueia', async () => {
