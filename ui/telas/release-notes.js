@@ -23,6 +23,9 @@ const RELEASE_NOTES_RECENTES = [
   ['2.80.1', [
     'Pedido de mudanças automático: o texto diz qual padrão técnico reprovou, mesmo quando não há arquivo e linha para citar',
     'Avaliação técnica: o achado que segura o merge não perde mais a vaga no relatório para sugestão de organização',
+    'Pedido de mudanças: quando a própria revisão pede mudanças, o texto abre com o que o Farol confirmou, com arquivo e linha, já na primeira rodada',
+    'Revisão: item pelo qual o Farol reprova deixa de sair como sugestão que não segura o merge',
+    'Revisões recentes: o motivo da violação técnica diz a regra e os arquivos, sem repetir',
   ]],
   ['2.80.0', [
     'Plano e chaves: cada perfil do Claude por assinatura mostra quanto da sessão e da semana já foi usado e a hora em que volta, lido sozinho e sem gastar nada do plano',

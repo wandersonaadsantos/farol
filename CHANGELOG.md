@@ -17,6 +17,11 @@ O pedido de mudanças automático diz qual padrão técnico reprovou, mesmo quan
 
 - **Pedido de mudanças sem motivo:** quando a avaliação técnica reprovava um PR e o modelo tinha aprovado, o texto publicado podia sair só com "há violação confirmada de um padrão técnico do repositório", sem dizer o quê nem onde. Agora ele diz qual padrão reprovou (por exemplo, medida fixa em px) e, quando o achado está no relatório, o arquivo e a linha.
 - **Achado que bloqueia perdia a vaga:** o relatório técnico guarda dez achados, e sugestões de organização podiam ocupar todos, deixando de fora o único que segurava o merge. O que bloqueia agora entra primeiro.
+- **Bloqueio escondido na primeira rodada:** quando a própria revisão pedia mudanças por outros pontos, o que a avaliação técnica tinha confirmado ficava fora do texto, e o autor só descobria na rodada seguinte, depois de corrigir o resto. Agora todo pedido de mudanças abre com o que o Farol confirmou, com arquivo e linha.
+- **Revisão tratava bloqueio como sugestão:** a revisão podia listar em "não segura o merge" um item pelo qual o Farol reprova, e até aprovar com ele presente. Ela passa a ser avisada de que esses itens bloqueiam, e a tratá-los como tal no texto.
+- **Motivo no card:** em Revisões recentes e em Precisa de você, o motivo "violação técnica confirmada" aparecia repetido e sem dizer qual regra. Agora diz a regra e os arquivos, uma vez só.
+
+Fica de fora desta versão: a revisão feita no terminal ou pelo chat ainda posta só o texto dela, sem a parte do Farol.
 
 ## v2.80.0
 
