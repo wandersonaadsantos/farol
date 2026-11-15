@@ -159,6 +159,21 @@ test('o prompt nomeia as regras de organização e mantém o bloqueio das demais
   assert.match(texto, /Todas as demais regras bloqueiam/);
 });
 
+// backoffice#365 (14/11/2026): a sessão recebia os achados de px e os listava em "não segura o merge".
+test('o prompt diz que achado automático de regra que bloqueia não é sugestão', () => {
+  const achado = { rule: 'frontend.component.scalable-units', file: 'a.tsx', message: 'unidade fixa escalavel na linha 3' };
+  const texto = technicalPrompt({ toolHome: 't', snapshot: 's', repo: 'o/r', base: SHA, head: SHA, objections: [],
+    initial: { rules: [{ rule: 'frontend.component.scalable-units', type: 'hard' }], findings: [achado], excerpt: '' } });
+  const aviso = texto.indexOf('BLOQUEIAM o merge');
+  assert.ok(aviso > 0 && aviso < texto.indexOf('Achados automáticos já confirmados:'), 'a instrução vem antes da lista');
+  assert.match(texto, /não conclua approve/);
+  assert.match(texto, /nunca entre sugestões nem como ponto que não segura o merge/);
+  assert.match(texto, /Fora das linhas alteradas pelo PR eles são dívida anterior/);
+  // a regra de julgamento que a própria sessão avalia como violação segue a mesma régua
+  assert.match(texto, /avaliar como violacao em technicalAssessments e que não seja de organização/);
+  assert.match(texto, /tem de dizer o mesmo que a avaliação/);
+});
+
 test('frases de processo não saem no texto público; falar do código, sim', () => {
   for (const frase of ['As direções de correção não foram implementadas.', 'Isso não é um relato de falha executada.', 'Isto não é relato de falha.',
     'É uma exigência de organização, sem alegação de falha funcional.']) {

@@ -61,7 +61,7 @@ test('todo motivo de recusa tem tradução no runHeadlessReview', () => {
       // a origem desconhecida é dita por este outro caminho (o clique do dono posta desde 18/10/2026)
       || (motivo === 'origem_desconhecida' && REVIEW.includes('!auto.origemDoDono(pr) && VEREDITOS.includes(result.verdict)'))
       // a prova incompleta é dita pelas próprias lacunas, que entram em reasons antes do gate
-      || (motivo === 'prova_tecnica_incompleta' && REVIEW.includes('lacunasTecnicas.map(g => gateReason(g))'));
+      || (motivo === 'prova_tecnica_incompleta' && REVIEW.includes('lacunasTecnicas.map(g => gateReason(buscaDaProva.motivoNoCard(g, result)))'));
     assert.ok(tratado, `o motivo ${motivo} não vira razão nenhuma na tela`);
   }
 });
