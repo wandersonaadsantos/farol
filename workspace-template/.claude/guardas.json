@@ -13,7 +13,7 @@
       "Read(~/.claude/**/.credentials.json)",
       "Read(//**/.credentials.json)",
       "Bash(*.credentials.json*)",
-      "Bash(*/.cred*)"
+      "Bash(*/.credentials*)"
     ]
   }
 }

@@ -23,7 +23,7 @@ for (const [nome, arquivo] of [['guardas da sessão', ARQUIVO_DE_GUARDAS], ['set
     // na pasta do Claude ou na do perfil, então a guarda precisa do caminho da casa e do absoluto
     assert.ok(deny.includes('Read(~/.claude/**/.credentials.json)'), deny.join(', '));
     assert.ok(deny.includes('Read(//**/.credentials.json)'), deny.join(', '));
-    assert.ok(deny.includes('Bash(*/.cred*)'), 'o shell com caminho abreviado também é negado');
+    assert.ok(deny.includes('Bash(*/.credentials*)'), 'o shell com caminho abreviado também é negado');
   });
 }
 

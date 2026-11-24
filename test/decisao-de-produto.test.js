@@ -61,7 +61,7 @@ test('item puramente de produto não chega ao texto público, aos motivos, à re
 });
 
 test('a marca de produto é estreita: segurança, correção, defeito e negação ficam, em qualquer ordem', () => {
-  for (const t of [PERGUNTA, 'Questão de produto: manter o filtro?', 'escolhas de produto em aberto', 'Decisão de produto: o selo some depois de 30 dias.']) assert.ok(ehPontoDeProduto(t), t);
+  for (const t of [PERGUNTA, 'Decisão de produto: validade do cupom em 30 dias.', 'Questão de produto: manter o filtro?', 'escolhas de produto em aberto', 'Decisão de produto: o selo some depois de 30 dias.']) assert.ok(ehPontoDeProduto(t), t);
   for (const t of [TECNICO, EFEITO, 'Aceitar esse efeito é uma decisão de segurança e produto.',
     'O produto da multiplicação estoura o inteiro de 32 bits.', 'A tela de produto não trata o erro 500.',
     'Isto não é decisão de produto: o filtro descarta registros válidos.', 'Pergunta de produto: o bug do total some com o filtro?',
