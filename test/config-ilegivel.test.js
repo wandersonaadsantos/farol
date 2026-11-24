@@ -13,7 +13,7 @@ process.env.FAROL_HOME = HOME;
 after(() => fs.rmSync(HOME, { recursive: true, force: true }));
 
 const { lerConfigOuRecusar, subirOuRecusar, CODIGO_CONFIG_ILEGIVEL } = await import('../lib/config-ilegivel.js');
-const { lerJsonTeimoso } = await import('../lib/io.js');
+const { lerJsonTeimoso, readJson } = await import('../lib/io.js');
 
 let n = 0;
 function arquivo(conteudo) {
@@ -35,7 +35,10 @@ test('arquivo ausente é instalação nova: devolve {} e não lança', () => {
 test('objeto válido volta como está, e o BOM do editor do Windows é aceito', () => {
   assert.deepEqual(lerConfigOuRecusar(null, arquivo('{"port": 47180}')), { port: 47180 });
   assert.deepEqual(lerConfigOuRecusar(null, arquivo('﻿{"port": 47181}')), { port: 47181 });
-  assert.deepEqual(lerJsonTeimoso(arquivo('﻿[1]')).data, [1], 'o BOM sai na leitura comum também');
+  assert.deepEqual(lerJsonTeimoso(arquivo('﻿[1]')).data, [1], 'o BOM sai na leitura tolerante também');
+  const comBom = arquivo('﻿{"a": 1}');
+  assert.deepEqual(readJson(comBom, null), { a: 1 }, 'e no readJson dos outros arquivos e ferramentas');
+  assert.equal(fs.existsSync(`${comBom}.bad`), false, 'BOM não é corrupção: sem cópia .bad');
 });
 
 test('JSON quebrado, vazio e JSON que não é objeto recusam com o motivo, sem tocar o arquivo', () => {
@@ -84,5 +87,15 @@ test('a Engine não sobe com o config.json ilegível', async () => {
   const { Engine } = await import('../server.js');
   assert.throws(() => new Engine(), (e) => e.code === CODIGO_CONFIG_ILEGIVEL);
   assert.equal(fs.readFileSync(CONFIG_FILE, 'utf8'), '{"accounts": [', 'o arquivo ficou como estava');
+  fs.rmSync(CONFIG_FILE);
+});
+
+test('o diagnóstico de quedas lê o config antes da Engine sem criar .bad', async () => {
+  const { CONFIG_FILE } = await import('../lib/paths.js');
+  const { iniciarDiagnosticoQuedas } = await import('../lib/diagnostico-quedas.js');
+  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
+  fs.writeFileSync(CONFIG_FILE, '{"diagnosticoQuedas": tr');
+  assert.deepEqual(iniciarDiagnosticoQuedas({}, {}), { ativo: false });
+  assert.equal(fs.existsSync(`${CONFIG_FILE}.bad`), false, 'quem decide o arquivo ilegível é a Engine, sem cópia');
   fs.rmSync(CONFIG_FILE);
 });
