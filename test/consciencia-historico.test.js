@@ -422,6 +422,28 @@ test('launchReReviews livre: segue enfileirando como sempre', async () => {
   assert.equal(e.headlessQueue.length, 1, 'sem histórico decisivo, o round roda');
 });
 
+// Segunda análise depois de dispensa por outra pessoa no mesmo commit (24/11/2026,
+// dispensa-no-mesmo-commit.js), pela fiação inteira do launchReReviews: relança mesmo com a âncora
+// de commit novo no head, uma vez por commit, e volta a relançar quando a âncora é liberada (a
+// recuperação da prova e o destrave limpam o `head`).
+test('launchReReviews: dispensa no mesmo commit relança uma vez, e de novo depois de liberada', async () => {
+  const { liberarAncora } = await import('../lib/engine/rereview-ancora.js');
+  const e = engineFiacao();
+  e.panorama = [{ ...PR, isDraft: false }];
+  e.staleInfo['o/r#1'] = { stale: true, head: 'sha2', lastState: 'DISMISSED', dispensa: { por: 'colega', mensagem: 'merge-base mudou', reviewId: 7 } };
+  e.headQuietoDesde = { 'o/r#1': { head: 'sha2', at: 0 } };
+  e.reReviewLaunched['o/r#1'] = { head: 'sha2', dia: '', rodadas: 1, at: 0 };
+  await reviewMod.launchReReviews(e);
+  assert.equal(e.headlessQueue.length, 1, 'a âncora de commit novo no head não segura a segunda análise');
+  assert.equal(e.reReviewLaunched['o/r#1'].dispensaHead, 'sha2', 'a marca da dispensa é gravada ao relançar');
+  e.headlessQueue.length = 0;
+  await reviewMod.launchReReviews(e);
+  assert.equal(e.headlessQueue.length, 0, 'uma segunda análise por commit');
+  liberarAncora(e, 'o/r#1', 'sha2');
+  await reviewMod.launchReReviews(e);
+  assert.equal(e.headlessQueue.length, 1, 'âncora liberada: a rodada que não concluiu volta');
+});
+
 // caminho 3: o retry pós-transitório (_repescarRetry no server.js)
 function engineRetry() {
   const e = new Engine();

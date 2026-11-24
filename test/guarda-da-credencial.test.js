@@ -19,6 +19,11 @@ for (const [nome, arquivo] of [['guardas da sessão', ARQUIVO_DE_GUARDAS], ['set
     const deny = negados(arquivo);
     assert.ok(deny.includes('Read(**/.credentials.json)'), deny.join(', '));
     assert.ok(deny.includes('Bash(*.credentials.json*)'), deny.join(', '));
+    // padrão de Read sem prefixo vale relativo ao diretório da sessão: a credencial mora fora dele,
+    // na pasta do Claude ou na do perfil, então a guarda precisa do caminho da casa e do absoluto
+    assert.ok(deny.includes('Read(~/.claude/**/.credentials.json)'), deny.join(', '));
+    assert.ok(deny.includes('Read(//**/.credentials.json)'), deny.join(', '));
+    assert.ok(deny.includes('Bash(*/.cred*)'), 'o shell com caminho abreviado também é negado');
   });
 }
 
