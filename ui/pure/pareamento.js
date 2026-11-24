@@ -8,9 +8,9 @@
 import { esc } from './comum.js';
 
 const RECUSAS = {
-  codigo_invalido: (r) => `Código não confere. ${tentativas(r.restantes)}`,
-  bloqueado: () => 'Cinco tentativas erradas. O código foi invalidado: gere outro no terminal deste aparelho.',
-  sem_codigo_pendente: () => 'Não há código válido esperando. Ele pode ter passado dos 10 minutos ou já ter sido usado. Gere outro no terminal.',
+  // É a única recusa que o servidor manda desde 24/11/2026, e vem sem contagem: ele não diz a
+  // quem ainda não pareou se há código esperando. Sem contagem, o texto cobre os três motivos.
+  codigo_invalido: (r) => `Código não confere. ${tentativas(r.restantes) || 'Confira o que digitou. Se o código passou dos 10 minutos, já foi usado ou teve cinco tentativas erradas, gere outro no terminal.'}`,
   sem_resposta: () => 'Não deu para falar com o Farol deste aparelho. Confira se ele está aberto e tente de novo: o código não foi gasto.',
 };
 

@@ -57,15 +57,30 @@ test('consumirCodigo continua booleano para quem já o usava', () => {
   assert.equal(consumirCodigo(codigo), false);
 });
 
-test('a rota de pareamento leva o motivo e a contagem para a tela', () => {
+// O motivo e a contagem ficam do lado de dentro (tentarCodigo, acima). Para fora a recusa é uma
+// só (porte do fork, 24/11/2026): fora do loopback a rota é alcançável por quem está na rede, e
+// "há código esperando" e "restam N" diriam a quem não pareou a hora de queimar o código.
+test('a rota de pareamento responde a mesma recusa com e sem código pendente', () => {
+  const semPendente = acesso.parear({ codigo: ERRADO, rotulo: 'Chrome de teste' });
+  assert.deepEqual(semPendente, { ok: false, code: 'codigo_invalido' });
   criarCodigo();
   const r = acesso.parear({ codigo: ERRADO, rotulo: 'Chrome de teste' });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, 'codigo_invalido');
-  assert.equal(r.restantes, LOCAL_AUTH.CODIGO_MAX_ERROS - 1);
+  assert.deepEqual(r, semPendente);
+  assert.equal('restantes' in r, false);
   const certo = criarCodigo();
   const bom = acesso.parear({ codigo: certo, rotulo: 'Chrome de teste' });
   assert.equal(bom.ok, true);
   assert.match(bom.token, /^[A-Za-z0-9_-]{43}$/);
   assert.equal(bom.code, undefined, 'sucesso não carrega motivo');
+});
+
+// O bloqueio por tentativas erradas vira UMA linha WARN no log do motor, sem o código e sem o
+// valor tentado: quem opera fica sabendo, e quem tenta de fora não.
+test('o bloqueio do código pendente avisa uma vez, sem o código nem o valor tentado', () => {
+  const codigo = criarCodigo();
+  const linhas = [];
+  for (let i = 0; i < LOCAL_AUTH.CODIGO_MAX_ERROS + 2; i++) acesso.parear({ codigo: ERRADO }, (m) => linhas.push(m));
+  assert.equal(linhas.length, 1, 'uma linha por bloqueio, nunca por tentativa');
+  assert.match(linhas[0], /pareamento: código pendente bloqueado por \d+ tentativas erradas/);
+  assert.ok(!linhas[0].includes(codigo) && !linhas[0].includes(ERRADO));
 });
