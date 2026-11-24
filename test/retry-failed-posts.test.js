@@ -107,19 +107,53 @@ test('falha de novo incrementa a tentativa e mantém a pendência', async () => 
   assert.equal(e.decisions.pending[0].postRetry.exhausted, false);
 });
 
-test('esgotadas as tentativas, para de tentar e a pendência espera você', async () => {
+// 18/11/2026, num motor hospedado: o APPROVE falhou com 500 do GitHub e o PR foi mesclado sem
+// o review. Depois das tentativas rápidas, a falha passageira segue em recuo crescente, sem
+// desistir e sem ir à mesa; o recuo não reenvia antes da hora.
+test('esgotadas as tentativas rápidas, a falha passageira segue em recuo crescente, sem desistir', async () => {
   const e = engineCom(pendencia());
   e.postReview = async () => ({ ok: false, attempted: true, error: 'HTTP 503 de novo' });
   for (let i = 0; i < MAX_POST_RETRY_ATTEMPTS; i++) await e.retryFailedPosts();
   const p = e.decisions.pending[0];
   assert.equal(p.postRetry.attempts, MAX_POST_RETRY_ATTEMPTS);
-  assert.equal(p.postRetry.exhausted, true, 'marcado como esgotado pra tela poder dizer que desistiu');
+  assert.equal(p.postRetry.exhausted, false, 'passageira não esgota');
+  const espera = p.postRetry.proximaEm - Date.now();
+  assert.ok(espera > 14 * 60_000 && espera <= 15 * 60_000, `primeiro recuo de 15 min (foi ${espera} ms)`);
 
-  // e o próximo ciclo não tenta mais: acima do teto o filtro nem pega o item
+  // antes da hora, o ciclo não reenvia
+  let tentou = false;
+  e.postReview = async () => { tentou = true; return { ok: false, attempted: true, error: 'x' }; };
+  await e.retryFailedPosts();
+  assert.equal(tentou, false, 'o recuo segura o reenvio até proximaEm');
+
+  // passada a hora, reenvia, e o próximo recuo dobra
+  e.decisions.pending[0].postRetry.proximaEm = Date.now() - 1;
+  await e.retryFailedPosts();
+  assert.equal(tentou, true, 'passado o recuo, tenta de novo');
+  const segunda = e.decisions.pending[0].postRetry.proximaEm - Date.now();
+  assert.ok(segunda > 29 * 60_000 && segunda <= 30 * 60_000, `segundo recuo de 30 min (foi ${segunda} ms)`);
+});
+
+test('recusa permanente (lista explícita) para de tentar e a pendência espera você', async () => {
+  const e = engineCom(pendencia());
+  e.postReview = async () => ({ ok: false, attempted: true, error: 'HTTP 422: Unprocessable Entity, the repository is archived' });
+  await e.retryFailedPosts();
+  const p = e.decisions.pending[0];
+  assert.equal(p.postRetry.exhausted, true, 'a tela diz que desistiu');
+  assert.equal(p.postRetry.permanente, true);
+  assert.equal(e.decisionForUi(p).postRetry.exhausted, true);
   let tentou = false;
   e.postReview = async () => { tentou = true; return { ok: false, error: 'x' }; };
   await e.retryFailedPosts();
-  assert.equal(tentou, false, 'não insiste pra sempre');
+  assert.equal(tentou, false, 'a recusa que não passa com o tempo não é reenviada');
+});
+
+test('marca antiga, esgotada quando o reenvio ainda desistia na terceira, volta ao reenvio', async () => {
+  const e = engineCom(pendencia({ postRetry: { event: 'approve', attempts: 3, exhausted: true } }));
+  assert.equal(e.decisionForUi(e.decisions.pending[0]).postRetry.exhausted, false, 'a tela não diz que desistiu');
+  const n = await e.retryFailedPosts();
+  assert.equal(n, 1, 'reenviou e resolveu');
+  assert.equal(e.posts.length, 1);
 });
 
 test('pendência SEM marcador de retry nunca é tocada pelo sweep', async () => {
