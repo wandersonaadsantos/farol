@@ -12,7 +12,8 @@ test('recuo: 15 min, dobrando, com teto de seis horas', () => {
 });
 
 test('permanente é só a lista explícita; na dúvida, passageira', () => {
-  for (const blocked of ['criterios_inconsistentes', 'pr_proprio', 'instancia_isolada', 'credencial_no_texto', 'internal_language']) {
+  for (const blocked of ['criterios_inconsistentes', 'pr_proprio', 'instancia_isolada', 'credencial_no_texto', 'internal_language',
+    'invalid_payload', 'conta_silenciada', 'sem_conta_dona', 'capability', 'rule', 'round_memory', 'pr_fechado']) {
     assert.equal(ehPermanente({ ok: false, blocked }), true, blocked);
   }
   assert.equal(ehPermanente({ ok: false, blocked: 'technical_review', error: 'violação confirmada' }), true);
@@ -23,6 +24,8 @@ test('permanente é só a lista explícita; na dúvida, passageira', () => {
     assert.equal(ehPermanente({ ok: false, error }), false, error);
   }
   assert.equal(ehPermanente({ ok: false, blocked: 'head_desconhecido' }), false);
+  // o erro de fora passa pela taxonomia única: permanente lá é permanente aqui, desconhecido não
+  assert.equal(ehPermanente({ ok: false, error: 'resposta que ninguém previu' }), false);
   assert.equal(ehPermanente({ ok: false, semToken: true, blocked: 'pr_proprio' }), false, 'sem token passa quando o token volta');
   assert.equal(ehPermanente({ ok: true }), false);
   assert.equal(ehPermanente(null), false);

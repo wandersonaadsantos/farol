@@ -153,6 +153,19 @@ test('2: não mexe no que já tem dono para o commit novo, nem sem prova do head
   assert.equal(e.decisions.pending[0].blockedKind, undefined);
 });
 
+// Desde 24/11/2026 o reenvio da postagem não desiste e pode esperar até seis horas no recuo
+// (postagem-reenvio.js): o commit novo não pode esperar o recuo vencer para virar revisão nova.
+test('2: reenvio no recuo longo ou parado por recusa permanente vira stale_head e o reenvio desarma', async () => {
+  for (const postRetry of [{ event: 'approve', attempts: 4, proximaEm: AGORA + 3600e3 }, { event: 'approve', attempts: 1, exhausted: true, permanente: true }]) {
+    const e = comPendencia({ postRetry });
+    assert.equal(await marcarCommitNovo(e, null, AGORA), 1, JSON.stringify(postRetry));
+    const d = e.decisions.pending[0];
+    assert.equal(d.blockedKind, 'stale_head');
+    assert.equal(d.blockedHead, H2);
+    assert.equal(d.postRetry, null, 'o texto fala do código anterior: não reenvia mais');
+  }
+});
+
 test('2: respeita o recorte de chaves de quem chama', async () => {
   const e = comPendencia();
   assert.equal(await marcarCommitNovo(e, new Set(['outro/r#9']), AGORA), 0);

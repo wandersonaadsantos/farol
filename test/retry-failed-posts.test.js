@@ -156,6 +156,16 @@ test('marca antiga, esgotada quando o reenvio ainda desistia na terceira, volta 
   assert.equal(e.posts.length, 1);
 });
 
+test('marca antiga que falha de novo entra no recuo longo, e não desiste', async () => {
+  const e = engineCom(pendencia({ postRetry: { event: 'approve', attempts: 3, exhausted: true } }), { postOk: false });
+  await e.retryFailedPosts();
+  const p = e.decisions.pending[0].postRetry;
+  assert.equal(p.attempts, 4);
+  assert.equal(p.exhausted, false);
+  const espera = p.proximaEm - Date.now();
+  assert.ok(espera > 29 * 60_000 && espera <= 30 * 60_000, `segundo degrau do recuo (foi ${espera} ms)`);
+});
+
 test('pendência SEM marcador de retry nunca é tocada pelo sweep', async () => {
   // é a maioria: gate barrou por regra ou conteúdo, e aí postar sozinho seria
   // exatamente o que o invariante 4 proíbe

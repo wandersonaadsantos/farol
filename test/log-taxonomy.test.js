@@ -54,7 +54,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 31, 'são 31 classes, incluindo a migração dos vistos sem decisão, a recusa da política de uso do modelo e o processo encerrado pelo sistema');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 32, 'são 32 classes, incluindo a migração dos vistos sem decisão, a recusa da política de uso do modelo, o PR sem escrita e o processo encerrado pelo sistema');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -77,9 +77,11 @@ test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
     // contêm "usage limit" e seriam lidas como limite de janela (test/limite-do-claude.test.js)
     // as do Antigravity logo depois de limite-plano, com a capacidade do modelo antes da cota
     'restart-fila', 'console-fechado', 'limite-da-organizacao', 'limite-plano',
-    'processos-indisponiveis', 'processo-encerrado', 'capacidade-agy', 'limite-agy', 'agy-print-timeout', 'agy-conta-trocada', 'agy-sem-login', 'assinatura-bloqueada',
+    'processos-indisponiveis', 'capacidade-agy', 'limite-agy', 'agy-print-timeout', 'agy-conta-trocada', 'agy-sem-login', 'assinatura-bloqueada',
     'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'recusa-de-seguranca', 'resultado-invalido', 'coordenacao-indisponivel', 'rate-limit-github', 'rede', 'github-indisponivel',
-    'provedor-indisponivel', 'arquivo-local-preso', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'update-runtime', 'update-checkout-git', 'migracao-vistos', 'busca-sem-mensagem', 'ferramenta'
+    'provedor-indisponivel', 'arquivo-local-preso', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'update-runtime', 'update-checkout-git', 'migracao-vistos', 'busca-sem-mensagem',
+    // pr-sem-escrita e processo-encerrado no fim: a causa que o stderr nomear vence o sinal
+    'pr-sem-escrita', 'processo-encerrado', 'ferramenta'
   ]);
 });
 
@@ -813,7 +815,21 @@ test('processo morto por sinal: forma nova, forma antiga e 128 + sinal casam pro
     assert.equal(c.id, 'processo-encerrado', m);
     assert.equal(c.kind, 'transitorio', m);
   }
+  // o stderr que nomeia a causa vence o sinal: login vencido continua sendo login vencido
+  assert.equal(classify('claude saiu com código 143: OAuth access token has expired').id, 'oauth-expirado');
   // código numérico comum segue em ferramenta
   assert.equal(classify('claude saiu com código 1: x').id, 'ferramenta');
   assert.equal(classify('claude saiu com código 1370: x').id, 'ferramenta');
+});
+
+// O GitHub recusa escrever em PR de repositório arquivado ou travado: não passa com o tempo, e o
+// reenvio da postagem para em vez de entrar no recuo de horas (postagem-reenvio.js).
+test('PR arquivado ou travado é permanente, de app', () => {
+  for (const m of ['postar review o/r#1 (APPROVE): gh: Unprocessable Entity (HTTP 422) · Repository was archived so is read-only.',
+    'HTTP 422: pull request is locked']) {
+    const c = classify(m);
+    assert.equal(c.id, 'pr-sem-escrita', m);
+    assert.equal(c.kind, 'permanente', m);
+  }
+  assert.notEqual(classify('HTTP 422: Unprocessable Entity · commit_id is not part of the pull request').id, 'pr-sem-escrita');
 });
