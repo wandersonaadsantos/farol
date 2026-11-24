@@ -8,7 +8,9 @@
       "Bash(gh api *vnd.github*.diff*)",
       "Bash(gh api *vnd.github*.patch*)",
       "Bash(gh repo clone*)",
-      "Bash(git clone*)"
+      "Bash(git clone*)",
+      "Read(**/.credentials.json)",
+      "Bash(*.credentials.json*)"
     ]
   }
 }
