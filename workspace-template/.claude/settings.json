@@ -35,7 +35,10 @@
       "Bash(gh repo clone*)",
       "Bash(git clone*)",
       "Read(**/.credentials.json)",
-      "Bash(*.credentials.json*)"
+      "Read(~/.claude/**/.credentials.json)",
+      "Read(//**/.credentials.json)",
+      "Bash(*.credentials.json*)",
+      "Bash(*/.credentials*)"
     ]
   }
 }
