@@ -37,6 +37,7 @@ import {
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort, AGY_MODELO_PADRAO,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews, sanearBind } from './lib/parse.js';
 import { loopback } from './lib/http-guard.js';
+import { lerConfigOuRecusar, subirOuRecusar } from './lib/config-ilegivel.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs, priorizarNoPath } from './lib/io.js';
 import updateMod from './lib/engine/update.js';
 import chatMod from './lib/engine/chat.js';
@@ -180,7 +181,7 @@ class Engine extends EventEmitter {
   constructor() {
     super();
     const warn = (m) => this.log('WARN', m); // corrupção de estado precisa aparecer no farol.log
-    const configSalva = readJson(CONFIG_FILE, {}, warn);
+    const configSalva = lerConfigOuRecusar((m) => this.log('ERROR', m)); // presente e ilegível LANÇA: nunca os padrões no lugar dele
     this.config = { ...DEFAULTS, ...configSalva };
     // bind é só de arquivo e chega ao listen e à allowlist: saneia aqui, uma vez, para todo leitor
     this.config.bind = sanear('bind', this.config.bind, this.config, PARSERS);
@@ -2232,9 +2233,8 @@ export { start, registrarSaidaOrdenada, HOME, WORKSPACE, Engine, modelLabel, isP
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento). Como sidecar de
 // casca nativa, antes do engine existir, o motor semeado pode se reexecutar de ~/.farol/engine.
 if (executadoDireto(import.meta.url) && !bootstrapDaCasca()) {
-  start((url, err) => {
+  subirOuRecusar(() => start((url, err) => {
     if (err) { console.error('[farol] erro ao subir o servidor:', err.message); process.exit(1); }
-    console.log(`[farol] monitorando · UI em ${url}`);
-    console.log('[farol] Ctrl+C para sair');
-  });
+    console.log(`[farol] monitorando · UI em ${url}\n[farol] Ctrl+C para sair`);
+  }));
 }

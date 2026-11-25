@@ -2,7 +2,8 @@
 // Toda a logica de monitoramento vive em server.js (que tambem roda sozinho
 // com "node server.js" caso o Electron nao esteja disponivel).
 
-import { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage, crashReporter } from 'electron';
+import { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage, crashReporter, dialog } from 'electron';
+import { CODIGO_CONFIG_ILEGIVEL } from './lib/config-ilegivel.js';
 import path from 'node:path';
 
 import farol from './server.js';
@@ -54,7 +55,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     instalarMenuMac(Menu);
     agendarIconeDoAtalho();
-    const { engine: eng } = farol.start((url, err) => {
+    const eng = iniciarMotor((url, err) => {
       if (err) {
         // porta ocupada: provavelmente ja existe um Farol rodando em modo servidor.
         // O engine local NÃO monitora (ver start no server.js); esta janela vira visor.
@@ -70,6 +71,7 @@ if (!gotLock) {
       // depois da bandeja existir: o fallback de balão do notify() precisa dela
       if (reabertura) notify('Farol atualizado', `Agora na versão ${reabertura.to || 'nova'}. Segue monitorando na bandeja.`);
     });
+    if (!eng) return;
     engine = eng;
     if (diagnosticoQuedas.erro) engine.log('WARN', diagnosticoQuedas.erro);
   });
@@ -85,6 +87,17 @@ if (!gotLock) {
   });
   app.on('window-all-closed', () => { /* segue vivo na bandeja */ });
   app.on('activate', () => showWindow()); // macOS: clique no Dock reabre a janela
+}
+
+// O engine sobe aqui. Com o config.json presente e ilegível (lib/config-ilegivel.js) ele recusa
+// subir: a caixa diz o motivo e o app fecha, em vez de seguir sem janela e calado.
+function iniciarMotor(aoSubir) {
+  try { return farol.start(aoSubir).engine; } catch (erro) {
+    if (erro?.code !== CODIGO_CONFIG_ILEGIVEL) throw erro;
+    dialog.showErrorBox('O Farol não abriu', erro.message);
+    app.quit();
+    return null;
+  }
 }
 
 function themeColors() {
