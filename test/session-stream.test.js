@@ -27,6 +27,7 @@ const { escolheModelo } = await import('../lib/engine/model-router.js');
 const { prepareSelfIsolation } = await import('../lib/engine/self-isolation.js');
 const { IS_WIN } = await import('../lib/paths.js');
 const io = (await import('../lib/io.js')).default;
+const { armarLabelTardia, liberaALabel } = await import('../lib/engine/label-tardia.js');
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -618,4 +619,54 @@ test('runClaudeStream: no modo padrão o Read parcial credita como antes e a div
   const [m] = lidas();
   assert.deepEqual([m.pr, m.arquivo, m.entregues, m.faltantes], ['o/r#3', 'a.js', [[1, 1]], [[2, 3]]]);
   assert.equal(linhas.filter(l => /sombra|a\.js/.test(l)).length, 0, 'nada de medição no log');
+});
+
+// A label <conta>:revisando espera o primeiro conteúdo do modelo (21/11/2026, porte do fork).
+// O CLI emite o `init` antes de chamar a API, e a recusa por limite do plano chega depois dele,
+// como mensagem sintética do próprio CLI (modelo "<synthetic>", campo `error`), seguida do
+// `result` de erro. A label entrava no init e saía na morte. O feed é montado como no review.js.
+function labelDoFeed() {
+  const timers = [];
+  const r = { adicoes: 0, linhas: [] };
+  r.tardia = armarLabelTardia({ adicionar: async () => { r.adicoes += 1; return 'eu:revisando'; }, esperaMs: 15000, setTimer: (fn) => timers.push(fn), clearTimer: () => { } });
+  r.onEvent = (e) => { if (liberaALabel(e)) r.tardia.aoEvento(); r.linhas.push(e.text); };
+  return r;
+}
+
+test('label: a sessão que morre por limite antes de conteúdo do modelo não põe a label', async () => {
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const feed = labelDoFeed();
+  const p = runClaudeStream(engineFalso(), 'prompt', { onEvent: feed.onEvent });
+  spawnImpl = null;
+  feed.tardia.aoAdmitir();
+  const limite = "You've hit your limit · resets 5:50pm";
+  child.stdout.write(JSON.stringify({ type: 'system', subtype: 'init', model: 'claude-opus-5', session_id: 's-lim' }) + '\n');
+  child.stdout.write(JSON.stringify({ type: 'assistant', error: 'rate_limit', isApiErrorMessage: true, message: { model: '<synthetic>', content: [{ type: 'text', text: limite }] }, session_id: 's-lim' }) + '\n');
+  child.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: limite, session_id: 's-lim' }) + '\n');
+  child.stdout.once('end', () => child.emit('close', 1));
+  child.stdout.end();
+  await assert.rejects(p, /hit your limit/);
+  feed.tardia.cancelar();
+  assert.equal(await feed.tardia.promessa(), '');
+  assert.equal(feed.adicoes, 0, 'nem o init nem a mensagem sintética liberam a label');
+  assert.ok(feed.linhas.includes(limite), 'a mensagem do limite continua no feed');
+});
+
+test('label: o primeiro texto ou ferramenta do modelo libera a label', async () => {
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const feed = labelDoFeed();
+  const p = runClaudeStream(engineFalso(), 'prompt', { onEvent: feed.onEvent });
+  spawnImpl = null;
+  feed.tardia.aoAdmitir();
+  child.stdout.write(JSON.stringify({ type: 'system', subtype: 'init', session_id: 's-ok' }) + '\n');
+  assert.equal(feed.adicoes, 0, 'o init sozinho não libera');
+  child.stdout.write(JSON.stringify({ type: 'assistant', message: { model: 'claude-opus-5', content: [{ type: 'tool_use', name: 'Read', input: {} }] } }) + '\n');
+  child.stdout.write(JSON.stringify({ type: 'result', result: 'ok', session_id: 's-ok' }) + '\n');
+  child.stdout.once('end', () => child.emit('close', 0));
+  child.stdout.end();
+  await p;
+  assert.equal(await feed.tardia.promessa(), 'eu:revisando');
+  assert.equal(feed.adicoes, 1);
 });

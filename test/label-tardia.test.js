@@ -59,3 +59,12 @@ test('falha na adição não sobe: a promessa resolve vazio', async () => {
   tardia.aoEvento();
   assert.equal(await tardia.promessa(), '');
 });
+
+test('liberaALabel: só o conteúdo marcado do modelo libera, nunca info, aviso ou erro sintético', async () => {
+  const { liberaALabel } = await import('../lib/engine/label-tardia.js');
+  assert.equal(liberaALabel({ kind: 'text', text: 'x', doModelo: true }), true);
+  assert.equal(liberaALabel({ kind: 'tool', text: 'Read', doModelo: true }), true);
+  for (const e of [{ kind: 'info', text: 'sessão do Claude iniciada' }, { kind: 'warn', text: 'instabilidade' }, { kind: 'text', text: 'limite', doModelo: false }, null, undefined]) {
+    assert.equal(liberaALabel(e), false, JSON.stringify(e));
+  }
+});
