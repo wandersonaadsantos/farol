@@ -378,6 +378,49 @@ test('a parte do card deste PR dita não entregue: REQUEST_CHANGES com a conta r
   semMesa(e);
 });
 
+// Segunda análise depois de dispensa no mesmo commit (decisão do dono de 24/11/2026): o colega pode
+// ter dispensado o review de propósito para liberar o merge, e o dedup por head não conta review
+// DISMISSED. O pedido de mudanças dessa rodada, da sessão ou pelo defeito, vai à mesa com o motivo;
+// a aprovação segue pela política da conta, e a dispensa de outro commit não segura nada.
+const dispensa = (e, n, head = HEAD) => {
+  e.staleInfo = { [`acme/app#${n}`]: { stale: true, head, lastState: 'DISMISSED', dispensa: { por: 'colega', mensagem: 'liberei o merge', reviewId: 9 } } };
+};
+
+test('segunda análise depois de dispensa: o pedido de mudanças pelo defeito vai à mesa com o motivo', async () => {
+  const e = motor();
+  dispensa(e, 170);
+  technicalRuntime.finishTechnicalReview = violacao();
+  await revisar(e, 170);
+  assert.deepEqual(envios, [], 'nada sai por cima da dispensa');
+  assert.ok(textos(pendente(e, 170)).some((t) => /@colega dispensou o seu review neste mesmo commit; o pedido de mudanças da segunda análise não sai sozinho/.test(t)));
+  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#170']]);
+});
+
+test('segunda análise depois de dispensa: o pedido de mudanças da sessão também vai à mesa', async () => {
+  const e = motor();
+  dispensa(e, 171);
+  const blocker = { ...criteriaFixture('request_changes').findings[0], severity: 'blocking', title: 'Erro engolido', summary: 'Trate o erro antes do merge.', file: 'src/a.ts', line: 9 };
+  await revisar(e, 171, { extra: { verdict: 'request_changes', findings: [blocker], payloads: {
+    request_changes: { event: 'REQUEST_CHANGES', body: 'O catch em `src/a.ts` engole o erro e precisa ser tratado antes do merge.', comments: [] },
+  } } });
+  assert.deepEqual(envios, []);
+  assert.ok(textos(pendente(e, 171)).some((t) => /dispensou o seu review neste mesmo commit/.test(t)));
+});
+
+test('dispensa de outro commit não segura o pedido de mudanças, e a aprovação da segunda análise sai', async () => {
+  const e = motor();
+  dispensa(e, 172, HEAD_NOVO);
+  technicalRuntime.finishTechnicalReview = violacao();
+  await revisar(e, 172);
+  assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES'], 'a dispensa era de outro commit');
+  technicalRuntime.finishTechnicalReview = finishOriginal;
+  envios = [];
+  const f = motor();
+  dispensa(f, 173);
+  await revisar(f, 173);
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE'], 'a aprovação segue pela política da conta');
+});
+
 test('defeito com a conta que não reprova sozinha: nada é postado (a mesa é a escolha da conta)', async () => {
   const e = motor({ reprova: 'wait' });
   technicalRuntime.finishTechnicalReview = violacao();
