@@ -5,7 +5,8 @@
 // "avaliação técnica atual ausente" e nunca era aprovado sozinho. Regra do dono: a aprovação
 // não depende dele; bloqueiam só CI vermelho ou pendente, violação técnica confirmada e
 // lacuna de leitura. Sem declaração não há avaliação técnica configurada, e isso não é
-// violação: vira ressalva. Com declaração, toda lacuna técnica continua bloqueando.
+// violação nem ressalva (desde 20/11/2026, porte do fork em 24/11/2026): fica só como
+// diagnóstico. Com declaração, toda lacuna técnica continua bloqueando.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -71,11 +72,17 @@ test('a marca de sem declaração tira a lacuna técnica; com declaração a lac
     'lacuna de leitura continua bloqueando sem declaração');
 });
 
-test('sem declaração vira ressalva com texto próprio, e a política de ressalvas decide', () => {
+// Até 20/11/2026 sem declaração era ressalva com texto próprio. Agora nem ressalva é: o Farol
+// revisa o código pelo mérito, e o resultado sem outro ponto é limpo; a política da conta para o
+// limpo decide, inclusive o `wait`.
+test('sem declaração não vira ressalva nem motivo, e a política da conta decide', () => {
   const textos = attentionPoints(null, result()).map((p) => p.text);
-  assert.ok(textos.some((t) => /não tem declaração técnica cadastrada, então a avaliação técnica automática não rodou/.test(t)), textos.join(' | '));
+  assert.ok(!textos.some((t) => /declaração técnica/.test(t)), textos.join(' | '));
   assert.deepEqual(shouldAutoApprove(engineCom('approve'), PEDIDO, result()), { ok: true, motivo: null });
-  assert.deepEqual(shouldAutoApprove(engineCom('wait'), PEDIDO, result()), { ok: false, motivo: 'politica' });
+  // sem ressalva, vale a política do limpo: a de ressalvas em espera não segura mais
+  assert.deepEqual(shouldAutoApprove(engineCom('wait'), PEDIDO, result()), { ok: true, motivo: null });
+  const esperaNoLimpo = { ...engineCom('approve'), approvePolicyFor: () => 'wait' };
+  assert.deepEqual(shouldAutoApprove(esperaNoLimpo, PEDIDO, result()), { ok: false, motivo: 'politica' }, 'o wait do limpo continua levando à mesa');
   const vermelho = result({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] });
   assert.equal(shouldAutoApprove({ ...engineCom('approve'), config: { aguardarCiParaAprovar: true } }, PEDIDO, vermelho).motivo, 'ci_vermelho',
     'com "CI obrigatório antes da aprovação" ligado, o CI vermelho continua bloqueando');

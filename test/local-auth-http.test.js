@@ -181,9 +181,9 @@ test('pareamento: código não funciona duas vezes e exige x-farol', async () =>
   const primeira = JSON.parse((await pedir('POST', '/api/auth/pair', { corpo: { codigo } })).body);
   assert.equal(primeira.ok, true);
   const segunda = JSON.parse((await pedir('POST', '/api/auth/pair', { corpo: { codigo } })).body);
-  // desde a tela de pareamento (B2, 2.1) a recusa leva o motivo: reusar um código já gasto
-  // cai em "não há código pendente", que é o que o disco sabe. A garantia é a mesma: recusa.
-  assert.deepEqual(segunda, { ok: false, code: 'sem_codigo_pendente', restantes: null });
+  // desde 24/11/2026 a recusa é uma só para quem chama: reusar um código já gasto responde o
+  // mesmo que código errado, sem dizer se há outro esperando. A garantia é a mesma: recusa.
+  assert.deepEqual(segunda, { ok: false, code: 'codigo_invalido' });
   const outro = criarCodigo();
   const semHeader = await pedir('POST', '/api/auth/pair', { corpo: { codigo: outro }, cabecalhos: { 'x-farol': '' } });
   assert.equal(semHeader.status, 403);

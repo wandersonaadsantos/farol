@@ -24,9 +24,9 @@ function armazenamentoFalso() {
 test('a recusa diz qual é, e a contagem só aparece quando existe', () => {
   assert.match(textoDaRecusa({ ok: false, code: 'codigo_invalido', restantes: 3 }), /não confere.*Restam 3 tentativas/);
   assert.match(textoDaRecusa({ ok: false, code: 'codigo_invalido', restantes: 1 }), /Resta 1 tentativa/);
-  assert.match(textoDaRecusa({ ok: false, code: 'codigo_invalido', restantes: null }), /^Código não confere\.$/);
-  assert.match(textoDaRecusa({ ok: false, code: 'bloqueado', restantes: 0 }), /Cinco tentativas erradas/);
-  assert.match(textoDaRecusa({ ok: false, code: 'sem_codigo_pendente' }), /10 minutos ou já ter sido usado/);
+  // a recusa do servidor vem sem contagem desde 24/11/2026: o texto cobre os três motivos
+  assert.match(textoDaRecusa({ ok: false, code: 'codigo_invalido' }), /^Código não confere\. Confira o que digitou\..*10 minutos.*cinco tentativas erradas/);
+  assert.match(textoDaRecusa({ ok: false, code: 'bloqueado', restantes: 0 }), /não deu para falar com o Farol/i, 'código que o servidor não manda mais cai no genérico');
   assert.match(textoDaRecusa(null), /não deu para falar com o Farol/i);
   assert.match(textoDaRecusa({ ok: false, code: 'inventado' }), /não deu para falar com o Farol/i);
 });
