@@ -82,3 +82,23 @@ test('codex com turn.failed e com código != 0: detalhe inteiro', () => {
   const semEvento = { text: '', sessionId: null, resultEvent: null };
   assert.throws(() => fecharCodex(engine, {}, run, semEvento, '', 'w'.repeat(500) + 'CAUDA', 2), (err) => err.detalheCompleto.endsWith('CAUDA') && /^codex saiu com código 2: /.test(err.message));
 });
+
+// 23/11/2026, motor hospedado: 22 revisões caíram com "claude saiu com código null" e foram
+// estacionadas como falha não classificada. O código null é processo morto por sinal de
+// fora do Farol; o stderr só trazia um aviso sem relação, que virava o motivo.
+test('claude morto por sinal: a mensagem diz o sinal e casa a classe transitória', async () => {
+  const { classify } = await import('../lib/log-taxonomy.js');
+  const c = filho();
+  spawnImpl = () => c;
+  const p = runClaudeStream(engineFalso(), 'prompt', { id: 'a-sinal' });
+  spawnImpl = null;
+  c.stderr.emit('data', 'aviso qualquer do claude');
+  c.stdout.once('end', () => c.emit('close', null, 'SIGKILL'));
+  c.stdout.end();
+  await assert.rejects(p, (err) => {
+    assert.match(err.message, /^claude encerrado pelo sistema \(sinal SIGKILL\): /);
+    assert.equal(classify(err.message).id, 'processo-encerrado');
+    assert.equal(classify(err.message).kind, 'transitorio');
+    return true;
+  });
+});

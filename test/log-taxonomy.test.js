@@ -32,6 +32,9 @@ const MSG = {
   // 03/09/2026, sete vezes no mesmo farol.log entre 10:47 e 11:56: caía em 'desconhecido'
   // e estacionava o PR em silêncio, que foi o caso do biud-core#317 no Farol de um colega
   provedor: 'sessão retornou erro: API Error: 529 Overloaded. This is a server-side issue, usually temporary — try again in a moment. If it persists, check https://status.claude.com.',
+  // 18/11/2026, num motor hospedado: o APPROVE falhou com 500 do GitHub, a falha caía em
+  // 'desconhecido' (permanente), o reenvio não era armado e o PR foi mesclado sem o review
+  github500: 'postar review o/r#366 (APPROVE): gh: Unprocessable Entity (HTTP 500) · An internal error occurred, please try again.',
   provedor500: 'sessão retornou erro: API Error: 500 {"type":"error","error":{"type":"api_error","message":"Internal server error"}}',
   token: 'revisao biudtech/biud-esg#193: sem token no gh pra wandersonbiuder',
   skipRoot: 'revisao biudtech/engine-ai#97 (transitório, tenta de novo): claude saiu com código 1: --dangerously-skip-permissions cannot be used with root/sudo privileges for security reasons',
@@ -51,7 +54,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 30, 'são 30 classes, incluindo a migração dos vistos sem decisão e a recusa da política de uso do modelo');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 32, 'são 32 classes, incluindo a migração dos vistos sem decisão, a recusa da política de uso do modelo, o PR sem escrita e o processo encerrado pelo sistema');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -76,7 +79,9 @@ test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
     'restart-fila', 'console-fechado', 'limite-da-organizacao', 'limite-plano',
     'processos-indisponiveis', 'capacidade-agy', 'limite-agy', 'agy-print-timeout', 'agy-conta-trocada', 'agy-sem-login', 'assinatura-bloqueada',
     'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'recusa-de-seguranca', 'resultado-invalido', 'coordenacao-indisponivel', 'rate-limit-github', 'rede', 'github-indisponivel',
-    'provedor-indisponivel', 'arquivo-local-preso', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'update-runtime', 'update-checkout-git', 'migracao-vistos', 'busca-sem-mensagem', 'ferramenta'
+    'provedor-indisponivel', 'arquivo-local-preso', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'update-runtime', 'update-checkout-git', 'migracao-vistos', 'busca-sem-mensagem',
+    // pr-sem-escrita e processo-encerrado no fim: a causa que o stderr nomear vence o sinal
+    'pr-sem-escrita', 'processo-encerrado', 'ferramenta'
   ]);
 });
 
@@ -138,6 +143,7 @@ const CASOS = [
   ['github-indisponivel', MSG.githubIndisponivel],
   ['provedor-indisponivel', MSG.provedor],
   ['provedor-indisponivel', MSG.provedor500],
+  ['github-indisponivel', MSG.github500],
   ['token-gh', MSG.token],
   ['skip-permissions-root', MSG.skipRoot],
   ['ferramenta', MSG.binario],
@@ -790,4 +796,40 @@ test('triage: WARN conhecido e ERROR desconhecido continuam contando', () => {
   assert.equal(r[0].id, 'limite-plano');
   const erro = triage([L('2026-08-06 14:12:35', 'ERROR', 'coisa nunca vista')]);
   assert.equal(erro[0].id, 'desconhecido', 'ERROR desconhecido continua contando');
+});
+
+// 23/11/2026: o texto antigo (antes da mensagem dizer o sinal) segue nas linhas do farol.log
+// e no motivo de estacionamento, que são relidos pela taxonomia.
+test('processo morto por sinal: forma nova, forma antiga e 128 + sinal casam processo-encerrado', () => {
+  const casos = [
+    'claude saiu com código null: Ignoring 23 permissions.allow entries from .claude/settings.json',
+    'claude encerrado pelo sistema (sinal SIGKILL): sem saida',
+    // o CLI pode rodar embaixo de um shell: neto morto por sinal sai como 128 + sinal
+    'claude saiu com código 137: sem saida',
+    'claude saiu com código 143: sem saida',
+    'codex saiu com código null: sem saida',
+    'agy saiu com código null sem o evento result: sem saída',
+  ];
+  for (const m of casos) {
+    const c = classify(m);
+    assert.equal(c.id, 'processo-encerrado', m);
+    assert.equal(c.kind, 'transitorio', m);
+  }
+  // o stderr que nomeia a causa vence o sinal: login vencido continua sendo login vencido
+  assert.equal(classify('claude saiu com código 143: OAuth access token has expired').id, 'oauth-expirado');
+  // código numérico comum segue em ferramenta
+  assert.equal(classify('claude saiu com código 1: x').id, 'ferramenta');
+  assert.equal(classify('claude saiu com código 1370: x').id, 'ferramenta');
+});
+
+// O GitHub recusa escrever em PR de repositório arquivado ou travado: não passa com o tempo, e o
+// reenvio da postagem para em vez de entrar no recuo de horas (postagem-reenvio.js).
+test('PR arquivado ou travado é permanente, de app', () => {
+  for (const m of ['postar review o/r#1 (APPROVE): gh: Unprocessable Entity (HTTP 422) · Repository was archived so is read-only.',
+    'HTTP 422: pull request is locked']) {
+    const c = classify(m);
+    assert.equal(c.id, 'pr-sem-escrita', m);
+    assert.equal(c.kind, 'permanente', m);
+  }
+  assert.notEqual(classify('HTTP 422: Unprocessable Entity · commit_id is not part of the pull request').id, 'pr-sem-escrita');
 });

@@ -214,10 +214,25 @@ for (const reason of ['fetch failed', 'process timeout', 'quota exceeded', 'auth
     });
   });
 }
-test('primeiro evento da sessão: a tag entra e, na falha seguinte, sai depois (ordem add, remove)', async () => {
+// Desde 24/11/2026 só o conteúdo do modelo libera a label (label-tardia.js): o `init` do sistema
+// chega antes da chamada à API, e a recusa por limite do plano vem depois dele.
+test('evento de sistema sozinho não põe a tag, e a falha seguinte não tira nada', async () => {
   const e = engine();
   e.runClaudeStream = async (_prompt, opts) => {
-    opts.onEvent({ kind: 'info', text: 'sessão viva' });
+    opts.onEvent({ kind: 'info', text: 'sessão do Claude iniciada' });
+    await new Promise(r => setTimeout(r, 20));
+    throw new Error('fetch failed');
+  };
+  await comTags(e, async ({ labels, calls }) => {
+    await assert.rejects(e.runHeadlessReview({ ...PR }), /fetch failed/);
+    assert.equal(calls.filter(args => args.includes('--add-label') || args.includes('--remove-label')).length, 0);
+    assert.equal(labels.size, 0); semResultado(e);
+  });
+});
+test('primeiro conteúdo do modelo: a tag entra e, na falha seguinte, sai depois (ordem add, remove)', async () => {
+  const e = engine();
+  e.runClaudeStream = async (_prompt, opts) => {
+    opts.onEvent({ kind: 'tool', text: 'Read · a.js', doModelo: true });
     await new Promise(r => setTimeout(r, 20));
     throw new Error('fetch failed');
   };
